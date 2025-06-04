@@ -130,36 +130,6 @@ func (c *Config) saveConfig() error {
 	}
 
 	return os.WriteFile(path, data, 0o644)
-
-	//file, err := os.Create(path)
-	//	if err != nil {
-	//		return fmt.Errorf("failed to open config file for writing: %w", err)
-	//	}
-	//	defer file.Close()
-	//
-	//	encoder := toml.NewEncoder(file)
-	//	if err := encoder.Encode(cfg); err != nil {
-	//		return fmt.Errorf("failed to encode config: %w", err)
-	//	}
-
-	//// Upsert logic
-	//updated := false
-	//for i, s := range cfg.Servers {
-	//	if s.Name == entry.Name {
-	//		cfg.Servers[i] = entry
-	//		updated = true
-	//		break
-	//	}
-	//}
-	//if !updated {
-	//	cfg.Servers = append(cfg.Servers, entry)
-	//}
-	//
-	//newData, err := toml.Marshal(&cfg)
-	//if err != nil {
-	//	return fmt.Errorf("failed to encode config: %w", err)
-	//}
-	//return os.WriteFile(path, newData, 0o644)
 }
 
 // configFilePath returns the expected path of the .mcpd.toml file.
