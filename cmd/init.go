@@ -8,6 +8,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/mozilla-ai/mcpd-cli/v2/internal/cmd"
+	"github.com/mozilla-ai/mcpd-cli/v2/internal/config"
 	"github.com/mozilla-ai/mcpd-cli/v2/internal/flags"
 )
 
@@ -45,29 +46,12 @@ func (c *InitCmd) run(_ *cobra.Command, _ []string) error {
 		return fmt.Errorf("error getting current directory: %w", err)
 	}
 
-	if err := initializeProject(cwd); err != nil {
+	if err := config.InitConfigFile(cwd); err != nil {
 		c.Logger.Error("Project initialization failed", "error", err)
 		return fmt.Errorf("error initializing mcpd project: %w", err)
 	}
 
 	fmt.Fprintf(os.Stdout, "%s created successfully.\n", flags.ConfigFile)
-
-	return nil
-}
-
-func initializeProject(path string) error {
-	if _, err := os.Stat(flags.ConfigFile); err == nil {
-		return fmt.Errorf("%s already exists", flags.ConfigFile)
-	} else if !os.IsNotExist(err) {
-		return fmt.Errorf("failed to stat %s: %w", flags.ConfigFile, err)
-	}
-
-	// TODO: Look at off-loading the data structure to the internal/config package
-	content := `servers = []`
-
-	if err := os.WriteFile(flags.ConfigFile, []byte(content), 0o644); err != nil {
-		return fmt.Errorf("failed to write %s: %w", flags.ConfigFile, err)
-	}
 
 	return nil
 }

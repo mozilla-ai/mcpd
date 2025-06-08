@@ -43,8 +43,7 @@ func TestAddCmd_Execute(t *testing.T) {
 			expectedNumServers: 1,
 			expectedVersion:    "1.2.3",
 			expectedOutputs: []string{
-				"✓ Added server 'testserver'",
-				"version: 1.2.3",
+				"✓ Added server 'testserver' (version: 1.2.3)",
 			},
 		},
 		{
@@ -53,8 +52,7 @@ func TestAddCmd_Execute(t *testing.T) {
 			expectedNumServers: 1,
 			expectedTools:      []string{"tool1", "tool2"},
 			expectedOutputs: []string{
-				"✓ Added server 'testserver'",
-				"Tools: tool1, tool2",
+				"✓ Added server 'testserver' (version: latest), exposing only tools: tool1, tool2",
 			},
 		},
 		{

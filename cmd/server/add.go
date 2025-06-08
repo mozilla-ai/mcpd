@@ -9,6 +9,7 @@ import (
 
 	"github.com/mozilla-ai/mcpd-cli/v2/internal/cmd"
 	"github.com/mozilla-ai/mcpd-cli/v2/internal/config"
+	"github.com/mozilla-ai/mcpd-cli/v2/internal/flags"
 )
 
 // AddCmd should be used to represent the 'add' command.
@@ -76,16 +77,31 @@ func (c *AddCmd) run(cmd *cobra.Command, args []string) error {
 		Tools:   c.Tools,
 	}
 
-	if err := config.AddServer(entry); err != nil {
+	cfg, err := config.NewConfig(flags.ConfigFile)
+	if err != nil {
 		return err
 	}
 
-	// User-friendly output + logging
-	fmt.Fprintf(cmd.OutOrStdout(), "✓ Added server '%s' (version: %s)\n", name, c.Version)
-	if len(c.Tools) > 0 {
-		fmt.Fprintf(cmd.OutOrStdout(), "  Tools: %s\n", strings.Join(c.Tools, ", "))
+	err = cfg.AddServer(entry)
+	if err != nil {
+		return err
 	}
+
+	// TODO: Handle prompting for any required configuration for this server and securely storing it.
+
+	// User-friendly output + logging
 	c.Logger.Debug("Server added", "name", name, "version", c.Version, "tools", c.Tools)
+
+	var tools string
+	if len(c.Tools) > 0 {
+		plural := ""
+		if len(c.Tools) > 1 {
+			plural = "s"
+		}
+		tools = fmt.Sprintf(", exposing only tool%s: %s", plural, strings.Join(c.Tools, ", "))
+	}
+
+	fmt.Fprintf(cmd.OutOrStdout(), "✓ Added server '%s' (version: %s)%s\n", name, c.Version, tools)
 
 	return nil
 }

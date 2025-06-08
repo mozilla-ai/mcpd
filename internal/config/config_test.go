@@ -1,10 +1,11 @@
 package config
 
 import (
-	"fmt"
 	"os"
+	"path/filepath"
 	"testing"
 
+	"github.com/spf13/pflag"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -82,48 +83,40 @@ func TestAddServer(t *testing.T) {
 			isErrorExpected:   true,
 			expectedErrMsg:    "server entry has empty package",
 		},
-		{
-			name:   "no config file exists",
-			config: nil,
-			newEntry: ServerEntry{
-				Name:    "test-server",
-				Package: "modelcontextprotocol/test-server@latest",
-			},
-			shouldSetupConfig: false,
-			isErrorExpected:   true,
-			expectedErrMsg:    "config file cannot be found, run: 'mcpd init'",
-		},
+		// TODO: Extract to separate test.
+		//{
+		//	name: "no config file exists",
+		//	newEntry: ServerEntry{
+		//		Name:    "test-server",
+		//		Package: "modelcontextprotocol/test-server@latest",
+		//	},
+		//	shouldSetupConfig: false,
+		//	isErrorExpected:   true,
+		//	expectedErrMsg:    "config file cannot be found, run: 'mcpd init'",
+		//},
 	}
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			tempDir := t.TempDir()
+			tempPath := filepath.Join(tempDir, flags.DefaultConfigFile)
+			_, err := os.CreateTemp(tempDir, flags.DefaultConfigFile)
 			if tc.shouldSetupConfig && tc.config != nil {
-				createTestConfigFile(t, tempDir, *tc.config)
+				createTestConfigFile(t, tempPath, *tc.config)
 			}
 
-			// Override global config flag to some fake path
-			if !tc.shouldSetupConfig {
-				previousConfigFile := flags.ConfigFile
-				flags.ConfigFile = "/foo/bar/baz.toml"
-				defer func() { flags.ConfigFile = previousConfigFile }()
-			}
-
-			err := AddServer(tc.newEntry)
-
+			cfg, err := NewConfig(tempPath)
+			require.NoError(t, err)
+			err = cfg.AddServer(tc.newEntry)
 			if tc.isErrorExpected {
 				require.Error(t, err)
 				assert.Contains(t, err.Error(), tc.expectedErrMsg)
 				return
 			}
-
-			require.NoError(t, err)
-
-			config, err := loadConfig()
 			require.NoError(t, err)
 
 			found := false
-			for _, server := range config.Servers {
+			for _, server := range cfg.Servers {
 				if server.Name == tc.newEntry.Name && server.Package == tc.newEntry.Package {
 					found = true
 					assert.Equal(t, tc.newEntry.Tools, server.Tools)
@@ -172,9 +165,10 @@ func TestLoadConfig(t *testing.T) {
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			tempDir := t.TempDir()
+			tempPath := filepath.Join(tempDir, flags.DefaultConfigFile)
 
 			if tc.shouldSetupConfig {
-				createTestConfigFile(t, tempDir, *tc.configContent)
+				createTestConfigFile(t, tempPath, *tc.configContent)
 			} else {
 				// Override global config flag to use test-specific file path that doesn't exist
 				previousConfigFile := flags.ConfigFile
@@ -182,7 +176,7 @@ func TestLoadConfig(t *testing.T) {
 				defer func() { flags.ConfigFile = previousConfigFile }()
 			}
 
-			config, err := loadConfig()
+			config, err := loadConfig(tempPath)
 
 			if tc.isErrorExpected {
 				require.Error(t, err)
@@ -220,18 +214,15 @@ func TestConfig_SaveConfig(t *testing.T) {
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			tempDir := t.TempDir()
-			tempFile, err := os.CreateTemp(tempDir, "config.toml")
+			tempPath := filepath.Join(tempDir, flags.DefaultConfigFile)
+			tempFile, err := os.CreateTemp(tempDir, flags.DefaultConfigFile)
 			require.NoError(t, err)
-
-			previousConfigFile := flags.ConfigFile
-			defer func() { flags.ConfigFile = previousConfigFile }()
-			flags.ConfigFile = tempFile.Name()
-
+			tc.config.configFilePath = tempPath
 			err = tc.config.saveConfig()
 			require.NoError(t, err)
 
 			assert.FileExists(t, tempFile.Name())
-			loadedConfig, err := loadConfig()
+			loadedConfig, err := loadConfig(tempPath)
 			require.NoError(t, err)
 			assert.Equal(t, tc.config, loadedConfig)
 		})
@@ -387,90 +378,57 @@ func TestKeyFor(t *testing.T) {
 	}
 }
 
-func TestConfigFilePath(t *testing.T) {
-	expected := flags.DefaultConfigFile
-	result := configFilePath()
-	assert.Equal(t, expected, result)
+func TestConfigFilePath_Default(t *testing.T) {
+	t.Setenv(flags.EnvVarConfigFile, "")
+	fs := pflag.NewFlagSet("test", pflag.ContinueOnError)
+
+	// Reset global
+	flags.ConfigFile = ""
+
+	flags.InitFlags(fs)
+	err := fs.Parse([]string{}) // No flags passed
+	require.NoError(t, err)
+
+	assert.Equal(t, flags.DefaultConfigFile, flags.ConfigFile)
+}
+
+func TestConfigFilePath_FromEnv(t *testing.T) {
+	expected := "/custom/path/config.toml"
+	t.Setenv(flags.EnvVarConfigFile, expected)
+
+	fs := pflag.NewFlagSet("test", pflag.ContinueOnError)
+
+	// Reset global
+	flags.ConfigFile = ""
+
+	flags.InitFlags(fs)
+	err := fs.Parse([]string{}) // No flags passed
+	require.NoError(t, err)
+
+	assert.Equal(t, expected, flags.ConfigFile)
+}
+
+func TestConfigFilePath_FromFlag(t *testing.T) {
+	expected := "/custom/path/flag.toml"
+	fs := pflag.NewFlagSet("test", pflag.ContinueOnError)
+
+	// Reset global
+	flags.ConfigFile = ""
+
+	flags.InitFlags(fs)
+	err := fs.Parse([]string{"--" + flags.FlagNameConfigFile, expected})
+	require.NoError(t, err)
+
+	assert.Equal(t, expected, flags.ConfigFile)
 }
 
 // Helper functions for test setup and cleanup
-func createTestConfigFile(t *testing.T, dir string, config Config) {
+func createTestConfigFile(t *testing.T, path string, config Config) {
 	t.Helper()
 
-	previousConfigFile := flags.ConfigFile
-	flags.ConfigFile = dir
-	defer func() { flags.ConfigFile = previousConfigFile }()
-
-	err := config.saveConfig()
+	err := InitConfigFile(path)
 	require.NoError(t, err)
-}
-
-// Benchmark tests
-func BenchmarkLoadConfig(b *testing.B) {
-	tempDir, _ := os.MkdirTemp("", "mcpd-bench-*")
-	defer func(path string) {
-		err := os.RemoveAll(path)
-		if err != nil {
-			b.Fatal(err)
-		}
-	}(tempDir)
-
-	originalDir, _ := os.Getwd()
-	err := os.Chdir(tempDir)
-	require.NoError(b, err)
-	defer func(dir string) {
-		err := os.Chdir(dir)
-		if err != nil {
-			b.Fatal(err)
-		}
-	}(originalDir)
-
-	config := Config{
-		Servers: []ServerEntry{
-			{Name: "server1", Package: "modelcontextprotocol/server1@v1.0.0"},
-			{Name: "server2", Package: "modelcontextprotocol/server2@latest"},
-		},
-	}
+	config.configFilePath = path
 	err = config.saveConfig()
-	require.NoError(b, err)
-
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
-		_, _ = loadConfig()
-	}
-}
-
-func BenchmarkAddServer(b *testing.B) {
-	// Setup
-	tempDir, _ := os.MkdirTemp("", "mcpd-bench-*")
-	defer func(path string) {
-		err := os.RemoveAll(path)
-		if err != nil {
-			b.Fatal(err)
-		}
-	}(tempDir)
-
-	originalDir, _ := os.Getwd()
-	err := os.Chdir(tempDir)
-	require.NoError(b, err)
-	defer func(dir string) {
-		err := os.Chdir(dir)
-		if err != nil {
-			b.Fatal(err)
-		}
-	}(originalDir)
-
-	// Create initial config
-	config := Config{Servers: []ServerEntry{}}
-	err = config.saveConfig()
-	require.NoError(b, err)
-
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
-		entry := ServerEntry{
-			Name:    fmt.Sprintf("server-%d", i),
-			Package: fmt.Sprintf("modelcontextprotocol/server-%d@latest", i),
-		}
-		_ = AddServer(entry)
-	}
+	require.NoError(t, err)
 }

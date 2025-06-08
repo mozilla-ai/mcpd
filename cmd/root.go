@@ -74,7 +74,7 @@ mcpd Control Plane, define their agent projects, and manage MCP server dependenc
 }
 
 func configureLogger() (hclog.Logger, error) {
-	logPath := strings.TrimSpace(os.Getenv("MCPD_LOG_PATH"))
+	logPath := strings.TrimSpace(os.Getenv(flags.EnvVarLogPath))
 
 	// If MCPD_LOG_PATH is not set, don't log anywhere.
 	logOutput := io.Discard
@@ -97,7 +97,7 @@ func configureLogger() (hclog.Logger, error) {
 }
 
 func getLogLevel() string {
-	lvl := strings.ToLower(os.Getenv("LOG_LEVEL"))
+	lvl := strings.ToLower(os.Getenv(flags.EnvVarLogLevel))
 	switch lvl {
 	case "trace", "debug", "info", "warn", "error", "off":
 		return lvl

@@ -9,6 +9,7 @@ import (
 
 	"github.com/mozilla-ai/mcpd-cli/v2/internal/cmd"
 	"github.com/mozilla-ai/mcpd-cli/v2/internal/config"
+	"github.com/mozilla-ai/mcpd-cli/v2/internal/flags"
 )
 
 // RemoveCmd should be used to represent the 'remove' command.
@@ -50,12 +51,18 @@ func (c *RemoveCmd) run(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("server name cannot be empty")
 	}
 
-	if err := config.RemoveServer(name); err != nil {
+	cfg, err := config.NewConfig(flags.ConfigFile)
+	if err != nil {
 		return err
 	}
 
-	fmt.Fprintf(cmd.OutOrStdout(), "✓ Removed server '%s'\n", name)
+	err = cfg.RemoveServer(name)
+	if err != nil {
+		return err
+	}
+
 	c.Logger.Debug("Server removed", "name", name)
+	fmt.Fprintf(cmd.OutOrStdout(), "✓ Removed server '%s'\n", name)
 
 	return nil
 }
