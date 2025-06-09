@@ -53,17 +53,15 @@ func NewRootCmd(logger hclog.Logger) *cobra.Command {
 
 	// Add top-level commands that are NOT part of a resource group
 	rootCmd.AddCommand(NewInitCmd(logger))
-	// TODO: Re-add commands:
-	// rootCmd.AddCommand(listToolsCmd)
-	// rootCmd.AddCommand(loginCmd)
 
 	// Add commands from specific resource/service packages, they remain top-level commands in the CLI's usage.
-	// TODO: Re-add daemon
-	// rootCmd.AddCommand(server.NewDaemonCmd(logger))
+	// Server
 	rootCmd.AddCommand(server.NewAddCmd(logger))
 	rootCmd.AddCommand(server.NewRemoveCmd(logger))
-	// TODO: Update to add: NewConfigCmd etc.
-	rootCmd.AddCommand(config.Cmd)
+	rootCmd.AddCommand(server.NewDaemonCmd(logger))
+
+	// Config
+	rootCmd.AddCommand(config.NewConfigCmd(logger))
 
 	return rootCmd
 }
