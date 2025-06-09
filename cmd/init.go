@@ -3,6 +3,7 @@ package cmd
 import (
 	"fmt"
 	"os"
+	"path/filepath"
 
 	"github.com/hashicorp/go-hclog"
 	"github.com/spf13/cobra"
@@ -34,7 +35,7 @@ func NewInitCmd(log hclog.Logger) *cobra.Command {
 func (c *InitCmd) longDescription() string {
 	return fmt.Sprintf(
 		"Initializes the current directory as an mcpd project, creating an %s configuration file. "+
-			"This command sets up the basic structure required for an mcpd project.", flags.ConfigFile)
+			"This command sets up the basic structure required for an mcpd project.", flags.DefaultConfigFile)
 }
 
 func (c *InitCmd) run(_ *cobra.Command, _ []string) error {
@@ -46,12 +47,14 @@ func (c *InitCmd) run(_ *cobra.Command, _ []string) error {
 		return fmt.Errorf("error getting current directory: %w", err)
 	}
 
-	if err := config.InitConfigFile(cwd); err != nil {
+	initFilePath := filepath.Join(cwd, flags.DefaultConfigFile)
+
+	if err := config.InitConfigFile(initFilePath); err != nil {
 		c.Logger.Error("Project initialization failed", "error", err)
 		return fmt.Errorf("error initializing mcpd project: %w", err)
 	}
 
-	fmt.Fprintf(os.Stdout, "%s created successfully.\n", flags.ConfigFile)
+	fmt.Fprintf(os.Stdout, "%s created successfully.\n", flags.DefaultConfigFile)
 
 	return nil
 }
