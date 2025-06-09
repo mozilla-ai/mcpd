@@ -24,7 +24,7 @@ func NewRemoveCmd(logger hclog.Logger) *cobra.Command {
 	}
 
 	cobraCommand := &cobra.Command{
-		Use:   "remove <server_name>",
+		Use:   "remove <server-name>",
 		Short: "Removes an MCP server dependency from the project.",
 		Long:  c.longDescription(),
 		RunE:  c.run,

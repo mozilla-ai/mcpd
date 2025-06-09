@@ -10,34 +10,26 @@ import (
 	"github.com/mozilla-ai/mcpd-cli/v2/internal/flags"
 )
 
-// Config represents the .mcpd.toml file structure.
-type Config struct {
-	Servers        []ServerEntry `toml:"servers"`
-	configFilePath string
-}
-
 func NewConfig(path string) (Config, error) {
-	return loadConfig(path)
+	return LoadConfig(path)
 }
 
-// ServerEntry represents the configuration of a single versioned MCP Server and optional tools.
-type ServerEntry struct {
-	// Name is the unique name referenced by the user.
-	// e.g. 'github-server'
-	Name string `toml:"name"`
+// InitConfigFile creates the base skeleton configuration file for the mcpd project.
+func InitConfigFile(path string) error {
+	if _, err := os.Stat(path); err == nil {
+		return fmt.Errorf("%s already exists", path)
+	} else if !os.IsNotExist(err) {
+		return fmt.Errorf("failed to stat %s: %w", path, err)
+	}
 
-	// Package contains the identifier including version.
-	// e.g. 'modelcontextprotocol/github-server@latest'
-	Package string `toml:"package"`
+	// TODO: Use the Config data structure.
+	content := `servers = []`
 
-	// Tools are optional and list the names of the allowed tools on this server.
-	// e.g. 'create_repository'
-	Tools []string `toml:"tools,omitempty"`
-}
+	if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
+		return fmt.Errorf("failed to write %s: %w", path, err)
+	}
 
-type serverKey struct {
-	Name    string
-	Package string // NOTE: without version
+	return nil
 }
 
 // AddServer attempts to persist a new MCP Server to the configuration file (.mcpd.toml).
@@ -90,7 +82,7 @@ func (c *Config) RemoveServer(name string) error {
 	return nil
 }
 
-func loadConfig(path string) (Config, error) {
+func LoadConfig(path string) (Config, error) {
 	var cfg Config
 
 	_, err := os.Stat(path)
@@ -116,33 +108,6 @@ func loadConfig(path string) (Config, error) {
 	return cfg, nil
 }
 
-func (c *Config) saveConfig() error {
-	data, err := toml.Marshal(c)
-	if err != nil {
-		return err
-	}
-
-	return os.WriteFile(c.configFilePath, data, 0o644)
-}
-
-// InitConfigFile creates the base skeleton configuration file for the mcpd project.
-func InitConfigFile(path string) error {
-	if _, err := os.Stat(path); err == nil {
-		return fmt.Errorf("%s already exists", path)
-	} else if !os.IsNotExist(err) {
-		return fmt.Errorf("failed to stat %s: %w", path, err)
-	}
-
-	// TODO: Use the Config data structure.
-	content := `servers = []`
-
-	if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
-		return fmt.Errorf("failed to write %s: %w", path, err)
-	}
-
-	return nil
-}
-
 // keyFor generates a temporary version of the ServerEntry to be used as a composite key.
 // It consists of the name of the server and the package without version information.
 func keyFor(entry ServerEntry) serverKey {
@@ -159,6 +124,15 @@ func stripVersion(pkg string) string {
 		return pkg[:idx]
 	}
 	return pkg
+}
+
+func (c *Config) saveConfig() error {
+	data, err := toml.Marshal(c)
+	if err != nil {
+		return err
+	}
+
+	return os.WriteFile(c.configFilePath, data, 0o644)
 }
 
 // validate orchestrates validation of all aspects of the configuration.

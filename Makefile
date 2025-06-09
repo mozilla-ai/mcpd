@@ -28,19 +28,19 @@ build:
 	@go build -o mcpd -ldflags="${LDFLAGS}" .
 
 install: build
-	# Copy the executable to the install directory
-	# Requires sudo if INSTALL_DIR is a system path like /usr/local/bin
+	@# Copy the executable to the install directory
+	@# Requires sudo if INSTALL_DIR is a system path like /usr/local/bin
 	@cp mcpd $(INSTALL_DIR)/mcpd
 	@echo "mcpd installed to $(INSTALL_DIR)/mcpd"
 
 clean:
-	# Remove the built executable and any temporary files
+	@# Remove the built executable and any temporary files
 	@rm -f mcpd # The executable itself
-	# Add any other build artifacts here if they accumulate (e.g., cache files)
+	@# Add any other build artifacts here if they accumulate (e.g., cache files)
 	@echo "Build artifacts cleaned."
 
 uninstall:
-	# Remove the installed executable from the system
-	# Requires sudo if INSTALL_DIR is a system path
+	@# Remove the installed executable from the system
+	@# Requires sudo if INSTALL_DIR is a system path
 	@rm -f $(INSTALL_DIR)/mcpd
 	@echo "mcpd uninstalled from $(INSTALL_DIR)/mcpd"

@@ -9,6 +9,7 @@ import (
 
 	"github.com/mozilla-ai/mcpd-cli/v2/internal/cmd"
 	"github.com/mozilla-ai/mcpd-cli/v2/internal/config"
+	"github.com/mozilla-ai/mcpd-cli/v2/internal/discover"
 	"github.com/mozilla-ai/mcpd-cli/v2/internal/flags"
 )
 
@@ -26,7 +27,7 @@ func NewAddCmd(logger hclog.Logger) *cobra.Command {
 	}
 
 	cobraCommand := &cobra.Command{
-		Use:   "add <server_name>",
+		Use:   "add <server-name>",
 		Short: "Adds an MCP server dependency to the project.",
 		Long:  c.longDescription(),
 		RunE:  c.run,
@@ -67,13 +68,26 @@ func (c *AddCmd) run(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("server name cannot be empty")
 	}
 
-	// TODO: Make an actual call to the mcpd registry to get information here.
-	// Currently, we just fake the response here so we can deal with the config file.
-	pkg := fmt.Sprintf("modelcontextprotocol/%s@%s", name, c.Version)
+	// TODO: Fix this later.
+	// Tweak the package name to fit with the general format in PyPi...
+	packageName := fmt.Sprintf("mcp-server-%s", name)
+
+	// PyPI mode - discover the package information
+	discoveryResult, err := discover.DiscoverPackage(packageName, c.Version)
+	if err != nil {
+		c.Logger.Warn(
+			"PyPI discovery failed",
+			"name", name,
+			"package-name", packageName,
+			"version", c.Version,
+			"error", err,
+		)
+		return fmt.Errorf("⚠️ PyPI discovery failed for package '%s@%s': %w", packageName, c.Version, err)
+	}
 
 	entry := config.ServerEntry{
 		Name:    name,
-		Package: pkg,
+		Package: fmt.Sprintf("pypi::%s@%s", packageName, c.Version),
 		Tools:   c.Tools,
 	}
 
@@ -102,6 +116,31 @@ func (c *AddCmd) run(cmd *cobra.Command, args []string) error {
 	}
 
 	fmt.Fprintf(cmd.OutOrStdout(), "✓ Added server '%s' (version: %s)%s\n", name, c.Version, tools)
+
+	// Add PyPI discovery information if available
+	fmt.Fprintf(cmd.OutOrStdout(), "\n📦 PyPI package information...\n")
+
+	if len(discoveryResult.FoundStartupArgs) > 0 {
+		fmt.Fprintf(cmd.OutOrStdout(), "  ⚙️ Found startup args: %s\n",
+			strings.Join(discoveryResult.FoundStartupArgs, ", "))
+	}
+
+	if discoveryResult.FoundEnvVars {
+		fmt.Fprintf(cmd.OutOrStdout(), "  ℹ️ This package may use environment variables for configuration\n")
+	}
+
+	if len(discoveryResult.FoundTools) > 0 {
+		fmt.Fprintf(cmd.OutOrStdout(), "  🔨 Found tools: %s\n", strings.Join(discoveryResult.FoundTools, ", "))
+
+		// Check if the requested tools exist in the discovered tools
+		missingTools := discover.ValidateTools(c.Tools, discoveryResult.FoundTools)
+		if len(missingTools) > 0 {
+			fmt.Fprintf(cmd.OutOrStderr(), "  ⚠️ Warning: Requested tools not found in package description: %s\n",
+				strings.Join(missingTools, ", "))
+		}
+	} else {
+		fmt.Fprintf(cmd.OutOrStdout(), "  ⚠️ Warning: No tools found in package description\n")
+	}
 
 	return nil
 }
