@@ -28,13 +28,13 @@ type Daemon struct {
 	apiServer                *ApiServer
 	logger                   hclog.Logger
 	clients                  map[string]*client.Client
-	mu                       *sync.Mutex
+	mu                       *sync.RWMutex
 	repositoryBinaryMappings map[string]string
 }
 
 func NewDaemon(logger hclog.Logger) *Daemon {
 	clients := make(map[string]*client.Client)
-	clientsMutex := &sync.Mutex{}
+	clientsMutex := &sync.RWMutex{}
 	l := logger.Named("daemon")
 	return &Daemon{
 		logger:  l,
@@ -47,6 +47,7 @@ func NewDaemon(logger hclog.Logger) *Daemon {
 			logger:       l,
 			clients:      clients,
 			clientsMutex: clientsMutex,
+			serverTools:  make(map[string][]string),
 		},
 	}
 }
@@ -77,6 +78,14 @@ func (d *Daemon) StartAndManage(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
+
+	// Allow the API server to track which tools are allowed for specific MCP servers.
+	for _, r := range runtimeCfg {
+		if len(r.Tools) > 0 {
+			d.apiServer.serverTools[r.Name] = r.Tools
+		}
+	}
+
 	d.logger.Info(fmt.Sprintf("loaded config for %d daemon(s)", len(runtimeCfg)))
 	fmt.Println(fmt.Sprintf("attempting to start %d MCP server(s)", len(runtimeCfg)))
 
