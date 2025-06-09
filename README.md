@@ -41,7 +41,7 @@ MCPD_CONFIG_FILE=<config-file-path>
 ```toml
 [[servers]]
   name = "fetch"
-  package = "pypi::mcp-server-fetch@latest"
+  package = "pypi::mcp-server-fetch@2025.4.7"
 
 [[servers]]
   name = "time"
