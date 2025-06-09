@@ -50,17 +50,17 @@ var stopWords = map[string]bool{
 func DiscoverPackage(name string, version string) (DiscoveryResult, error) {
 	reEnvVar := regexp.MustCompile(`(?i)environment variable`)
 
-	description, err := getPyPIInfo(name, version)
+	info, err := getPyPIInfo(name, version)
 	if err != nil {
 		return DiscoveryResult{}, err
 	}
 
 	result := DiscoveryResult{
 		PackageName:      name,
-		Version:          version,
-		FoundTools:       parseTools(description),
-		FoundStartupArgs: parseArgs(description),
-		FoundEnvVars:     reEnvVar.MatchString(description),
+		Version:          info.Version,
+		FoundTools:       parseTools(info.Description),
+		FoundStartupArgs: parseArgs(info.Description),
+		FoundEnvVars:     reEnvVar.MatchString(info.Description),
 	}
 
 	return result, nil
@@ -88,7 +88,7 @@ func ValidateTools(requestedTools []string, discoveredTools []string) []string {
 }
 
 // getPyPIInfo fetches the package description.
-func getPyPIInfo(packageName string, packageVersion string) (string, error) {
+func getPyPIInfo(packageName string, packageVersion string) (PyPIInfo, error) {
 	apiURL := "https://pypi.org/pypi/%s/json"
 	packageSlug := packageName
 	if packageVersion != "latest" {
@@ -99,33 +99,33 @@ func getPyPIInfo(packageName string, packageVersion string) (string, error) {
 
 	resp, err := client.Get(fmt.Sprintf(apiURL, packageSlug))
 	if err != nil {
-		return "", fmt.Errorf("failed to connect to PyPI API: %w", err)
+		return PyPIInfo{}, fmt.Errorf("failed to connect to PyPI API: %w", err)
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		return "", fmt.Errorf("package '%s' not found on PyPI (HTTP %d)", packageName, resp.StatusCode)
+		return PyPIInfo{}, fmt.Errorf("package '%s' not found on PyPI (HTTP %d)", packageName, resp.StatusCode)
 	}
 
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return "", fmt.Errorf("failed to read API response: %w", err)
+		return PyPIInfo{}, fmt.Errorf("failed to read API response: %w", err)
 	}
 
 	var pypiResp PyPIResponse
 	if err := json.Unmarshal(body, &pypiResp); err != nil {
-		return "", fmt.Errorf("failed to parse PyPI JSON: %w", err)
+		return PyPIInfo{}, fmt.Errorf("failed to parse PyPI JSON: %w", err)
 	}
 
 	if packageVersion != "latest" && pypiResp.Info.Version != packageVersion {
-		return "", fmt.Errorf(
+		return PyPIInfo{}, fmt.Errorf(
 			"pypi package version mismatch (expected %s) (got %s)",
 			packageVersion,
 			pypiResp.Info.Version,
 		)
 	}
 
-	return pypiResp.Info.Description, nil
+	return pypiResp.Info, nil
 }
 
 // getSectionText extracts the text between a start heading and the next major heading.

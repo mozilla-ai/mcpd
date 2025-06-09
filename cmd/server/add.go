@@ -85,10 +85,15 @@ func (c *AddCmd) run(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("⚠️ PyPI discovery failed for package '%s@%s': %w", packageName, c.Version, err)
 	}
 
+	selectedTools, err := filterTools(c.Tools, discoveryResult.FoundTools)
+	if err != nil {
+		return err
+	}
+
 	entry := config.ServerEntry{
 		Name:    name,
-		Package: fmt.Sprintf("pypi::%s@%s", packageName, c.Version),
-		Tools:   c.Tools,
+		Package: fmt.Sprintf("pypi::%s@%s", packageName, discoveryResult.Version),
+		Tools:   selectedTools,
 	}
 
 	cfg, err := config.NewConfig(flags.ConfigFile)
@@ -104,18 +109,18 @@ func (c *AddCmd) run(cmd *cobra.Command, args []string) error {
 	// TODO: Handle prompting for any required configuration for this server and securely storing it.
 
 	// User-friendly output + logging
-	c.Logger.Debug("Server added", "name", name, "version", c.Version, "tools", c.Tools)
+	c.Logger.Debug("Server added", "name", name, "version", discoveryResult.Version, "tools", selectedTools)
 
 	var tools string
-	if len(c.Tools) > 0 {
+	if len(selectedTools) > 0 {
 		plural := ""
-		if len(c.Tools) > 1 {
+		if len(selectedTools) > 1 {
 			plural = "s"
 		}
-		tools = fmt.Sprintf(", exposing only tool%s: %s", plural, strings.Join(c.Tools, ", "))
+		tools = fmt.Sprintf(", exposing only tool%s: %s", plural, strings.Join(selectedTools, ", "))
 	}
 
-	fmt.Fprintf(cmd.OutOrStdout(), "✓ Added server '%s' (version: %s)%s\n", name, c.Version, tools)
+	fmt.Fprintf(cmd.OutOrStdout(), "✓ Added server '%s' (version: %s)%s\n", name, discoveryResult.Version, tools)
 
 	// Add PyPI discovery information if available
 	fmt.Fprintf(cmd.OutOrStdout(), "\n📦 PyPI package information...\n")
@@ -135,7 +140,7 @@ func (c *AddCmd) run(cmd *cobra.Command, args []string) error {
 		// Check if the requested tools exist in the discovered tools
 		missingTools := discover.ValidateTools(c.Tools, discoveryResult.FoundTools)
 		if len(missingTools) > 0 {
-			fmt.Fprintf(cmd.OutOrStderr(), "  ⚠️ Warning: Requested tools not found in package description: %s\n",
+			fmt.Fprintf(cmd.OutOrStderr(), "  ⚠️ Warning: Requested tools not found in package description (have been ignored): %s\n",
 				strings.Join(missingTools, ", "))
 		}
 	} else {
@@ -143,4 +148,28 @@ func (c *AddCmd) run(cmd *cobra.Command, args []string) error {
 	}
 
 	return nil
+}
+
+func filterTools(requested, discovered []string) ([]string, error) {
+	if len(requested) == 0 {
+		return discovered, nil
+	}
+
+	foundSet := make(map[string]struct{}, len(discovered))
+	for _, tool := range discovered {
+		foundSet[tool] = struct{}{}
+	}
+
+	var result []string
+	for _, tool := range requested {
+		if _, ok := foundSet[tool]; ok {
+			result = append(result, tool)
+		}
+	}
+
+	if len(result) == 0 {
+		return nil, fmt.Errorf("none of the requested tools were found")
+	}
+
+	return result, nil
 }
