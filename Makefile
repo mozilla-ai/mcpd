@@ -20,9 +20,6 @@ LDFLAGS := -X '$(MODULE_PATH)/cmd.version=$(VERSION)'
 test:
 	go test ./...
 
-benchmark:
-	go test -bench=. -benchmem ./...
-
 build:
 	@echo "building mcpd (with flags: ${LDFLAGS})..."
 	@go build -o mcpd -ldflags="${LDFLAGS}" .

@@ -161,6 +161,16 @@ The file is modified by using the `mcpd config set-args` and `mcpd config set-en
 
 ```
 
+## Makefile
+
+With `make` installed you can use the following commands:
+
+* `make build` - builds the project using Go
+* `make install` - installs the binary to `/usr/local/bin` (usually requires `sudo`)
+* `make uninstall` - removes the binary from `/usr/local/bin` (usually  requires `sudo`)
+* `make clean` - removes the built binary from the working directory
+* `make test` - runs all Go tests
+
 ## Notes
 
 ### Package resolution
