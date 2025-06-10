@@ -171,6 +171,176 @@ With `make` installed you can use the following commands:
 * `make clean` - removes the built binary from the working directory
 * `make test` - runs all Go tests
 
+## Basic tutorial
+
+This tutorial uses `mcpd` and some command line tools (`curl`, `jq`) to demonstrate adding, configuring and starting an 
+MCP server.
+
+### Verifying file contents
+
+In this tutorial we use the default path for the config-file, so file contents can be verified at any point after running 
+the relevant command.
+
+#### `.mcpd.toml` configuration file
+
+Holds the name, package, version and allowed tools for all configured MCP servers in the project. 
+
+```bash
+cat .mcpd.toml
+```
+
+#### MCP server execution context configuration
+
+Holds the specific contextual configuration for configured MCP servers (think secrets, or user specific config)
+
+```bash
+cat ~/.mcpd/secrets.dev.toml
+```
+
+### Initialize `mcpd`
+
+Initialize `mcpd` in your existing project directory:
+
+```bash
+mcpd init
+```
+
+Console output:
+
+```console
+Initializing mcpd project in current directory...
+.mcpd.toml created successfully.
+```
+
+### Adding an MCP server
+
+Add the latest version fo the `time` MCP server:  
+
+```bash
+mcpd add time
+```
+
+Console output:
+
+```console
+✓ Added server 'time' (version: 0.6.2), exposing only tools: convert_time, get_current_time
+
+📦 PyPI package information...
+  ⚙️ Found startup args: --local-timezone
+  🔨 Found tools: convert_time, get_current_time
+```
+
+`.mcpd.toml` file contents:
+
+```toml
+[[servers]]
+    name = "time"
+    package = "pypi::mcp-server-time@0.6.2"
+    tools = ["convert_time", "get_current_time"]
+```
+
+When `mcpd add` is used without the `--version` flag, the latest version is pinned (`latest` at the time of writing is `0.6.2`).
+
+When `mcpd add` is used without any `--tool` flags, all the tools that `mcpd` can parse are added to the `tools` allow list in config for the MCP server.
+
+Perhaps we decide that we only want to allow `get_current_time`, 
+we can remove and re-add with the correct tools (for the sake of examples, let's use the `--version` flag too):
+
+```bash
+mcpd add time --version 0.6.2 --tool get_current_time
+```
+
+Console output:
+
+```console
+Added server 'time' (version: 0.6.2), exposing only tool: get_current_time
+
+📦 PyPI package information...
+  ⚙️ Found startup args: --local-timezone
+  🔨 Found tools: convert_time, get_current_time
+```
+
+`.mcpd.toml` file contents:
+
+```toml
+[[servers]]
+    name = "time"
+    package = "pypi::mcp-server-time@0.6.2"
+    tools = ["get_current_time"]
+```
+
+### Configuring an MCP server
+
+The `mcpd add` command output showed the following:
+
+```console
+⚙️ Found startup args: --local-timezone
+```
+
+Which tells the user that we may need to configure `--local-timezone` for this MCP server (mileage may vary with the default).
+
+To do this, use the `mcpd config set-args` command:
+
+```bash
+mcpd config set-args time --arg --local-timezone=Europe/London
+```
+
+Console output:
+
+```console
+✓ Startup arguments set for server 'time': [--local-timezone=Europe/London]
+```
+
+`~/.mcpd/secrets.dev.toml` file contents:
+
+```toml
+[servers]
+  [servers.time]
+    args = ["--local-timezone=Europe/London"]
+```
+
+### Start the `mcpd` daemon
+
+To start our MCP servers and expose an API endpoint to communicate with them from our agentic applications use:
+
+```bash
+mcpd daemon
+```
+
+Console output:
+
+```console
+Attempting to start 1 MCP server(s)
+Starting MCP server: 'time'...
+MCP server started
+HTTP REST API listening on http://localhost:8090/api/v1/servers
+Press CTRL+C to shut down.
+```
+
+`CTRL+C` will stop the daemon.
+
+### Querying API endpoints 
+
+#### All running MCP servers
+
+```bash
+curl -s http://localhost:8090/api/v1/servers | jq
+```
+
+#### All tools allowed on a specific MCP server
+
+```bash
+curl -s  http://localhost:8090/api/v1/servers | jq
+```
+
+#### Calling a tool for an MCP server
+
+```bash
+curl -X POST -H "Content-Type: application/json" \
+    -d '{"timezone": "America/New_York"}' \
+    http://localhost:8090/api/v1/servers/time/get_current_time | jq -r '.[0]' | jq
+```
+
 ## Notes
 
 ### Package resolution

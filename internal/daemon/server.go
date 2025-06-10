@@ -23,15 +23,18 @@ type ApiServer struct {
 	logger       hclog.Logger
 }
 
-func (a *ApiServer) Start(port int) error {
+func (a *ApiServer) Start(port int, ready chan<- struct{}) error {
 	mux := http.NewServeMux()
 	mux.HandleFunc("/api/v1/", a.handleApiRequest)
 
-	// log.Println(fmt.Sprintf("HTTP REST API listening on :%d", port))
-	a.logger.Info(fmt.Sprintf("HTTP REST API listening on :%d", port))
+	fmt.Println(fmt.Sprintf("HTTP REST API listening on http://localhost:%d/api/v1/servers", port))
+	a.logger.Info(fmt.Sprintf("HTTP REST API listening on: http://localhost:%d/api/v1/servers", port))
+
+	// Signal ready just before blocking for serving the API
+	close(ready)
 
 	if err := http.ListenAndServe(fmt.Sprintf(":%d", port), mux); err != nil {
-		// log.Fatalf("API daemon failed: %v", err)
+		fmt.Println(fmt.Sprintf("HTTP REST API failed to start: %v", err))
 		a.logger.Error("HTTP REST API failed to start", "error", err)
 	}
 
