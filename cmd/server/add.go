@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/hashicorp/go-hclog"
 	"github.com/spf13/cobra"
 
 	"github.com/mozilla-ai/mcpd-cli/v2/internal/cmd"
@@ -16,14 +15,20 @@ import (
 // AddCmd should be used to represent the 'add' command.
 type AddCmd struct {
 	*cmd.BaseCmd
-	Version string
-	Tools   []string
+	discoverer discover.Discoverer
+	Version    string
+	Tools      []string
 }
 
 // NewAddCmd creates a newly configured (Cobra) command.
-func NewAddCmd(logger hclog.Logger) *cobra.Command {
+func NewAddCmd(baseCmd *cmd.BaseCmd, discoverer discover.Discoverer) *cobra.Command {
+	if discoverer == nil {
+		discoverer = &discover.DefaultDiscoverer{}
+	}
+
 	c := &AddCmd{
-		BaseCmd: &cmd.BaseCmd{Logger: logger},
+		BaseCmd:    baseCmd,
+		discoverer: discoverer,
 	}
 
 	cobraCommand := &cobra.Command{
@@ -68,14 +73,16 @@ func (c *AddCmd) run(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("server name cannot be empty")
 	}
 
+	logger := c.Logger()
+
 	// TODO: Fix this later.
 	// Tweak the package name to fit with the general format in PyPi...
 	packageName := fmt.Sprintf("mcp-server-%s", name)
 
 	// PyPI mode - discover the package information
-	discoveryResult, err := discover.DiscoverPackage(packageName, c.Version)
+	discoveryResult, err := c.discoverer.DiscoverPackage(packageName, c.Version)
 	if err != nil {
-		c.Logger.Warn(
+		logger.Warn(
 			"PyPI discovery failed",
 			"name", name,
 			"package-name", packageName,
@@ -109,7 +116,7 @@ func (c *AddCmd) run(cmd *cobra.Command, args []string) error {
 	// TODO: Handle prompting for any required configuration for this server and securely storing it.
 
 	// User-friendly output + logging
-	c.Logger.Debug("Server added", "name", name, "version", discoveryResult.Version, "tools", selectedTools)
+	logger.Debug("Server added", "name", name, "version", discoveryResult.Version, "tools", selectedTools)
 
 	var tools string
 	if len(selectedTools) > 0 {

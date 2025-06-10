@@ -6,7 +6,6 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/hashicorp/go-hclog"
 	"github.com/spf13/cobra"
 
 	"github.com/mozilla-ai/mcpd-cli/v2/internal/cmd"
@@ -19,9 +18,9 @@ type SetArgsCmd struct {
 	Args []string
 }
 
-func NewSetArgsCmd(logger hclog.Logger) *cobra.Command {
+func NewSetArgsCmd(baseCmd *cmd.BaseCmd) *cobra.Command {
 	c := &SetArgsCmd{
-		BaseCmd: &cmd.BaseCmd{Logger: logger},
+		BaseCmd: baseCmd,
 	}
 
 	cobraCmd := &cobra.Command{

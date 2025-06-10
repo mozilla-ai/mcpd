@@ -21,6 +21,7 @@ import (
 
 	"github.com/mozilla-ai/mcpd-cli/v2/internal/config"
 	configcontext "github.com/mozilla-ai/mcpd-cli/v2/internal/context"
+	"github.com/mozilla-ai/mcpd-cli/v2/internal/flags"
 	"github.com/mozilla-ai/mcpd-cli/v2/internal/runtime"
 )
 
@@ -53,7 +54,7 @@ func NewDaemon(logger hclog.Logger) *Daemon {
 }
 
 func (d *Daemon) LoadConfig() ([]runtime.RuntimeServer, error) {
-	cfgPath := ".mcpd.toml"
+	cfgPath := flags.ConfigFile
 	cfg, err := config.LoadConfig(cfgPath)
 	if err != nil {
 		return nil, err
