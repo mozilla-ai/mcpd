@@ -2,6 +2,12 @@
 
 The primary interface for developers to interact with `mcpd`, define their agent projects, and manage MCP server dependencies.
 
+## Requirements
+
+* [`uv`/`uvx`](https://docs.astral.sh/uv/getting-started/installation/)
+* [Go](https://go.dev/doc/install) to build the binary, or carry out development
+* Internet access when running `mcpd` in order to contact package repos and allow MCP servers access to the internet if required
+
 ## Global (optional) settings
 
 ### Config file path
@@ -175,7 +181,7 @@ With `make` installed you can use the following commands:
 
 ### Package resolution
 
-Currently only PyPi is suported, and also expects the format `mcp-server-<server-name>` as the package.
+Currently only PyPi is supported, and also expects the format `mcp-server-<server-name>` as the package.
 
 The warnings for args and tools from `mcpd add` are 'best effort', and likely quite brittle as `mcpd` is parsing READMEs from PyPi.
 
