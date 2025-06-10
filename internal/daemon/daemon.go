@@ -87,7 +87,7 @@ func (d *Daemon) StartAndManage(ctx context.Context) error {
 	}
 
 	d.logger.Info(fmt.Sprintf("loaded config for %d daemon(s)", len(runtimeCfg)))
-	fmt.Println(fmt.Sprintf("attempting to start %d MCP server(s)", len(runtimeCfg)))
+	fmt.Println(fmt.Sprintf("Attempting to start %d MCP server(s)", len(runtimeCfg)))
 
 	var startupWg sync.WaitGroup
 
@@ -105,6 +105,7 @@ func (d *Daemon) StartAndManage(ctx context.Context) error {
 	}
 
 	startupWg.Wait()
+	fmt.Println("MCP server started")
 
 	// TODO: Configurable?
 	healthcheckInterval := 10 * time.Second
@@ -112,14 +113,16 @@ func (d *Daemon) StartAndManage(ctx context.Context) error {
 
 	go d.healthCheckLoop(ctx, healthcheckInterval, pingTimeout)
 
-	// api := &ApiServer{clients: clients, clientsMutex: &clientsMutex}
+	readyChan := make(chan struct{})
+
 	go func() {
-		err := d.apiServer.Start(8090) // TODO: Pass in.
+		err := d.apiServer.Start(8090, readyChan) // TODO: Pass in.
 		if err != nil {
 			d.logger.Error(fmt.Sprintf("API server failed: %s", err))
 		}
 	}()
 
+	<-readyChan
 	fmt.Println("Press CTRL+C to shut down.")
 	select {}
 }
@@ -165,7 +168,7 @@ func (d *Daemon) launchServer(ctx context.Context, server runtime.RuntimeServer,
 		"args", args,
 		"environment", env,
 	)
-	fmt.Println(fmt.Sprintf("starting MCP server: '%s'...", server.Name))
+	fmt.Println(fmt.Sprintf("Starting MCP server: '%s'...", server.Name))
 
 	stdioClient, err := client.NewStdioMCPClient(binary, env, args...)
 	if err != nil {

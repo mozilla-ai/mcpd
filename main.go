@@ -7,6 +7,4 @@ import (
 func main() {
 	// Execute the root command.
 	cmd.Execute()
-
-	// TODO: Document env vars!
 }
