@@ -8,14 +8,27 @@ import (
 	"testing"
 
 	"github.com/BurntSushi/toml"
-	"github.com/hashicorp/go-hclog"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"github.com/mozilla-ai/mcpd-cli/v2/internal/cmd"
 	"github.com/mozilla-ai/mcpd-cli/v2/internal/config"
+	"github.com/mozilla-ai/mcpd-cli/v2/internal/discover"
 	"github.com/mozilla-ai/mcpd-cli/v2/internal/flags"
 )
+
+// MockDiscoverer implements the discover.Discoverer interface for testing
+type MockDiscoverer struct{}
+
+// DiscoverPackage is a mock implementation that always succeeds
+func (m *MockDiscoverer) DiscoverPackage(packageName, version string) (discover.DiscoveryResult, error) {
+	return discover.DiscoveryResult{
+		Version:          version,
+		FoundTools:       []string{"tool1", "tool2", "tool3"},
+		FoundStartupArgs: []string{"--port", "--host"},
+		FoundEnvVars:     true,
+	}, nil
+}
 
 func TestAddCmd_Execute(t *testing.T) {
 	tests := []struct {
@@ -106,16 +119,10 @@ package = "modelcontextprotocol/first-server@latest"
 
 			// Create a buffer to capture output
 			output := &bytes.Buffer{}
-
-			// Create a test logger that won't output during tests
-			logger := hclog.New(&hclog.LoggerOptions{
-				Name:   "test",
-				Level:  hclog.Debug,
-				Output: output,
-			})
+			baseCmd := &cmd.BaseCmd{}
 
 			// Create the command
-			c := NewAddCmd(logger)
+			c := NewAddCmd(baseCmd, &MockDiscoverer{})
 			c.SetOut(output)
 			c.SetErr(output)
 			c.SetArgs(tc.args)
@@ -165,12 +172,14 @@ package = "modelcontextprotocol/first-server@latest"
 			if tc.expectedVersion != "" {
 				version = tc.expectedVersion
 			}
-			assert.Equal(t, fmt.Sprintf("modelcontextprotocol/%s@%s", serverName, version), server.Package)
+			assert.Equal(t, fmt.Sprintf("pypi::mcp-server-%s@%s", serverName, version), server.Package)
 
 			if tc.expectedTools != nil {
 				assert.Equal(t, tc.expectedTools, server.Tools)
 			} else {
-				assert.Empty(t, server.Tools)
+				// We will have *all* the tools now.
+				assert.NotEmpty(t, server.Tools)
+				assert.ElementsMatch(t, []string{"tool1", "tool2", "tool3"}, server.Tools)
 			}
 		})
 	}
@@ -183,14 +192,10 @@ func TestAddCmd_WithCustomConfigPath(t *testing.T) {
 
 	// Create a buffer to capture output
 	output := &bytes.Buffer{}
-	logger := hclog.New(&hclog.LoggerOptions{
-		Name:   "test",
-		Level:  hclog.Debug,
-		Output: output,
-	})
 
 	// Create the command
-	c := NewAddCmd(logger)
+	baseCmd := &cmd.BaseCmd{}
+	c := NewAddCmd(baseCmd, &MockDiscoverer{})
 	c.SetOut(output)
 	c.SetErr(output)
 	c.SetArgs([]string{"custom-server", "--version", "2.0.0"})
@@ -220,21 +225,15 @@ func TestAddCmd_WithCustomConfigPath(t *testing.T) {
 	require.Len(t, parsed.Servers, 1)
 	server := parsed.Servers[0]
 	assert.Equal(t, "custom-server", server.Name)
-	assert.Equal(t, "modelcontextprotocol/custom-server@2.0.0", server.Package)
-	assert.Empty(t, server.Tools)
+	assert.Equal(t, "pypi::mcp-server-custom-server@2.0.0", server.Package)
+	assert.ElementsMatch(t, []string{"tool1", "tool2", "tool3"}, server.Tools)
 }
 
 func TestAddCmd_LongDescription(t *testing.T) {
 	t.Parallel()
 
-	logger := hclog.New(&hclog.LoggerOptions{
-		Name:   "test",
-		Level:  hclog.Debug,
-		Output: nil,
-	})
-
 	c := &AddCmd{
-		BaseCmd: &cmd.BaseCmd{Logger: logger},
+		BaseCmd: &cmd.BaseCmd{},
 	}
 
 	description := c.longDescription()

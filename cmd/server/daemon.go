@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/hashicorp/go-hclog"
 	"github.com/mozilla-ai/mcpd-cli/v2/internal/daemon"
 	"github.com/spf13/cobra"
 
@@ -19,9 +18,9 @@ type DaemonCmd struct {
 }
 
 // NewDaemonCmd creates a newly configured (Cobra) command.
-func NewDaemonCmd(logger hclog.Logger) *cobra.Command {
+func NewDaemonCmd(baseCmd *cmd.BaseCmd) *cobra.Command {
 	c := &DaemonCmd{
-		BaseCmd: &cmd.BaseCmd{Logger: logger},
+		BaseCmd: baseCmd,
 	}
 
 	cobraCommand := &cobra.Command{
@@ -64,7 +63,8 @@ func (c *DaemonCmd) run(cmd *cobra.Command, args []string) error {
 	//	c.Logger.Info("Secrets file", "path", "~/.mcpd/secrets.dev") // TODO: Configurable?
 	//	c.Logger.Info("Press Ctrl+C to stop.")
 
-	d := daemon.NewDaemon(c.Logger)
+	logger := c.Logger()
+	d := daemon.NewDaemon(logger)
 	if err := d.StartAndManage(context.Background()); err != nil {
 		return fmt.Errorf("daemon start failed: %w", err)
 	}

@@ -5,7 +5,6 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/hashicorp/go-hclog"
 	"github.com/spf13/cobra"
 
 	"github.com/mozilla-ai/mcpd-cli/v2/internal/cmd"
@@ -17,9 +16,9 @@ type InitCmd struct {
 	*cmd.BaseCmd
 }
 
-func NewInitCmd(log hclog.Logger) *cobra.Command {
+func NewInitCmd(baseCmd *cmd.BaseCmd) *cobra.Command {
 	c := &InitCmd{
-		BaseCmd: &cmd.BaseCmd{Logger: log},
+		BaseCmd: baseCmd,
 	}
 
 	cobraCommand := &cobra.Command{
@@ -39,18 +38,20 @@ func (c *InitCmd) longDescription() string {
 }
 
 func (c *InitCmd) run(_ *cobra.Command, _ []string) error {
+	logger := c.Logger()
+
 	fmt.Fprintln(os.Stdout, "Initializing mcpd project in current directory...")
 
 	cwd, err := os.Getwd()
 	if err != nil {
-		c.Logger.Error("Failed to get working directory", "error", err)
+		logger.Error("Failed to get working directory", "error", err)
 		return fmt.Errorf("error getting current directory: %w", err)
 	}
 
 	initFilePath := filepath.Join(cwd, flags.DefaultConfigFile)
 
 	if err := config.InitConfigFile(initFilePath); err != nil {
-		c.Logger.Error("Project initialization failed", "error", err)
+		logger.Error("Project initialization failed", "error", err)
 		return fmt.Errorf("error initializing mcpd project: %w", err)
 	}
 

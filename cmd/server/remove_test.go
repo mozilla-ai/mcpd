@@ -5,8 +5,9 @@ import (
 	"os"
 	"testing"
 
+	"github.com/mozilla-ai/mcpd-cli/v2/internal/cmd"
+
 	"github.com/BurntSushi/toml"
-	"github.com/hashicorp/go-hclog"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -105,15 +106,9 @@ package = "modelcontextprotocol/second-server@latest"
 			// Create a buffer to capture output
 			output := &bytes.Buffer{}
 
-			// Create a test logger that won't output during tests
-			logger := hclog.New(&hclog.LoggerOptions{
-				Name:   "test",
-				Level:  hclog.Debug,
-				Output: output,
-			})
-
 			// Create the command
-			c := NewRemoveCmd(logger)
+			baseCmd := &cmd.BaseCmd{}
+			c := NewRemoveCmd(baseCmd)
 			c.SetOut(output)
 			c.SetErr(output)
 			c.SetArgs(tc.args)

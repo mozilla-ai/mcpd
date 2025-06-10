@@ -36,32 +36,23 @@ func InitFlags(fs *pflag.FlagSet) {
 }
 
 func initConfigFile(fs *pflag.FlagSet) {
-	if ConfigFile == "" {
-		if env := strings.TrimSpace(os.Getenv(EnvVarConfigFile)); env != "" {
-			ConfigFile = env
-		} else {
-			ConfigFile = DefaultConfigFile
-		}
+	defaultConfigFile := strings.TrimSpace(os.Getenv(EnvVarConfigFile))
+	if defaultConfigFile == "" {
+		defaultConfigFile = DefaultConfigFile
 	}
-	fs.StringVar(&ConfigFile, FlagNameConfigFile, ConfigFile, "path to config file")
+	fs.StringVar(&ConfigFile, FlagNameConfigFile, defaultConfigFile, "path to config file")
 }
 
 func initLogger(fs *pflag.FlagSet) {
-	if LogPath == "" {
-		if env := strings.TrimSpace(os.Getenv(EnvVarLogPath)); env != "" {
-			LogPath = env
-		} else {
-			LogPath = DefaultLogPath
-		}
+	defaultLogPath := strings.TrimSpace(os.Getenv(EnvVarLogPath))
+	if defaultLogPath == "" {
+		LogPath = DefaultLogPath
 	}
-	fs.StringVar(&LogPath, FlagNameLogPath, LogPath, "path to generated log file")
+	fs.StringVar(&LogPath, FlagNameLogPath, defaultLogPath, "path to generated log file")
 
-	if LogLevel == "" {
-		if env := strings.TrimSpace(os.Getenv(EnvVarLogLevel)); env != "" {
-			LogLevel = strings.ToLower(env)
-		} else {
-			LogLevel = DefaultLogLevel
-		}
+	defaultLogLevel := strings.ToLower(os.Getenv(EnvVarLogLevel))
+	if defaultLogLevel == "" {
+		LogLevel = DefaultLogLevel
 	}
-	fs.StringVar(&LogLevel, FlagNameLogLevel, LogLevel, "log level for mcpd logs")
+	fs.StringVar(&LogLevel, FlagNameLogLevel, defaultLogLevel, "log level for mcpd logs")
 }

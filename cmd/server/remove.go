@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/hashicorp/go-hclog"
 	"github.com/spf13/cobra"
 
 	"github.com/mozilla-ai/mcpd-cli/v2/internal/cmd"
@@ -18,9 +17,9 @@ type RemoveCmd struct {
 }
 
 // NewRemoveCmd creates a newly configured (Cobra) command.
-func NewRemoveCmd(logger hclog.Logger) *cobra.Command {
+func NewRemoveCmd(baseCmd *cmd.BaseCmd) *cobra.Command {
 	c := &RemoveCmd{
-		BaseCmd: &cmd.BaseCmd{Logger: logger},
+		BaseCmd: baseCmd,
 	}
 
 	cobraCommand := &cobra.Command{
@@ -46,6 +45,8 @@ func (c *RemoveCmd) run(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("server name is required and cannot be empty")
 	}
 
+	logger := c.Logger()
+
 	name := strings.TrimSpace(args[0])
 	if name == "" {
 		return fmt.Errorf("server name cannot be empty")
@@ -61,7 +62,7 @@ func (c *RemoveCmd) run(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	c.Logger.Debug("Server removed", "name", name)
+	logger.Debug("Server removed", "name", name)
 	fmt.Fprintf(cmd.OutOrStdout(), "✓ Removed server '%s'\n", name)
 
 	return nil

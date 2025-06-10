@@ -11,6 +11,40 @@ import (
 	"time"
 )
 
+// Discoverer interface defines methods for package discovery
+type Discoverer interface {
+	DiscoverPackage(packageName, version string) (DiscoveryResult, error)
+}
+
+// DefaultDiscoverer implements the Discoverer interface with the standard implementation
+type DefaultDiscoverer struct{}
+
+// DiscoverPackage gets information about a package from PyPI
+func (d *DefaultDiscoverer) DiscoverPackage(packageName, version string) (DiscoveryResult, error) {
+	reEnvVar := regexp.MustCompile(`(?i)environment variable`)
+
+	info, err := getPyPIInfo(packageName, version)
+	if err != nil {
+		return DiscoveryResult{}, err
+	}
+
+	result := DiscoveryResult{
+		PackageName:      packageName,
+		Version:          info.Version,
+		FoundTools:       parseTools(info.Description),
+		FoundStartupArgs: parseArgs(info.Description),
+		FoundEnvVars:     reEnvVar.MatchString(info.Description),
+	}
+
+	return result, nil
+}
+
+// For backward compatibility
+func DiscoverPackage(packageName, version string) (DiscoveryResult, error) {
+	d := &DefaultDiscoverer{}
+	return d.DiscoverPackage(packageName, version)
+}
+
 // PyPIResponse is used to decode the top-level JSON from the PyPI API.
 type PyPIResponse struct {
 	Info PyPIInfo `json:"info"`
@@ -44,26 +78,6 @@ var stopWords = map[string]bool{
 	"Examples":  true,
 	"Response":  true,
 	"Prompts":   true,
-}
-
-// DiscoverPackage gets information about a package from PyPI
-func DiscoverPackage(name string, version string) (DiscoveryResult, error) {
-	reEnvVar := regexp.MustCompile(`(?i)environment variable`)
-
-	info, err := getPyPIInfo(name, version)
-	if err != nil {
-		return DiscoveryResult{}, err
-	}
-
-	result := DiscoveryResult{
-		PackageName:      name,
-		Version:          info.Version,
-		FoundTools:       parseTools(info.Description),
-		FoundStartupArgs: parseArgs(info.Description),
-		FoundEnvVars:     reEnvVar.MatchString(info.Description),
-	}
-
-	return result, nil
 }
 
 // ValidateTools checks if requested tools exist in the discovered tools.
