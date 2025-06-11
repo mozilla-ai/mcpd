@@ -110,7 +110,7 @@ Attempts to add the package to the `mcpd.toml` file based on finding the right p
 
 The format is given as `<server-name>` but will attempt to resolve `mcp-server-<server-name>` on PyPi.
 
-Output it send to the terminal showing the tools and args that `mcpd` thinks exist for the package, config can be 
+Output is send to the terminal showing the tools and args that `mcpd` thinks exist for the package, config can be 
 added for them using `mcpd config set-args` below.
 
 ### `mcpd remove`
@@ -179,13 +179,21 @@ With `make` installed you can use the following commands:
 
 ## Basic tutorial
 
-This tutorial uses `mcpd` and some command line tools (`curl`, `jq`) to demonstrate adding, configuring and starting an 
-MCP server.
+This tutorial uses `mcpd` and some command line tools (`cat`, `curl`, `jq`, `make`) to demonstrate adding/configuring, 
+starting and calling MCP server.
 
 ### Verifying file contents
 
 In this tutorial we use the default path for the config-file, so file contents can be verified at any point after running 
 the relevant command.
+
+### Building
+
+```bash
+go version          # Should output 1.24.3 (or higher): go version go1.24.3 darwin/arm64
+make build          # Builds the binary
+sudo make install   # Installs into /usr/local/bin on the PATH
+```
 
 #### `.mcpd.toml` configuration file
 
