@@ -211,6 +211,14 @@ Holds the specific contextual configuration for configured MCP servers (think se
 cat ~/.mcpd/secrets.dev.toml
 ```
 
+### Building
+
+```bash
+go version          # Should output 1.24.3 (or higher): go version go1.24.3 darwin/arm64
+make build          # Builds the binary
+sudo make install   # Installs into /usr/local/bin on the PATH
+```
+
 ### Initialize `mcpd`
 
 Initialize `mcpd` in your existing project directory:
