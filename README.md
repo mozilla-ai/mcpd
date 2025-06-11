@@ -187,14 +187,6 @@ starting and calling MCP server.
 In this tutorial we use the default path for the config-file, so file contents can be verified at any point after running 
 the relevant command.
 
-### Building
-
-```bash
-go version          # Should output 1.24.3 (or higher): go version go1.24.3 darwin/arm64
-make build          # Builds the binary
-sudo make install   # Installs into /usr/local/bin on the PATH
-```
-
 #### `.mcpd.toml` configuration file
 
 Holds the name, package, version and allowed tools for all configured MCP servers in the project. 
