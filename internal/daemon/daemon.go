@@ -275,7 +275,7 @@ func (d *Daemon) pingAllServers(ctx context.Context, timeout time.Duration) {
 				return
 			}
 
-			d.logger.Info(fmt.Sprintf("Ping successful for MCP server: '%s'", name))
+			d.logger.Debug("Ping successful", "server", name)
 		}(name, c)
 	}
 }
