@@ -27,6 +27,10 @@ var (
 	ErrToolCallFailedUnknown = errors.New("tool call failed (unknown error)")
 )
 
+const (
+	apiPathPrefix = "/api/v1/"
+)
+
 type ApiServer struct {
 	clients      map[string]*client.Client
 	serverTools  map[string][]string
@@ -35,16 +39,24 @@ type ApiServer struct {
 }
 
 func (a *ApiServer) Start(port int, ready chan<- struct{}) error {
-	mux := http.NewServeMux()
-	mux.HandleFunc("/api/v1/", a.handleApiRequest)
+	addr := fmt.Sprintf("localhost:%d", port)
+	fqdn := fmt.Sprintf("http://%s%sservers", addr, apiPathPrefix) // TODO: HTTP/HTTPS
 
-	fmt.Printf("HTTP REST API listening on http://localhost:%d/api/v1/servers\n", port)
-	a.logger.Info(fmt.Sprintf("HTTP REST API listening on: http://localhost:%d/api/v1/servers", port))
+	mux := http.NewServeMux()
+	mux.HandleFunc(apiPathPrefix, a.handleApiRequest)
+
+	fmt.Printf("HTTP REST API listening on: '%s'\n", fqdn)
+	a.logger.Info(
+		"HTTP REST API listening",
+		"address", addr,
+		"prefix", apiPathPrefix,
+		"endpoint", fqdn,
+	)
 
 	// Signal ready just before blocking for serving the API
 	close(ready)
 
-	if err := http.ListenAndServe(fmt.Sprintf(":%d", port), mux); err != nil {
+	if err := http.ListenAndServe(addr, mux); err != nil {
 		fmt.Printf("HTTP REST API failed to start: %v\n", err)
 		a.logger.Error("HTTP REST API failed to start", "error", err)
 	}
@@ -90,8 +102,6 @@ func (a *ApiServer) writeError(w http.ResponseWriter, statusCode int, message st
 }
 
 func (a *ApiServer) handleApiRequest(w http.ResponseWriter, r *http.Request) {
-	a.logger.Debug("API request received", "method", r.Method, "path", r.URL.Path)
-
 	// Trim the prefix and split the path. e.g., /api/v1/servers/time -> ["servers", "time"]
 	path := strings.TrimPrefix(r.URL.Path, "/api/v1/")
 	parts := strings.Split(strings.Trim(path, "/"), "/")
@@ -102,13 +112,18 @@ func (a *ApiServer) handleApiRequest(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	ctx, cancel := context.WithTimeout(r.Context(), 15*time.Second)
+	// TODO: Remove debug logging for this later.
+	a.logger.Debug("API request received", "method", r.Method, "path", path)
+
+	ctx, cancel := context.WithTimeout(r.Context(), 15*time.Second) // TODO: Configure, but can only be as long as the request context timeout
 	defer cancel()
 
 	handleResult := func(result any, err error) {
 		if err != nil {
 			a.handleError(w, err)
 		} else {
+			// TODO: Remove debug logging for this later.
+			a.logger.Debug("API request response", "method", r.Method, "path", path, "result", result)
 			a.writeJSON(w, result)
 		}
 	}
@@ -207,6 +222,9 @@ func (a *ApiServer) callTool(ctx context.Context, serverName, toolName string, a
 		return nil, fmt.Errorf("%w: %s/%s", ErrToolForbidden, serverName, toolName)
 	}
 
+	// TODO: Remove debug logging later.
+	a.logger.Debug("Calling tool", "server", serverName, "tool", toolName, "args", args)
+
 	result, err := mcpClient.CallTool(ctx, mcp.CallToolRequest{
 		Params: mcp.CallToolParams{
 			Name:      toolName,
@@ -223,7 +241,7 @@ func (a *ApiServer) callTool(ctx context.Context, serverName, toolName string, a
 	for _, content := range result.Content {
 		if textContent, ok := content.(mcp.TextContent); ok {
 			// We will return the text from the first text content item we find.
-			return textContent, nil
+			return textContent.Text, nil
 		}
 	}
 

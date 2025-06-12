@@ -45,7 +45,7 @@ func NewDaemon(logger hclog.Logger) *Daemon {
 			"pypi": "uvx",
 		},
 		apiServer: &ApiServer{
-			logger:       l,
+			logger:       l.Named("api"),
 			clients:      clients,
 			clientsMutex: clientsMutex,
 			serverTools:  make(map[string][]string),
@@ -157,10 +157,10 @@ func (d *Daemon) launchServer(ctx context.Context, server runtime.RuntimeServer,
 		return fmt.Errorf("unsupported runtime/repository '%s' for MCP server daemon '%s'", currentRuntime, server.Name)
 	}
 
-	packageName := strings.Split(strings.TrimPrefix(server.Package, currentRuntime+"::"), "@")[0]
+	// Strip arbitrary package prefix (e.g. pypi::)
+	packageNameAndVersion := strings.TrimPrefix(server.Package, currentRuntime+"::")
 	env := server.Environ()
-	// args := append([]string{"--verbose", packageName}, server.Args...)
-	args := append([]string{packageName}, server.Args...)
+	args := append([]string{packageNameAndVersion}, server.Args...)
 
 	d.logger.Info(
 		"attempting to start MCP server",
@@ -175,6 +175,7 @@ func (d *Daemon) launchServer(ctx context.Context, server runtime.RuntimeServer,
 	if err != nil {
 		return fmt.Errorf("error starting MCP server: '%s': %v", server.Name, err)
 	}
+	d.logger.Info(fmt.Sprintf("MCP server started: '%s'...", server.Name))
 
 	// Get stderr reader
 	stderr, ok := client.GetStderr(stdioClient)
@@ -206,7 +207,7 @@ func (d *Daemon) launchServer(ctx context.Context, server runtime.RuntimeServer,
 	}(stdErrCtx)
 	defer stdErrCancel()
 
-	initializeCtx, cancel := context.WithTimeout(ctx, 30*time.Second)
+	initializeCtx, cancel := context.WithTimeout(ctx, 30*time.Second) // TODO: Configurable.
 	defer cancel()
 
 	// 'Initialize'
@@ -215,16 +216,15 @@ func (d *Daemon) launchServer(ctx context.Context, server runtime.RuntimeServer,
 		mcp.InitializeRequest{
 			Params: mcp.InitializeParams{
 				ProtocolVersion: "latest",
-				// Capabilities:    mcp.ClientCapabilities{},
-				ClientInfo: mcp.Implementation{Name: "mcpd", Version: "0.0.2"},
+				ClientInfo:      mcp.Implementation{Name: "mcpd", Version: "0.0.1"},
 			},
 		})
 	if err != nil {
 		return fmt.Errorf("error initializing MCP client: '%s': %w", server.Name, err)
 	}
 
-	nameAndVersion := fmt.Sprintf("%s@%s", initResult.ServerInfo.Name, initResult.ServerInfo.Version)
-	d.logger.Info(fmt.Sprintf("Initialized MCP client: '%s': %s", server.Name, nameAndVersion))
+	packageNameAndVersion = fmt.Sprintf("%s@%s", initResult.ServerInfo.Name, initResult.ServerInfo.Version)
+	d.logger.Info(fmt.Sprintf("Initialized MCP server: '%s': %s", server.Name, packageNameAndVersion))
 
 	// Store the client.
 	d.mu.Lock()
