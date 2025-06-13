@@ -4,10 +4,10 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/mozilla-ai/mcpd-cli/v2/internal/daemon"
 	"github.com/spf13/cobra"
 
 	"github.com/mozilla-ai/mcpd-cli/v2/internal/cmd"
+	"github.com/mozilla-ai/mcpd-cli/v2/internal/daemon"
 )
 
 // DaemonCmd should be used to represent the 'daemon' command.

@@ -65,7 +65,8 @@ func NewRootCmd(c *RootCmd) *cobra.Command {
 
 	// Add top-level commands
 	rootCmd.AddCommand(NewInitCmd(c.BaseCmd))
-	rootCmd.AddCommand(server.NewAddCmd(c.BaseCmd, nil))
+	rootCmd.AddCommand(server.NewSearchCmd(c.BaseCmd))
+	rootCmd.AddCommand(server.NewAddCmd(c.BaseCmd))
 	rootCmd.AddCommand(server.NewRemoveCmd(c.BaseCmd))
 	rootCmd.AddCommand(server.NewDaemonCmd(c.BaseCmd))
 	rootCmd.AddCommand(config.NewConfigCmd(c.BaseCmd))

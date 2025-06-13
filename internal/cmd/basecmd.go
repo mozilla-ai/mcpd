@@ -9,6 +9,7 @@ import (
 	"github.com/hashicorp/go-hclog"
 
 	"github.com/mozilla-ai/mcpd-cli/v2/internal/flags"
+	"github.com/mozilla-ai/mcpd-cli/v2/internal/registry"
 )
 
 type BaseCmd struct {
@@ -60,4 +61,25 @@ func (c *BaseCmd) Logger() hclog.Logger {
 	})
 
 	return c.logger
+}
+
+func (c *BaseCmd) CreateRegistry() (registry.PackageResolver, error) {
+	l := c.Logger().Named("registry")
+
+	mcpm, err := registry.NewMCPMRegistry(l, "https://mcpm.sh/api/servers.json") // TODO: hard coded URL
+	if err != nil {
+		return nil, err
+	}
+
+	registries := []registry.PackageResolver{
+		mcpm,
+		// TODO: Add more registries...
+	}
+
+	aggregator, err := registry.NewRegistry(l, registries...)
+	if err != nil {
+		return nil, err
+	}
+
+	return aggregator, nil
 }

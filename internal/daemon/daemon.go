@@ -14,6 +14,9 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/mozilla-ai/mcpd-cli/v2/internal/registry"
+	"github.com/mozilla-ai/mcpd-cli/v2/internal/registry/types"
+
 	"github.com/mark3labs/mcp-go/client"
 	"github.com/mark3labs/mcp-go/mcp"
 
@@ -26,11 +29,11 @@ import (
 )
 
 type Daemon struct {
-	apiServer                *ApiServer
-	logger                   hclog.Logger
-	clients                  map[string]*client.Client
-	mu                       *sync.RWMutex
-	repositoryBinaryMappings map[string]string
+	apiServer         *ApiServer
+	logger            hclog.Logger
+	clients           map[string]*client.Client
+	mu                *sync.RWMutex
+	supportedRuntimes map[types.Runtime]struct{}
 }
 
 func NewDaemon(logger hclog.Logger) *Daemon {
@@ -38,12 +41,10 @@ func NewDaemon(logger hclog.Logger) *Daemon {
 	clientsMutex := &sync.RWMutex{}
 	l := logger.Named("daemon")
 	return &Daemon{
-		logger:  l,
-		clients: clients,
-		mu:      clientsMutex,
-		repositoryBinaryMappings: map[string]string{
-			"pypi": "uvx",
-		},
+		logger:            l,
+		clients:           clients,
+		mu:                clientsMutex,
+		supportedRuntimes: registry.DefaultSupportedRuntimes(),
 		apiServer: &ApiServer{
 			logger:       l.Named("api"),
 			clients:      clients,
@@ -151,27 +152,27 @@ func (d *Daemon) setupSignalHandler() {
 func (d *Daemon) launchServer(ctx context.Context, server runtime.RuntimeServer, wg *sync.WaitGroup) error {
 	defer wg.Done()
 
-	currentRuntime := server.Runtime()
-	binary, supported := d.repositoryBinaryMappings[currentRuntime]
+	runtimeBinary := server.Runtime()
+	_, supported := d.supportedRuntimes[types.Runtime(runtimeBinary)]
 	if !supported {
-		return fmt.Errorf("unsupported runtime/repository '%s' for MCP server daemon '%s'", currentRuntime, server.Name)
+		return fmt.Errorf("unsupported runtime/repository '%s' for MCP server daemon '%s'", runtimeBinary, server.Name)
 	}
 
 	// Strip arbitrary package prefix (e.g. pypi::)
-	packageNameAndVersion := strings.TrimPrefix(server.Package, currentRuntime+"::")
+	packageNameAndVersion := strings.TrimPrefix(server.Package, runtimeBinary+"::")
 	env := server.Environ()
 	args := append([]string{packageNameAndVersion}, server.Args...)
 
 	d.logger.Info(
 		"attempting to start MCP server",
 		"name", server.Name,
-		"binary", binary,
+		"binary", runtimeBinary,
 		"args", args,
 		"environment", env,
 	)
 	fmt.Println(fmt.Sprintf("Starting MCP server: '%s'...", server.Name))
 
-	stdioClient, err := client.NewStdioMCPClient(binary, env, args...)
+	stdioClient, err := client.NewStdioMCPClient(runtimeBinary, env, args...)
 	if err != nil {
 		return fmt.Errorf("error starting MCP server: '%s': %v", server.Name, err)
 	}
