@@ -1,16 +1,16 @@
-package registry
+package mcpm
 
 import (
-	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"os"
 	"testing"
 
-	"github.com/mozilla-ai/mcpd-cli/v2/internal/registry/types"
-
 	"github.com/hashicorp/go-hclog"
 	"github.com/stretchr/testify/require"
+
+	"github.com/mozilla-ai/mcpd-cli/v2/internal/packages"
+	"github.com/mozilla-ai/mcpd-cli/v2/internal/registry/options"
 )
 
 // Define a dummy JSON payload to be served by the mock HTTP server.
@@ -157,6 +157,7 @@ const dummyMCPMJSON = `{
 				"type": "uvx",
 				"command": "uvx",
 				"args": ["mcp-server-math", "--api-key=${API_KEY}"],
+				"env":  {"API_KEY": "${API_KEY}"},
 				"description": "Install with uvx",
 				"recommended": true,
 				"transport": "stdio"
@@ -208,17 +209,17 @@ func TestNewMCPMRegistry(t *testing.T) {
 
 	// Test successful creation
 	t.Run("successful creation", func(t *testing.T) {
-		registry, err := NewMCPMRegistry(logger, ts.URL+"/api/servers.json")
+		registry, err := NewRegistry(logger, ts.URL+"/api/servers.json")
 		require.NoError(t, err)
 		require.NotNil(t, registry)
-		require.Len(t, registry.servers, 4, "Expected 4 servers in the map")
+		require.Len(t, registry.mcpServers, 4, "Expected 4 servers in the map")
 	})
 
 	// Test error on HTTP request failure
 	t.Run("http request failure", func(t *testing.T) {
-		_, err := NewMCPMRegistry(logger, "http://nonexistent-domain.test/api/servers.json")
+		_, err := NewRegistry(logger, "http://nonexistent-domain.test/api/servers.json")
 		require.Error(t, err)
-		require.Contains(t, err.Error(), "failed to fetch MCPM registry URL")
+		require.Contains(t, err.Error(), "failed to fetch 'mcpm' registry data from URL")
 	})
 
 	// Test error on bad status code
@@ -227,9 +228,9 @@ func TestNewMCPMRegistry(t *testing.T) {
 			w.WriteHeader(http.StatusInternalServerError)
 		}))
 		defer badStatusServer.Close()
-		_, err := NewMCPMRegistry(logger, badStatusServer.URL+"/api/servers.json")
+		_, err := NewRegistry(logger, badStatusServer.URL+"/api/servers.json")
 		require.Error(t, err)
-		require.Contains(t, err.Error(), "received non-OK HTTP status from MCPM registry")
+		require.Contains(t, err.Error(), "received non-OK HTTP status from 'mcpm' registry for URL")
 	})
 
 	// Test error on invalid JSON
@@ -240,9 +241,9 @@ func TestNewMCPMRegistry(t *testing.T) {
 			require.NoError(t, err) // This write should succeed, but the JSON is invalid
 		}))
 		defer invalidJSONServer.Close()
-		_, err := NewMCPMRegistry(logger, invalidJSONServer.URL+"/api/servers.json")
+		_, err := NewRegistry(logger, invalidJSONServer.URL+"/api/servers.json")
 		require.Error(t, err)
-		require.Contains(t, err.Error(), "failed to unmarshal MCPM registry JSON")
+		require.Contains(t, err.Error(), "failed to unmarshal 'mcpm' registry JSON")
 	})
 }
 
@@ -255,7 +256,7 @@ func TestMCPMRegistrySearch(t *testing.T) {
 	defer ts.Close()
 
 	logger := newTestLogger()
-	registry, err := NewMCPMRegistry(logger, ts.URL+"/api/servers.json")
+	registry, err := NewRegistry(logger, ts.URL+"/api/mcpServers.json")
 	require.NoError(t, err)
 	require.NotNil(t, registry)
 
@@ -266,6 +267,7 @@ func TestMCPMRegistrySearch(t *testing.T) {
 		expectedCount int
 		expectedIDs   []string
 		expectedEnv   map[string][]string // Map of ID to expected configurable env vars
+		expectedArgs  map[string][]string // Map of ID to expected configurable cmd line args
 	}{
 		{
 			name:          "Basic search for 'time'",
@@ -273,7 +275,8 @@ func TestMCPMRegistrySearch(t *testing.T) {
 			filters:       nil,
 			expectedCount: 1,
 			expectedIDs:   []string{"time"},
-			expectedEnv:   map[string][]string{"time": {"TZ", "ANOTHER_VAR"}},
+			expectedEnv:   map[string][]string{"time": {}},
+			expectedArgs:  map[string][]string{"time": {"--local-timezone"}},
 		},
 		{
 			name:          "Search for 'TIME' (case-insensitive, explicit env)",
@@ -281,7 +284,8 @@ func TestMCPMRegistrySearch(t *testing.T) {
 			filters:       nil,
 			expectedCount: 1,
 			expectedIDs:   []string{"time"},
-			expectedEnv:   map[string][]string{"time": {"TZ", "ANOTHER_VAR"}},
+			expectedEnv:   map[string][]string{"time": {}},
+			expectedArgs:  map[string][]string{"time": {"--local-timezone"}},
 		},
 		{
 			name:          "Search for 'github' (case-insensitive, sample json only supports docker)",
@@ -298,6 +302,7 @@ func TestMCPMRegistrySearch(t *testing.T) {
 			expectedCount: 1,
 			expectedIDs:   []string{"math"},
 			expectedEnv:   map[string][]string{"math": {"API_KEY"}},
+			expectedArgs:  map[string][]string{"math": {"--api-key"}},
 		},
 		{
 			name:          "Search with runtime filter 'uvx'",
@@ -305,23 +310,17 @@ func TestMCPMRegistrySearch(t *testing.T) {
 			filters:       map[string]string{"runtime": "uvx"},
 			expectedCount: 3, // time, math, no_env_or_args
 			expectedIDs:   []string{"time", "math", "no_env_or_args"},
-			expectedEnv:   map[string][]string{"time": {"TZ", "ANOTHER_VAR"}, "math": {"API_KEY"}, "no_env_or_args": {}},
+			expectedEnv:   map[string][]string{"time": {}, "math": {"API_KEY"}, "no_env_or_args": {}},
+			expectedArgs:  map[string][]string{"time": {"--local-timezone"}, "math": {"--api-key"}, "no_env_or_args": {}},
 		},
 		{
 			name:          "Search with tool filter 'add'",
 			queryName:     "*",
-			filters:       map[string]string{"tool": "add"},
+			filters:       map[string]string{"tools": "add"},
 			expectedCount: 1, // math
 			expectedIDs:   []string{"math"},
 			expectedEnv:   map[string][]string{"math": {"API_KEY"}},
-		},
-		{
-			name:          "Search for 'time' with transport 'stdio'",
-			queryName:     "time",
-			filters:       map[string]string{"transport": "stdio"},
-			expectedCount: 1, // time (uvx and python installations)
-			expectedIDs:   []string{"time"},
-			expectedEnv:   map[string][]string{"time": {"TZ", "ANOTHER_VAR"}},
+			expectedArgs:  map[string][]string{"math": {"--api-key"}},
 		},
 		{
 			name:          "Search with non-existent query",
@@ -334,15 +333,16 @@ func TestMCPMRegistrySearch(t *testing.T) {
 		{
 			name:          "Search with combined filters (runtime: uvx, tool: convert_time)",
 			queryName:     "time",
-			filters:       map[string]string{"runtime": "uvx", "tool": "convert_time"},
+			filters:       map[string]string{"runtime": "uvx", "tools": "convert_time"},
 			expectedCount: 1,
 			expectedIDs:   []string{"time"},
-			expectedEnv:   map[string][]string{"time": {"TZ", "ANOTHER_VAR"}},
+			expectedEnv:   map[string][]string{"time": {}},
+			expectedArgs:  map[string][]string{"time": {"--local-timezone"}},
 		},
 		{
 			name:          "Search with combined filters (runtime: docker, tool: convert_time) - docker not supported",
 			queryName:     "time",
-			filters:       map[string]string{"runtime": "docker", "tool": "convert_time"},
+			filters:       map[string]string{"runtime": "docker", "tools": "convert_time"},
 			expectedCount: 0,
 			expectedIDs:   nil,
 			expectedEnv:   nil,
@@ -350,18 +350,20 @@ func TestMCPMRegistrySearch(t *testing.T) {
 		{
 			name:          "Search with combined filters (math, uvx, add)",
 			queryName:     "math",
-			filters:       map[string]string{"runtime": "uvx", "tool": "add"},
+			filters:       map[string]string{"runtime": "uvx", "tools": "add"},
 			expectedCount: 1,
 			expectedIDs:   []string{"math"},
 			expectedEnv:   map[string][]string{"math": {"API_KEY"}},
+			expectedArgs:  map[string][]string{"math": {"--api-key"}},
 		},
 		{
 			name:          "Search with unsupported version filter (expect no match and warning)",
 			queryName:     "time",
 			filters:       map[string]string{"version": "1.2.3"},
-			expectedCount: 0,
-			expectedIDs:   []string{},
+			expectedCount: 1,
+			expectedIDs:   []string{"time"},
 			expectedEnv:   nil,
+			expectedArgs:  map[string][]string{"time": {"--local-timezone"}},
 		},
 		{
 			name:          "Search for 'no_env_or_args'",
@@ -377,7 +379,8 @@ func TestMCPMRegistrySearch(t *testing.T) {
 			filters:       nil,
 			expectedCount: 3,
 			expectedIDs:   []string{"no_env_or_args", "time", "math"},
-			expectedEnv:   map[string][]string{"time": {"TZ", "ANOTHER_VAR"}, "math": {"API_KEY"}, "no_env_or_args": {}},
+			expectedEnv:   map[string][]string{"time": {}, "math": {"API_KEY"}, "no_env_or_args": {}},
+			expectedArgs:  map[string][]string{"time": {"--local-timezone"}, "math": {"--api-key"}, "no_env_or_args": {}},
 		},
 	}
 
@@ -395,9 +398,10 @@ func TestMCPMRegistrySearch(t *testing.T) {
 
 			if tt.expectedEnv != nil {
 				for _, res := range results {
-					expected := tt.expectedEnv[res.ID]
-					require.ElementsMatch(t, expected, res.ConfigurableEnvVars,
-						fmt.Sprintf("Mismatch in ConfigurableEnvVars for %s", res.ID))
+					expectedEnv := tt.expectedEnv[res.ID]
+					expectedArgs := tt.expectedArgs[res.ID]
+					require.ElementsMatch(t, expectedEnv, res.Arguments.EnvVarNames())
+					require.ElementsMatch(t, expectedArgs, res.Arguments.ArgNames())
 				}
 			}
 		})
@@ -413,33 +417,36 @@ func TestMCPMRegistryGet(t *testing.T) {
 	defer ts.Close()
 
 	logger := newTestLogger()
-	registry, err := NewMCPMRegistry(logger, ts.URL+"/api/servers.json")
+	registry, err := NewRegistry(logger, ts.URL+"/api/servers.json")
 	require.NoError(t, err)
 	require.NotNil(t, registry)
 
 	tests := []struct {
-		name        string
-		id          string
-		version     string
-		expectError bool
-		expectedID  string
-		expectedEnv []string // Expected configurable env vars for the single result
+		name         string
+		id           string
+		version      string
+		expectError  bool
+		expectedID   string
+		expectedEnv  []string // Expected configurable env vars for the single result
+		expectedArgs []string
 	}{
 		{
-			name:        "Get existing package 'time' with empty version",
-			id:          "time",
-			version:     "", // Should default to "latest" internally
-			expectError: false,
-			expectedID:  "time",
-			expectedEnv: []string{"TZ", "ANOTHER_VAR"},
+			name:         "Get existing package 'time' with empty version",
+			id:           "time",
+			version:      "", // Should default to "latest" internally
+			expectError:  false,
+			expectedID:   "time",
+			expectedEnv:  []string{},
+			expectedArgs: []string{"--local-timezone"},
 		},
 		{
-			name:        "Get existing package 'time' with 'latest' version",
-			id:          "time",
-			version:     "latest",
-			expectError: false,
-			expectedID:  "time",
-			expectedEnv: []string{"TZ", "ANOTHER_VAR"},
+			name:         "Get existing package 'time' with 'latest' version",
+			id:           "time",
+			version:      "latest",
+			expectError:  false,
+			expectedID:   "time",
+			expectedEnv:  []string{},
+			expectedArgs: []string{"--local-timezone"},
 		},
 		{
 			name:        "Get non-existent package",
@@ -450,12 +457,13 @@ func TestMCPMRegistryGet(t *testing.T) {
 			expectedEnv: nil,
 		},
 		{
-			name:        "Get existing package 'math' with specific version (expect warning, but still return)",
-			id:          "math",
-			version:     "1.0.0", // MCPM does not filter by version, should return "math"
-			expectError: false,
-			expectedID:  "math",
-			expectedEnv: []string{"API_KEY"},
+			name:         "Get existing package 'math' with specific version (expect warning, but still return)",
+			id:           "math",
+			version:      "1.0.0", // MCPM does not filter by version, should return "math"
+			expectError:  false,
+			expectedID:   "math",
+			expectedEnv:  []string{"API_KEY"},
+			expectedArgs: []string{"--api-key"},
 		},
 		{
 			name:        "Get 'no_env_or_args' package",
@@ -469,15 +477,16 @@ func TestMCPMRegistryGet(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result, err := registry.Get(tt.id, types.WithVersion(tt.version))
+			result, err := registry.Resolve(tt.id, options.WithResolveVersion(tt.version))
 			if tt.expectError {
 				require.Error(t, err)
-				require.Equal(t, types.PackageResult{}, result, "Expected empty result on error")
+				require.Equal(t, packages.Package{}, result, "Expected empty result on error")
 			} else {
 				require.NoError(t, err)
 				require.Equal(t, tt.expectedID, result.ID, "Mismatch in returned ID")
-				require.ElementsMatch(t, tt.expectedEnv, result.ConfigurableEnvVars,
-					fmt.Sprintf("Mismatch in ConfigurableEnvVars for %s", result.ID))
+				require.ElementsMatch(t, tt.expectedEnv, result.ConfigurableEnvVars)
+				require.ElementsMatch(t, tt.expectedEnv, result.Arguments.EnvVarNames())
+				require.ElementsMatch(t, tt.expectedArgs, result.Arguments.ArgNames())
 			}
 		})
 	}

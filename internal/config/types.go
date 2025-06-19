@@ -1,5 +1,31 @@
 package config
 
+var (
+	_ Provider = (*DefaultLoader)(nil)
+	_ Modifier = (*Config)(nil)
+)
+
+type Loader interface {
+	Load(path string) (Modifier, error)
+}
+
+type Initializer interface {
+	Init(path string) error
+}
+
+type Provider interface {
+	Initializer
+	Loader
+}
+
+type Modifier interface {
+	AddServer(entry ServerEntry) error
+	RemoveServer(name string) error
+	ListServers() []ServerEntry
+}
+
+type DefaultLoader struct{}
+
 // Config represents the .mcpd.toml file structure.
 type Config struct {
 	Servers        []ServerEntry `toml:"servers"`

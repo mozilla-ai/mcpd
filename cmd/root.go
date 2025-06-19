@@ -9,13 +9,16 @@ import (
 	"github.com/hashicorp/go-hclog"
 	"github.com/spf13/cobra"
 
-	"github.com/mozilla-ai/mcpd-cli/v2/cmd/config"
-	"github.com/mozilla-ai/mcpd-cli/v2/cmd/server"
 	"github.com/mozilla-ai/mcpd-cli/v2/internal/cmd"
+	"github.com/mozilla-ai/mcpd-cli/v2/internal/cmd/options"
 	"github.com/mozilla-ai/mcpd-cli/v2/internal/flags"
+	"github.com/mozilla-ai/mcpd-cli/v2/internal/printer"
 )
 
 var version = "dev" // Set at build time using -ldflags
+
+// createCmdFunc aliases the signature for a new command function.
+type createCmdFunc func(baseCmd *cmd.BaseCmd, opt ...options.CmdOption) (*cobra.Command, error)
 
 type RootCmd struct {
 	*cmd.BaseCmd
@@ -30,8 +33,11 @@ func Execute() {
 		BaseCmd: &cmd.BaseCmd{},
 	}
 
-	// Create cobra command
-	rootCmd := NewRootCmd(rootCmdInstance)
+	// Create cobra command.
+	rootCmd, err := NewRootCmd(rootCmdInstance)
+	if err != nil {
+		// TODO: Handle top level error.
+	}
 
 	// Add hook to update loggers after flag parsing
 	rootCmd.PersistentPreRun = func(cmd *cobra.Command, args []string) {
@@ -51,7 +57,7 @@ func Execute() {
 	}
 }
 
-func NewRootCmd(c *RootCmd) *cobra.Command {
+func NewRootCmd(c *RootCmd) (*cobra.Command, error) {
 	rootCmd := &cobra.Command{
 		Use:          "mcpd <command> [args]",
 		Short:        "'mcpd' CLI is the primary interface for developers to interact with mcpd.",
@@ -64,16 +70,37 @@ func NewRootCmd(c *RootCmd) *cobra.Command {
 	flags.InitFlags(rootCmd.PersistentFlags())
 
 	// Add top-level commands
-	rootCmd.AddCommand(NewInitCmd(c.BaseCmd))
-	rootCmd.AddCommand(server.NewSearchCmd(c.BaseCmd))
-	rootCmd.AddCommand(server.NewAddCmd(c.BaseCmd))
-	rootCmd.AddCommand(server.NewRemoveCmd(c.BaseCmd))
-	rootCmd.AddCommand(server.NewDaemonCmd(c.BaseCmd))
-	rootCmd.AddCommand(config.NewConfigCmd(c.BaseCmd))
+	p, err := printer.NewPrinter(rootCmd.OutOrStdout())
+	if err != nil {
+		return nil, err
+	}
 
-	return rootCmd
+	opts := []options.CmdOption{
+		options.WithPrinter(p),
+		options.WithRegistryBuilder(c.BaseCmd),
+	}
+
+	fns := []createCmdFunc{
+		NewInitCmd,
+		NewSearchCmd,
+		NewAddCmd,
+		NewRemoveCmd,
+		NewDaemonCmd,
+		NewConfigCmd,
+	}
+
+	for _, fn := range fns {
+		tempCmd, err := fn(c.BaseCmd, opts...)
+		if err != nil {
+			return nil, err
+		}
+		rootCmd.AddCommand(tempCmd)
+	}
+
+	return rootCmd, nil
 }
 
+// TODO: Remove and call RootCmd.Logger()?
 func configureLogger() (hclog.Logger, error) {
 	// Use flags first, then fall back to env vars
 	logPath := flags.LogPath

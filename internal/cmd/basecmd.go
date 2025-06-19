@@ -9,8 +9,11 @@ import (
 	"github.com/hashicorp/go-hclog"
 
 	"github.com/mozilla-ai/mcpd-cli/v2/internal/flags"
+	"github.com/mozilla-ai/mcpd-cli/v2/internal/provider/mcpm"
 	"github.com/mozilla-ai/mcpd-cli/v2/internal/registry"
 )
+
+var _ registry.Builder = (*BaseCmd)(nil)
 
 type BaseCmd struct {
 	logger hclog.Logger
@@ -43,7 +46,7 @@ func (c *BaseCmd) Logger() hclog.Logger {
 	}
 
 	// Configure logger output
-	var output io.Writer = io.Discard // os.Stderr
+	output := io.Discard // os.Stderr
 	if logPath != "" {
 		f, err := os.OpenFile(logPath, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0o644)
 		if err != nil {
@@ -63,15 +66,17 @@ func (c *BaseCmd) Logger() hclog.Logger {
 	return c.logger
 }
 
-func (c *BaseCmd) CreateRegistry() (registry.PackageResolver, error) {
+func (c *BaseCmd) Build() (registry.PackageProvider, error) {
 	l := c.Logger().Named("registry")
 
-	mcpm, err := registry.NewMCPMRegistry(l, "https://mcpm.sh/api/servers.json") // TODO: hard coded URL
+	mcpm, err := mcpm.NewRegistry(l, "https://mcpm.sh/api/servers.json") // TODO: Should we be using a hardcoded URL
 	if err != nil {
+		// TODO: Handle tolerating some failed registries, as long as we can meet a minimum requirement.
 		return nil, err
 	}
 
-	registries := []registry.PackageResolver{
+	// NOTE: The order the registries are added here determines their precedence when searching and resolving packages.
+	registries := []registry.PackageProvider{
 		mcpm,
 		// TODO: Add more registries...
 	}

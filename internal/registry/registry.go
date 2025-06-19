@@ -2,43 +2,48 @@ package registry
 
 import (
 	"fmt"
-	"strings"
 
 	"github.com/hashicorp/go-hclog"
 
-	"github.com/mozilla-ai/mcpd-cli/v2/internal/registry/types"
+	"github.com/mozilla-ai/mcpd-cli/v2/internal/filter"
+	"github.com/mozilla-ai/mcpd-cli/v2/internal/packages"
+	"github.com/mozilla-ai/mcpd-cli/v2/internal/registry/options"
+)
+
+const registryName = "aggregator"
+
+// Ensure Registry implements PackageProvider
+var (
+	_ PackageProvider = (*Registry)(nil)
 )
 
 // PackageSearcher defines the interface for searching for packages in a registry.
 type PackageSearcher interface {
 	// Search finds packages based on a query string and optional filters.
 	// The name query should ideally be the name or package name (e.g., "time" or "mcp-server-time")
-	// Filters can include "runtime", "tool", "transport", "version", etc. (case-insensitive values).
-	Search(name string, filters map[string]string) ([]types.PackageResult, error)
+	// Filters can include "runtime", "tools", "license", "version", etc. (case-insensitive values).
+	Search(name string, filters map[string]string, opt ...options.SearchOption) ([]packages.Package, error)
 }
 
-// PackageGetter defines the interface for retrieving a specific version of a package from a registry.
-type PackageGetter interface {
-	// Get retrieves a specific version of a package by its unique ID.
+// PackageResolver defines the interface for retrieving a specific version of a package from a registry.
+type PackageResolver interface {
+	// Resolve retrieves a specific version of a package by its unique ID.
 	// If version is not supplied as an option, it should use 'latest'.
 	// This may be ignored if version filtering is not supported.
-	Get(id string, opts ...types.GetterOption) (types.PackageResult, error)
+	Resolve(name string, opt ...options.ResolveOption) (packages.Package, error)
 }
 
-// PackageResolver defines the common interface for any type that can provide
+// PackageProvider defines the common interface for any type that can provide
 // package search and retrieval capabilities.
-type PackageResolver interface {
+type PackageProvider interface {
 	PackageSearcher
-	PackageGetter
+	PackageResolver
 	// ID returns the ID of this PackageResolver
 	ID() string
 }
 
-type GetOptions struct {
-	Version string
-	Runtime types.Runtime
-	Tools   []string
-	// Add more fields as needed
+type Builder interface {
+	Build() (PackageProvider, error)
 }
 
 // Registry combines multiple PackageResolver implementations and allows searching
@@ -46,144 +51,147 @@ type GetOptions struct {
 // the main entry point for package discovery in the application.
 type Registry struct {
 	logger     hclog.Logger
-	registries map[string]PackageResolver
+	registries map[string]PackageProvider
 }
 
-// NewRegistry creates a new Registry instance with the given individual package registries.
-func NewRegistry(logger hclog.Logger, regs ...PackageResolver) (*Registry, error) {
-	m := make(map[string]PackageResolver, len(regs))
+// NewRegistry creates a new Registry instance which will aggregate operations across the supplied package providers.
+func NewRegistry(logger hclog.Logger, regs ...PackageProvider) (*Registry, error) {
+	m := make(map[string]PackageProvider, len(regs))
 	for _, r := range regs {
 		id := r.ID()
 		if _, exists := m[id]; exists {
-			return nil, fmt.Errorf("duplicate PackageResolver ID detected: %q", id)
+			return nil, fmt.Errorf("duplicate registry ID detected: %s", id)
 		}
 		m[id] = r
 	}
 	return &Registry{
 		registries: m,
-		logger:     logger.Named("aggregator"),
+		logger:     logger.Named(registryName),
 	}, nil
 }
 
 func (r *Registry) ID() string {
-	return "aggregator" // TODO: sort out naming.
+	return registryName
 }
 
-// Search implements the PackageSearcher interface for Registry.
-// It iterates through all contained registries, calls their Search method,
-// and then aggregates and de-duplicates the results.
-// The name parameter should be the raw package string from config.ServerEntry.Package,
-// including any prefixes like "uvx::" and version suffixes like "@0.6.2". This method will handle parsing.
-func (r *Registry) Search(name string, filters map[string]string) ([]types.PackageResult, error) {
-	var allResults []types.PackageResult
-	// Use a map to track seen IDs to avoid duplicates across registries.
-	seenAggregatedIDs := make(map[string]struct{})
-
-	// Parse the name string to extract runtime, base ID, and version
-	runtime, baseID, version := parsePackageString(name)
-
-	// Add parsed runtime and version as filters
-	if filters == nil {
-		filters = make(map[string]string)
+// Resolve implements the PackageGetter interface for Registry.
+// It attempts to retrieve a package by name from each contained registry in order,
+// returning the first one that matches any optional supplied resolution criteria.
+func (r *Registry) Resolve(name string, opt ...options.ResolveOption) (packages.Package, error) {
+	// Handle name.
+	name = filter.NormalizeString(name)
+	if name == "" {
+		return packages.Package{}, fmt.Errorf("name is required")
 	}
-	if runtime != "" {
-		filters["runtime"] = runtime
-	}
-	if version != "" {
-		filters["version"] = version // Add version filter
-	}
-	// Always inject name filter
-	filters["name"] = name
 
-	for _, reg := range r.registries {
-		// Pass the *parsed* base ID (as the name) and the updated filters to individual registries
-		results, err := reg.Search(baseID, filters)
-		if err != nil {
-			// TODO: logger
-			fmt.Printf("Error searching registry %T: %v\n", reg, err)
-			continue // Continue searching other registries even if one fails
-		}
-		for _, res := range results {
-			// Create a unique ID for aggregation across different sources
-			aggregatedID := fmt.Sprintf("%s_%s", res.Source, res.ID)
-			if _, seen := seenAggregatedIDs[aggregatedID]; !seen {
-				allResults = append(allResults, res)
-				seenAggregatedIDs[aggregatedID] = struct{}{}
-			}
-		}
-	}
-	return allResults, nil
-}
-
-// Get implements the PackageGetter interface for Registry.
-// It attempts to retrieve a package by ID from each contained registry in order,
-// returning the first one found that matches the runtime and version criteria.
-// The id parameter should be the raw package string from config.ServerEntry.Package,
-// including any prefixes like "uvx::" and version suffixes like "@0.6.2".
-func (r *Registry) Get(id string, opts ...types.GetterOption) (types.PackageResult, error) {
-	// Parse options
-	options, err := types.GetGetterOpts(opts...)
+	// Handle options.
+	opts, err := options.NewResolveOptions(opt...)
 	if err != nil {
-		return types.PackageResult{}, err
+		return packages.Package{}, err
 	}
 
-	r.logger.Debug("Getting package", "id", id, "version", options.Version)
+	r.logger.Debug(
+		"Resolving package",
+		"name", name,
+		"version", opts.Version,
+		"runtime", opts.Runtime,
+		"source", opts.Source,
+	)
 
-	// Parse the id string to extract runtime, base ID, and version
-	// Note: We use the 'version' parameter passed to Get first, then fallback to parsing it from 'id'
-	// if 'version' parameter is empty. This allows explicit 'version' overrides.
-	requestedRuntime, baseID, _ := parsePackageString(id)
-
-	getOpts := []types.GetterOption{types.WithVersion(options.Version)}
-	if requestedRuntime != "" {
-		getOpts = append(getOpts, types.WithRuntime(types.Runtime(requestedRuntime)))
-	}
-
-	for regName, reg := range r.registries {
-		// Attempt to get the package using the parsed base ID and determined version
-		result, err := reg.Get(baseID, getOpts...)
-		if err != nil {
-			r.logger.Error("error getting package from registry", "registry", regName, "package", baseID, "error", err)
-			continue
+	if opts.Source != "" {
+		reg, ok := r.registries[opts.Source]
+		if !ok {
+			return packages.Package{}, fmt.Errorf("required source registry not found: %s", opts.Source)
 		}
 
-		// If a specific runtime was requested via prefix, ensure the found package supports it
-		if requestedRuntime != "" {
-			foundRuntime := false
-			for _, r := range result.Runtimes {
-				if strings.EqualFold(r, requestedRuntime) {
-					foundRuntime = true
-					break
-				}
-			}
-			if !foundRuntime {
-				// Package found by ID and version, but doesn't support the requested runtime prefix
-				r.logger.Warn("Package does not support requested runtime ", "registry", regName, "package", baseID, "runtime", requestedRuntime)
-				continue
-			}
+		result, err := reg.Resolve(name, opt...)
+		if err != nil {
+			r.logger.Error(
+				"Error resolving package in registry",
+				"registry", reg.ID(),
+				"package", name,
+				"error", err,
+			)
+			return packages.Package{}, fmt.Errorf("error resolving package '%s' from registry '%s': %w", name, reg.ID(), err)
 		}
 
 		return result, nil
 	}
 
-	return types.PackageResult{}, fmt.Errorf("package not found in any registry: package '%s', version '%s', runtime '%s'", baseID, options.Version, requestedRuntime)
+	// Search over registries, returning the first resolved package.
+	for regName, reg := range r.registries {
+		result, err := reg.Resolve(name, opt...)
+		if err != nil {
+			r.logger.Warn(
+				"error getting package from registry",
+				"name", name,
+				"registry", regName,
+				"error", err,
+			)
+			continue
+		}
+		return result, nil
+	}
+
+	err = fmt.Errorf(
+		"package '%s', version '%s', runtime '%s' not found in any registry",
+		name,
+		opts.Version,
+		opts.Runtime,
+	)
+	return packages.Package{}, err
 }
 
-// parsePackageString extracts runtime, base ID, and version from a package string like "uvx::time@0.6.2".
-func parsePackageString(packageString string) (runtime, baseID, version string) {
-	parts := strings.SplitN(packageString, "::", 2)
-	if len(parts) == 2 {
-		runtime = parts[0]
-		packageString = parts[1] // Remaining part after runtime prefix
+// Search implements the PackageSearcher interface for Registry.
+// It iterates through all contained registries, calls their Search method, and then aggregates and de-duplicates the results.
+// Filters can be used to specify
+func (r *Registry) Search(name string, filters map[string]string, opt ...options.SearchOption) ([]packages.Package, error) {
+	// Handle name
+	name = filter.NormalizeString(name)
+	if name == "" {
+		return []packages.Package{}, fmt.Errorf("name is required")
 	}
 
-	// Check for version suffix
-	if atIndex := strings.LastIndex(packageString, "@"); atIndex != -1 {
-		baseID = packageString[:atIndex]
-		version = packageString[atIndex+1:]
-	} else {
-		baseID = packageString
-		version = "" // Default to empty string, which Get will treat as 'latest'
+	// Handle filters.
+	fs, err := options.PrepareFilters(filters, name, nil)
+	if err != nil {
+		// Since the registry doesn't attempt to mutate the returned filters, we don't expect any errors.
+		return []packages.Package{}, fmt.Errorf("unexpected error preparing filters for %s: %w", r.ID(), err)
 	}
-	return runtime, baseID, version
+
+	// Handle options.
+	opts, err := options.NewSearchOptions(opt...)
+	if err != nil {
+		return nil, err
+	}
+
+	var allResults []packages.Package
+
+	// If a specific source registry was requested, only check that one for packages.
+	if opts.Source != "" {
+		reg, ok := r.registries[opts.Source]
+		if !ok {
+			return nil, fmt.Errorf("required source registry not found: %s", opts.Source)
+		}
+		results, err := reg.Search(name, fs, opt...)
+		if err != nil {
+			r.logger.Error("Error searching registry", "registry", reg.ID(), "error", err)
+			return nil, err
+		}
+
+		return results, nil
+	}
+
+	// Search all registries for packages.
+	for _, reg := range r.registries {
+		results, err := reg.Search(name, fs, opt...)
+		if err != nil {
+			r.logger.Warn("Error searching registry ... continuing", "registry", reg.ID(), "error", err)
+			continue // Continue searching other registries even if one fails.
+		}
+
+		allResults = append(allResults, results...)
+	}
+
+	return allResults, nil
 }

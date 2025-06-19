@@ -14,13 +14,9 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/mozilla-ai/mcpd-cli/v2/internal/registry"
-	"github.com/mozilla-ai/mcpd-cli/v2/internal/registry/types"
-
+	"github.com/hashicorp/go-hclog"
 	"github.com/mark3labs/mcp-go/client"
 	"github.com/mark3labs/mcp-go/mcp"
-
-	"github.com/hashicorp/go-hclog"
 
 	"github.com/mozilla-ai/mcpd-cli/v2/internal/config"
 	configcontext "github.com/mozilla-ai/mcpd-cli/v2/internal/context"
@@ -33,30 +29,37 @@ type Daemon struct {
 	logger            hclog.Logger
 	clients           map[string]*client.Client
 	mu                *sync.RWMutex
-	supportedRuntimes map[types.Runtime]struct{}
+	supportedRuntimes map[runtime.Runtime]struct{}
+	cfgLoader         config.Loader
 }
 
-func NewDaemon(logger hclog.Logger) *Daemon {
+func NewDaemon(logger hclog.Logger, cfgLoader config.Loader) (*Daemon, error) {
+	if logger == nil || cfgLoader == nil {
+		return nil, fmt.Errorf("logger and config loader must be provided")
+	}
+
 	clients := make(map[string]*client.Client)
 	clientsMutex := &sync.RWMutex{}
 	l := logger.Named("daemon")
+
 	return &Daemon{
 		logger:            l,
 		clients:           clients,
 		mu:                clientsMutex,
-		supportedRuntimes: registry.DefaultSupportedRuntimes(),
+		supportedRuntimes: runtime.DefaultSupportedRuntimes(),
 		apiServer: &ApiServer{
 			logger:       l.Named("api"),
 			clients:      clients,
 			clientsMutex: clientsMutex,
 			serverTools:  make(map[string][]string),
 		},
-	}
+		cfgLoader: cfgLoader,
+	}, nil
 }
 
-func (d *Daemon) LoadConfig() ([]runtime.RuntimeServer, error) {
+func (d *Daemon) LoadConfig() ([]runtime.Server, error) {
 	cfgPath := flags.ConfigFile
-	cfg, err := config.LoadConfig(cfgPath)
+	cfg, err := d.cfgLoader.Load(cfgPath)
 	if err != nil {
 		return nil, err
 	}
@@ -109,7 +112,7 @@ func (d *Daemon) StartAndManage(ctx context.Context) error {
 	startupWg.Wait()
 	fmt.Println("MCP server started")
 
-	// TODO: Configurable?
+	// TODO: Configurable intervals/timeouts.
 	healthcheckInterval := 10 * time.Second
 	pingTimeout := 3 * time.Second
 
@@ -118,7 +121,7 @@ func (d *Daemon) StartAndManage(ctx context.Context) error {
 	readyChan := make(chan struct{})
 
 	go func() {
-		err := d.apiServer.Start(8090, readyChan) // TODO: Pass in.
+		err := d.apiServer.Start(8090, readyChan) // TODO: Configurable port
 		if err != nil {
 			d.logger.Error(fmt.Sprintf("API server failed: %s", err))
 		}
@@ -149,19 +152,24 @@ func (d *Daemon) setupSignalHandler() {
 	}()
 }
 
-func (d *Daemon) launchServer(ctx context.Context, server runtime.RuntimeServer, wg *sync.WaitGroup) error {
+func (d *Daemon) launchServer(ctx context.Context, server runtime.Server, wg *sync.WaitGroup) error {
 	defer wg.Done()
 
 	runtimeBinary := server.Runtime()
-	_, supported := d.supportedRuntimes[types.Runtime(runtimeBinary)]
+	_, supported := d.supportedRuntimes[runtime.Runtime(runtimeBinary)]
 	if !supported {
 		return fmt.Errorf("unsupported runtime/repository '%s' for MCP server daemon '%s'", runtimeBinary, server.Name)
 	}
 
-	// Strip arbitrary package prefix (e.g. pypi::)
+	// Strip arbitrary package prefix (e.g. uvx::)
 	packageNameAndVersion := strings.TrimPrefix(server.Package, runtimeBinary+"::")
 	env := server.Environ()
-	args := append([]string{packageNameAndVersion}, server.Args...)
+	var args []string
+	// TODO: npx requires '-y' before the package name
+	if runtime.Runtime(runtimeBinary) == runtime.NPX {
+		args = append(args, "y")
+	}
+	args = append([]string{packageNameAndVersion}, server.Args...)
 
 	d.logger.Info(
 		"attempting to start MCP server",
@@ -208,7 +216,7 @@ func (d *Daemon) launchServer(ctx context.Context, server runtime.RuntimeServer,
 	}(stdErrCtx)
 	defer stdErrCancel()
 
-	initializeCtx, cancel := context.WithTimeout(ctx, 30*time.Second) // TODO: Configurable.
+	initializeCtx, cancel := context.WithTimeout(ctx, 30*time.Second) // TODO: Configurable timeout.
 	defer cancel()
 
 	// 'Initialize'

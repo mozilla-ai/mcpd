@@ -112,17 +112,17 @@ func (a *ApiServer) handleApiRequest(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// TODO: Remove debug logging for this later.
 	a.logger.Debug("API request received", "method", r.Method, "path", path)
 
-	ctx, cancel := context.WithTimeout(r.Context(), 15*time.Second) // TODO: Configure, but can only be as long as the request context timeout
+	// TODO: Configurable timeout, but can only be as long as the request context timeout
+	ctx, cancel := context.WithTimeout(r.Context(), 15*time.Second)
 	defer cancel()
 
 	handleResult := func(result any, err error) {
 		if err != nil {
 			a.handleError(w, err)
 		} else {
-			// TODO: Remove debug logging for this later.
+			// TODO: Remove debug logging for this later to prevent data leaking into logs.
 			a.logger.Debug("API request response", "method", r.Method, "path", path, "result", result)
 			a.writeJSON(w, result)
 		}
@@ -222,7 +222,7 @@ func (a *ApiServer) callTool(ctx context.Context, serverName, toolName string, a
 		return nil, fmt.Errorf("%w: %s/%s", ErrToolForbidden, serverName, toolName)
 	}
 
-	// TODO: Remove debug logging later.
+	// TODO: Remove debug logging later to prevent data leaking into logs.
 	a.logger.Debug("Calling tool", "server", serverName, "tool", toolName, "args", args)
 
 	result, err := mcpClient.CallTool(ctx, mcp.CallToolRequest{
@@ -233,18 +233,30 @@ func (a *ApiServer) callTool(ctx context.Context, serverName, toolName string, a
 	})
 	if err != nil {
 		return nil, fmt.Errorf("%w: %s/%s: %v", ErrToolCallFailed, serverName, toolName, err)
+	} else if result == nil {
+		return nil, fmt.Errorf("%w: %s/%s: result was nil", ErrToolCallFailedUnknown, serverName, toolName)
 	} else if result.IsError {
-		return nil, fmt.Errorf("%w: %s/%s: %v", ErrToolCallFailedUnknown, serverName, toolName, err)
+		return nil, fmt.Errorf("%w: %s/%s: %v", ErrToolCallFailedUnknown, serverName, toolName, a.extractMessage(result.Content))
+	}
+
+	return a.extractMessage(result.Content), nil
+}
+
+// extractMessage searches the provided content and returns the text from the first mcp.TextContent item encountered.
+// If the slice is nil, empty, or contains no text content, an empty string is returned.
+func (a *ApiServer) extractMessage(content []mcp.Content) string {
+	message := ""
+	if content == nil || len(content) == 0 {
+		return message
 	}
 
 	// The mcp-go library returns a slice of content items. For most tools, this will be a single text item.
-	for _, content := range result.Content {
-		if textContent, ok := content.(mcp.TextContent); ok {
+	for _, c := range content {
+		if tc, ok := c.(mcp.TextContent); ok {
 			// We will return the text from the first text content item we find.
-			return textContent.Text, nil
+			return tc.Text
 		}
 	}
 
-	// Fallback to returning the entire content.
-	return result.Content, nil // TODO: Is this OK, should we error (also lock down the return type to TextContent)
+	return message
 }

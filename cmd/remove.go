@@ -1,4 +1,4 @@
-package server
+package cmd
 
 import (
 	"fmt"
@@ -7,6 +7,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/mozilla-ai/mcpd-cli/v2/internal/cmd"
+	cmdopts "github.com/mozilla-ai/mcpd-cli/v2/internal/cmd/options"
 	"github.com/mozilla-ai/mcpd-cli/v2/internal/config"
 	"github.com/mozilla-ai/mcpd-cli/v2/internal/flags"
 )
@@ -14,12 +15,19 @@ import (
 // RemoveCmd should be used to represent the 'remove' command.
 type RemoveCmd struct {
 	*cmd.BaseCmd
+	cfgLoader config.Loader
 }
 
 // NewRemoveCmd creates a newly configured (Cobra) command.
-func NewRemoveCmd(baseCmd *cmd.BaseCmd) *cobra.Command {
+func NewRemoveCmd(baseCmd *cmd.BaseCmd, opt ...cmdopts.CmdOption) (*cobra.Command, error) {
+	opts, err := cmdopts.NewOptions(opt...)
+	if err != nil {
+		return nil, err
+	}
+
 	c := &RemoveCmd{
-		BaseCmd: baseCmd,
+		BaseCmd:   baseCmd,
+		cfgLoader: opts.ConfigLoader,
 	}
 
 	cobraCommand := &cobra.Command{
@@ -29,7 +37,7 @@ func NewRemoveCmd(baseCmd *cmd.BaseCmd) *cobra.Command {
 		RunE:  c.run,
 	}
 
-	return cobraCommand
+	return cobraCommand, nil
 }
 
 // longDescription returns the long version of the command description.
@@ -52,7 +60,7 @@ func (c *RemoveCmd) run(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("server name cannot be empty")
 	}
 
-	cfg, err := config.NewConfig(flags.ConfigFile)
+	cfg, err := c.cfgLoader.Load(flags.ConfigFile)
 	if err != nil {
 		return err
 	}

@@ -1,10 +1,11 @@
 package mcpm
 
-// ServerMap represents the root JSON object, which is a map of server IDs to ServerDetails.
-type ServerMap map[string]ServerDetails
+// MCPServers represents the root JSON object, which is a map of MCP server IDs to MCPServer.
+type MCPServers map[string]MCPServer
 
-// ServerDetails represents the detailed information for a single server.
-type ServerDetails struct {
+// MCPServer represents the detailed information for a MCP single server.
+// NOTE: Based on mcpm server schema: https://github.com/pathintegral-institute/mcpm.sh/blob/8edbd723cf3c35433739afb27a723fdcdf763c23/mcp-registry/schema/server-schema.json
+type MCPServer struct {
 	Name          string                  `json:"name"`
 	DisplayName   string                  `json:"display_name"`
 	Description   string                  `json:"description"`

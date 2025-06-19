@@ -1,0 +1,62 @@
+package options
+
+import (
+	"github.com/mozilla-ai/mcpd-cli/v2/internal/cmd"
+	"github.com/mozilla-ai/mcpd-cli/v2/internal/config"
+	"github.com/mozilla-ai/mcpd-cli/v2/internal/printer"
+	"github.com/mozilla-ai/mcpd-cli/v2/internal/registry"
+)
+
+type CmdOption func(*CmdOptions) error
+
+type CmdOptions struct {
+	ConfigLoader      config.Loader
+	ConfigInitializer config.Initializer
+	Printer           printer.Printer
+	RegistryBuilder   registry.Builder
+}
+
+func defaultOptions() CmdOptions {
+	dl := &config.DefaultLoader{}
+	return CmdOptions{
+		ConfigLoader:      dl,
+		ConfigInitializer: dl,
+		Printer:           &printer.DefaultPrinter{},
+		RegistryBuilder:   &cmd.BaseCmd{},
+	}
+}
+
+func NewOptions(opt ...CmdOption) (CmdOptions, error) {
+	opts := defaultOptions()
+
+	for _, o := range opt {
+		if o == nil {
+			continue
+		}
+		if err := o(&opts); err != nil {
+			return CmdOptions{}, err
+		}
+	}
+	return opts, nil
+}
+
+func WithConfigLoader(l config.Loader) CmdOption {
+	return func(o *CmdOptions) error {
+		o.ConfigLoader = l
+		return nil
+	}
+}
+
+func WithPrinter(p printer.Printer) CmdOption {
+	return func(o *CmdOptions) error {
+		o.Printer = p
+		return nil
+	}
+}
+
+func WithRegistryBuilder(b registry.Builder) CmdOption {
+	return func(o *CmdOptions) error {
+		o.RegistryBuilder = b
+		return nil
+	}
+}

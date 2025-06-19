@@ -3,6 +3,7 @@ package config
 import (
 	"fmt"
 	"os"
+	"slices"
 	"strings"
 
 	"github.com/BurntSushi/toml"
@@ -10,19 +11,14 @@ import (
 	"github.com/mozilla-ai/mcpd-cli/v2/internal/flags"
 )
 
-func NewConfig(path string) (Config, error) {
-	return LoadConfig(path)
-}
-
-// InitConfigFile creates the base skeleton configuration file for the mcpd project.
-func InitConfigFile(path string) error {
+// Init creates the base skeleton configuration file for the mcpd project.
+func (d *DefaultLoader) Init(path string) error {
 	if _, err := os.Stat(path); err == nil {
 		return fmt.Errorf("%s already exists", path)
 	} else if !os.IsNotExist(err) {
 		return fmt.Errorf("failed to stat %s: %w", path, err)
 	}
 
-	// TODO: Use the Config data structure.
 	content := `servers = []`
 
 	if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
@@ -30,6 +26,34 @@ func InitConfigFile(path string) error {
 	}
 
 	return nil
+}
+
+func (d *DefaultLoader) Load(path string) (Modifier, error) {
+	_, err := os.Stat(path)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return nil, fmt.Errorf("config file cannot be found, run: 'mcpd init'")
+		}
+		return nil, fmt.Errorf("failed to stat config file (%s): %w", path, err)
+	}
+
+	var cfg *Config
+	_, err = toml.DecodeFile(path, &cfg)
+	if err != nil {
+		return nil, fmt.Errorf("failed to decode config from file (%s): %w", flags.DefaultConfigFile, err)
+	}
+	if cfg == nil || len(cfg.Servers) == 0 {
+		return nil, fmt.Errorf("config file is empty (%s)", path)
+	}
+
+	if err := cfg.validate(); err != nil {
+		return nil, fmt.Errorf("failed to validate existing config (%s): %w", path, err)
+	}
+
+	// Update the path that loaded this file to track it.
+	cfg.configFilePath = path
+
+	return cfg, nil
 }
 
 // AddServer attempts to persist a new MCP Server to the configuration file (.mcpd.toml).
@@ -82,30 +106,10 @@ func (c *Config) RemoveServer(name string) error {
 	return nil
 }
 
-func LoadConfig(path string) (Config, error) {
-	var cfg Config
-
-	_, err := os.Stat(path)
-	if err != nil {
-		if os.IsNotExist(err) {
-			return cfg, fmt.Errorf("config file cannot be found, run: 'mcpd init'")
-		}
-		return cfg, fmt.Errorf("failed to stat config file (%s): %w", path, err)
-	}
-
-	_, err = toml.DecodeFile(path, &cfg)
-	if err != nil {
-		return cfg, fmt.Errorf("failed to decode config from file (%s): %w", flags.DefaultConfigFile, err)
-	}
-
-	if err := cfg.validate(); err != nil {
-		return cfg, fmt.Errorf("failed to validate existing config (%s): %w", path, err)
-	}
-
-	// Update the path that loaded this file to track it.
-	cfg.configFilePath = path
-
-	return cfg, nil
+// ListServers returns a copy of the currently configured server entries.
+// This provides read-only access to the internal configuration without exposing direct mutation of the underlying slice.
+func (c *Config) ListServers() []ServerEntry {
+	return slices.Clone(c.Servers)
 }
 
 // keyFor generates a temporary version of the ServerEntry to be used as a composite key.
@@ -127,6 +131,10 @@ func stripVersion(pkg string) string {
 }
 
 func (c *Config) saveConfig() error {
+	if c.configFilePath == "" {
+		return fmt.Errorf("config file path not present")
+	}
+
 	data, err := toml.Marshal(c)
 	if err != nil {
 		return err
@@ -155,11 +163,6 @@ func (c *Config) validateServers() error {
 		return err
 	}
 	return nil
-
-	// TODO: Reqs:
-	// Check with the registry that the package exists
-	// Check we have configuration for the server stored?
-	// ...
 }
 
 // validateFields ensures that all ServerEntry's in Config have a name and package.
@@ -182,7 +185,7 @@ func (c *Config) validateDistinct() error {
 	for _, entry := range c.Servers {
 		k := keyFor(entry)
 		if _, exists := seen[k]; exists {
-			return fmt.Errorf("duplicate server entry: name: %q package: %q", k.Name, k.Package)
+			return fmt.Errorf("duplicate server entry: name: '%s' package: '%s'", k.Name, k.Package)
 		}
 		seen[k] = struct{}{}
 	}
