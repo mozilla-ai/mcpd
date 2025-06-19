@@ -8,7 +8,7 @@ import (
 
 	"github.com/BurntSushi/toml"
 
-	"github.com/mozilla-ai/mcpd-cli/v2/internal/flags"
+	"github.com/mozilla-ai/mcpd/v2/internal/flags"
 )
 
 // Init creates the base skeleton configuration file for the mcpd project.

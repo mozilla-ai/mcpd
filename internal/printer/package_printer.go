@@ -7,7 +7,7 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/mozilla-ai/mcpd-cli/v2/internal/packages"
+	"github.com/mozilla-ai/mcpd/v2/internal/packages"
 )
 
 type Printer interface {

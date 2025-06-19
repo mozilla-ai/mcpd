@@ -18,10 +18,10 @@ import (
 	"github.com/mark3labs/mcp-go/client"
 	"github.com/mark3labs/mcp-go/mcp"
 
-	"github.com/mozilla-ai/mcpd-cli/v2/internal/config"
-	configcontext "github.com/mozilla-ai/mcpd-cli/v2/internal/context"
-	"github.com/mozilla-ai/mcpd-cli/v2/internal/flags"
-	"github.com/mozilla-ai/mcpd-cli/v2/internal/runtime"
+	"github.com/mozilla-ai/mcpd/v2/internal/config"
+	configcontext "github.com/mozilla-ai/mcpd/v2/internal/context"
+	"github.com/mozilla-ai/mcpd/v2/internal/flags"
+	"github.com/mozilla-ai/mcpd/v2/internal/runtime"
 )
 
 type Daemon struct {

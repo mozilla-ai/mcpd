@@ -1,7 +1,7 @@
 package main
 
 import (
-	"github.com/mozilla-ai/mcpd-cli/v2/cmd"
+	"github.com/mozilla-ai/mcpd/v2/cmd"
 )
 
 func main() {

@@ -3,8 +3,8 @@ package options
 import (
 	"maps"
 
-	"github.com/mozilla-ai/mcpd-cli/v2/internal/filter"
-	"github.com/mozilla-ai/mcpd-cli/v2/internal/packages"
+	"github.com/mozilla-ai/mcpd/v2/internal/filter"
+	"github.com/mozilla-ai/mcpd/v2/internal/packages"
 )
 
 const (

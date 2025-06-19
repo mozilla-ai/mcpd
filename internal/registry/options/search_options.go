@@ -1,7 +1,7 @@
 package options
 
 import (
-	"github.com/mozilla-ai/mcpd-cli/v2/internal/filter"
+	"github.com/mozilla-ai/mcpd/v2/internal/filter"
 )
 
 type SearchOption func(*SearchOptions) error

@@ -9,8 +9,8 @@ import (
 	"github.com/hashicorp/go-hclog"
 	"github.com/stretchr/testify/require"
 
-	"github.com/mozilla-ai/mcpd-cli/v2/internal/packages"
-	"github.com/mozilla-ai/mcpd-cli/v2/internal/registry/options"
+	"github.com/mozilla-ai/mcpd/v2/internal/packages"
+	"github.com/mozilla-ai/mcpd/v2/internal/registry/options"
 )
 
 // Define a dummy JSON payload to be served by the mock HTTP server.

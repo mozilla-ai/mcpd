@@ -9,10 +9,10 @@ import (
 	"github.com/hashicorp/go-hclog"
 	"github.com/spf13/cobra"
 
-	"github.com/mozilla-ai/mcpd-cli/v2/internal/cmd"
-	"github.com/mozilla-ai/mcpd-cli/v2/internal/cmd/options"
-	"github.com/mozilla-ai/mcpd-cli/v2/internal/flags"
-	"github.com/mozilla-ai/mcpd-cli/v2/internal/printer"
+	"github.com/mozilla-ai/mcpd/v2/internal/cmd"
+	"github.com/mozilla-ai/mcpd/v2/internal/cmd/options"
+	"github.com/mozilla-ai/mcpd/v2/internal/flags"
+	"github.com/mozilla-ai/mcpd/v2/internal/printer"
 )
 
 var version = "dev" // Set at build time using -ldflags

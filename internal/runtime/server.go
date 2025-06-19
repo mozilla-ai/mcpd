@@ -5,8 +5,8 @@ import (
 	"os"
 	"strings"
 
-	"github.com/mozilla-ai/mcpd-cli/v2/internal/config"
-	"github.com/mozilla-ai/mcpd-cli/v2/internal/context"
+	"github.com/mozilla-ai/mcpd/v2/internal/config"
+	"github.com/mozilla-ai/mcpd/v2/internal/context"
 )
 
 // Server composes static config with runtime overrides.

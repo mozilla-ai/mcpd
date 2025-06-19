@@ -6,9 +6,9 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/mozilla-ai/mcpd-cli/v2/internal/config"
-	"github.com/mozilla-ai/mcpd-cli/v2/internal/printer"
-	"github.com/mozilla-ai/mcpd-cli/v2/internal/registry"
+	"github.com/mozilla-ai/mcpd/v2/internal/config"
+	"github.com/mozilla-ai/mcpd/v2/internal/printer"
+	"github.com/mozilla-ai/mcpd/v2/internal/registry"
 	"github.com/stretchr/testify/assert"
 )
 

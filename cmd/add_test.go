@@ -8,13 +8,13 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/mozilla-ai/mcpd-cli/v2/internal/cmd"
-	cmdopts "github.com/mozilla-ai/mcpd-cli/v2/internal/cmd/options"
-	"github.com/mozilla-ai/mcpd-cli/v2/internal/config"
-	"github.com/mozilla-ai/mcpd-cli/v2/internal/packages"
-	"github.com/mozilla-ai/mcpd-cli/v2/internal/registry"
-	"github.com/mozilla-ai/mcpd-cli/v2/internal/registry/options"
-	"github.com/mozilla-ai/mcpd-cli/v2/internal/runtime"
+	"github.com/mozilla-ai/mcpd/v2/internal/cmd"
+	cmdopts "github.com/mozilla-ai/mcpd/v2/internal/cmd/options"
+	"github.com/mozilla-ai/mcpd/v2/internal/config"
+	"github.com/mozilla-ai/mcpd/v2/internal/packages"
+	"github.com/mozilla-ai/mcpd/v2/internal/registry"
+	"github.com/mozilla-ai/mcpd/v2/internal/registry/options"
+	"github.com/mozilla-ai/mcpd/v2/internal/runtime"
 )
 
 type fakeConfig struct {

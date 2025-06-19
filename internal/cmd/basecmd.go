@@ -8,9 +8,9 @@ import (
 
 	"github.com/hashicorp/go-hclog"
 
-	"github.com/mozilla-ai/mcpd-cli/v2/internal/flags"
-	"github.com/mozilla-ai/mcpd-cli/v2/internal/provider/mcpm"
-	"github.com/mozilla-ai/mcpd-cli/v2/internal/registry"
+	"github.com/mozilla-ai/mcpd/v2/internal/flags"
+	"github.com/mozilla-ai/mcpd/v2/internal/provider/mcpm"
+	"github.com/mozilla-ai/mcpd/v2/internal/registry"
 )
 
 var _ registry.Builder = (*BaseCmd)(nil)
