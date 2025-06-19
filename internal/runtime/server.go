@@ -9,14 +9,14 @@ import (
 	"github.com/mozilla-ai/mcpd-cli/v2/internal/context"
 )
 
-// RuntimeServer composes static config with runtime overrides.
-type RuntimeServer struct {
+// Server composes static config with runtime overrides.
+type Server struct {
 	config.ServerEntry // import from internal/config
 	context.ServerExecutionContext
 }
 
 // Runtime returns the runtime (e.g. python, node) portion of the package string.
-func (s *RuntimeServer) Runtime() string {
+func (s *Server) Runtime() string {
 	parts := strings.Split(s.Package, "::")
 	if len(parts) > 0 {
 		return parts[0]
@@ -25,13 +25,13 @@ func (s *RuntimeServer) Runtime() string {
 }
 
 func AggregateConfigs(
-	cfg config.Config,
+	cfg config.Modifier,
 	executionContextCfg context.ExecutionContextConfig,
-) ([]RuntimeServer, error) {
-	var runtimeCfg []RuntimeServer
+) ([]Server, error) {
+	var runtimeCfg []Server
 
-	for _, s := range cfg.Servers {
-		runtimeServer := RuntimeServer{
+	for _, s := range cfg.ListServers() {
+		runtimeServer := Server{
 			ServerEntry: config.ServerEntry{
 				Name:    s.Name,
 				Package: s.Package,
@@ -53,7 +53,7 @@ func AggregateConfigs(
 	return runtimeCfg, nil
 }
 
-func (s *RuntimeServer) Environ() []string {
+func (s *Server) Environ() []string {
 	baseEnvs := os.Environ()
 	overrideEnvs := make([]string, 0, len(s.Env))
 	for k, v := range s.Env {

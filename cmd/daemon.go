@@ -1,26 +1,35 @@
-package server
+package cmd
 
 import (
 	"context"
 	"fmt"
 
-	"github.com/mozilla-ai/mcpd-cli/v2/internal/daemon"
 	"github.com/spf13/cobra"
 
 	"github.com/mozilla-ai/mcpd-cli/v2/internal/cmd"
+	cmdopts "github.com/mozilla-ai/mcpd-cli/v2/internal/cmd/options"
+	"github.com/mozilla-ai/mcpd-cli/v2/internal/config"
+	"github.com/mozilla-ai/mcpd-cli/v2/internal/daemon"
 )
 
 // DaemonCmd should be used to represent the 'daemon' command.
 type DaemonCmd struct {
 	*cmd.BaseCmd
-	Dev  bool
-	Addr string
+	Dev       bool
+	Addr      string
+	cfgLoader config.Loader
 }
 
 // NewDaemonCmd creates a newly configured (Cobra) command.
-func NewDaemonCmd(baseCmd *cmd.BaseCmd) *cobra.Command {
+func NewDaemonCmd(baseCmd *cmd.BaseCmd, opt ...cmdopts.CmdOption) (*cobra.Command, error) {
+	opts, err := cmdopts.NewOptions(opt...)
+	if err != nil {
+		return nil, err
+	}
+
 	c := &DaemonCmd{
-		BaseCmd: baseCmd,
+		BaseCmd:   baseCmd,
+		cfgLoader: opts.ConfigLoader,
 	}
 
 	cobraCommand := &cobra.Command{
@@ -39,7 +48,7 @@ func NewDaemonCmd(baseCmd *cmd.BaseCmd) *cobra.Command {
 	)
 	cobraCommand.MarkFlagsMutuallyExclusive("dev", "addr")
 
-	return cobraCommand
+	return cobraCommand, nil
 }
 
 // longDescription returns the long version of the command description.
@@ -52,6 +61,7 @@ In prod, binds to 0.0.0.0, logs to stdout, and runs as background service.`
 // run is configured (via NewDaemonCmd) to be called by the Cobra framework when the command is executed.
 // It may return an error (or nil, when there is no error).
 func (c *DaemonCmd) run(cmd *cobra.Command, args []string) error {
+	// TODO: Only runs in 'dev' mode...
 	//	addr := "localhost:8080"
 	//	if c.Addr != "" {
 	//		addr = c.Addr
@@ -63,8 +73,10 @@ func (c *DaemonCmd) run(cmd *cobra.Command, args []string) error {
 	//	c.Logger.Info("Secrets file", "path", "~/.mcpd/secrets.dev") // TODO: Configurable?
 	//	c.Logger.Info("Press Ctrl+C to stop.")
 
-	logger := c.Logger()
-	d := daemon.NewDaemon(logger)
+	d, err := daemon.NewDaemon(c.Logger(), c.cfgLoader)
+	if err != nil {
+		return fmt.Errorf("failed to create mcpd daemon instance: %w", err)
+	}
 	if err := d.StartAndManage(context.Background()); err != nil {
 		return fmt.Errorf("daemon start failed: %w", err)
 	}

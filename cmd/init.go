@@ -8,17 +8,25 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/mozilla-ai/mcpd-cli/v2/internal/cmd"
+	cmdopts "github.com/mozilla-ai/mcpd-cli/v2/internal/cmd/options"
 	"github.com/mozilla-ai/mcpd-cli/v2/internal/config"
 	"github.com/mozilla-ai/mcpd-cli/v2/internal/flags"
 )
 
 type InitCmd struct {
 	*cmd.BaseCmd
+	cfgInitializer config.Initializer
 }
 
-func NewInitCmd(baseCmd *cmd.BaseCmd) *cobra.Command {
+func NewInitCmd(baseCmd *cmd.BaseCmd, opt ...cmdopts.CmdOption) (*cobra.Command, error) {
+	opts, err := cmdopts.NewOptions(opt...)
+	if err != nil {
+		return nil, err
+	}
+
 	c := &InitCmd{
-		BaseCmd: baseCmd,
+		BaseCmd:        baseCmd,
+		cfgInitializer: opts.ConfigInitializer,
 	}
 
 	cobraCommand := &cobra.Command{
@@ -28,7 +36,7 @@ func NewInitCmd(baseCmd *cmd.BaseCmd) *cobra.Command {
 		RunE:  c.run,
 	}
 
-	return cobraCommand
+	return cobraCommand, nil
 }
 
 func (c *InitCmd) longDescription() string {
@@ -50,7 +58,7 @@ func (c *InitCmd) run(_ *cobra.Command, _ []string) error {
 
 	initFilePath := filepath.Join(cwd, flags.DefaultConfigFile)
 
-	if err := config.InitConfigFile(initFilePath); err != nil {
+	if err := c.cfgInitializer.Init(initFilePath); err != nil {
 		logger.Error("Project initialization failed", "error", err)
 		return fmt.Errorf("error initializing mcpd project: %w", err)
 	}

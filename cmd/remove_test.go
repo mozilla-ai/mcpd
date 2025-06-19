@@ -1,4 +1,4 @@
-package server
+package cmd
 
 import (
 	"bytes"
@@ -24,7 +24,7 @@ func TestRemoveServer(t *testing.T) {
 		expectedTools      []string
 		expectedOutputs    []string
 		expectedError      string
-		setupFn            func(t *testing.T, configPath string) // Optional setup function
+		setupFunc          func(t *testing.T, configPath string) // Optional setup function
 	}{
 		{
 			name:               "basic server remove",
@@ -33,7 +33,7 @@ func TestRemoveServer(t *testing.T) {
 			expectedOutputs: []string{
 				"✓ Removed server 'first-server'",
 			},
-			setupFn: func(t *testing.T, configPath string) {
+			setupFunc: func(t *testing.T, configPath string) {
 				// Create a config file with an existing server
 				initialContent := `[[servers]]
 name = "first-server"
@@ -60,7 +60,7 @@ package = "modelcontextprotocol/first-server@latest"
 			expectedOutputs: []string{
 				"✓ Removed server 'test-server-with-spaces'",
 			},
-			setupFn: func(t *testing.T, configPath string) {
+			setupFunc: func(t *testing.T, configPath string) {
 				// Create a config file with an existing server
 				initialContent := `[[servers]]
 name = "test-server-with-spaces"
@@ -77,7 +77,7 @@ package = "modelcontextprotocol/test-server-with-spaces@latest"
 			expectedOutputs: []string{
 				"✓ Removed server 'second-server'",
 			},
-			setupFn: func(t *testing.T, configPath string) {
+			setupFunc: func(t *testing.T, configPath string) {
 				// Create a config file with an existing server
 				initialContent := `[[servers]]
 name = "first-server"
@@ -99,8 +99,8 @@ package = "modelcontextprotocol/second-server@latest"
 			tempFile, err := os.CreateTemp(tmpDir, ".mcpd.toml")
 			require.NoError(t, err)
 
-			if tc.setupFn != nil {
-				tc.setupFn(t, tempFile.Name())
+			if tc.setupFunc != nil {
+				tc.setupFunc(t, tempFile.Name())
 			}
 
 			// Create a buffer to capture output
@@ -108,7 +108,8 @@ package = "modelcontextprotocol/second-server@latest"
 
 			// Create the command
 			baseCmd := &cmd.BaseCmd{}
-			c := NewRemoveCmd(baseCmd)
+			c, err := NewRemoveCmd(baseCmd)
+			require.NoError(t, err)
 			c.SetOut(output)
 			c.SetErr(output)
 			c.SetArgs(tc.args)

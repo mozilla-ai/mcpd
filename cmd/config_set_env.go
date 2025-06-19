@@ -1,4 +1,4 @@
-package config
+package cmd
 
 import (
 	"fmt"
@@ -9,6 +9,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/mozilla-ai/mcpd-cli/v2/internal/cmd"
+	cmdopts "github.com/mozilla-ai/mcpd-cli/v2/internal/cmd/options"
 	"github.com/mozilla-ai/mcpd-cli/v2/internal/context"
 )
 
@@ -17,7 +18,7 @@ type SetEnvCmd struct {
 	EnvVars []string
 }
 
-func NewSetEnvCmd(baseCmd *cmd.BaseCmd) *cobra.Command {
+func NewSetEnvCmd(baseCmd *cmd.BaseCmd, _ ...cmdopts.CmdOption) (*cobra.Command, error) {
 	c := &SetEnvCmd{
 		BaseCmd: baseCmd,
 	}
@@ -36,7 +37,7 @@ func NewSetEnvCmd(baseCmd *cmd.BaseCmd) *cobra.Command {
 		"Specify environment variable for the server (can be repeated). Format: KEY=VALUE.",
 	)
 
-	return cobraCmd
+	return cobraCmd, nil
 }
 
 func (c *SetEnvCmd) longDescription() string {

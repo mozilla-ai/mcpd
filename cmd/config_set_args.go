@@ -1,4 +1,4 @@
-package config
+package cmd
 
 import (
 	"fmt"
@@ -9,6 +9,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/mozilla-ai/mcpd-cli/v2/internal/cmd"
+	cmdopts "github.com/mozilla-ai/mcpd-cli/v2/internal/cmd/options"
 	"github.com/mozilla-ai/mcpd-cli/v2/internal/config"
 	"github.com/mozilla-ai/mcpd-cli/v2/internal/context"
 )
@@ -18,7 +19,7 @@ type SetArgsCmd struct {
 	Args []string
 }
 
-func NewSetArgsCmd(baseCmd *cmd.BaseCmd) *cobra.Command {
+func NewSetArgsCmd(baseCmd *cmd.BaseCmd, _ ...cmdopts.CmdOption) (*cobra.Command, error) {
 	c := &SetArgsCmd{
 		BaseCmd: baseCmd,
 	}
@@ -37,7 +38,7 @@ func NewSetArgsCmd(baseCmd *cmd.BaseCmd) *cobra.Command {
 		"Specify startup argument for the server (can be repeated). Supports flags with or without values, e.g. --flag or --key=value.",
 	)
 
-	return cobraCmd
+	return cobraCmd, nil
 }
 
 func (c *SetArgsCmd) longDescription() string {

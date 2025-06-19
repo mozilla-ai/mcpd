@@ -1,0 +1,258 @@
+package filter
+
+import (
+	"fmt"
+	"maps"
+	"slices"
+	"sort"
+	"strings"
+)
+
+// Predicate defines a function that returns true if the given item matches a condition.
+type Predicate[T any] func(item T, filterValue string) bool
+
+// Options holds configuration for filtering behavior.
+type Options[T any] struct {
+	matchers    map[string]Predicate[T]
+	unsupported map[string]struct{}
+	logFunc     func(key, val string)
+}
+
+// Option configures filter Options.
+type Option[T any] func(*Options[T]) error
+
+// defaultOptions returns the default filter Options.
+func defaultOptions[T any]() Options[T] {
+	return Options[T]{
+		matchers:    make(map[string]Predicate[T]),
+		unsupported: make(map[string]struct{}),
+		logFunc:     func(key, val string) {}, // no-op
+	}
+}
+
+// NormalizeString can be used to normalize a string value for filtering/comparison.
+// The value is made lowercase and has any leading and/or trailing whitespace removed.
+func NormalizeString(s string) string {
+	return strings.ToLower(strings.TrimSpace(s))
+}
+
+// NormalizeSlice can be used to normalize all values of a slice, returning a new slice.
+// The values are normalized with the same behavior as NormalizeString.
+func NormalizeSlice(s []string) []string {
+	s2 := make([]string, len(s))
+	for i := range s {
+		s2[i] = NormalizeString(s[i])
+	}
+	return s2
+}
+
+// NewOptions creates a FilterOptions with defaults and applies given options.
+func NewOptions[T any](opt ...Option[T]) (Options[T], error) {
+	opts := defaultOptions[T]()
+
+	for _, o := range opt {
+		if o == nil {
+			continue
+		}
+		if err := o(&opts); err != nil {
+			return Options[T]{}, err
+		}
+	}
+	return opts, nil
+}
+
+type ValueProvider[T any] func(T) string
+
+type ValuesProvider[T any] func(T) []string
+
+func Equals[T any](provider ValueProvider[T]) Predicate[T] {
+	return func(item T, val string) bool {
+		actual := NormalizeString(provider(item))
+		expected := NormalizeString(val)
+		return actual == expected
+	}
+}
+
+func Contains[T any](provider ValueProvider[T]) Predicate[T] {
+	return func(item T, val string) bool {
+		actual := NormalizeString(provider(item))
+		expected := NormalizeString(val)
+		return strings.Contains(actual, expected)
+	}
+}
+
+func ContainsOnly[T any](provider ValuesProvider[T]) Predicate[T] {
+	return func(item T, val string) bool {
+		required := strings.Split(val, ",")
+		expected := make(map[string]struct{}, len(required))
+		for _, v := range required {
+			expected[NormalizeString(v)] = struct{}{}
+		}
+
+		for _, v := range provider(item) {
+			if _, ok := expected[NormalizeString(v)]; !ok {
+				return false
+			}
+		}
+		return true
+	}
+}
+
+func ContainsAll[T any](provider ValuesProvider[T]) Predicate[T] {
+	return func(item T, val string) bool {
+		required := NormalizeSlice(strings.Split(val, ","))
+		actual := provider(item)
+
+		actualSet := make(map[string]struct{}, len(actual))
+		for _, v := range actual {
+			actualSet[NormalizeString(v)] = struct{}{}
+		}
+
+		for _, r := range required {
+			if _, ok := actualSet[r]; !ok {
+				return false
+			}
+		}
+		return true
+	}
+}
+
+func ContainsAny[T any](provider ValuesProvider[T]) Predicate[T] {
+	return func(item T, val string) bool {
+		required := strings.Split(val, ",")
+		allowed := make(map[string]struct{}, len(required))
+		for _, v := range required {
+			allowed[NormalizeString(v)] = struct{}{}
+		}
+
+		for _, v := range provider(item) {
+			if _, ok := allowed[NormalizeString(v)]; ok {
+				return true
+			}
+		}
+		return false
+	}
+}
+
+func OrContains[T any](providers ...ValueProvider[T]) Predicate[T] {
+	return func(item T, val string) bool {
+		q := NormalizeString(val)
+		for _, p := range providers {
+			actual := NormalizeString(p(item))
+			if strings.Contains(actual, q) {
+				return true
+			}
+		}
+		return false
+	}
+}
+
+// WithMatchers adds or overrides matchers.
+func WithMatchers[T any](m map[string]Predicate[T]) Option[T] {
+	return func(o *Options[T]) error {
+		for k, v := range m {
+			o.matchers[NormalizeString(k)] = v
+		}
+		return nil
+	}
+}
+
+// WithMatcher adds or overrides a matcher.
+func WithMatcher[T any](key string, value Predicate[T]) Option[T] {
+	return func(o *Options[T]) error {
+		o.matchers[NormalizeString(key)] = value
+		return nil
+	}
+}
+
+// WithUnsupportedKeys marks specific keys as unsupported when used for filtering.
+func WithUnsupportedKeys[T any](keys ...string) Option[T] {
+	return func(o *Options[T]) error {
+		for _, key := range keys {
+			k := NormalizeString(key)
+			o.unsupported[k] = struct{}{}
+		}
+		return nil
+	}
+}
+
+// WithLogFunc sets a log function which will be used to log info if unsupported keys are encountered.
+func WithLogFunc[T any](logFunc func(key, val string)) Option[T] {
+	return func(o *Options[T]) error {
+		if logFunc != nil {
+			o.logFunc = logFunc
+		}
+		return nil
+	}
+}
+
+// Match applies the provided filters to an item of type T using any configured Option matchers.
+// It returns false if any unsupported filter key is encountered or if any matcher fails to validate
+// the corresponding field.
+func Match[T any](item T, filters map[string]string, opts ...Option[T]) (bool, error) {
+	if filters == nil {
+		return true, nil
+	}
+
+	filterOpts, err := NewOptions(opts...)
+	if err != nil {
+		return false, err
+	}
+
+	for key, val := range filters {
+		k := NormalizeString(key)
+		if k == "" {
+			continue
+		}
+
+		// Check unsupported
+		if _, unsupported := filterOpts.unsupported[k]; unsupported {
+			filterOpts.logFunc(k, val)
+			return false, nil
+		}
+
+		// Check for an associated matcher, and try to match.
+		matcher, ok := filterOpts.matchers[k]
+		if !ok {
+			continue
+		}
+		if !matcher(item, val) {
+			return false, nil
+		}
+	}
+	return true, nil
+}
+
+// MatchRequestedSlice returns normalized values from `requested` that are found in `available`.
+// It returns an error if any requested value is not found in the available set.
+func MatchRequestedSlice(requested []string, available []string) ([]string, error) {
+	availableSet := make(map[string]struct{}, len(available))
+	for _, v := range available {
+		availableSet[NormalizeString(v)] = struct{}{}
+	}
+
+	if len(requested) == 0 {
+		return slices.Collect(maps.Keys(availableSet)), nil
+	}
+
+	requestedSet := make(map[string]struct{}, len(requested))
+	missing := make([]string, 0)
+
+	for _, v := range requested {
+		n := NormalizeString(v)
+		requestedSet[n] = struct{}{}
+		if _, ok := availableSet[n]; !ok {
+			missing = append(missing, v)
+		}
+	}
+
+	switch len(missing) {
+	case 0:
+		return slices.Collect(maps.Keys(requestedSet)), nil
+	case len(requestedSet):
+		return nil, fmt.Errorf("none of the requested values were found")
+	default:
+		sort.Strings(missing)
+		return nil, fmt.Errorf("missing values: %s", strings.Join(missing, ", "))
+	}
+}
