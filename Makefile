@@ -1,6 +1,6 @@
 .PHONY: build install clean uninstall
 
-MODULE_PATH := github.com/mozilla-ai/mcpd-cli/v2
+MODULE_PATH := github.com/mozilla-ai/mcpd/v2
 
 # /usr/local/bin is a common default for user-installed binaries
 INSTALL_DIR := /usr/local/bin

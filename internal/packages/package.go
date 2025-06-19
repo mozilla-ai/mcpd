@@ -1,6 +1,6 @@
 package packages
 
-import "github.com/mozilla-ai/mcpd-cli/v2/internal/runtime"
+import "github.com/mozilla-ai/mcpd/v2/internal/runtime"
 
 // Package represents a canonical, flattened view of a discoverable MCP Server package.
 type Package struct {

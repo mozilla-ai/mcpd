@@ -3,8 +3,8 @@ package cmd
 import (
 	"github.com/spf13/cobra"
 
-	"github.com/mozilla-ai/mcpd-cli/v2/internal/cmd"
-	cmdopts "github.com/mozilla-ai/mcpd-cli/v2/internal/cmd/options"
+	"github.com/mozilla-ai/mcpd/v2/internal/cmd"
+	cmdopts "github.com/mozilla-ai/mcpd/v2/internal/cmd/options"
 )
 
 func NewConfigCmd(baseCmd *cmd.BaseCmd, opt ...cmdopts.CmdOption) (*cobra.Command, error) {

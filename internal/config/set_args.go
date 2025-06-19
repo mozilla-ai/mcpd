@@ -6,7 +6,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/mozilla-ai/mcpd-cli/v2/internal/context"
+	"github.com/mozilla-ai/mcpd/v2/internal/context"
 )
 
 func NormalizeArgs(rawArgs []string) []string {
