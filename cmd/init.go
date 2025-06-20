@@ -40,30 +40,40 @@ func NewInitCmd(baseCmd *cmd.BaseCmd, opt ...cmdopts.CmdOption) (*cobra.Command,
 }
 
 func (c *InitCmd) longDescription() string {
-	return fmt.Sprintf(
-		"Initializes the current directory as an mcpd project, creating an %s configuration file. "+
-			"This command sets up the basic structure required for an mcpd project.", flags.DefaultConfigFile)
+	return fmt.Sprintf(`Initializes the current directory as an mcpd project, creating a %s configuration file.
+
+This command sets up the basic structure required for an mcpd project.
+
+The configuration file path can be overridden using the '--%s' flag or the '%s' environment variable.`,
+		flags.DefaultConfigFile,
+		flags.FlagNameConfigFile,
+		flags.EnvVarConfigFile)
 }
 
-func (c *InitCmd) run(_ *cobra.Command, _ []string) error {
+func (c *InitCmd) run(cmd *cobra.Command, _ []string) error {
 	logger := c.Logger()
 
-	fmt.Fprintln(os.Stdout, "Initializing mcpd project in current directory...")
+	var initFilePath string
 
-	cwd, err := os.Getwd()
-	if err != nil {
-		logger.Error("Failed to get working directory", "error", err)
-		return fmt.Errorf("error getting current directory: %w", err)
+	// If the config file flag just has the default value, we're expecting to create it in the current working directory.
+	if flags.ConfigFile == flags.DefaultConfigFile {
+		fmt.Fprintf(cmd.OutOrStdout(), "📄 Using default config file: '%s' in the current directory\n", flags.DefaultConfigFile)
+		cwd, err := os.Getwd()
+		if err != nil {
+			logger.Error("Failed to get working directory", "error", err)
+			return fmt.Errorf("error getting current directory: %w", err)
+		}
+		initFilePath = filepath.Join(cwd, flags.DefaultConfigFile)
+	} else {
+		initFilePath = flags.ConfigFile
 	}
 
-	initFilePath := filepath.Join(cwd, flags.DefaultConfigFile)
-
+	fmt.Fprintf(cmd.OutOrStdout(), "🚀 Initializing mcpd project at: %s\n", initFilePath)
 	if err := c.cfgInitializer.Init(initFilePath); err != nil {
 		logger.Error("Project initialization failed", "error", err)
 		return fmt.Errorf("error initializing mcpd project: %w", err)
 	}
-
-	fmt.Fprintf(os.Stdout, "%s created successfully.\n", flags.DefaultConfigFile)
+	fmt.Fprintf(cmd.OutOrStdout(), "✅ Config file created: %s\n", initFilePath)
 
 	return nil
 }
