@@ -5,10 +5,12 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"log"
+	"net"
 	"os"
 	"os/signal"
 	"path/filepath"
+	"reflect"
+	"strconv"
 	"strings"
 	"sync"
 	"syscall"
@@ -27,33 +29,35 @@ import (
 type Daemon struct {
 	apiServer         *ApiServer
 	logger            hclog.Logger
-	clients           map[string]*client.Client
-	mu                *sync.RWMutex
+	clientManager     *ClientManager
 	supportedRuntimes map[runtime.Runtime]struct{}
 	cfgLoader         config.Loader
 }
 
-func NewDaemon(logger hclog.Logger, cfgLoader config.Loader) (*Daemon, error) {
-	if logger == nil || cfgLoader == nil {
-		return nil, fmt.Errorf("logger and config loader must be provided")
+func NewDaemon(logger hclog.Logger, cfgLoader config.Loader, apiAddr string) (*Daemon, error) {
+	if logger == nil || reflect.ValueOf(logger).IsNil() {
+		return nil, fmt.Errorf("logger cannot be nil")
+	}
+	if cfgLoader == nil || reflect.ValueOf(cfgLoader).IsNil() {
+		return nil, fmt.Errorf("config loader cannot be nil")
+	}
+	if err := IsValidAddr(apiAddr); err != nil {
+		return nil, fmt.Errorf("invalid api address '%s': %w", apiAddr, err)
 	}
 
-	clients := make(map[string]*client.Client)
-	clientsMutex := &sync.RWMutex{}
-	l := logger.Named("daemon")
+	clientManager := NewClientManager()
+
+	apiServer, err := NewApiServer(logger, clientManager, apiAddr)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create daemon API server: %w", err)
+	}
 
 	return &Daemon{
-		logger:            l,
-		clients:           clients,
-		mu:                clientsMutex,
+		logger:            logger.Named("daemon"),
+		clientManager:     clientManager,
+		apiServer:         apiServer,
 		supportedRuntimes: runtime.DefaultSupportedRuntimes(),
-		apiServer: &ApiServer{
-			logger:       l.Named("api"),
-			clients:      clients,
-			clientsMutex: clientsMutex,
-			serverTools:  make(map[string][]string),
-		},
-		cfgLoader: cfgLoader,
+		cfgLoader:         cfgLoader,
 	}, nil
 }
 
@@ -84,29 +88,21 @@ func (d *Daemon) StartAndManage(ctx context.Context) error {
 		return err
 	}
 
-	// Allow the API server to track which tools are allowed for specific MCP servers.
-	for _, r := range runtimeCfg {
-		if len(r.Tools) > 0 {
-			d.apiServer.serverTools[r.Name] = r.Tools
-		}
-	}
-
 	d.logger.Info(fmt.Sprintf("loaded config for %d daemon(s)", len(runtimeCfg)))
 	fmt.Println(fmt.Sprintf("Attempting to start %d MCP server(s)", len(runtimeCfg)))
 
 	var startupWg sync.WaitGroup
-
 	d.setupSignalHandler()
 
 	// Launch all MCP servers
 	startupWg.Add(len(runtimeCfg))
 	for _, r := range runtimeCfg {
-		go func() {
-			err := d.launchServer(ctx, r, &startupWg)
+		go func(server runtime.Server) {
+			err := d.launchServer(ctx, server, &startupWg)
 			if err != nil {
 				d.logger.Error("failed to launch server", "error", err)
 			}
-		}()
+		}(r)
 	}
 
 	startupWg.Wait()
@@ -119,10 +115,8 @@ func (d *Daemon) StartAndManage(ctx context.Context) error {
 	go d.healthCheckLoop(ctx, healthcheckInterval, pingTimeout)
 
 	readyChan := make(chan struct{})
-
 	go func() {
-		err := d.apiServer.Start(8090, readyChan) // TODO: Configurable port
-		if err != nil {
+		if err := d.apiServer.Start(readyChan); err != nil {
 			d.logger.Error(fmt.Sprintf("API server failed: %s", err))
 		}
 	}()
@@ -139,16 +133,18 @@ func (d *Daemon) setupSignalHandler() {
 	go func() {
 		<-sigChan
 		fmt.Println("\nShutting down all servers...")
-		d.mu.Lock()
-		for name, c := range d.clients {
-			log.Printf("Closing connection to '%s'...", name)
-			// Use the library's Close method for graceful shutdown.
+
+		for _, name := range d.clientManager.List() {
+			c, ok := d.clientManager.Client(name)
+			if !ok {
+				continue
+			}
+			d.logger.Info("Closing client connection to MCP server", "name", name)
 			if err := c.Close(); err != nil {
-				log.Printf("Error closing client for '%s': %v", name, err)
+				d.logger.Error("Error closing client connection to MCP server", "name", name, "error", err)
 			}
 		}
-		d.mu.Unlock()
-		os.Exit(0)
+		os.Exit(0) // TODO: should we be exiting for everyone here?
 	}()
 }
 
@@ -184,12 +180,13 @@ func (d *Daemon) launchServer(ctx context.Context, server runtime.Server, wg *sy
 	if err != nil {
 		return fmt.Errorf("error starting MCP server: '%s': %v", server.Name, err)
 	}
+
 	d.logger.Info(fmt.Sprintf("MCP server started: '%s'...", server.Name))
 
 	// Get stderr reader
 	stderr, ok := client.GetStderr(stdioClient)
 	if !ok {
-		log.Fatalf("Failed to get stderr from MCP client")
+		return fmt.Errorf("failed to get stderr from new MCP client: '%s'", server.Name)
 	}
 
 	// Pipe stderr to logger and terminal
@@ -236,9 +233,7 @@ func (d *Daemon) launchServer(ctx context.Context, server runtime.Server, wg *sy
 	d.logger.Info(fmt.Sprintf("Initialized MCP server: '%s': %s", server.Name, packageNameAndVersion))
 
 	// Store the client.
-	d.mu.Lock()
-	d.clients[server.Name] = stdioClient
-	d.mu.Unlock()
+	d.clientManager.Add(server.Name, stdioClient, server.Tools)
 
 	d.logger.Info(fmt.Sprintf("Server '%s' ready.", server.Name))
 
@@ -267,14 +262,12 @@ func (d *Daemon) healthCheckLoop(
 }
 
 func (d *Daemon) pingAllServers(ctx context.Context, timeout time.Duration) {
-	d.mu.Lock()
-	clientsCopy := make(map[string]*client.Client, len(d.clients))
-	for k, v := range d.clients {
-		clientsCopy[k] = v
-	}
-	d.mu.Unlock()
+	for _, name := range d.clientManager.List() {
+		c, ok := d.clientManager.Client(name)
+		if !ok {
+			continue
+		}
 
-	for name, c := range clientsCopy {
 		go func(name string, mcpClient *client.Client) {
 			pingCtx, cancel := context.WithTimeout(ctx, timeout)
 			defer cancel()
@@ -284,7 +277,32 @@ func (d *Daemon) pingAllServers(ctx context.Context, timeout time.Duration) {
 				return
 			}
 
+			// TODO: Store health state for servers, and expose HTTP API route for /heath
 			d.logger.Debug("Ping successful", "server", name)
 		}(name, c)
 	}
+}
+
+// IsValidAddr returns an error if the address is not a valid "host:port" string.
+func IsValidAddr(addr string) error {
+	host, port, err := net.SplitHostPort(addr)
+	if err != nil {
+		return fmt.Errorf("invalid address format: %w", err)
+	}
+
+	if port == "" {
+		return fmt.Errorf("address missing port")
+	}
+
+	// Try parsing port as a number
+	if _, err := strconv.Atoi(port); err != nil {
+		// Try looking up the named port
+		if _, err := net.LookupPort("tcp", port); err != nil {
+			return fmt.Errorf("invalid address port: %s", port)
+		}
+	}
+
+	_ = host // it's ok to accept an empty host (listens on all interfaces)
+
+	return nil
 }

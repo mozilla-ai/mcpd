@@ -3,6 +3,7 @@ package cmd
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	"github.com/spf13/cobra"
 
@@ -39,12 +40,18 @@ func NewDaemonCmd(baseCmd *cmd.BaseCmd, opt ...cmdopts.CmdOption) (*cobra.Comman
 		RunE:  c.run,
 	}
 
-	cobraCommand.Flags().BoolVar(&c.Dev, "dev", false, "Run the daemon in development-focused mode.")
+	cobraCommand.Flags().BoolVar(
+		&c.Dev,
+		"dev",
+		false,
+		"Run the daemon in development-focused mode.",
+	)
+
 	cobraCommand.Flags().StringVar(
 		&c.Addr,
 		"addr",
-		"",
-		"Specify the address for the daemon to bind to (e.g., 'localhost:8080'). Only applicable in --dev mode.",
+		"localhost:8090",
+		"Specify the address for the daemon to bind to (e.g., 'localhost:8090'). Not applicable in --dev mode.",
 	)
 	cobraCommand.MarkFlagsMutuallyExclusive("dev", "addr")
 
@@ -61,7 +68,13 @@ In prod, binds to 0.0.0.0, logs to stdout, and runs as background service.`
 // run is configured (via NewDaemonCmd) to be called by the Cobra framework when the command is executed.
 // It may return an error (or nil, when there is no error).
 func (c *DaemonCmd) run(cmd *cobra.Command, args []string) error {
-	// TODO: Only runs in 'dev' mode...
+	// Validate flags.
+	addr := strings.TrimSpace(c.Addr)
+	if err := daemon.IsValidAddr(addr); err != nil {
+		return fmt.Errorf("invalid address flag value: %s: %w", addr, err)
+	}
+
+	// TODO: Currently only runs in 'dev' mode... (even without flag)
 	//	addr := "localhost:8080"
 	//	if c.Addr != "" {
 	//		addr = c.Addr
@@ -73,7 +86,7 @@ func (c *DaemonCmd) run(cmd *cobra.Command, args []string) error {
 	//	c.Logger.Info("Secrets file", "path", "~/.mcpd/secrets.dev") // TODO: Configurable?
 	//	c.Logger.Info("Press Ctrl+C to stop.")
 
-	d, err := daemon.NewDaemon(c.Logger(), c.cfgLoader)
+	d, err := daemon.NewDaemon(c.Logger(), c.cfgLoader, addr)
 	if err != nil {
 		return fmt.Errorf("failed to create mcpd daemon instance: %w", err)
 	}

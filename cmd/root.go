@@ -59,7 +59,7 @@ func Execute() {
 
 func NewRootCmd(c *RootCmd) (*cobra.Command, error) {
 	rootCmd := &cobra.Command{
-		Use:          "mcpd <command> [args]",
+		Use:          "mcpd <command> [sub-command] [args]",
 		Short:        "'mcpd' CLI is the primary interface for developers to interact with mcpd.",
 		Long:         c.longDescription(),
 		SilenceUsage: true,

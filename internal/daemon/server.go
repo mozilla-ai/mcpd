@@ -9,11 +9,9 @@ import (
 	"net/http"
 	"slices"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/hashicorp/go-hclog"
-	"github.com/mark3labs/mcp-go/client"
 	"github.com/mark3labs/mcp-go/mcp"
 )
 
@@ -32,23 +30,32 @@ const (
 )
 
 type ApiServer struct {
-	clients      map[string]*client.Client
-	serverTools  map[string][]string
-	clientsMutex *sync.RWMutex
-	logger       hclog.Logger
+	clientManager *ClientManager
+	logger        hclog.Logger
+	addr          string
 }
 
-func (a *ApiServer) Start(port int, ready chan<- struct{}) error {
-	addr := fmt.Sprintf("localhost:%d", port)
-	fqdn := fmt.Sprintf("http://%s%sservers", addr, apiPathPrefix) // TODO: HTTP/HTTPS
+func NewApiServer(logger hclog.Logger, clientManager *ClientManager, addr string) (*ApiServer, error) {
+	if err := IsValidAddr(addr); err != nil {
+		return nil, err
+	}
 
+	return &ApiServer{
+		logger:        logger.Named("api"),
+		clientManager: clientManager,
+		addr:          addr,
+	}, nil
+}
+
+func (a *ApiServer) Start(ready chan<- struct{}) error {
+	fqdn := fmt.Sprintf("http://%s%sservers", a.addr, apiPathPrefix) // TODO: HTTP/HTTPS
 	mux := http.NewServeMux()
 	mux.HandleFunc(apiPathPrefix, a.handleApiRequest)
 
 	fmt.Printf("HTTP REST API listening on: '%s'\n", fqdn)
 	a.logger.Info(
 		"HTTP REST API listening",
-		"address", addr,
+		"address", a.addr,
 		"prefix", apiPathPrefix,
 		"endpoint", fqdn,
 	)
@@ -56,7 +63,7 @@ func (a *ApiServer) Start(port int, ready chan<- struct{}) error {
 	// Signal ready just before blocking for serving the API
 	close(ready)
 
-	if err := http.ListenAndServe(addr, mux); err != nil {
+	if err := http.ListenAndServe(a.addr, mux); err != nil {
 		fmt.Printf("HTTP REST API failed to start: %v\n", err)
 		a.logger.Error("HTTP REST API failed to start", "error", err)
 	}
@@ -163,29 +170,18 @@ func (a *ApiServer) handleApiRequest(w http.ResponseWriter, r *http.Request) {
 }
 
 func (a *ApiServer) listServers() []string {
-	a.clientsMutex.RLock()
-	defer a.clientsMutex.RUnlock()
-
-	serverNames := make([]string, 0, len(a.clients))
-
-	for name := range a.clients {
-		serverNames = append(serverNames, name)
-	}
-
-	return serverNames
+	return a.clientManager.List()
 }
 
 func (a *ApiServer) listTools(ctx context.Context, serverName string) ([]mcp.Tool, error) {
-	a.clientsMutex.RLock()
-	mcpClient, clientOk := a.clients[serverName]
-	allowedTools, toolsOk := a.serverTools[serverName]
-	a.clientsMutex.RUnlock()
-
+	mcpClient, clientOk := a.clientManager.Client(serverName)
 	if !clientOk {
-		return nil, ErrServerNotFound
+		return nil, fmt.Errorf("%w: %s", ErrServerNotFound, serverName)
 	}
-	if !toolsOk {
-		return nil, ErrToolsNotFound
+
+	allowedTools, toolsOk := a.clientManager.Tools(serverName)
+	if !toolsOk || len(allowedTools) == 0 {
+		return nil, fmt.Errorf("%w: %s", ErrToolsNotFound, serverName)
 	}
 
 	result, err := mcpClient.ListTools(ctx, mcp.ListToolsRequest{})
@@ -205,15 +201,12 @@ func (a *ApiServer) listTools(ctx context.Context, serverName string) ([]mcp.Too
 }
 
 func (a *ApiServer) callTool(ctx context.Context, serverName, toolName string, args map[string]any) (any, error) {
-	a.clientsMutex.RLock()
-	mcpClient, clientOk := a.clients[serverName]
-	allowedTools, toolsOk := a.serverTools[serverName]
-	a.clientsMutex.RUnlock()
-
+	mcpClient, clientOk := a.clientManager.Client(serverName)
 	if !clientOk {
 		return nil, fmt.Errorf("%w: %s", ErrServerNotFound, serverName)
 	}
 
+	allowedTools, toolsOk := a.clientManager.Tools(serverName)
 	if !toolsOk || len(allowedTools) == 0 {
 		return nil, fmt.Errorf("%w: %s", ErrToolsNotFound, serverName)
 	}
