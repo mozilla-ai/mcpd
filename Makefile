@@ -1,4 +1,4 @@
-.PHONY: build install clean uninstall
+.PHONY: build clean docs docs-cli docs-nav docs-local install test uninstall
 
 MODULE_PATH := github.com/mozilla-ai/mcpd/v2
 
@@ -34,10 +34,30 @@ clean:
 	@# Remove the built executable and any temporary files
 	@rm -f mcpd # The executable itself
 	@# Add any other build artifacts here if they accumulate (e.g., cache files)
-	@echo "Build artifacts cleaned."
+	@echo "Build artifacts cleaned"
 
 uninstall:
 	@# Remove the installed executable from the system
 	@# Requires sudo if INSTALL_DIR is a system path
 	@rm -f $(INSTALL_DIR)/mcpd
 	@echo "mcpd uninstalled from $(INSTALL_DIR)/mcpd"
+
+## Runs MkDocs locally
+docs: docs-local
+
+## Runs MkDocs locally
+docs-local: docs-nav
+	@uv venv && \
+		source .venv/bin/activate && \
+		uv pip install mkdocs mkdocs-material && \
+		uv run mkdocs serve
+
+## Generates CLI markdown documentation
+docs-cli:
+	@go run -tags=docsgen_cli ./tools/docsgen/cli/cmds.go
+	@echo "mcpd CLI command documentation generated"
+
+## Updates mkdocs.yaml nav to match generated CLI docs
+docs-nav: docs-cli
+	@go run -tags=docsgen_nav ./tools/docsgen/cli/nav.go
+	@echo "navigation updated for MkDocs site"

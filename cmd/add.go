@@ -156,7 +156,13 @@ func (c *AddCmd) run(cmd *cobra.Command, args []string) error {
 	}
 
 	// User-friendly output + logging
-	_, err = fmt.Fprintf(cmd.OutOrStdout(), "✓ Added server '%s' (version: %s)%s\n", name, version, requestedTools)
+	_, err = fmt.Fprintf(
+		cmd.OutOrStdout(),
+		"✓ Added server '%s' (version: %s), tools: %s\n",
+		name,
+		version,
+		strings.Join(requestedTools, ", "),
+	)
 	if err != nil {
 		return err
 	}
