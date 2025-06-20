@@ -49,18 +49,6 @@ func TestLoad_FileDoesNotExist(t *testing.T) {
 	require.Contains(t, err.Error(), "config file cannot be found")
 }
 
-func TestLoad_FileIsEmpty(t *testing.T) {
-	t.Parallel()
-
-	tempFile, err := os.CreateTemp(t.TempDir(), ".mcpd.toml")
-	require.NoError(t, err)
-
-	loader := &DefaultLoader{}
-	_, err = loader.Load(tempFile.Name())
-	require.Error(t, err)
-	require.Contains(t, err.Error(), "config file is empty")
-}
-
 func TestLoad_ValidConfig(t *testing.T) {
 	t.Parallel()
 

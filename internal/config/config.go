@@ -42,7 +42,7 @@ func (d *DefaultLoader) Load(path string) (Modifier, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to decode config from file (%s): %w", flags.DefaultConfigFile, err)
 	}
-	if cfg == nil || len(cfg.Servers) == 0 {
+	if cfg == nil {
 		return nil, fmt.Errorf("config file is empty (%s)", path)
 	}
 
