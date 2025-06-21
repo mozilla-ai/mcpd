@@ -30,4 +30,4 @@ These values apply at runtime and are separate from your project-specific `.mcpd
 ```
 
 !!! warning "Manual Changes"
-    The Execution Context Configuration file is automatically updated by `mcpd config` commands, you shouldn't edit it by hand unless absolutely necessary.
+    The Execution Context Configuration file is automatically updated by `mcpd config` commands — you shouldn't edit it by hand unless absolutely necessary.
