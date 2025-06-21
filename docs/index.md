@@ -4,7 +4,9 @@
 
 ---
 
-`mcpd` is a toolchain and runtime developed by [Mozilla AI](https://mozilla.ai) that simplifies the configuration, execution and integration of Model Context Protocol (MCP) servers with your agentic application — across local development and production environments.
+`mcpd` is a toolchain and runtime developed by [Mozilla AI](https://mozilla.ai) that simplifies the configuration, 
+execution and integration of Model Context Protocol (MCP) servers with your agentic application.
+It is intended to provide the same experience across local development and production environments.
 
 It removes the friction of cross-language server orchestration, secrets management, version pinning, and lifecycle control.
 
@@ -32,7 +34,7 @@ Traditional agent frameworks often embed complex subprocess logic, brittle start
   One command: `mcpd daemon`. Starts and manages all servers behind the scenes.
 
 🧰 **Intuitive SDK Integration**  
-  The Python `mcpd_sdk` makes calling tools feel like native function calls — no HTTP, STDIO, or SSE boilerplate.
+  The Python `mcpd_sdk` makes calling tools feel like native function calls; no HTTP, STDIO, or SSE boilerplate.
   Even easier for users of [any-agent](https://github.com/mozilla-ai/any-agent) via `.agent_tools()`.
 
 🚀 **Seamless Local-to-Prod Transition**  
