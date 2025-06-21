@@ -299,10 +299,7 @@ func convertInstallations(src map[string]Installation) map[runtime.Runtime]packa
 // It returns a map where keys are supported runtime identifiers (e.g., "npx", "uvx") and values are
 // the corresponding plain package names used to execute the server.
 //
-// Only installations where the command matches a supported runtime are included.
-// Additionally, the installation must use a standard execution format—plain package names like "some-package" or
-// "some-package@version". Non-standard forms such as git URLs, Python scripts, or direct file paths
-// are ignored.
+// Only installations where the command matches a supported runtime may be included.
 // An error is returned if a supported runtime is found but a valid package name cannot be extracted.
 func (r *Registry) supportedRuntimePackageNames(installations map[string]Installation) (map[runtime.Runtime]string, error) {
 	result := make(map[runtime.Runtime]string)
@@ -332,6 +329,8 @@ func (r *Registry) supportedRuntimePackageNames(installations map[string]Install
 // URLs, git references, and script files (".py").
 //
 // This function enforces a strict format, ensuring only plain package names are accepted.
+// e.g. "some-package" or "some-package@version".
+// Non-standard forms such as git URLs, Python scripts, or direct file paths are ignored.
 // Returns an error if no suitable package name is found.
 func extractPlainPackage(rt runtime.Runtime, args []string) (string, error) {
 	for _, arg := range args {

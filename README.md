@@ -1,6 +1,8 @@
 # mcpd
 
-**mcpd** is a CLI and local daemon that helps developers and infrastructure teams manage [Model Context Protocol](https://github.com/mozilla-ai/mcp-spec) (MCP) servers declaratively — with the same experience locally and in production.
+**mcpd** is a CLI and local daemon that helps developers and infrastructure teams manage 
+[Model Context Protocol](https://github.com/mozilla-ai/mcp-spec) (MCP) servers declaratively, 
+with the same experience locally and in production.
 
 > Built by [Mozilla AI](https://mozilla.ai)
 
