@@ -14,7 +14,7 @@ import (
 )
 
 // Define a dummy JSON payload to be served by the mock HTTP server.
-// This simulates the content of https://mcpm.sh/api/servers.json
+// This simulates the content of https://getmcp.io/api/servers.json
 const dummyMCPMJSON = `{
 	"time": {
 		"name": "time",
