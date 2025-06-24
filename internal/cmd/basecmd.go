@@ -69,7 +69,7 @@ func (c *BaseCmd) Logger() hclog.Logger {
 func (c *BaseCmd) Build() (registry.PackageProvider, error) {
 	l := c.Logger().Named("registry")
 
-	mcpm, err := mcpm.NewRegistry(l, "https://mcpm.sh/api/servers.json") // TODO: Should we be using a hardcoded URL
+	mcpm, err := mcpm.NewRegistry(l, "https://getmcp.io/api/servers.json") // TODO: Should we be using a hardcoded URL
 	if err != nil {
 		// TODO: Handle tolerating some failed registries, as long as we can meet a minimum requirement.
 		return nil, err
