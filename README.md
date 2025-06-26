@@ -85,7 +85,7 @@ make docs-nav
 
 ## 🤝 Contributing
 
-Coming soon.
+Please see our [Contributing to mcpd](CONTRIBUTING.md) guide for more information. 
 
 ## 📄 License
 

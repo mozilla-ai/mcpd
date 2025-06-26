@@ -20,6 +20,7 @@ import (
 	"github.com/mark3labs/mcp-go/client"
 	"github.com/mark3labs/mcp-go/mcp"
 
+	"github.com/mozilla-ai/mcpd/v2/internal/cmd"
 	"github.com/mozilla-ai/mcpd/v2/internal/config"
 	configcontext "github.com/mozilla-ai/mcpd/v2/internal/context"
 	"github.com/mozilla-ai/mcpd/v2/internal/flags"
@@ -97,12 +98,12 @@ func (d *Daemon) StartAndManage(ctx context.Context) error {
 	// Launch all MCP servers
 	startupWg.Add(len(runtimeCfg))
 	for _, r := range runtimeCfg {
-		go func(server runtime.Server) {
+		go func(ctx context.Context, server runtime.Server) {
 			err := d.launchServer(ctx, server, &startupWg)
 			if err != nil {
 				d.logger.Error("failed to launch server", "error", err)
 			}
-		}(r)
+		}(ctx, r)
 	}
 
 	startupWg.Wait()
@@ -157,6 +158,8 @@ func (d *Daemon) launchServer(ctx context.Context, server runtime.Server, wg *sy
 		return fmt.Errorf("unsupported runtime/repository '%s' for MCP server daemon '%s'", runtimeBinary, server.Name)
 	}
 
+	logger := d.logger.Named("mcp").Named(server.Name)
+
 	// Strip arbitrary package prefix (e.g. uvx::)
 	packageNameAndVersion := strings.TrimPrefix(server.Package, runtimeBinary+"::")
 	env := server.Environ()
@@ -167,9 +170,8 @@ func (d *Daemon) launchServer(ctx context.Context, server runtime.Server, wg *sy
 	}
 	args = append([]string{packageNameAndVersion}, server.Args...)
 
-	d.logger.Info(
+	logger.Info(
 		"attempting to start MCP server",
-		"name", server.Name,
 		"binary", runtimeBinary,
 		"args", args,
 		"environment", env,
@@ -178,10 +180,10 @@ func (d *Daemon) launchServer(ctx context.Context, server runtime.Server, wg *sy
 
 	stdioClient, err := client.NewStdioMCPClient(runtimeBinary, env, args...)
 	if err != nil {
-		return fmt.Errorf("error starting MCP server: '%s': %v", server.Name, err)
+		return fmt.Errorf("error starting MCP server: '%s': %w", server.Name, err)
 	}
 
-	d.logger.Info(fmt.Sprintf("MCP server started: '%s'...", server.Name))
+	logger.Info(fmt.Sprintf("MCP server started"))
 
 	// Get stderr reader
 	stderr, ok := client.GetStderr(stdioClient)
@@ -190,9 +192,7 @@ func (d *Daemon) launchServer(ctx context.Context, server runtime.Server, wg *sy
 	}
 
 	// Pipe stderr to logger and terminal
-	// TODO: Properly fix up the contexts and closing down of things.
-	stdErrCtx, stdErrCancel := context.WithCancel(ctx)
-	go func(ctx context.Context) {
+	go func(ctx context.Context, logger hclog.Logger, stderr io.Reader) {
 		reader := bufio.NewReader(stderr)
 		for {
 			select {
@@ -200,18 +200,19 @@ func (d *Daemon) launchServer(ctx context.Context, server runtime.Server, wg *sy
 				return
 			default:
 				line, err := reader.ReadString('\n')
-				if err != nil {
-					if err != io.EOF {
-						d.logger.Error("Error reading stderr", "error", err)
-					}
+				if ctx.Err() != nil {
+					// Context canceled — probably shutting down, don't log the I/O error
 					return
 				}
-				fmt.Println(line)
-				d.logger.Info("stderr", "line", line)
+				if err != nil && err != io.EOF {
+					logger.Error("Error reading stderr", "error", err)
+					return
+				}
+
+				parseAndLogMCPMessage(logger, line)
 			}
 		}
-	}(stdErrCtx)
-	defer stdErrCancel()
+	}(ctx, logger, stderr)
 
 	initializeCtx, cancel := context.WithTimeout(ctx, 30*time.Second) // TODO: Configurable timeout.
 	defer cancel()
@@ -222,7 +223,7 @@ func (d *Daemon) launchServer(ctx context.Context, server runtime.Server, wg *sy
 		mcp.InitializeRequest{
 			Params: mcp.InitializeParams{
 				ProtocolVersion: "latest",
-				ClientInfo:      mcp.Implementation{Name: "mcpd", Version: "0.0.1"},
+				ClientInfo:      mcp.Implementation{Name: cmd.AppName(), Version: cmd.Version()},
 			},
 		})
 	if err != nil {
@@ -230,14 +231,60 @@ func (d *Daemon) launchServer(ctx context.Context, server runtime.Server, wg *sy
 	}
 
 	packageNameAndVersion = fmt.Sprintf("%s@%s", initResult.ServerInfo.Name, initResult.ServerInfo.Version)
-	d.logger.Info(fmt.Sprintf("Initialized MCP server: '%s': %s", server.Name, packageNameAndVersion))
+	logger.Info(fmt.Sprintf("Initialized MCP server: '%s'", packageNameAndVersion))
 
 	// Store the client.
 	d.clientManager.Add(server.Name, stdioClient, server.Tools)
 
-	d.logger.Info(fmt.Sprintf("Server '%s' ready.", server.Name))
+	logger.Info("Ready")
 
 	return nil
+}
+
+// parseAndLogMCPMessage parses a log line from the MCP server's stderr and logs it with the corresponding level.
+func parseAndLogMCPMessage(logger hclog.Logger, line string) {
+	trimmed := strings.TrimSpace(line)
+	if trimmed == "" {
+		return
+	}
+
+	// TODO: This format may change based on the runtime that spawned the MCP Server.
+	// Attempt to parse the log format: LEVEL:LOGGER:MESSAGE.
+	parts := strings.SplitN(trimmed, ":", 3)
+
+	if len(parts) < 2 {
+		logger.Info(trimmed)
+		return
+	}
+
+	lvl := normalizeLogLevel(parts[0])
+	message := parts[len(parts)-1]
+
+	if lvl == hclog.NoLevel {
+		logger.Info(trimmed)
+		return
+	}
+
+	if lvl >= logger.GetLevel() {
+		// The level is valid and at or above our logger's configured level.
+		logger.Log(lvl, message)
+	}
+
+	// Either no logging (off) or a level we're not configured to log at.
+	return
+}
+
+func normalizeLogLevel(level string) hclog.Level {
+	level = strings.TrimSpace(strings.ToLower(level))
+
+	switch level {
+	case "warning":
+		return hclog.Warn // Normalize to warn
+	case "fatal", "critical":
+		return hclog.Error // Normalize to error
+	default:
+		return hclog.LevelFromString(level)
+	}
 }
 
 func (d *Daemon) healthCheckLoop(

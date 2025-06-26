@@ -225,7 +225,7 @@ func (a *ApiServer) callTool(ctx context.Context, serverName, toolName string, a
 		},
 	})
 	if err != nil {
-		return nil, fmt.Errorf("%w: %s/%s: %v", ErrToolCallFailed, serverName, toolName, err)
+		return nil, fmt.Errorf("%w: %s/%s: %w", ErrToolCallFailed, serverName, toolName, err)
 	} else if result == nil {
 		return nil, fmt.Errorf("%w: %s/%s: result was nil", ErrToolCallFailedUnknown, serverName, toolName)
 	} else if result.IsError {
