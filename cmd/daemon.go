@@ -85,12 +85,19 @@ func (c *DaemonCmd) run(cmd *cobra.Command, args []string) error {
 	//	c.Logger.Info("Dev API key", "value", "dev-api-key-12345")   // TODO: Generate local key
 	//	c.Logger.Info("Secrets file", "path", "~/.mcpd/secrets.dev") // TODO: Configurable?
 	//	c.Logger.Info("Press Ctrl+C to stop.")
+	logger, err := c.Logger()
+	if err != nil {
+		return err
+	}
 
-	d, err := daemon.NewDaemon(c.Logger(), c.cfgLoader, addr)
+	daemonCtx, daemonCtxCancel := context.WithCancel(context.Background())
+	defer daemonCtxCancel()
+
+	d, err := daemon.NewDaemon(logger, c.cfgLoader, addr)
 	if err != nil {
 		return fmt.Errorf("failed to create mcpd daemon instance: %w", err)
 	}
-	if err := d.StartAndManage(context.Background()); err != nil {
+	if err := d.StartAndManage(daemonCtx); err != nil {
 		return fmt.Errorf("daemon start failed: %w", err)
 	}
 

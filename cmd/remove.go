@@ -53,7 +53,10 @@ func (c *RemoveCmd) run(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("server name is required and cannot be empty")
 	}
 
-	logger := c.Logger()
+	logger, err := c.Logger()
+	if err != nil {
+		return err
+	}
 
 	name := strings.TrimSpace(args[0])
 	if name == "" {

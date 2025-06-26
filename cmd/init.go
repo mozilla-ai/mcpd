@@ -51,7 +51,10 @@ The configuration file path can be overridden using the '--%s' flag or the '%s' 
 }
 
 func (c *InitCmd) run(cmd *cobra.Command, _ []string) error {
-	logger := c.Logger()
+	logger, err := c.Logger()
+	if err != nil {
+		return err
+	}
 
 	var initFilePath string
 

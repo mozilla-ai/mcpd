@@ -14,6 +14,18 @@ import (
 	"github.com/mozilla-ai/mcpd/v2/internal/runtime"
 )
 
+var version = "dev" // Set at build time using -ldflags
+
+// Version is used by other packages to retrieve the build version of mcpd.
+func Version() string {
+	return version
+}
+
+// AppName returns the name of the mcpd application.
+func AppName() string {
+	return "mcpd"
+}
+
 var _ registry.Builder = (*BaseCmd)(nil)
 
 type BaseCmd struct {
@@ -26,9 +38,9 @@ func (c *BaseCmd) SetLogger(logger hclog.Logger) {
 }
 
 // Logger returns the current logger for the command
-func (c *BaseCmd) Logger() hclog.Logger {
+func (c *BaseCmd) Logger() (hclog.Logger, error) {
 	if c.logger != nil {
-		return c.logger
+		return c.logger, nil
 	}
 
 	// Get log level from flags first, then environment, then default
@@ -46,32 +58,35 @@ func (c *BaseCmd) Logger() hclog.Logger {
 		logPath = strings.TrimSpace(os.Getenv(flags.EnvVarLogPath))
 	}
 
-	// Configure logger output
-	output := io.Discard // os.Stderr
+	// Configure logger output based on the log file path
+	output := io.Discard // Default to discarding log output.
 	if logPath != "" {
 		f, err := os.OpenFile(logPath, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0o644)
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "Failed to open log file (%s): %v, using stderr\n", logPath, err)
+			return nil, fmt.Errorf("failed to open log file (%s): %w", logPath, err)
 		} else {
 			output = f
 		}
 	}
 
-	// Using flags/env for fallback logger
 	c.logger = hclog.New(&hclog.LoggerOptions{
-		Name:   "mcpd-default",
+		Name:   AppName(),
 		Level:  hclog.LevelFromString(logLevel),
 		Output: output,
 	})
 
-	return c.logger
+	return c.logger, nil
 }
 
 func (c *BaseCmd) Build() (registry.PackageProvider, error) {
-	l := c.Logger().Named("registry")
+	logger, err := c.Logger()
+	if err != nil {
+		return nil, err
+	}
 
 	supportedRuntimes := c.MCPDSupportedRuntimes()
 	opts := runtime.WithSupportedRuntimes(supportedRuntimes...)
+	l := logger.Named("registry")
 
 	// TODO: Should we be using a hardcoded URL
 	mcpm, err := mcpm.NewRegistry(l, "https://getmcp.io/api/servers.json", opts)

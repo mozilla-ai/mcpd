@@ -101,7 +101,10 @@ func (c *AddCmd) run(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("server name cannot be empty")
 	}
 
-	logger := c.Logger()
+	logger, err := c.Logger()
+	if err != nil {
+		return err
+	}
 
 	reg, err := c.registryBuilder.Build()
 	if err != nil {
