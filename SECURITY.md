@@ -47,6 +47,6 @@ Our typical disclosure timeline for critical issues is up to 30 days from the in
 
 ### Scope
 
-This security policy applies to all components of [mozilla-ai/mcpd](https://github.com/mozilla-ai/mcpd) (for example: [mozilla-ai/mcpd-sdk-python](http://github.com/mozilla-ai/mcpd-sdk-python)).
+This security policy applies to all components of [mcpd](https://github.com/mozilla-ai/mcpd) (for example: [mcpd-sdk-python](https://github.com/mozilla-ai/mcpd-sdk-python)).
 
 Thank you for helping us keep our projects secure for everyone.

@@ -89,5 +89,5 @@ Coming soon.
 
 ## 📄 License
 
-[Licensed](LICENSE) under the [Apache License 2.0](http://www.apache.org/licenses/LICENSE-2.0).
+[Licensed](LICENSE) under the [Apache License 2.0](https://www.apache.org/licenses/LICENSE-2.0).
 
