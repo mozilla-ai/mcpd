@@ -78,15 +78,15 @@ These commands manage the [MkDocs](https://www.mkdocs.org) developer documentati
 
 Here’s a complete list of Makefile targets:
 
-| Target         | Description                                       |
-|----------------|---------------------------------------------------|
-| `build`        | Compile the Go binary                             |
-| `install`      | Install binary to system path                     |
-| `uninstall`    | Remove installed binary                           |
-| `clean`        | Remove compiled binary from working directory     |
-| `test`         | Run all Go tests                                  |
-| `docs-cli`     | Generate Markdown CLI reference docs              |
-| `docs-nav`     | Update CLI doc nav in `mkdocs.yml`                |
-| `docs-local`   | Serve docs locally via `mkdocs serve`             |
-| `docs`         | Alias for `docs-local` (runs everything)          |
+| Target         | Description                                   |
+|----------------|-----------------------------------------------|
+| `build`        | Compile the Go binary                         |
+| `install`      | Install binary to system path                 |
+| `uninstall`    | Remove installed binary                       |
+| `clean`        | Remove compiled binary from working directory |
+| `test`         | Run all Go tests                              |
+| `docs-cli`     | Generate Markdown CLI reference docs          |
+| `docs-nav`     | Update CLI doc nav in `mkdocs.yaml`           |
+| `docs-local`   | Serve docs locally via `mkdocs serve`         |
+| `docs`         | Alias for `docs-local` (runs everything)      |
 
