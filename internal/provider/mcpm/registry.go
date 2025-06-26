@@ -1,12 +1,9 @@
 package mcpm
 
 import (
-	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
 	"maps"
-	"net/http"
 	"slices"
 	"strings"
 
@@ -33,6 +30,7 @@ type Registry struct {
 }
 
 // NewRegistry creates a new Registry instance by fetching its data from the provided URL.
+// The url is the URL of the JSON manifest for this registry.
 func NewRegistry(logger hclog.Logger, url string, opt ...runtime.Option) (*Registry, error) {
 	// Handle URL.
 	url = strings.TrimSpace(url)
@@ -46,35 +44,29 @@ func NewRegistry(logger hclog.Logger, url string, opt ...runtime.Option) (*Regis
 		return nil, err
 	}
 
+	appSupported := runtimeOpts.SupportedRuntimes
+	registrySupported := registrySupportedRuntimes()
+	if !runtime.AnyIntersection(slices.Collect(maps.Keys(appSupported)), registrySupported) {
+		return nil, fmt.Errorf(
+			"no supported runtimes for mcpm registry: requires at least one of: %s",
+			runtime.Join(registrySupported, ", "),
+		)
+	}
+
+	// Handle retrieving the JSON data to bootstrap the registry.
+	servers, err := runtime.LoadFromURL[MCPServers](url, registryName)
+	if err != nil {
+		return nil, err
+	}
+
 	// Configure 'standard' filtering options that should always be included.
 	// e.g. for unsupported 'version'.
 	l := logger.Named(registryName)
 	filterOpts := []options.Option{
-		options.WithUnsupportedKeys("version"),
+		options.WithUnsupportedKeys(options.FilterKeyVersion),
 		options.WithLogFunc(func(key, val string) {
 			l.Warn("Unsupported filter/key", "filter", key, "value", val)
 		}),
-	}
-
-	// Handle retrieving the JSON data to bootstrap the registry.
-	resp, err := http.Get(url)
-	if err != nil {
-		return nil, fmt.Errorf("failed to fetch '%s' registry data from URL '%s': %w", registryName, url, err)
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("received non-OK HTTP status from '%s' registry for URL '%s': %d", registryName, url, resp.StatusCode)
-	}
-
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return nil, fmt.Errorf("failed to read '%s' registry response body from '%s': %w", registryName, url, err)
-	}
-
-	var servers MCPServers
-	if err := json.Unmarshal(body, &servers); err != nil {
-		return nil, fmt.Errorf("failed to unmarshal '%s' registry JSON from '%s': %w", registryName, url, err)
 	}
 
 	return &Registry{
@@ -83,6 +75,14 @@ func NewRegistry(logger hclog.Logger, url string, opt ...runtime.Option) (*Regis
 		supportedRuntimes: runtimeOpts.SupportedRuntimes,
 		filterOptions:     filterOpts,
 	}, nil
+}
+
+// registrySupportedRuntimes declares the runtimes that this registry supports.
+func registrySupportedRuntimes() []runtime.Runtime {
+	return []runtime.Runtime{
+		runtime.NPX,
+		runtime.UVX,
+	}
 }
 
 func (r *Registry) ID() string {
@@ -112,7 +112,7 @@ func (r *Registry) Resolve(name string, opt ...options.ResolveOption) (packages.
 			r.logger.Warn(
 				"'version' not supported on resolve operation, returning latest known definition",
 				"name", name,
-				"version", v)
+				options.FilterKeyVersion, v)
 			// Clear 'version' for mcpm as it cannot be used.
 			delete(fs, options.FilterKeyVersion)
 		}
@@ -166,7 +166,8 @@ func (r *Registry) Search(name string, filters map[string]string, opt ...options
 			r.logger.Warn(
 				"'version' not supported on search operation, returning latest known definition",
 				"name", name,
-				"version", v)
+				options.FilterKeyVersion, v,
+			)
 			// Clear 'version' for mcpm as it cannot be used.
 			delete(fs, options.FilterKeyVersion)
 		}
@@ -211,10 +212,7 @@ func (r *Registry) buildPackageResult(pkgKey string) (packages.Package, bool) {
 	// Sanity check to ensure things work when a random ID gets supplied.
 	sd, foundServer := r.mcpServers[pkgKey]
 	if !foundServer {
-		r.logger.Warn(
-			"transformation to server details failed, MCP server package not found",
-			"pkgKey", pkgKey,
-		)
+		r.logger.Warn("cannot transform package, unknown key", "pkgKey", pkgKey)
 		return packages.Package{}, false
 	}
 
@@ -233,65 +231,154 @@ func (r *Registry) buildPackageResult(pkgKey string) (packages.Package, bool) {
 		runtimes = append(runtimes, rt)
 	}
 	slices.Sort(runtimes)
-	pkgName := runtimesAndPackages[runtimes[0]]
 
 	tools := make([]string, 0, len(sd.Tools))
 	for _, tool := range sd.Tools {
 		tools = append(tools, tool.Name)
 	}
 
-	// Analyze actual runtime variables
-	runtimeVariables := r.analyzeServerArguments(sd)
-
-	// Convert runtime variables to ArgumentMetadata format
-	arguments := make(map[string]packages.ArgumentMetadata, len(runtimeVariables))
-	for varName, rtVar := range runtimeVariables {
-		arguments[varName] = packages.ArgumentMetadata{
-			VariableType: rtVar.VariableType,
-			Required:     rtVar.Required,
-			Description:  rtVar.Description,
-		}
-	}
-
-	// Extract just the environment variables for backward compatibility
-	configurableEnvVars := make([]string, 0)
-	for varName, rtVar := range runtimeVariables {
-		if rtVar.VariableType == packages.VariableTypeEnv {
-			configurableEnvVars = append(configurableEnvVars, varName)
-		}
-	}
-	slices.Sort(configurableEnvVars)
+	// Analyze actual runtime variables and convert to ArgumentMetadata format
+	arguments := extractArgumentMetadata(sd, r.supportedRuntimes)
 
 	return packages.Package{
-		ID:                  pkgKey,
 		Source:              registryName,
-		Name:                pkgName,
+		ID:                  pkgKey,
+		Name:                pkgKey,
 		DisplayName:         sd.DisplayName,
 		Description:         sd.Description,
 		License:             sd.License,
 		Tools:               tools,
 		Runtimes:            runtimes,
-		InstallationDetails: convertInstallations(sd.Installations),
+		InstallationDetails: convertInstallations(sd.Installations, r.supportedRuntimes),
 		Arguments:           arguments,
-		ConfigurableEnvVars: configurableEnvVars,
+		IsOfficial:          sd.IsOfficial,
 	}, true
 }
 
-func convertInstallations(src map[string]Installation) map[runtime.Runtime]packages.Installation {
+type RuntimeSpec struct {
+	ShouldIgnoreFlag   func(string) bool
+	ExtractPackageName func([]string) (string, error)
+}
+
+func extractArgumentMetadata(server MCPServer, supported map[runtime.Runtime]struct{}) map[string]packages.ArgumentMetadata {
+	schemaArgs := server.Arguments
+	result := make(map[string]packages.ArgumentMetadata)
+
+	for installKey, installation := range server.Installations {
+		rt := runtime.Runtime(installKey)
+		if _, ok := supported[rt]; !ok {
+			continue
+		}
+
+		// Environment variables
+		for envName, envValue := range installation.Env {
+			meta := schemaArgs[envName]
+			if placeholder := extractPlaceholder(envValue); placeholder != "" {
+				if arg, ok := schemaArgs[placeholder]; ok {
+					meta = arg
+				}
+			}
+			result[envName] = packages.ArgumentMetadata{
+				VariableType: packages.VariableTypeEnv,
+				Required:     meta.Required,
+				Description:  meta.Description,
+			}
+		}
+
+		// Command-line arguments
+		for _, arg := range installation.Args {
+			if !strings.HasPrefix(arg, "--") {
+				continue
+			}
+
+			flag := extractActualCommandLineFlag(arg)
+			if flag == "" {
+				continue
+			}
+
+			// Check if this flag should be ignored for this runtime
+			if spec, ok := runtime.Specs()[rt]; ok && spec.ShouldIgnoreFlag != nil {
+				if spec.ShouldIgnoreFlag(flag) {
+					continue
+				}
+			}
+
+			meta := schemaArgs[flag]
+			if placeholder := extractPlaceholder(arg); placeholder != "" {
+				if arg2, ok := schemaArgs[placeholder]; ok {
+					meta = arg2
+				}
+			}
+
+			result[flag] = packages.ArgumentMetadata{
+				VariableType: packages.VariableTypeArg,
+				Required:     meta.Required,
+				Description:  meta.Description,
+			}
+		}
+
+	}
+
+	return result
+}
+
+func extractPlaceholder(s string) string {
+	if matches := packages.EnvVarPlaceholderRegex.FindStringSubmatch(s); len(matches) > 1 {
+		return matches[1]
+	}
+	return ""
+}
+
+func shouldIgnoreFlag(rt runtime.Runtime, flag string) bool {
+	switch rt {
+	case runtime.Docker:
+		switch flag {
+		case "--rm", "--name", "--volume", "-v", "--network", "--detach", "-d", "-i":
+			return true
+		}
+	case runtime.Python:
+		if flag == "-m" {
+			return true
+		}
+	case runtime.NPX:
+		if flag == "-y" {
+			return true
+		}
+	}
+	return false
+}
+
+func convertInstallations(src map[string]Installation, supported map[runtime.Runtime]struct{}) map[runtime.Runtime]packages.Installation {
 	if src == nil {
 		return nil
 	}
 
+	specs := runtime.Specs()
 	details := make(map[runtime.Runtime]packages.Installation, len(src))
+
 	for _, install := range src {
-		details[runtime.Runtime(install.Command)] = packages.Installation{
+		rt := runtime.Runtime(install.Command)
+		if _, ok := supported[rt]; !ok {
+			continue
+		}
+
+		pkg := ""
+		if spec, ok := specs[rt]; ok && spec.ExtractPackageName != nil {
+			if name, err := spec.ExtractPackageName(install.Args); err == nil {
+				pkg = name
+			}
+		}
+
+		details[rt] = packages.Installation{
+			Command:     install.Command,
 			Args:        slices.Clone(install.Args),
-			Package:     install.Package,
+			Package:     pkg,
 			Env:         maps.Clone(install.Env),
 			Description: install.Description,
 			Recommended: install.Recommended,
 		}
 	}
+
 	return details
 }
 
@@ -304,20 +391,25 @@ func convertInstallations(src map[string]Installation) map[runtime.Runtime]packa
 func (r *Registry) supportedRuntimePackageNames(installations map[string]Installation) (map[runtime.Runtime]string, error) {
 	result := make(map[runtime.Runtime]string)
 
-	for _, inst := range installations {
-		// MCPM's registry is a bit inconsistent around npm/npx.
-		// Sometimes an installation key is npm, sometimes npx.
-		// Sometimes, the key is npx, but the type is npm, etc. it seems the only consistent thing to
-		// index on is the actual 'command' which shows npx consistently.
-		rt := runtime.Runtime(inst.Command)
+	specs := runtime.Specs()
+
+	for key, inst := range installations {
+		rt := runtime.Runtime(key)
 		if _, ok := r.supportedRuntimes[rt]; !ok {
 			continue
 		}
 
-		pkg, err := extractPlainPackage(rt, inst.Args)
+		spec, ok := specs[rt]
+		if !ok || spec.ExtractPackageName == nil {
+			r.logger.Debug("no package extractor for runtime", "runtime", rt)
+			continue
+		}
+
+		pkg, err := spec.ExtractPackageName(inst.Args)
 		if err != nil {
 			return nil, fmt.Errorf("failed to extract package for runtime %q: %w", rt, err)
 		}
+
 		result[rt] = pkg
 	}
 
@@ -350,21 +442,12 @@ func extractPlainPackage(rt runtime.Runtime, args []string) (string, error) {
 	return "", errors.New("no valid plain package name found in args")
 }
 
-// TODO: Relocate?
-type RuntimeVariable struct {
-	Name         string                       `json:"name"`          // Actual name used at runtime
-	VariableType packages.VariableType        `json:"variable_type"` // "environment" or "argument"
-	Runtimes     map[runtime.Runtime]struct{} `json:"runtimes"`      // Which runtimes use this variable
-	Required     bool                         `json:"required"`      // If we can determine this
-	Description  string                       `json:"description"`   // If available from Arguments map
-}
-
 // extractActualCommandLineFlag extracts the actual flag name from a command line argument
 // e.g., "--local-timezone=${TZ}" returns "--local-timezone"
 // e.g., "--verbose" returns "--verbose"
 func extractActualCommandLineFlag(arg string) string {
 	if strings.Contains(arg, "=") {
-		parts := strings.Split(arg, "=")
+		parts := strings.SplitN(arg, "=", 2)
 		if len(parts) > 0 && strings.HasPrefix(parts[0], "--") {
 			return parts[0]
 		}
@@ -373,83 +456,4 @@ func extractActualCommandLineFlag(arg string) string {
 		return arg
 	}
 	return ""
-}
-
-func (r *Registry) analyzeServerArguments(server MCPServer) map[string]RuntimeVariable {
-	// Map from schema argument names to their metadata (for descriptions, etc.)
-	schemaArgs := server.Arguments
-	runtimeVars := make(map[string]RuntimeVariable)
-
-	for installType, installation := range server.Installations {
-		rt := runtime.Runtime(installType) // TODO: Check key vs. the installation.Command
-		// Skip args for runtimes we don't support.
-		if _, ok := r.supportedRuntimes[rt]; !ok {
-			continue
-		}
-		// Extract actual environment variables (left side of env mappings)
-		for envName, envValue := range installation.Env {
-			if rtv, exists := runtimeVars[envName]; exists {
-				rtv.Runtimes[rt] = struct{}{}
-				continue
-			}
-
-			// Create new runtime variable
-			rtVar := RuntimeVariable{
-				Name:         envName,
-				VariableType: packages.VariableTypeEnv,
-				Runtimes:     map[runtime.Runtime]struct{}{rt: {}},
-			}
-
-			// Try to find description from schema arguments
-			// Check if env value is a placeholder that matches a schema arg
-			if matches := packages.EnvVarPlaceholderRegex.FindStringSubmatch(envValue); len(matches) > 1 {
-				schemaArgName := matches[1]
-				if schemaArg, exists := schemaArgs[schemaArgName]; exists {
-					rtVar.Description = schemaArg.Description
-					rtVar.Required = schemaArg.Required
-				}
-			}
-
-			// Also check if the actual env name matches a schema arg name
-			if schemaArg, exists := schemaArgs[envName]; exists {
-				rtVar.Description = schemaArg.Description
-				rtVar.Required = schemaArg.Required
-			}
-
-			runtimeVars[envName] = rtVar
-		}
-
-		// Extract actual command line arguments
-		for _, arg := range installation.Args {
-			if strings.HasPrefix(arg, "--") {
-				actualArgName := extractActualCommandLineFlag(arg)
-				if actualArgName != "" {
-					if rtv, exists := runtimeVars[actualArgName]; exists {
-						rtv.Runtimes[rt] = struct{}{}
-						continue
-					}
-
-					// Create new runtime variable
-					rtVar := RuntimeVariable{
-						Name:         actualArgName,
-						VariableType: packages.VariableTypeArg,
-						Runtimes:     map[runtime.Runtime]struct{}{rt: {}},
-					}
-
-					// Try to find description from schema arguments by looking for placeholders
-					if matches := packages.EnvVarPlaceholderRegex.FindStringSubmatch(arg); len(matches) > 1 {
-						schemaArgName := matches[1]
-						if schemaArg, exists := schemaArgs[schemaArgName]; exists {
-							rtVar.Description = schemaArg.Description
-							rtVar.Required = schemaArg.Required
-						}
-					}
-
-					runtimeVars[actualArgName] = rtVar
-				}
-			}
-		}
-	}
-
-	return runtimeVars
 }

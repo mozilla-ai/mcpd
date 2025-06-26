@@ -208,7 +208,7 @@ func Match[T any](item T, filters map[string]string, opts ...Option[T]) (bool, e
 		// Check unsupported
 		if _, unsupported := filterOpts.unsupported[k]; unsupported {
 			filterOpts.logFunc(k, val)
-			return false, nil
+			return false, nil // TODO: Should unsupported filters just log and continue?
 		}
 
 		// Check for an associated matcher, and try to match.

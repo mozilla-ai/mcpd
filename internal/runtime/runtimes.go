@@ -1,5 +1,7 @@
 package runtime
 
+import "strings"
+
 // Runtime represents the type of runtime an MCP server can be run under.
 type Runtime string
 
@@ -16,3 +18,25 @@ const (
 
 	// TODO: Add other runtimes as required...
 )
+
+// AnyIntersection returns true if any value in a is also in b.
+func AnyIntersection(a []Runtime, b []Runtime) bool {
+	set := map[Runtime]struct{}{}
+	for _, v := range b {
+		set[v] = struct{}{}
+	}
+	for _, v := range a {
+		if _, ok := set[v]; ok {
+			return true
+		}
+	}
+	return false
+}
+
+func Join(runtimes []Runtime, sep string) string {
+	res := make([]string, len(runtimes))
+	for i, r := range runtimes {
+		res[i] = string(r)
+	}
+	return strings.Join(res, sep)
+}

@@ -122,27 +122,9 @@ func (c *AddCmd) run(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("⚠️ Failed to get package '%s@%s' from registry: %w", name, c.Version, err)
 	}
 
-	requestedTools, err := filter.MatchRequestedSlice(c.Tools, pkg.Tools)
+	entry, err := parseServerEntry(pkg, runtime.Runtime(c.Runtime), c.Tools, c.MCPDSupportedRuntimes())
 	if err != nil {
-		return fmt.Errorf("error matching requested tools: %w", err)
-	}
-
-	selectedRuntime, runtimeErr := c.runtime(pkg)
-	if runtimeErr != nil {
-		return runtimeErr
-	}
-
-	version := "latest"
-	if pkg.Version != "" {
-		version = pkg.Version
-	}
-
-	runtimePackageVersion := fmt.Sprintf("%s::%s@%s", selectedRuntime, pkg.Name, version)
-
-	entry := config.ServerEntry{
-		Name:    pkg.ID,
-		Package: runtimePackageVersion,
-		Tools:   requestedTools,
+		return fmt.Errorf("error parsing server entry: %w", err)
 	}
 
 	cfg, err := c.cfgLoader.Load(flags.ConfigFile)
@@ -160,41 +142,94 @@ func (c *AddCmd) run(cmd *cobra.Command, args []string) error {
 		cmd.OutOrStdout(),
 		"✓ Added server '%s' (version: %s), tools: %s\n",
 		name,
-		version,
-		strings.Join(requestedTools, ", "),
+		entry.PackageVersion(),
+		strings.Join(entry.Tools, ", "),
 	)
 	if err != nil {
 		return err
 	}
-	logger.Debug("Server added", "name", name, "version", version, "tools", requestedTools)
+	logger.Debug("Server added", "name", name, "version", entry.PackageVersion(), "tools", entry.Tools)
 
 	// Print the package info.
 	if err = c.packagePrinter.PrintPackage(pkg); err != nil {
 		return err
 	}
 
+	_, err = fmt.Fprintln(cmd.OutOrStdout())
+	if err != nil {
+		return err
+	}
+
 	return nil
 }
 
-func (c *AddCmd) runtime(pkg packages.Package) (runtime.Runtime, error) {
-	// TODO: Sort out preference for runtimes
-	var selectedRuntime runtime.Runtime
-	supportedRuntimes := runtime.DefaultSupportedRuntimes()
-	for k, v := range pkg.InstallationDetails {
-		if _, ok := supportedRuntimes[k]; ok {
-			// We'll always end up with a supported runtime,
-			// and hopefully one of them is the recommended installation.
-			selectedRuntime = k
-			if v.Recommended {
-				break
-			}
+// selectRuntime returns the most appropriate runtime from a set of installations,
+// given a list of supported runtimes in priority order.
+//
+// It first searches for any supported runtime marked as `Recommended` and returns the first such match.
+// If none are recommended, it returns the first matched runtime from the `supported` list.
+//
+// Returns an error if no supported runtime is found.
+func selectRuntime(
+	installations map[runtime.Runtime]packages.Installation,
+	requestedRuntime runtime.Runtime,
+	supported []runtime.Runtime,
+) (runtime.Runtime, error) {
+	// Try to select the recommended runtime if present.
+	for _, rt := range supported {
+		if requestedRuntime != "" && rt != requestedRuntime {
+			continue
+		}
+		if inst, ok := installations[rt]; ok && inst.Recommended {
+			return rt, nil
 		}
 	}
-	// We shouldn't end up in this situation, but just in case.
-	if selectedRuntime == "" {
-		return "", fmt.Errorf("no supported runtimes found for '%s'", pkg.Name)
+
+	// Fall back to the first supported runtime by priority.
+	for _, rt := range supported {
+		if requestedRuntime != "" && rt != requestedRuntime {
+			continue
+		}
+		if _, ok := installations[rt]; ok {
+			return rt, nil
+		}
 	}
-	return selectedRuntime, nil
+
+	return "", fmt.Errorf("no supported runtimes found")
+}
+
+func parseServerEntry(
+	pkg packages.Package,
+	requestedRuntime runtime.Runtime,
+	requestedTools []string,
+	supportedRuntimes []runtime.Runtime,
+) (config.ServerEntry, error) {
+	requestedTools, err := filter.MatchRequestedSlice(requestedTools, pkg.Tools)
+	if err != nil {
+		return config.ServerEntry{}, fmt.Errorf("error matching requested tools: %w", err)
+	}
+
+	selectedRuntime, runtimeErr := selectRuntime(pkg.InstallationDetails, requestedRuntime, supportedRuntimes)
+	if runtimeErr != nil {
+		return config.ServerEntry{}, fmt.Errorf("error selecting runtime from available installations: %w", runtimeErr)
+	}
+
+	v := "latest"
+	if pkg.Version != "" {
+		v = pkg.Version
+	}
+
+	runtimeSpecificName := pkg.InstallationDetails[selectedRuntime].Package
+	if runtimeSpecificName == "" {
+		return config.ServerEntry{}, fmt.Errorf("installation package name is missing for runtime '%s'", selectedRuntime)
+	}
+	runtimePackageVersion := fmt.Sprintf("%s::%s@%s", selectedRuntime, runtimeSpecificName, v)
+
+	return config.ServerEntry{
+		Name:    pkg.ID,
+		Package: runtimePackageVersion,
+		Tools:   requestedTools,
+	}, nil
 }
 
 func (c *AddCmd) options() []regopts.ResolveOption {

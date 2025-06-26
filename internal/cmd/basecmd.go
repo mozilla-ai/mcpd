@@ -11,6 +11,7 @@ import (
 	"github.com/mozilla-ai/mcpd/v2/internal/flags"
 	"github.com/mozilla-ai/mcpd/v2/internal/provider/mcpm"
 	"github.com/mozilla-ai/mcpd/v2/internal/registry"
+	"github.com/mozilla-ai/mcpd/v2/internal/runtime"
 )
 
 var _ registry.Builder = (*BaseCmd)(nil)
@@ -69,7 +70,11 @@ func (c *BaseCmd) Logger() hclog.Logger {
 func (c *BaseCmd) Build() (registry.PackageProvider, error) {
 	l := c.Logger().Named("registry")
 
-	mcpm, err := mcpm.NewRegistry(l, "https://getmcp.io/api/servers.json") // TODO: Should we be using a hardcoded URL
+	supportedRuntimes := c.MCPDSupportedRuntimes()
+	opts := runtime.WithSupportedRuntimes(supportedRuntimes...)
+
+	// TODO: Should we be using a hardcoded URL
+	mcpm, err := mcpm.NewRegistry(l, "https://getmcp.io/api/servers.json", opts)
 	if err != nil {
 		// TODO: Handle tolerating some failed registries, as long as we can meet a minimum requirement.
 		return nil, err
@@ -78,7 +83,6 @@ func (c *BaseCmd) Build() (registry.PackageProvider, error) {
 	// NOTE: The order the registries are added here determines their precedence when searching and resolving packages.
 	registries := []registry.PackageProvider{
 		mcpm,
-		// TODO: Add more registries...
 	}
 
 	aggregator, err := registry.NewRegistry(l, registries...)
@@ -87,4 +91,12 @@ func (c *BaseCmd) Build() (registry.PackageProvider, error) {
 	}
 
 	return aggregator, nil
+}
+
+// MCPDSupportedRuntimes returns the runtimes that are supported by the mcpd application.
+func (c *BaseCmd) MCPDSupportedRuntimes() []runtime.Runtime {
+	return []runtime.Runtime{
+		runtime.NPX,
+		runtime.UVX,
+	}
 }
