@@ -143,3 +143,192 @@ func TestRemoveServer_ErrorsIfEmptyName(t *testing.T) {
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "server name cannot be empty")
 }
+
+func TestStripVersion(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name     string
+		input    string
+		expected string
+	}{
+		{
+			name:     "full package name",
+			input:    "docker::greptime/greptimedb@latest",
+			expected: "docker::greptime/greptimedb",
+		},
+		{
+			name:     "missing version",
+			input:    "docker::greptime/greptimedb",
+			expected: "docker::greptime/greptimedb",
+		},
+		{
+			name:     "missing prefix",
+			input:    "something@v1.0.0",
+			expected: "something",
+		},
+		{
+			name:     "empty string",
+			input:    "",
+			expected: "",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			require.Equal(t, tt.expected, stripVersion(tt.input))
+		})
+	}
+}
+
+func TestStripPrefix(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name     string
+		input    string
+		expected string
+	}{
+		{
+			name:     "missing version",
+			input:    "docker::greptime/greptimedb",
+			expected: "greptime/greptimedb",
+		},
+		{
+			name:     "multiple prefix",
+			input:    "foo::bar::baz",
+			expected: "bar::baz",
+		},
+		{
+			name:     "no prefix",
+			input:    "greptime/greptimedb",
+			expected: "greptime/greptimedb",
+		},
+		{
+			name:     "only prefix (no runtime)",
+			input:    "::greptime/greptimedb",
+			expected: "greptime/greptimedb",
+		},
+		{
+			name:     "empty string",
+			input:    "",
+			expected: "",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			require.Equal(t, tt.expected, stripPrefix(tt.input))
+		})
+	}
+}
+
+func TestServerEntry_PackageVersion(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name     string
+		entry    ServerEntry
+		expected string
+	}{
+		{
+			name: "with prefix and version",
+			entry: ServerEntry{
+				Package: "docker::greptime/greptimedb@latest",
+			},
+			expected: "latest",
+		},
+		{
+			name: "with prefix but no version",
+			entry: ServerEntry{
+				Package: "docker::greptime/greptimedb",
+			},
+			expected: "greptime/greptimedb",
+		},
+		{
+			name: "no prefix but with version",
+			entry: ServerEntry{
+				Package: "greptime/greptimedb@v1.2.3",
+			},
+			expected: "v1.2.3",
+		},
+		{
+			name: "empty package",
+			entry: ServerEntry{
+				Package: "",
+			},
+			expected: "",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			require.Equal(t, tt.expected, tt.entry.PackageVersion())
+		})
+	}
+}
+
+func TestServerEntry_PackageName(t *testing.T) {
+	tests := []struct {
+		name     string
+		entry    ServerEntry
+		expected string
+	}{
+		{
+			name: "with prefix and version",
+			entry: ServerEntry{
+				Package: "docker::greptime/greptimedb@latest",
+			},
+			expected: "greptime/greptimedb",
+		},
+		{
+			name: "with prefix and no version",
+			entry: ServerEntry{
+				Package: "docker::greptime/greptimedb",
+			},
+			expected: "greptime/greptimedb",
+		},
+		{
+			name: "no prefix, with version",
+			entry: ServerEntry{
+				Package: "greptime/greptimedb@v2.0.0",
+			},
+			expected: "greptime/greptimedb",
+		},
+		{
+			name: "no prefix, no version",
+			entry: ServerEntry{
+				Package: "greptime/greptimedb",
+			},
+			expected: "greptime/greptimedb",
+		},
+		{
+			name: "only prefix",
+			entry: ServerEntry{
+				Package: "::greptime/greptimedb",
+			},
+			expected: "greptime/greptimedb",
+		},
+		{
+			name: "empty package",
+			entry: ServerEntry{
+				Package: "",
+			},
+			expected: "",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			require.Equal(t, tt.expected, tt.entry.PackageName())
+		})
+	}
+}

@@ -70,16 +70,6 @@ func NewRootCmd(c *RootCmd) (*cobra.Command, error) {
 	flags.InitFlags(rootCmd.PersistentFlags())
 
 	// Add top-level commands
-	p, err := printer.NewPrinter(rootCmd.OutOrStdout())
-	if err != nil {
-		return nil, err
-	}
-
-	opts := []options.CmdOption{
-		options.WithPrinter(p),
-		options.WithRegistryBuilder(c.BaseCmd),
-	}
-
 	fns := []createCmdFunc{
 		NewInitCmd,
 		NewSearchCmd,
@@ -90,6 +80,16 @@ func NewRootCmd(c *RootCmd) (*cobra.Command, error) {
 	}
 
 	for _, fn := range fns {
+		p, err := printer.NewPrinter(rootCmd.OutOrStdout())
+		if err != nil {
+			return nil, err
+		}
+
+		opts := []options.CmdOption{
+			options.WithPrinter(p),
+			options.WithRegistryBuilder(c.BaseCmd),
+		}
+
 		tempCmd, err := fn(c.BaseCmd, opts...)
 		if err != nil {
 			return nil, err

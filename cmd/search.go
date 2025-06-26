@@ -21,6 +21,7 @@ type SearchCmd struct {
 	License         string
 	Source          string
 	registryBuilder registry.Builder
+	packagePrinter  printer.Printer
 }
 
 func NewSearchCmd(baseCmd *cmd.BaseCmd, opt ...cmdopts.CmdOption) (*cobra.Command, error) {
@@ -29,9 +30,15 @@ func NewSearchCmd(baseCmd *cmd.BaseCmd, opt ...cmdopts.CmdOption) (*cobra.Comman
 		return nil, err
 	}
 
+	// Override printer options to show separator for search.
+	if err = opts.Printer.SetOptions(printer.WithSeparator(true)); err != nil {
+		return nil, err
+	}
+
 	c := &SearchCmd{
 		BaseCmd:         baseCmd,
 		registryBuilder: opts.RegistryBuilder,
+		packagePrinter:  opts.Printer,
 	}
 
 	cobraCommand := &cobra.Command{
@@ -126,15 +133,6 @@ func (c *SearchCmd) run(cmd *cobra.Command, args []string) error {
 		return nil
 	}
 
-	printer, err := printer.NewPrinter(
-		cmd.OutOrStdout(),
-		printer.WithSeparator(true),
-		printer.WithMissingWarnings(true),
-	)
-	if err != nil {
-		return err
-	}
-
 	if _, err = fmt.Fprintf(cmd.OutOrStdout(), "\n📦 Registry search results...\n"); err != nil {
 		return err
 	}
@@ -143,7 +141,7 @@ func (c *SearchCmd) run(cmd *cobra.Command, args []string) error {
 	}
 
 	for _, pkg := range results {
-		if err = printer.PrintPackage(pkg); err != nil {
+		if err = c.packagePrinter.PrintPackage(pkg); err != nil {
 			return err
 		}
 	}

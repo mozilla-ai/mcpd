@@ -130,6 +130,14 @@ func stripVersion(pkg string) string {
 	return pkg
 }
 
+func stripPrefix(pkg string) string {
+	prefixDelim := "::"
+	if idx := strings.Index(pkg, prefixDelim); idx != -1 {
+		return pkg[idx+len(prefixDelim):]
+	}
+	return pkg
+}
+
 func (c *Config) saveConfig() error {
 	if c.configFilePath == "" {
 		return fmt.Errorf("config file path not present")
@@ -167,7 +175,13 @@ func (c *Config) validateServers() error {
 
 // validateFields ensures that all ServerEntry's in Config have a name and package.
 func (c *Config) validateFields() error {
+	seen := map[string]struct{}{}
+
 	for _, entry := range c.Servers {
+		if _, ok := seen[entry.Name]; ok {
+			return fmt.Errorf("duplicate server name '%s'", entry.Name)
+		}
+		seen[entry.Name] = struct{}{}
 		if strings.TrimSpace(entry.Name) == "" {
 			return fmt.Errorf("server entry has empty name")
 		}

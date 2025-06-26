@@ -38,6 +38,7 @@ type PackageResolver interface {
 type PackageProvider interface {
 	PackageSearcher
 	PackageResolver
+
 	// ID returns the ID of this PackageResolver
 	ID() string
 }

@@ -12,6 +12,7 @@ import (
 
 type Printer interface {
 	PrintPackage(pkg packages.Package) error
+	SetOptions(opt ...PackagePrinterOption) error
 }
 
 type DefaultPrinter struct{}
@@ -22,9 +23,13 @@ type PackagePrinter struct {
 }
 
 func (p *DefaultPrinter) PrintPackage(pkg packages.Package) error {
-	if _, err := fmt.Fprintf(os.Stderr, "%#v\n", pkg); err != nil {
+	if _, err := fmt.Fprintf(os.Stderr, "Default:\n%#v\n", pkg); err != nil {
 		return err
 	}
+	return nil
+}
+
+func (p *DefaultPrinter) SetOptions(opt ...PackagePrinterOption) error {
 	return nil
 }
 
@@ -39,6 +44,29 @@ func NewPrinter(out io.Writer, options ...PackagePrinterOption) (Printer, error)
 		out:  out,
 		opts: opts,
 	}, nil
+}
+
+func (p *PackagePrinter) SetOptions(opt ...PackagePrinterOption) error {
+	// Get current options.
+	opts := []PackagePrinterOption{
+		WithHeader(p.opts.showHeader),
+		WithSeparator(p.opts.showSeparator),
+		WithMissingWarnings(p.opts.showMissingWarning),
+	}
+
+	// Add updated options.
+	for _, o := range opt {
+		opts = append(opts, o)
+	}
+
+	// 'last write wins' for options, so updated options will be applied.
+	newOpts, err := NewPackagePrinterOptions(opts...)
+	if err != nil {
+		return err
+	}
+	p.opts = newOpts
+
+	return nil
 }
 
 // PrintPackage outputs a single package entry with options.
@@ -72,14 +100,14 @@ func (p *PackagePrinter) printDetails(pkg packages.Package) error {
 		return err
 	}
 
-	if _, err := fmt.Fprintf(p.out, "  📁 Registry: %s\n", pkg.Source); err != nil {
-		return err
-	}
-
 	if strings.TrimSpace(pkg.DisplayName) != "" {
 		if _, err := fmt.Fprintf(p.out, "  🏷️ Name: %s\n", pkg.Name); err != nil {
 			return err
 		}
+	}
+
+	if _, err := fmt.Fprintf(p.out, "  📁 Registry: %s\n", pkg.Source); err != nil {
+		return err
 	}
 
 	if strings.TrimSpace(pkg.Description) != "" {
@@ -135,19 +163,27 @@ func (p *PackagePrinter) printDetails(pkg packages.Package) error {
 			}
 		}
 
-		// TODO: Use the method for configurable env vars:
-		// => pkg.Arguments.EnvVars()
-		if len(pkg.ConfigurableEnvVars) > 0 {
+		envVars := pkg.Arguments.EnvVars()
+		envVarNames := envVars.EnvVarNames()
+		if len(envVarNames) > 0 {
 			if _, err := fmt.Fprintln(p.out, "  📋 Args configurable via environment variables..."); err != nil {
 				return err
 			}
-			if _, err := fmt.Fprintf(p.out, "  🌍 %s\n", strings.Join(pkg.ConfigurableEnvVars, ", ")); err != nil {
+			if _, err := fmt.Fprintf(p.out, "  🌍 %s\n", strings.Join(envVarNames, ", ")); err != nil {
 				return err
 			}
 		}
 
-		// TODO: Show the args configurable via 'cmd line'
-		// => pkg.Arguments.Args()
+		args := pkg.Arguments.Args()
+		argNames := args.ArgNames()
+		if len(argNames) > 0 {
+			if _, err := fmt.Fprintln(p.out, "  📋 Args configurable via command line..."); err != nil {
+				return err
+			}
+			if _, err := fmt.Fprintf(p.out, "  🖥️ %s\n", strings.Join(argNames, ", ")); err != nil {
+				return err
+			}
+		}
 	}
 
 	return nil

@@ -1,6 +1,7 @@
 package mcpm
 
 import (
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -11,6 +12,7 @@ import (
 
 	"github.com/mozilla-ai/mcpd/v2/internal/packages"
 	"github.com/mozilla-ai/mcpd/v2/internal/registry/options"
+	"github.com/mozilla-ai/mcpd/v2/internal/runtime"
 )
 
 // Define a dummy JSON payload to be served by the mock HTTP server.
@@ -484,10 +486,178 @@ func TestMCPMRegistryGet(t *testing.T) {
 			} else {
 				require.NoError(t, err)
 				require.Equal(t, tt.expectedID, result.ID, "Mismatch in returned ID")
-				require.ElementsMatch(t, tt.expectedEnv, result.ConfigurableEnvVars)
 				require.ElementsMatch(t, tt.expectedEnv, result.Arguments.EnvVarNames())
 				require.ElementsMatch(t, tt.expectedArgs, result.Arguments.ArgNames())
 			}
+		})
+	}
+}
+
+func TestShouldIgnoreFlag(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		rt   runtime.Runtime
+		flag string
+		want bool
+	}{
+		{runtime.Docker, "--rm", true},
+		{runtime.Docker, "--name", true},
+		{runtime.Docker, "--local-timezone", false},
+		{runtime.NPX, "-y", true},
+		{runtime.Python, "-m", true},
+		{runtime.Python, "--debug", false},
+		{runtime.UVX, "--experimental", false},
+	}
+
+	for _, tt := range tests {
+		t.Run(fmt.Sprintf("%s/%s", tt.rt, tt.flag), func(t *testing.T) {
+			t.Parallel()
+
+			got := shouldIgnoreFlag(tt.rt, tt.flag)
+			require.Equal(t, tt.want, got)
+		})
+	}
+}
+
+func TestBuildPackageResult_MultipleSupportedRuntimeInstallations(t *testing.T) {
+	t.Parallel()
+
+	server := MCPServer{
+		Name:        "time",
+		DisplayName: "Time",
+		Description: "A Model Context Protocol server that provides time and timezone conversion capabilities. It automatically detects the system's timezone and offers tools for getting current time and converting between timezones.",
+		License:     "MIT",
+		IsOfficial:  true,
+		Arguments: map[string]Argument{
+			"TZ": {
+				Description: "Environment variable to override the system's default timezone",
+				Required:    false,
+				Example:     "America/New_York",
+			},
+		},
+		Installations: map[string]Installation{
+			"uvx": {
+				Type:    "uvx",
+				Command: "uvx",
+				Args: []string{
+					"mcp-server-time",
+					"--local-timezone=${TZ}",
+				},
+				Recommended: true,
+			},
+			"docker": {
+				Type:    "docker",
+				Command: "docker",
+				Args: []string{
+					"run",
+					"-i",
+					"--rm",
+					"mcp/time",
+					"--local-timezone=${TZ}",
+				},
+			},
+		},
+	}
+
+	reg := &Registry{
+		mcpServers: map[string]MCPServer{"time": server},
+		logger:     hclog.NewNullLogger(),
+		supportedRuntimes: map[runtime.Runtime]struct{}{
+			runtime.UVX:    {},
+			runtime.Docker: {},
+		},
+	}
+
+	result, ok := reg.buildPackageResult("time")
+
+	require.True(t, ok, "expected package transformation to succeed")
+	require.Contains(t, result.Runtimes, runtime.UVX)
+	require.Contains(t, result.Runtimes, runtime.Docker)
+	require.Equal(t, "mcp/time", result.InstallationDetails[runtime.Docker].Package)
+	require.Equal(t, "mcp-server-time", result.InstallationDetails[runtime.UVX].Package)
+	require.Equal(t, "time", result.Name)
+}
+
+func TestConvertInstallations(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name              string
+		src               map[string]Installation
+		supportedRuntimes map[runtime.Runtime]struct{}
+		expected          map[runtime.Runtime]packages.Installation
+	}{
+		{
+			name: "Docker with valid image",
+			src: map[string]Installation{
+				"docker": {
+					Type:    "docker",
+					Command: "docker",
+					Args: []string{
+						"run",
+						"--rm",
+						"greptime/greptimedb:latest",
+					},
+					Description: "Run GreptimeDB in a container",
+					Recommended: true,
+				},
+			},
+			supportedRuntimes: map[runtime.Runtime]struct{}{
+				runtime.Docker: {},
+			},
+			expected: map[runtime.Runtime]packages.Installation{
+				runtime.Docker: {
+					Command:     "docker",
+					Args:        []string{"run", "--rm", "greptime/greptimedb:latest"},
+					Package:     "greptime/greptimedb:latest",
+					Description: "Run GreptimeDB in a container",
+					Recommended: true,
+				},
+			},
+		},
+		{
+			name: "Unsupported runtime is ignored",
+			src: map[string]Installation{
+				"python": {
+					Type:    "python",
+					Command: "python",
+					Args:    []string{"-m", "mcp_server_time"},
+				},
+			},
+			supportedRuntimes: map[runtime.Runtime]struct{}{
+				runtime.Docker: {},
+			},
+			expected: map[runtime.Runtime]packages.Installation{},
+		},
+		{
+			name: "NPX with simple args",
+			src: map[string]Installation{
+				"npx": {
+					Type:    "npx",
+					Command: "npx",
+					Args:    []string{"-y", "my-npx-tool"},
+				},
+			},
+			supportedRuntimes: map[runtime.Runtime]struct{}{
+				runtime.NPX: {},
+			},
+			expected: map[runtime.Runtime]packages.Installation{
+				runtime.NPX: {
+					Command: "npx",
+					Args:    []string{"-y", "my-npx-tool"},
+					Package: "my-npx-tool",
+				},
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			got := convertInstallations(tt.src, tt.supportedRuntimes)
+			require.Equal(t, tt.expected, got)
 		})
 	}
 }

@@ -1,5 +1,7 @@
 package config
 
+import "strings"
+
 var (
 	_ Provider = (*DefaultLoader)(nil)
 	_ Modifier = (*Config)(nil)
@@ -38,8 +40,8 @@ type ServerEntry struct {
 	// e.g. 'github-server'
 	Name string `toml:"name"`
 
-	// Package contains the identifier including version.
-	// e.g. 'modelcontextprotocol/github-server@latest'
+	// Package contains the identifier including runtime and version.
+	// e.g. 'uvx::modelcontextprotocol/github-server@latest'
 	Package string `toml:"package"`
 
 	// Tools are optional and list the names of the allowed tools on this server.
@@ -50,4 +52,18 @@ type ServerEntry struct {
 type serverKey struct {
 	Name    string
 	Package string // NOTE: without version
+}
+
+func (e *ServerEntry) PackageVersion() string {
+	versionDelim := "@"
+	pkg := stripPrefix(e.Package)
+
+	if idx := strings.LastIndex(pkg, versionDelim); idx != -1 {
+		return pkg[idx+len(versionDelim):]
+	}
+	return pkg
+}
+
+func (e *ServerEntry) PackageName() string {
+	return stripPrefix(stripVersion(e.Package))
 }

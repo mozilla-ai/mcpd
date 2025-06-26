@@ -13,7 +13,8 @@ type Package struct {
 	Runtimes            []runtime.Runtime                `json:"runtimes"`
 	InstallationDetails map[runtime.Runtime]Installation `json:"installationDetails"`
 	Arguments           Arguments                        `json:"arguments"`
-	ConfigurableEnvVars []string                         `json:"configurableEnvVars"`
 	Source              string                           `json:"source"`
 	Version             string                           `json:"version"`
+	Transport           string                           `json:"transport"`  // TODO: Default to stdio.
+	IsOfficial          bool                             `json:"isOfficial"` // TODO: Not all registries support this.
 }

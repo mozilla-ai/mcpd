@@ -10,7 +10,7 @@ type PackagePrinterOption func(*PackagePrinterOptions) error
 
 func defaultPackagePrinterOptions() PackagePrinterOptions {
 	return PackagePrinterOptions{
-		showHeader:         false,
+		showHeader:         true,
 		showSeparator:      false,
 		showMissingWarning: true,
 	}
