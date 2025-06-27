@@ -14,6 +14,8 @@ import (
 	"github.com/mozilla-ai/mcpd/v2/internal/runtime"
 )
 
+// version should not be moved/modified without consulting the Makefile,
+// as the path to this var is set on the LDFLAGS variable in the script.
 var version = "dev" // Set at build time using -ldflags
 
 // Version is used by other packages to retrieve the build version of mcpd.
