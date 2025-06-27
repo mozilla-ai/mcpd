@@ -15,7 +15,7 @@ VERSION := $(shell git describe --tags --always --dirty 2>/dev/null || echo "dev
 
 # Linker flags for injecting version
 # The path is MODULE_PATH/package.variableName
-LDFLAGS := -X '$(MODULE_PATH)/cmd.version=$(VERSION)'
+LDFLAGS := -X '$(MODULE_PATH)/internal/cmd.version=$(VERSION)'
 
 test:
 	go test ./...
