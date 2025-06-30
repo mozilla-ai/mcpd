@@ -6,6 +6,7 @@ on:
     paths:
       - "cmd/**"
       - "docs/**"
+      - "tools/docsgen/**"
   workflow_dispatch:
 
 permissions:

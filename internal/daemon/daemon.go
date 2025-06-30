@@ -177,7 +177,6 @@ func (d *Daemon) launchServer(ctx context.Context, server runtime.Server, wg *sy
 		"environment", env,
 	)
 	fmt.Println(fmt.Sprintf("Starting MCP server: '%s'...", server.Name))
-
 	stdioClient, err := client.NewStdioMCPClient(runtimeBinary, env, args...)
 	if err != nil {
 		return fmt.Errorf("error starting MCP server: '%s': %w", server.Name, err)
@@ -292,6 +291,8 @@ func (d *Daemon) healthCheckLoop(
 	interval time.Duration,
 	timeout time.Duration,
 ) {
+	d.logger.Info("Starting health check loop", "interval", interval, "timeout", timeout)
+
 	ticker := time.NewTicker(interval)
 	defer ticker.Stop()
 

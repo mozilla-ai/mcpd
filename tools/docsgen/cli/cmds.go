@@ -4,7 +4,6 @@
 package main
 
 import (
-	"io"
 	"os"
 
 	"github.com/hashicorp/go-hclog"
@@ -19,7 +18,7 @@ func main() {
 	logger := hclog.New(&hclog.LoggerOptions{
 		Name:   "mcpd.docsgen",
 		Level:  hclog.Info,
-		Output: io.Discard, // TODO: need to be able to configure this for log file/stdout/stderr.
+		Output: os.Stderr,
 	})
 
 	// docsPath is the path to the commands documentation, relative to the repository root.

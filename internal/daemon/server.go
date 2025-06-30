@@ -129,8 +129,6 @@ func (a *ApiServer) handleApiRequest(w http.ResponseWriter, r *http.Request) {
 		if err != nil {
 			a.handleError(w, err)
 		} else {
-			// TODO: Remove debug logging for this later to prevent data leaking into logs.
-			a.logger.Debug("API request response", "method", r.Method, "path", path, "result", result)
 			a.writeJSON(w, result)
 		}
 	}
@@ -214,9 +212,6 @@ func (a *ApiServer) callTool(ctx context.Context, serverName, toolName string, a
 	if !slices.Contains(allowedTools, toolName) {
 		return nil, fmt.Errorf("%w: %s/%s", ErrToolForbidden, serverName, toolName)
 	}
-
-	// TODO: Remove debug logging later to prevent data leaking into logs.
-	a.logger.Debug("Calling tool", "server", serverName, "tool", toolName, "args", args)
 
 	result, err := mcpClient.CallTool(ctx, mcp.CallToolRequest{
 		Params: mcp.CallToolParams{
