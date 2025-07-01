@@ -23,6 +23,7 @@ func TestSpecs_ShouldIgnoreFlag(t *testing.T) {
 		{NPX, "--help", false},
 		{Python, "-m", true},
 		{Python, "--debug", false},
+		{UVX, "--from", true},
 	}
 
 	for _, tc := range tests {
@@ -98,6 +99,28 @@ func TestSpecs_ExtractPackageName(t *testing.T) {
 			},
 			want:    "mcp/elevenlabs",
 			wantErr: false,
+		},
+		{
+			name:    "npx from with git",
+			runtime: UVX,
+			args: []string{
+				"--from",
+				"git+https://github.com/oceanbase/mcp-oceanbase",
+				"oceanbase_mcp_server",
+			},
+			want:    "",
+			wantErr: true,
+		},
+		{
+			name:    "npx from with http",
+			runtime: UVX,
+			args: []string{
+				"--from",
+				"https://github.com/oceanbase/mcp-oceanbase",
+				"oceanbase_mcp_server",
+			},
+			want:    "",
+			wantErr: true,
 		},
 	}
 

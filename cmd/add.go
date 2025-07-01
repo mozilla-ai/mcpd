@@ -47,8 +47,10 @@ func NewAddCmd(baseCmd *cmd.BaseCmd, opt ...cmdopts.CmdOption) (*cobra.Command, 
 	cobraCommand := &cobra.Command{
 		Use:   "add <server-name>",
 		Short: "Adds an MCP server dependency to the project.",
-		Long:  c.longDescription(),
-		RunE:  c.run,
+		Long: `Adds an MCP server dependency to the project. 
+mcpd will search the registry for the named server and attempt to return information on the version specified, 
+or 'latest' if no version specified.`,
+		RunE: c.run,
 	}
 
 	cobraCommand.Flags().StringVar(
@@ -82,13 +84,6 @@ func NewAddCmd(baseCmd *cmd.BaseCmd, opt ...cmdopts.CmdOption) (*cobra.Command, 
 	return cobraCommand, nil
 }
 
-// longDescription returns the long version of the command description.
-func (c *AddCmd) longDescription() string {
-	return `Adds an MCP server dependency to the project. 
-mcpd will search the registry for the server and attempt to return information on the version specified, 
-or 'latest' if no version specified.`
-}
-
 // run is configured (via NewAddCmd) to be called by the Cobra framework when the command is executed.
 // It may return an error (or nil, when there is no error).
 func (c *AddCmd) run(cmd *cobra.Command, args []string) error {
@@ -97,9 +92,6 @@ func (c *AddCmd) run(cmd *cobra.Command, args []string) error {
 	}
 
 	name := strings.TrimSpace(args[0])
-	if name == "" {
-		return fmt.Errorf("server name cannot be empty")
-	}
 
 	logger, err := c.Logger()
 	if err != nil {
@@ -151,7 +143,13 @@ func (c *AddCmd) run(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return err
 	}
-	logger.Debug("Server added", "name", name, "version", entry.PackageVersion(), "tools", entry.Tools)
+	logger.Debug(
+		"Server added",
+		"name", name,
+		"package", entry.Package,
+		"version", entry.PackageVersion(),
+		"tools", entry.Tools,
+	)
 
 	// Print the package info.
 	if err = c.packagePrinter.PrintPackage(pkg); err != nil {
@@ -228,10 +226,15 @@ func parseServerEntry(
 	}
 	runtimePackageVersion := fmt.Sprintf("%s::%s@%s", selectedRuntime, runtimeSpecificName, v)
 
+	envs := packages.FilterArguments(pkg.Arguments, packages.EnvVar, packages.Required)
+	args := packages.FilterArguments(pkg.Arguments, packages.Argument, packages.Required)
+
 	return config.ServerEntry{
-		Name:    pkg.ID,
-		Package: runtimePackageVersion,
-		Tools:   requestedTools,
+		Name:            pkg.ID,
+		Package:         runtimePackageVersion,
+		Tools:           requestedTools,
+		RequiredArgs:    args.Names(),
+		RequiredEnvVars: envs.Names(),
 	}, nil
 }
 

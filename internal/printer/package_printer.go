@@ -163,24 +163,22 @@ func (p *PackagePrinter) printDetails(pkg packages.Package) error {
 			}
 		}
 
-		envVars := pkg.Arguments.EnvVars()
-		envVarNames := envVars.EnvVarNames()
-		if len(envVarNames) > 0 {
+		envs := pkg.Arguments.FilterBy(packages.EnvVar).Names()
+		if len(envs) > 0 {
 			if _, err := fmt.Fprintln(p.out, "  📋 Args configurable via environment variables..."); err != nil {
 				return err
 			}
-			if _, err := fmt.Fprintf(p.out, "  🌍 %s\n", strings.Join(envVarNames, ", ")); err != nil {
+			if _, err := fmt.Fprintf(p.out, "  🌍 %s\n", strings.Join(envs, ", ")); err != nil {
 				return err
 			}
 		}
 
-		args := pkg.Arguments.Args()
-		argNames := args.ArgNames()
-		if len(argNames) > 0 {
+		args := pkg.Arguments.FilterBy(packages.Argument).Names()
+		if len(args) > 0 {
 			if _, err := fmt.Fprintln(p.out, "  📋 Args configurable via command line..."); err != nil {
 				return err
 			}
-			if _, err := fmt.Fprintf(p.out, "  🖥️ %s\n", strings.Join(argNames, ", ")); err != nil {
+			if _, err := fmt.Fprintf(p.out, "  🖥️ %s\n", strings.Join(args, ", ")); err != nil {
 				return err
 			}
 		}

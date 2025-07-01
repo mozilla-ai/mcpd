@@ -1,7 +1,9 @@
 package packages
 
 import (
+	"maps"
 	"regexp"
+	"slices"
 )
 
 const (
@@ -27,51 +29,44 @@ type ArgumentMetadata struct {
 	VariableType VariableType `json:"type"`
 }
 
-func (a *Arguments) byVariableType(vt VariableType) map[string]ArgumentMetadata {
-	args := *a
-	result := make(map[string]ArgumentMetadata, len(args))
+// FilterBy allows filtering of Arguments using predicates.
+// All predicates must be true in order for an argument to be included in the results.
+func (a Arguments) FilterBy(predicate ...func(name string, data ArgumentMetadata) bool) Arguments {
+	return FilterArguments(a, predicate...)
+}
+
+// Names returns the names of the Arguments.
+func (a Arguments) Names() []string {
+	return slices.Collect(maps.Keys(a))
+}
+
+// FilterArguments allows Arguments to be filtered using any number of predicates.
+// All predicates must be true in order for an argument to be included in the results.
+func FilterArguments(args Arguments, predicate ...func(name string, data ArgumentMetadata) bool) Arguments {
+	result := make(Arguments)
+next:
 	for name, arg := range args {
-		if arg.VariableType == vt {
-			result[name] = arg
+		for _, p := range predicate {
+			if !p(name, arg) {
+				continue next
+			}
 		}
+		result[name] = arg
 	}
 	return result
 }
 
-func (a *Arguments) EnvVars() Arguments {
-	return a.byVariableType(VariableTypeEnv)
+// Required is a predicate that requires the argument is required.
+func Required(_ string, data ArgumentMetadata) bool {
+	return data.Required
 }
 
-func (a *Arguments) EnvVarNames() []string {
-	var ns []string
-	for k, v := range *a {
-		if v.IsEnvironmentVariable() {
-			ns = append(ns, k)
-		}
-	}
-	return ns
+// EnvVar is a predicate that requires the argument is an environment variable.
+func EnvVar(_ string, data ArgumentMetadata) bool {
+	return data.VariableType == VariableTypeEnv
 }
 
-func (a *Arguments) Args() Arguments {
-	return a.byVariableType(VariableTypeArg)
-}
-
-func (a *Arguments) ArgNames() []string {
-	var ns []string
-	for k, v := range *a {
-		if v.IsCommandLineArgument() {
-			ns = append(ns, k)
-		}
-	}
-	return ns
-}
-
-// IsEnvironmentVariable returns true if this argument is primarily used as an environment variable
-func (am ArgumentMetadata) IsEnvironmentVariable() bool {
-	return am.VariableType == VariableTypeEnv
-}
-
-// IsCommandLineArgument returns true if this argument is primarily used as a command line argument
-func (am ArgumentMetadata) IsCommandLineArgument() bool {
-	return am.VariableType == VariableTypeArg
+// Argument is a predicate that requires the argument is a command line argument.
+func Argument(_ string, data ArgumentMetadata) bool {
+	return data.VariableType == VariableTypeArg
 }

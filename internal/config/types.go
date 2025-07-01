@@ -1,6 +1,8 @@
 package config
 
-import "strings"
+import (
+	"strings"
+)
 
 var (
 	_ Provider = (*DefaultLoader)(nil)
@@ -47,6 +49,12 @@ type ServerEntry struct {
 	// Tools lists the names of the tools which should be allowed on this server.
 	// e.g. 'create_repository'
 	Tools []string `toml:"tools"`
+
+	// RequiredEnvVars captures any environment variables required to run the server.
+	RequiredEnvVars []string `toml:"required_env,omitempty"`
+
+	// RequiredArgs captures any command line args required to run the server.
+	RequiredArgs []string `toml:"required_args,omitempty"`
 }
 
 type serverKey struct {

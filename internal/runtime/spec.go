@@ -78,15 +78,33 @@ func Specs() map[Runtime]Spec {
 		},
 		UVX: {
 			ShouldIgnoreFlag: func(flag string) bool {
+				switch flag {
+				case "--from":
+					return true
+				}
 				return false
 			},
 			ExtractPackageName: func(args []string) (string, error) {
-				for _, arg := range args {
+				for i := 0; i < len(args); i++ {
+					arg := strings.TrimSpace(args[i])
+					nextIndex := i + 1
+					if args[i] == "--from" && nextIndex < len(args) {
+						nextArg := strings.TrimSpace(args[nextIndex])
+						if strings.HasPrefix(nextArg, "git+") {
+							return "", fmt.Errorf("remote git repositories are unsupported")
+						}
+						if strings.HasPrefix(nextArg, "https://") {
+							return "", fmt.Errorf("arbitrary HTTP repositories are unsupported")
+						}
+
+						i++ // Skip next value.
+						continue
+					}
 					if !strings.HasPrefix(arg, "-") {
 						return arg, nil
 					}
 				}
-				return "", fmt.Errorf("no %s binary found", UVX)
+				return "", fmt.Errorf("no %s package found", UVX)
 			},
 		},
 		Python: {
