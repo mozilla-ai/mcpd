@@ -1,7 +1,6 @@
 package mcpm
 
 import (
-	"errors"
 	"fmt"
 	"maps"
 	"slices"
@@ -260,34 +259,68 @@ type RuntimeSpec struct {
 	ExtractPackageName func([]string) (string, error)
 }
 
-func extractArgumentMetadata(server MCPServer, supported map[runtime.Runtime]struct{}) map[string]packages.ArgumentMetadata {
-	schemaArgs := server.Arguments
-	result := make(map[string]packages.ArgumentMetadata)
+// isValid checks an installation, and it's name to ensure that the runtime,
+// name and type align with expected values.
+func (i *Installation) isValid(name string) bool {
+	name = filter.NormalizeString(name)
 
-	for installKey, installation := range server.Installations {
-		rt := runtime.Runtime(installKey)
+	switch runtime.Runtime(i.Command) {
+	case runtime.UVX:
+		uvx := string(runtime.UVX)
+		return name == uvx && i.Type == uvx
+	case runtime.NPX:
+		npx := string(runtime.NPX)
+		npm := "npm"
+		return (name == npm || name == npx) && (i.Type == npm || i.Type == npx)
+	case runtime.Docker:
+		docker := string(runtime.Docker)
+		return name == docker && i.Type == docker
+	default:
+		return false
+	}
+}
+
+func extractArgumentMetadata(server MCPServer, supported map[runtime.Runtime]struct{}) map[string]packages.ArgumentMetadata {
+	schema := server.Arguments
+	out := make(map[string]packages.ArgumentMetadata)
+
+	// add copies metadata from schema[metaKey] but stores under key
+	add := func(key, metaKey string, vt packages.VariableType) {
+		m := schema[metaKey] // zero-value ok if metaKey not declared
+		out[key] = packages.ArgumentMetadata{
+			VariableType: vt,
+			Required:     m.Required,
+			Description:  m.Description,
+		}
+	}
+
+	for name, inst := range server.Installations {
+		rt := runtime.Runtime(inst.Command)
 		if _, ok := supported[rt]; !ok {
 			continue
 		}
-
-		// Environment variables
-		for envName, envValue := range installation.Env {
-			meta := schemaArgs[envName]
-			if placeholder := extractPlaceholder(envValue); placeholder != "" {
-				if arg, ok := schemaArgs[placeholder]; ok {
-					meta = arg
-				}
-			}
-			result[envName] = packages.ArgumentMetadata{
-				VariableType: packages.VariableTypeEnv,
-				Required:     meta.Required,
-				Description:  meta.Description,
-			}
+		if !inst.isValid(name) {
+			continue
 		}
 
-		// Command-line arguments
-		for _, arg := range installation.Args {
-			if !strings.HasPrefix(arg, "--") {
+		spec := runtime.Specs()[rt]
+
+		// Environment variables
+		for envName, envVal := range inst.Env {
+			metaKey := envName
+			if placeholder := extractPlaceholder(envVal); placeholder != "" {
+				// If the placeholder appears in the schema, borrow its metadata.
+				if _, ok := schema[placeholder]; ok {
+					metaKey = placeholder
+				}
+			}
+			add(envName, metaKey, packages.VariableTypeEnv)
+		}
+
+		// Command line args (may require look-ahead).
+		for i := 0; i < len(inst.Args); i++ {
+			arg := inst.Args[i]
+			if !strings.HasPrefix(arg, "-") {
 				continue
 			}
 
@@ -295,31 +328,34 @@ func extractArgumentMetadata(server MCPServer, supported map[runtime.Runtime]str
 			if flag == "" {
 				continue
 			}
-
-			// Check if this flag should be ignored for this runtime
-			if spec, ok := runtime.Specs()[rt]; ok && spec.ShouldIgnoreFlag != nil {
-				if spec.ShouldIgnoreFlag(flag) {
-					continue
-				}
+			if spec.ShouldIgnoreFlag != nil && spec.ShouldIgnoreFlag(flag) {
+				continue
 			}
 
-			meta := schemaArgs[flag]
+			// Track the meta key declared in the server's 'arguments' that should
+			// be used to reference required, and description.
+			metaKey := flag
+			nextArgIndex := i + 1
+
 			if placeholder := extractPlaceholder(arg); placeholder != "" {
-				if arg2, ok := schemaArgs[placeholder]; ok {
-					meta = arg2
+				// This value had a placeholder in it.
+				if _, ok := schema[placeholder]; ok {
+					metaKey = placeholder
+				}
+			} else if nextArgIndex < len(inst.Args) {
+				// As long as we're not breaking out of the array, try looking ahead
+				// in case the flag's value in the next token has the placeholder.
+				if placeholder := extractPlaceholder(inst.Args[nextArgIndex]); placeholder != "" {
+					if _, ok := schema[placeholder]; ok {
+						metaKey = placeholder
+					}
 				}
 			}
 
-			result[flag] = packages.ArgumentMetadata{
-				VariableType: packages.VariableTypeArg,
-				Required:     meta.Required,
-				Description:  meta.Description,
-			}
+			add(flag, metaKey, packages.VariableTypeArg)
 		}
-
 	}
-
-	return result
+	return out
 }
 
 func extractPlaceholder(s string) string {
@@ -356,7 +392,10 @@ func convertInstallations(src map[string]Installation, supported map[runtime.Run
 	specs := runtime.Specs()
 	details := make(map[runtime.Runtime]packages.Installation, len(src))
 
-	for _, install := range src {
+	for name, install := range src {
+		if !install.isValid(name) {
+			continue
+		}
 		rt := runtime.Runtime(install.Command)
 		if _, ok := supported[rt]; !ok {
 			continue
@@ -393,8 +432,8 @@ func (r *Registry) supportedRuntimePackageNames(installations map[string]Install
 
 	specs := runtime.Specs()
 
-	for key, inst := range installations {
-		rt := runtime.Runtime(key)
+	for _, inst := range installations {
+		rt := runtime.Runtime(inst.Command)
 		if _, ok := r.supportedRuntimes[rt]; !ok {
 			continue
 		}
@@ -414,32 +453,6 @@ func (r *Registry) supportedRuntimePackageNames(installations map[string]Install
 	}
 
 	return result, nil
-}
-
-// extractPlainPackage scans a slice of command-line arguments and returns the first valid
-// package identifier. It skips flags (e.g., "-y"), interpolated env vars ("${FOO}"),
-// URLs, git references, and script files (".py").
-//
-// This function enforces a strict format, ensuring only plain package names are accepted.
-// e.g. "some-package" or "some-package@version".
-// Non-standard forms such as git URLs, Python scripts, or direct file paths are ignored.
-// Returns an error if no suitable package name is found.
-func extractPlainPackage(rt runtime.Runtime, args []string) (string, error) {
-	for _, arg := range args {
-		switch {
-		case strings.HasPrefix(arg, "-"), strings.HasPrefix(arg, "${"):
-			continue
-		case strings.HasPrefix(arg, "git+"), strings.HasSuffix(arg, ".py"):
-			continue
-		case rt == runtime.UVX && strings.HasPrefix(arg, "https://"),
-			rt == runtime.UVX && strings.HasPrefix(arg, "http://"):
-			continue
-
-		default:
-			return arg, nil
-		}
-	}
-	return "", errors.New("no valid plain package name found in args")
 }
 
 // extractActualCommandLineFlag extracts the actual flag name from a command line argument

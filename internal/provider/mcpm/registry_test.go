@@ -402,15 +402,15 @@ func TestMCPMRegistrySearch(t *testing.T) {
 				for _, res := range results {
 					expectedEnv := tc.expectedEnv[res.ID]
 					expectedArgs := tc.expectedArgs[res.ID]
-					require.ElementsMatch(t, expectedEnv, res.Arguments.EnvVarNames())
-					require.ElementsMatch(t, expectedArgs, res.Arguments.ArgNames())
+					require.ElementsMatch(t, expectedEnv, res.Arguments.FilterBy(packages.EnvVar).Names())
+					require.ElementsMatch(t, expectedArgs, res.Arguments.FilterBy(packages.Argument).Names())
 				}
 			}
 		})
 	}
 }
 
-func TestMCPMRegistryGet(t *testing.T) {
+func TestMCPMRegistryResolve(t *testing.T) {
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 		_, err := w.Write([]byte(dummyMCPMJSON))
@@ -486,8 +486,8 @@ func TestMCPMRegistryGet(t *testing.T) {
 			} else {
 				require.NoError(t, err)
 				require.Equal(t, tc.expectedID, result.ID, "Mismatch in returned ID")
-				require.ElementsMatch(t, tc.expectedEnv, result.Arguments.EnvVarNames())
-				require.ElementsMatch(t, tc.expectedArgs, result.Arguments.ArgNames())
+				require.ElementsMatch(t, tc.expectedEnv, result.Arguments.FilterBy(packages.EnvVar).Names())
+				require.ElementsMatch(t, tc.expectedArgs, result.Arguments.FilterBy(packages.Argument).Names())
 			}
 		})
 	}
@@ -650,6 +650,52 @@ func TestConvertInstallations(t *testing.T) {
 				},
 			},
 		},
+		{
+			name: "npm and cli",
+			src: map[string]Installation{
+				"npm": {
+					Type:    "npm",
+					Command: "npx",
+					Args:    []string{"-y", "@21st-dev/magic@latest", "API_KEY=${API_KEY}"},
+					Package: "@21st-dev/magic",
+					Env: map[string]string{
+						"API_KEY": "${API_KEY}",
+					},
+					Description: "Install via npm package",
+					Recommended: true,
+				},
+				"cli": {
+					Type:    "cli",
+					Command: "npx",
+					Args: []string{
+						"@21st-dev/cli@latest",
+						"install",
+						"<client>",
+						"--api-key",
+						"<key>",
+					},
+					Package:     "",
+					Description: "Install using the CLI tool",
+					Recommended: true,
+				},
+			},
+			supportedRuntimes: map[runtime.Runtime]struct{}{
+				runtime.UVX: {},
+				runtime.NPX: {},
+			},
+			expected: map[runtime.Runtime]packages.Installation{
+				runtime.NPX: {
+					Command: "npx",
+					Args:    []string{"-y", "@21st-dev/magic@latest", "API_KEY=${API_KEY}"},
+					Package: "@21st-dev/magic@latest",
+					Env: map[string]string{
+						"API_KEY": "${API_KEY}",
+					},
+					Description: "Install via npm package",
+					Recommended: true,
+				},
+			},
+		},
 	}
 
 	for _, tc := range tests {
@@ -658,6 +704,255 @@ func TestConvertInstallations(t *testing.T) {
 
 			got := convertInstallations(tc.src, tc.supportedRuntimes)
 			require.Equal(t, tc.expected, got)
+		})
+	}
+}
+
+func TestExtractArgumentMetadata(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name              string
+		server            MCPServer
+		supportedRuntimes map[runtime.Runtime]struct{}
+		want              map[string]packages.ArgumentMetadata
+	}{
+		{
+			name: "UVX + Docker install discover placeholders & skip ignored flags",
+			server: MCPServer{
+				Name: "git",
+				Arguments: map[string]Argument{
+					"GIT_REPO_PATH": {
+						Description: "The path to the Git repository that the mcp-server-git will interact with.",
+						Required:    true,
+						Example:     "/path/to/git/repo",
+					},
+				},
+				Installations: map[string]Installation{
+					// UVX: placeholder is the *next* token after --repository
+					"uvx": {
+						Type:    "uvx",
+						Command: "uvx",
+						Args:    []string{"mcp-server-git", "--repository", "${GIT_REPO_PATH}"},
+					},
+					// Docker: placeholder embedded inside --mount token;
+					//        --rm should be ignored.
+					"docker": {
+						Type:    "docker",
+						Command: "docker",
+						Args: []string{
+							"run", "--rm", "--mount",
+							"type=bind,src=${GIT_REPO_PATH},dst=${GIT_REPO_PATH}",
+							"mcp/git",
+						},
+					},
+				},
+			},
+			supportedRuntimes: map[runtime.Runtime]struct{}{
+				runtime.UVX: {},
+				runtime.NPX: {},
+			},
+			want: map[string]packages.ArgumentMetadata{
+				"--repository": {
+					VariableType: packages.VariableTypeArg,
+					Required:     true,
+					Description:  "The path to the Git repository that the mcp-server-git will interact with.",
+				},
+			},
+		},
+		{
+			name: "Env-var placeholder is discovered",
+			server: MCPServer{
+				Name: "time",
+				Arguments: map[string]Argument{
+					"TZ": {
+						Description: "Environment variable to override the system's default timezone",
+						Required:    false,
+						Example:     "America/New_York",
+					},
+				},
+				Installations: map[string]Installation{
+					"uvx": {
+						Type:    "uvx",
+						Command: "uvx",
+						Args:    []string{"mcp-server-time", "--local-timezone=${TZ}"},
+					},
+					"docker": {
+						Type:    "docker",
+						Command: "docker",
+						Args:    []string{"run", "--rm", "mcp/time"},
+						Env:     map[string]string{"TZ": "${TZ}"},
+					},
+				},
+			},
+			supportedRuntimes: map[runtime.Runtime]struct{}{
+				runtime.NPX: {},
+				runtime.UVX: {},
+			},
+			want: map[string]packages.ArgumentMetadata{
+				"--local-timezone": {
+					VariableType: packages.VariableTypeArg,
+					Required:     false,
+					Description:  "Environment variable to override the system's default timezone",
+				},
+			},
+		},
+		{
+			name: "Env-var placeholder is discovered looking ahead",
+			server: MCPServer{
+				Name: "time",
+				Arguments: map[string]Argument{
+					"TZ": {
+						Description: "Environment variable to override the system's default timezone",
+						Required:    false,
+						Example:     "America/New_York",
+					},
+				},
+				Installations: map[string]Installation{
+					"uvx": {
+						Type:    "uvx",
+						Command: "uvx",
+						Args:    []string{"mcp-server-time", "--local-timezone", "${TZ}"},
+					},
+					"docker": {
+						Type:    "docker",
+						Command: "docker",
+						Args:    []string{"run", "--rm", "mcp/time"},
+						Env:     map[string]string{"TZ": "${TZ}"},
+					},
+				},
+			},
+			supportedRuntimes: map[runtime.Runtime]struct{}{
+				runtime.NPX: {},
+				runtime.UVX: {},
+			},
+			want: map[string]packages.ArgumentMetadata{
+				"--local-timezone": {
+					VariableType: packages.VariableTypeArg,
+					Required:     false,
+					Description:  "Environment variable to override the system's default timezone",
+				},
+			},
+		},
+		{
+			name: "Unsupported runtime is skipped",
+			server: MCPServer{
+				Name: "foo",
+				Arguments: map[string]Argument{
+					"BAR": {Description: "", Required: false},
+				},
+				Installations: map[string]Installation{
+					"python": {Type: "python", Command: "python", Args: []string{"-m", "foo"}},
+				},
+			},
+			supportedRuntimes: map[runtime.Runtime]struct{}{ // intentionally empty
+			},
+			want: map[string]packages.ArgumentMetadata{},
+		},
+		{
+			name: "cli types",
+			server: MCPServer{
+				Name: "magic-mcp",
+				Arguments: map[string]Argument{
+					"API_KEY": {
+						Description: "API key for authentication with Magic AI Agent",
+						Required:    true,
+						Example:     "your-api-key",
+					},
+				},
+				Installations: map[string]Installation{
+					"npm": {
+						Type:    "npm",
+						Command: "npx",
+						Args: []string{
+							"-y",
+							"@21st-dev/magic@latest",
+							"API_KEY=${API_KEY}",
+						},
+						Package: "@21st-dev/magic",
+						Env: map[string]string{
+							"API_KEY": "${API_KEY}",
+						},
+						Recommended: true,
+					},
+					"cli": {
+						Type:    "cli",
+						Command: "npx",
+						Args: []string{
+							"@21st-dev/cli@latest",
+							"install",
+							"<client>",
+							"--api-key",
+							"<key>",
+						},
+						Recommended: true,
+					},
+				},
+			},
+			supportedRuntimes: map[runtime.Runtime]struct{}{
+				runtime.NPX: {},
+				runtime.UVX: {},
+			},
+			want: map[string]packages.ArgumentMetadata{
+				"API_KEY": {
+					VariableType: packages.VariableTypeEnv,
+					Required:     true,
+					Description:  "API key for authentication with Magic AI Agent",
+				},
+			},
+		},
+		{
+			name: "Env vars declared in installation.Env are returned",
+			server: MCPServer{
+				Name: "circleci",
+				Arguments: map[string]Argument{
+					"OKTA_ORG_URL":   {Description: "Okta tenant", Required: true},
+					"OKTA_API_TOKEN": {Description: "Okta token", Required: true},
+					"OKTA_FOO":       {Description: "Okta foo", Required: true},
+				},
+				Installations: map[string]Installation{
+					"npm": {
+						Type:    "npm",
+						Command: "npx",
+						Args:    []string{"-y", "https://github.com/kapilduraphe/okta-mcp-server"},
+						Env: map[string]string{
+							"OKTA_ORG_URL":   "${OKTA_ORG_URL}",
+							"OKTA_API_TOKEN": "${OKTA_API_TOKEN}",
+							"OKTA_BAR":       "${OKTA_FOO}",
+						},
+					},
+				},
+			},
+			supportedRuntimes: map[runtime.Runtime]struct{}{
+				runtime.NPX: {},
+				runtime.UVX: {},
+			},
+			want: map[string]packages.ArgumentMetadata{
+				"OKTA_ORG_URL": {
+					VariableType: packages.VariableTypeEnv,
+					Required:     true,
+					Description:  "Okta tenant",
+				},
+				"OKTA_API_TOKEN": {
+					VariableType: packages.VariableTypeEnv,
+					Required:     true,
+					Description:  "Okta token",
+				},
+				"OKTA_BAR": {
+					VariableType: packages.VariableTypeEnv,
+					Required:     true,
+					Description:  "Okta foo",
+				},
+			},
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			got := extractArgumentMetadata(tc.server, tc.supportedRuntimes)
+			require.Equal(t, tc.want, got)
 		})
 	}
 }
