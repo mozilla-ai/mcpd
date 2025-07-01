@@ -174,11 +174,11 @@ func TestStripVersion(t *testing.T) {
 		},
 	}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
-			require.Equal(t, tt.expected, stripVersion(tt.input))
+			require.Equal(t, tc.expected, stripVersion(tc.input))
 		})
 	}
 }
@@ -218,11 +218,11 @@ func TestStripPrefix(t *testing.T) {
 		},
 	}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
-			require.Equal(t, tt.expected, stripPrefix(tt.input))
+			require.Equal(t, tc.expected, stripPrefix(tc.input))
 		})
 	}
 }
@@ -265,11 +265,11 @@ func TestServerEntry_PackageVersion(t *testing.T) {
 		},
 	}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
-			require.Equal(t, tt.expected, tt.entry.PackageVersion())
+			require.Equal(t, tc.expected, tc.entry.PackageVersion())
 		})
 	}
 }
@@ -324,11 +324,11 @@ func TestServerEntry_PackageName(t *testing.T) {
 		},
 	}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
-			require.Equal(t, tt.expected, tt.entry.PackageName())
+			require.Equal(t, tc.expected, tc.entry.PackageName())
 		})
 	}
 }

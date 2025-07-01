@@ -8,8 +8,8 @@ User-specific secrets and runtime arguments are stored in:
 
 This file is modified using the following commands:
 
-- `mcpd config set-args`
-- `mcpd config set-env`
+- `mcpd config args set`
+- `mcpd config env set`
 
 These values apply at runtime and are separate from your project-specific `.mcpd.toml`.
 

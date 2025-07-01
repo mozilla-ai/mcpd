@@ -98,15 +98,15 @@ func TestMatchRequestedSlice(t *testing.T) {
 		},
 	}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			got, err := MatchRequestedSlice(tt.requested, tt.available)
-			if tt.wantErr != "" {
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			got, err := MatchRequestedSlice(tc.requested, tc.available)
+			if tc.wantErr != "" {
 				require.Error(t, err)
-				assert.Contains(t, err.Error(), tt.wantErr)
+				assert.Contains(t, err.Error(), tc.wantErr)
 			} else {
 				require.NoError(t, err)
-				assert.ElementsMatch(t, tt.want, got)
+				assert.ElementsMatch(t, tc.want, got)
 			}
 		})
 	}

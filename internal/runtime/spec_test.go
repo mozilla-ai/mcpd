@@ -25,13 +25,14 @@ func TestSpecs_ShouldIgnoreFlag(t *testing.T) {
 		{Python, "--debug", false},
 	}
 
-	for _, tt := range tests {
-		t.Run(string(tt.runtime)+"/"+tt.flag, func(t *testing.T) {
+	for _, tc := range tests {
+		t.Run(string(tc.runtime)+"/"+tc.flag, func(t *testing.T) {
 			t.Parallel()
-			spec, ok := specs[tt.runtime]
-			require.True(t, ok, "runtime spec not found for %s", tt.runtime)
-			got := spec.ShouldIgnoreFlag(tt.flag)
-			require.Equal(t, tt.want, got)
+
+			spec, ok := specs[tc.runtime]
+			require.True(t, ok, "runtime spec not found for %s", tc.runtime)
+			got := spec.ShouldIgnoreFlag(tc.flag)
+			require.Equal(t, tc.want, got)
 		})
 	}
 }
@@ -100,18 +101,18 @@ func TestSpecs_ExtractPackageName(t *testing.T) {
 		},
 	}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
-			spec, ok := specs[tt.runtime]
-			require.True(t, ok, "runtime spec not found for %s", tt.runtime)
-			got, err := spec.ExtractPackageName(tt.args)
-			if tt.wantErr {
+			spec, ok := specs[tc.runtime]
+			require.True(t, ok, "runtime spec not found for %s", tc.runtime)
+			got, err := spec.ExtractPackageName(tc.args)
+			if tc.wantErr {
 				require.Error(t, err)
 			} else {
 				require.NoError(t, err)
-				require.Equal(t, tt.want, got)
+				require.Equal(t, tc.want, got)
 			}
 		})
 	}

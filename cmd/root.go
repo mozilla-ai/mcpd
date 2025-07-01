@@ -5,14 +5,12 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/mozilla-ai/mcpd/v2/cmd/config"
 	"github.com/mozilla-ai/mcpd/v2/internal/cmd"
 	"github.com/mozilla-ai/mcpd/v2/internal/cmd/options"
 	"github.com/mozilla-ai/mcpd/v2/internal/flags"
 	"github.com/mozilla-ai/mcpd/v2/internal/printer"
 )
-
-// createCmdFunc aliases the signature for a new command function.
-type createCmdFunc func(baseCmd *cmd.BaseCmd, opt ...options.CmdOption) (*cobra.Command, error)
 
 type RootCmd struct {
 	*cmd.BaseCmd
@@ -54,13 +52,13 @@ func NewRootCmd(c *RootCmd) (*cobra.Command, error) {
 	flags.InitFlags(rootCmd.PersistentFlags())
 
 	// Add top-level commands
-	fns := []createCmdFunc{
+	fns := []func(baseCmd *cmd.BaseCmd, opt ...options.CmdOption) (*cobra.Command, error){
 		NewInitCmd,
 		NewSearchCmd,
 		NewAddCmd,
 		NewRemoveCmd,
 		NewDaemonCmd,
-		NewConfigCmd,
+		config.NewConfigCmd,
 	}
 
 	for _, fn := range fns {

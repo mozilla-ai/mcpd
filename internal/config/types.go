@@ -34,19 +34,19 @@ type Config struct {
 	configFilePath string
 }
 
-// ServerEntry represents the configuration of a single versioned MCP Server and optional tools.
+// ServerEntry represents the configuration of a single versioned MCP Server and tools.
 type ServerEntry struct {
-	// Name is the unique name referenced by the user.
+	// Name is the unique name/ID from the registry, referenced by the user.
 	// e.g. 'github-server'
 	Name string `toml:"name"`
 
 	// Package contains the identifier including runtime and version.
-	// e.g. 'uvx::modelcontextprotocol/github-server@latest'
+	// e.g. 'uvx::modelcontextprotocol/github-server@1.2.3'
 	Package string `toml:"package"`
 
-	// Tools are optional and list the names of the allowed tools on this server.
+	// Tools lists the names of the tools which should be allowed on this server.
 	// e.g. 'create_repository'
-	Tools []string `toml:"tools,omitempty"`
+	Tools []string `toml:"tools"`
 }
 
 type serverKey struct {
@@ -66,4 +66,22 @@ func (e *ServerEntry) PackageVersion() string {
 
 func (e *ServerEntry) PackageName() string {
 	return stripPrefix(stripVersion(e.Package))
+}
+
+// argEntry represents a parsed command line argument.
+type argEntry struct {
+	key   string
+	value string
+}
+
+// hasValue is used to determine if an argEntry is a bool flag or contains a value.
+func (e *argEntry) hasValue() bool {
+	return strings.TrimSpace(e.value) != ""
+}
+
+func (e *argEntry) String() string {
+	if e.hasValue() {
+		return e.key + FlagValueSeparator + e.value
+	}
+	return e.key
 }

@@ -41,7 +41,7 @@ mcpd add time --version 0.6.2 --tool get_current_time
 
 Configure any startup flags required by the server:
 ```bash
-mcpd config set-args time --arg --local-timezone=Europe/London
+mcpd config args set time -- --local-timezone=Europe/London
 ```
 
 ---
