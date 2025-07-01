@@ -49,11 +49,11 @@ func TestIsValidAddr(t *testing.T) {
 		{"host only colon", "host:", true},
 	}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
-			err := IsValidAddr(tt.addr)
-			if tt.wantErr {
+			err := IsValidAddr(tc.addr)
+			if tc.wantErr {
 				require.Error(t, err)
 			} else {
 				require.NoError(t, err)

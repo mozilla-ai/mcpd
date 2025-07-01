@@ -53,11 +53,11 @@ func TestAnyIntersection(t *testing.T) {
 		},
 	}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
-			result := AnyIntersection(tt.a, tt.b)
-			require.Equal(t, tt.expected, result)
+			result := AnyIntersection(tc.a, tc.b)
+			require.Equal(t, tc.expected, result)
 		})
 	}
 }
@@ -97,11 +97,11 @@ func TestJoin(t *testing.T) {
 		},
 	}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
-			result := Join(tt.input, tt.sep)
-			require.Equal(t, tt.expected, result)
+			result := Join(tc.input, tc.sep)
+			require.Equal(t, tc.expected, result)
 		})
 	}
 }

@@ -386,22 +386,22 @@ func TestMCPMRegistrySearch(t *testing.T) {
 		},
 	}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			results, err := registry.Search(tt.queryName, tt.filters)
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			results, err := registry.Search(tc.queryName, tc.filters)
 			require.NoError(t, err)
-			require.Len(t, results, tt.expectedCount, "Mismatch in result count")
+			require.Len(t, results, tc.expectedCount, "Mismatch in result count")
 
 			foundIDs := make([]string, 0, len(results))
 			for _, res := range results {
 				foundIDs = append(foundIDs, res.ID)
 			}
-			require.ElementsMatch(t, tt.expectedIDs, foundIDs, "Mismatch in returned IDs")
+			require.ElementsMatch(t, tc.expectedIDs, foundIDs, "Mismatch in returned IDs")
 
-			if tt.expectedEnv != nil {
+			if tc.expectedEnv != nil {
 				for _, res := range results {
-					expectedEnv := tt.expectedEnv[res.ID]
-					expectedArgs := tt.expectedArgs[res.ID]
+					expectedEnv := tc.expectedEnv[res.ID]
+					expectedArgs := tc.expectedArgs[res.ID]
 					require.ElementsMatch(t, expectedEnv, res.Arguments.EnvVarNames())
 					require.ElementsMatch(t, expectedArgs, res.Arguments.ArgNames())
 				}
@@ -477,17 +477,17 @@ func TestMCPMRegistryGet(t *testing.T) {
 		},
 	}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			result, err := registry.Resolve(tt.id, options.WithResolveVersion(tt.version))
-			if tt.expectError {
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			result, err := registry.Resolve(tc.id, options.WithResolveVersion(tc.version))
+			if tc.expectError {
 				require.Error(t, err)
 				require.Equal(t, packages.Package{}, result, "Expected empty result on error")
 			} else {
 				require.NoError(t, err)
-				require.Equal(t, tt.expectedID, result.ID, "Mismatch in returned ID")
-				require.ElementsMatch(t, tt.expectedEnv, result.Arguments.EnvVarNames())
-				require.ElementsMatch(t, tt.expectedArgs, result.Arguments.ArgNames())
+				require.Equal(t, tc.expectedID, result.ID, "Mismatch in returned ID")
+				require.ElementsMatch(t, tc.expectedEnv, result.Arguments.EnvVarNames())
+				require.ElementsMatch(t, tc.expectedArgs, result.Arguments.ArgNames())
 			}
 		})
 	}
@@ -510,12 +510,12 @@ func TestShouldIgnoreFlag(t *testing.T) {
 		{runtime.UVX, "--experimental", false},
 	}
 
-	for _, tt := range tests {
-		t.Run(fmt.Sprintf("%s/%s", tt.rt, tt.flag), func(t *testing.T) {
+	for _, tc := range tests {
+		t.Run(fmt.Sprintf("%s/%s", tc.rt, tc.flag), func(t *testing.T) {
 			t.Parallel()
 
-			got := shouldIgnoreFlag(tt.rt, tt.flag)
-			require.Equal(t, tt.want, got)
+			got := shouldIgnoreFlag(tc.rt, tc.flag)
+			require.Equal(t, tc.want, got)
 		})
 	}
 }
@@ -652,12 +652,12 @@ func TestConvertInstallations(t *testing.T) {
 		},
 	}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
-			got := convertInstallations(tt.src, tt.supportedRuntimes)
-			require.Equal(t, tt.expected, got)
+			got := convertInstallations(tc.src, tc.supportedRuntimes)
+			require.Equal(t, tc.expected, got)
 		})
 	}
 }
