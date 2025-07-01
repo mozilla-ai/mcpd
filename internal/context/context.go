@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"path/filepath"
 
 	"github.com/BurntSushi/toml"
 )
@@ -61,7 +62,14 @@ func LoadExecutionContextConfig(path string) (ExecutionContextConfig, error) {
 
 // SaveExecutionContextConfig saves a runtime execution context file to disk, using the specified path.
 func SaveExecutionContextConfig(path string, cfg ExecutionContextConfig) (err error) {
-	f, err := os.Create(path) // TODO: Needs os.MkDirAll too.
+	// Ensure the directory exists before creating the file...
+	// owner: rwx, group: r--, others: ---
+	if err := os.MkdirAll(filepath.Dir(path), 0o740); err != nil {
+		return fmt.Errorf("could not ensure execution context directory exists for '%s': %w", path, err)
+	}
+
+	// owner: rw-, group: ---, others: ---
+	f, err := os.OpenFile(path, os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0o600)
 	if err != nil {
 		return fmt.Errorf("could not create file '%s': %w", path, err)
 	}

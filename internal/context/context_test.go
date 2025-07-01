@@ -88,7 +88,9 @@ func TestSaveAndLoadExecutionContextConfig(t *testing.T) {
 	t.Parallel()
 
 	dir := t.TempDir()
-	path := filepath.Join(dir, "secrets.dev.toml")
+
+	// Include extra, currently non-existing folder along the way.
+	path := filepath.Join(dir, ".mcpd", "secrets.dev.toml")
 
 	original := ExecutionContextConfig{
 		Servers: map[string]ServerExecutionContext{
