@@ -120,7 +120,7 @@ func WithToolsMatcher(provider ValuesProvider) Option {
 
 // WithTagsMatcher returns a filter.Option with a matcher configured for the "tags" filter key.
 // The matcher is applied during Match only if the tags filter key is present in the filters map.
-// This matcher returns true if any of the filter values are found in the package's tags.
+// This matcher returns true if all of the filter values are found in the package's tags.
 // Matching is case-insensitive and uses normalized values.
 func WithTagsMatcher(provider ValuesProvider) Option {
 	return filter.WithMatcher(FilterKeyTags, filter.ContainsAll(provider))
@@ -128,7 +128,7 @@ func WithTagsMatcher(provider ValuesProvider) Option {
 
 // WithCategoriesMatcher returns a filter.Option with a matcher configured for the "categories" filter key.
 // The matcher is applied during Match only if the categories filter key is present in the filters map.
-// This matcher returns true if any of the filter values are found in the package's categories.
+// This matcher returns true if all of the filter values are found in the package's categories.
 // Matching is case-insensitive and uses normalized values.
 func WithCategoriesMatcher(provider ValuesProvider) Option {
 	return filter.WithMatcher(FilterKeyCategories, filter.ContainsAll(provider))
