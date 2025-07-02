@@ -32,31 +32,41 @@ func TestEquals(t *testing.T) {
 }
 
 func TestContains(t *testing.T) {
-	p := Contains(func(m testItem) string { return m.Category })
+	p := Partial(func(m testItem) string { return m.Category })
 	assert.True(t, p(testItem{Category: "devtools"}, "tool"))
 	assert.False(t, p(testItem{Category: "runtime"}, "tool"))
 }
 
-func TestContainsOnly(t *testing.T) {
-	p := ContainsOnly(func(m testItem) []string { return m.Tags })
+func TestHasOnly(t *testing.T) {
+	p := HasOnly(func(m testItem) []string { return m.Tags })
 	assert.True(t, p(testItem{Tags: []string{"A", "B"}}, "a,b"))
 	assert.False(t, p(testItem{Tags: []string{"A", "C"}}, "a,b"))
 }
 
-func TestContainsAll(t *testing.T) {
-	p := ContainsAll(func(m testItem) []string { return m.Tags })
+func TestHasAll(t *testing.T) {
+	p := HasAll(func(m testItem) []string { return m.Tags })
 	assert.True(t, p(testItem{Tags: []string{"X", "Y", "Z"}}, "x,y"))
 	assert.False(t, p(testItem{Tags: []string{"X", "Y"}}, "x,y,z"))
 }
 
-func TestContainsAny(t *testing.T) {
-	p := ContainsAny(func(m testItem) []string { return m.Tags })
+func TestHasAny(t *testing.T) {
+	p := HasAny(func(m testItem) []string { return m.Tags })
 	assert.True(t, p(testItem{Tags: []string{"alpha", "beta"}}, "beta,gamma"))
 	assert.False(t, p(testItem{Tags: []string{"alpha"}}, "beta,gamma"))
 }
 
-func TestOrContains(t *testing.T) {
-	p := OrContains(
+func TestPartialAll(t *testing.T) {
+	p := PartialAll(func(m testItem) []string { return m.Tags })
+	// foo is a substring of foo2, bar is a substring of bar3, so both (all) match.
+	assert.True(t, p(testItem{Name: "a", Tags: []string{"foo2", "bar3"}}, "foo,bar"))
+	// foo is a substring of foo2, filter was only a single value so all have matched.
+	assert.True(t, p(testItem{Name: "a", Tags: []string{"foo2", "bar3"}}, "foo"))
+	// foo doesn't match any of the values even as substrings.
+	assert.False(t, p(testItem{Name: "b", Tags: []string{"baz", "bar"}}, "foo"))
+}
+
+func TestEqualsAny(t *testing.T) {
+	p := EqualsAny(
 		func(m testItem) string { return m.Name },
 		func(m testItem) string { return m.Category },
 	)

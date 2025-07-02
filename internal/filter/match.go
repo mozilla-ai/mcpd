@@ -61,10 +61,19 @@ func NewOptions[T any](opt ...Option[T]) (Options[T], error) {
 	return opts, nil
 }
 
+// ValueProvider extracts a single string value from an item of type T.
 type ValueProvider[T any] func(T) string
 
+// ValuesProvider extracts a slice of string values from an item of type T.
 type ValuesProvider[T any] func(T) []string
 
+// Equals returns a Predicate that checks if the value extracted by the provider
+// exactly matches the filter value (case-insensitive, normalized).
+//
+// Example:
+//
+// predicate := Equals(options.SourceProvider),
+// result := predicate(pkg, "github") // true if pkg.Source equals "github"
 func Equals[T any](provider ValueProvider[T]) Predicate[T] {
 	return func(item T, val string) bool {
 		actual := NormalizeString(provider(item))
@@ -73,7 +82,14 @@ func Equals[T any](provider ValueProvider[T]) Predicate[T] {
 	}
 }
 
-func Contains[T any](provider ValueProvider[T]) Predicate[T] {
+// Partial returns a Predicate that checks if the value extracted by the provider
+// contains the filter value as a substring (case-insensitive, normalized).
+//
+// Example:
+//
+// predicate := Partial(options.VersionProvider),
+// result := predicate(pkg, "1.2") // true if pkg.Version contains "1.2"
+func Partial[T any](provider ValueProvider[T]) Predicate[T] {
 	return func(item T, val string) bool {
 		actual := NormalizeString(provider(item))
 		expected := NormalizeString(val)
@@ -81,10 +97,68 @@ func Contains[T any](provider ValueProvider[T]) Predicate[T] {
 	}
 }
 
-func ContainsOnly[T any](provider ValuesProvider[T]) Predicate[T] {
+// PartialAll returns a Predicate that checks if *ALL* comma-separated values in the filter string are found
+// as substrings within provided values.
+// Functionally similar to Partial, but operates on a ValuesProvider, and expects the filter to be comma-separated.
+//
+// Example:
+//
+// predicate := PartialAll(options.ToolsProvider),
+// result := predicate(pkg, "get_current_time,convert_time") // true if pkg.Tools contains values with "get_current_time" and "convert_time" as substrings
+func PartialAll[T any](provider ValuesProvider[T]) Predicate[T] {
+	return func(item T, val string) bool {
+		required := NormalizeSlice(strings.Split(val, ","))
+		actual := NormalizeSlice(provider(item))
+
+		for _, v := range required {
+			found := false
+			for _, a := range actual {
+				if strings.Contains(a, v) {
+					found = true
+					break
+				}
+			}
+			if !found {
+				return false
+			}
+		}
+		return true
+	}
+}
+
+// EqualsAny returns a Predicate that checks if *ANY* of the values from the supplied providers are equal to the filter value.
+// Functionally similar to Equals, but operates on multiple ValueProvider's.
+//
+// Example:
+//
+// predicate := EqualsAny(options.ToolsProvider),
+// result := predicate(pkg, "get_current_time,convert_time") // true if pkg.Tools contains values "get_current_time" or "convert_time"
+func EqualsAny[T any](providers ...ValueProvider[T]) Predicate[T] {
+	return func(item T, val string) bool {
+		q := NormalizeString(val)
+		for _, p := range providers {
+			actual := NormalizeString(p(item))
+			if strings.Contains(actual, q) {
+				return true
+			}
+		}
+		return false
+	}
+}
+
+// HasOnly returns a Predicate that checks if the values extracted by the provider
+// are a subset of the comma-separated values in the filter string.
+// Returns true only if *ALL* extracted values are present in the filter list.
+//
+// Example:
+//
+// predicate := HasOnly(options.ToolsProvider),
+// result := predicate(pkg, "get_current_time,convert_time") // true if pkg.Tools only contains tools from the list
+func HasOnly[T any](provider ValuesProvider[T]) Predicate[T] {
 	return func(item T, val string) bool {
 		required := strings.Split(val, ",")
 		expected := make(map[string]struct{}, len(required))
+
 		for _, v := range required {
 			expected[NormalizeString(v)] = struct{}{}
 		}
@@ -98,18 +172,26 @@ func ContainsOnly[T any](provider ValuesProvider[T]) Predicate[T] {
 	}
 }
 
-func ContainsAll[T any](provider ValuesProvider[T]) Predicate[T] {
+// HasAll returns a Predicate that checks if the values extracted by the provider
+// include *ALL* of the comma-separated values in the filter string.
+// Returns true only if *ALL* required values are present in the extracted values.
+//
+// Example:
+//
+// predicate := HasAll(options.ToolsProvider),
+// result := predicate(pkg, "get_current_time,convert_time") // true if pkg.Tools contains both "get_current_time" and "convert_time"
+func HasAll[T any](provider ValuesProvider[T]) Predicate[T] {
 	return func(item T, val string) bool {
 		required := NormalizeSlice(strings.Split(val, ","))
 		actual := provider(item)
+		allowed := make(map[string]struct{}, len(actual))
 
-		actualSet := make(map[string]struct{}, len(actual))
 		for _, v := range actual {
-			actualSet[NormalizeString(v)] = struct{}{}
+			allowed[NormalizeString(v)] = struct{}{}
 		}
 
 		for _, r := range required {
-			if _, ok := actualSet[r]; !ok {
+			if _, ok := allowed[r]; !ok {
 				return false
 			}
 		}
@@ -117,29 +199,25 @@ func ContainsAll[T any](provider ValuesProvider[T]) Predicate[T] {
 	}
 }
 
-func ContainsAny[T any](provider ValuesProvider[T]) Predicate[T] {
+// HasAny returns a Predicate that checks if the values extracted by the provider
+// include ANY of the comma-separated values in the filter string.
+// Returns true if at least one required value is present in the extracted values.
+//
+// Example:
+//
+// predicate := HasAny(options.ToolsProvider),
+// result := predicate(pkg, "get_current_time,convert_time") // true if pkg.Tools contains either "get_current_time" or "convert_time"
+func HasAny[T any](provider ValuesProvider[T]) Predicate[T] {
 	return func(item T, val string) bool {
 		required := strings.Split(val, ",")
 		allowed := make(map[string]struct{}, len(required))
+
 		for _, v := range required {
 			allowed[NormalizeString(v)] = struct{}{}
 		}
 
 		for _, v := range provider(item) {
 			if _, ok := allowed[NormalizeString(v)]; ok {
-				return true
-			}
-		}
-		return false
-	}
-}
-
-func OrContains[T any](providers ...ValueProvider[T]) Predicate[T] {
-	return func(item T, val string) bool {
-		q := NormalizeString(val)
-		for _, p := range providers {
-			actual := NormalizeString(p(item))
-			if strings.Contains(actual, q) {
 				return true
 			}
 		}
