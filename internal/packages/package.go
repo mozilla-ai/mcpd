@@ -10,6 +10,8 @@ type Package struct {
 	Description         string                           `json:"description"`
 	License             string                           `json:"license"`
 	Tools               []string                         `json:"tools"`
+	Tags                []string                         `json:"tags"`
+	Categories          []string                         `json:"categories"`
 	Runtimes            []runtime.Runtime                `json:"runtimes"`
 	InstallationDetails map[runtime.Runtime]Installation `json:"installationDetails"`
 	Arguments           Arguments                        `json:"arguments"`

@@ -247,6 +247,8 @@ func (r *Registry) buildPackageResult(pkgKey string) (packages.Package, bool) {
 		Description:         sd.Description,
 		License:             sd.License,
 		Tools:               tools,
+		Tags:                sd.Tags,
+		Categories:          sd.Categories,
 		Runtimes:            runtimes,
 		InstallationDetails: convertInstallations(sd.Installations, r.supportedRuntimes),
 		Arguments:           arguments,
