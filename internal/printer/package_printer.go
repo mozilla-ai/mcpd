@@ -146,6 +146,18 @@ func (p *PackagePrinter) printDetails(pkg packages.Package) error {
 		}
 	}
 
+	if len(pkg.Tags) > 0 {
+		if _, err := fmt.Fprintf(p.out, "  🏷️ Tags: %s\n", strings.Join(pkg.Tags, ", ")); err != nil {
+			return err
+		}
+	}
+
+	if len(pkg.Categories) > 0 {
+		if _, err := fmt.Fprintf(p.out, "  📂 Categories: %s\n", strings.Join(pkg.Categories, ", ")); err != nil {
+			return err
+		}
+	}
+
 	if len(pkg.Arguments) > 0 {
 		if _, err := fmt.Fprintln(p.out, "  ⚙️ Found startup args..."); err != nil {
 			return err

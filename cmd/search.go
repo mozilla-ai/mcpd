@@ -18,6 +18,8 @@ type SearchCmd struct {
 	Version         string
 	Runtime         string
 	Tools           []string
+	Tags            []string
+	Categories      []string
 	License         string
 	Source          string
 	registryBuilder registry.Builder
@@ -83,6 +85,20 @@ func NewSearchCmd(baseCmd *cmd.BaseCmd, opt ...cmdopts.CmdOption) (*cobra.Comman
 		"Optional, specify the source registry of the server package (e.g. mcpm)",
 	)
 
+	cobraCommand.Flags().StringArrayVar(
+		&c.Tags,
+		"tag",
+		nil,
+		"Optional, specify tags to filter the search results (can be repeated)",
+	)
+
+	cobraCommand.Flags().StringArrayVar(
+		&c.Categories,
+		"category",
+		nil,
+		"Optional, specify categories to filter the search results (can be repeated)",
+	)
+
 	return cobraCommand, nil
 }
 
@@ -102,6 +118,12 @@ func (c *SearchCmd) filters() map[string]string {
 	}
 	if c.Tools != nil && len(c.Tools) > 0 {
 		f["tools"] = strings.Join(c.Tools, ",")
+	}
+	if c.Tags != nil && len(c.Tags) > 0 {
+		f["tags"] = strings.Join(c.Tags, ",")
+	}
+	if c.Categories != nil && len(c.Categories) > 0 {
+		f["categories"] = strings.Join(c.Categories, ",")
 	}
 	if c.License != "" {
 		f["license"] = c.License

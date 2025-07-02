@@ -1,6 +1,8 @@
 package options
 
 import (
+	"maps"
+	"slices"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -24,4 +26,23 @@ func TestPrepareFilters(t *testing.T) {
 	if _, mutated := orig["version"]; !mutated {
 		t.Fatalf("original filters should not be mutated")
 	}
+}
+
+func TestDefaultMatchers_ContainsAllExpectedFilters(t *testing.T) {
+	t.Parallel()
+
+	expected := []string{
+		FilterKeyName,
+		FilterKeyRuntime,
+		FilterKeyTools,
+		FilterKeyTags,
+		FilterKeyCategories,
+		FilterKeyVersion,
+		FilterKeyLicense,
+		FilterKeySource,
+	}
+
+	matchers := DefaultMatchers()
+	actual := slices.Collect(maps.Keys(matchers))
+	require.ElementsMatch(t, expected, actual)
 }

@@ -22,6 +22,12 @@ const (
 	// FilterKeyTools is the key to use for filtering 'tools'.
 	FilterKeyTools = "tools"
 
+	// FilterKeyTags is the key to use for filtering 'tags'.
+	FilterKeyTags = "tags"
+
+	// FilterKeyCategories is the key to use for filtering 'categories'.
+	FilterKeyCategories = "categories"
+
 	// FilterKeyVersion is the key to use for filtering 'version'.
 	FilterKeyVersion = "version"
 
@@ -112,6 +118,22 @@ func WithToolsMatcher(provider ValuesProvider) Option {
 	return filter.WithMatcher(FilterKeyTools, filter.ContainsAll(provider))
 }
 
+// WithTagsMatcher returns a filter.Option with a matcher configured for the "tags" filter key.
+// The matcher is applied during Match only if the tags filter key is present in the filters map.
+// This matcher returns true if all of the filter values are found in the package's tags.
+// Matching is case-insensitive and uses normalized values.
+func WithTagsMatcher(provider ValuesProvider) Option {
+	return filter.WithMatcher(FilterKeyTags, filter.ContainsAll(provider))
+}
+
+// WithCategoriesMatcher returns a filter.Option with a matcher configured for the "categories" filter key.
+// The matcher is applied during Match only if the categories filter key is present in the filters map.
+// This matcher returns true if all of the filter values are found in the package's categories.
+// Matching is case-insensitive and uses normalized values.
+func WithCategoriesMatcher(provider ValuesProvider) Option {
+	return filter.WithMatcher(FilterKeyCategories, filter.ContainsAll(provider))
+}
+
 // WithVersionMatcher returns a filter.Option with a matcher configured for the "version" filter key.
 // The matcher is applied during Match only if the version filter key is present in the filters map.
 // This matcher performs case-insensitive equality matching on the version field.
@@ -151,12 +173,14 @@ func withWildcardMatcher(providers ...ValueProvider) Predicate {
 
 func DefaultMatchers() map[string]Predicate {
 	return map[string]Predicate{
-		FilterKeyName:    withWildcardMatcher(NameProvider, DisplayNameProvider, IDProvider),
-		FilterKeyRuntime: filter.ContainsAny(RuntimesProvider),
-		FilterKeyTools:   filter.ContainsAll(ToolsProvider),
-		FilterKeyVersion: filter.Equals(VersionProvider),
-		FilterKeyLicense: filter.Contains(LicenseProvider),
-		FilterKeySource:  filter.Equals(SourceProvider),
+		FilterKeyName:       withWildcardMatcher(NameProvider, DisplayNameProvider, IDProvider),
+		FilterKeyRuntime:    filter.ContainsAny(RuntimesProvider),
+		FilterKeyTools:      filter.ContainsAll(ToolsProvider),
+		FilterKeyTags:       filter.ContainsAll(TagsProvider),
+		FilterKeyCategories: filter.ContainsAll(CategoriesProvider),
+		FilterKeyVersion:    filter.Equals(VersionProvider),
+		FilterKeyLicense:    filter.Contains(LicenseProvider),
+		FilterKeySource:     filter.Equals(SourceProvider),
 	}
 }
 
@@ -186,6 +210,14 @@ func RuntimesProvider(pkg packages.Package) []string {
 
 func SourceProvider(pkg packages.Package) string {
 	return pkg.Source
+}
+
+func TagsProvider(pkg packages.Package) []string {
+	return pkg.Tags
+}
+
+func CategoriesProvider(pkg packages.Package) []string {
+	return pkg.Categories
 }
 
 func ToolsProvider(pkg packages.Package) []string {
