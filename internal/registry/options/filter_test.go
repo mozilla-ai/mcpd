@@ -1,6 +1,8 @@
 package options
 
 import (
+	"maps"
+	"slices"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -27,7 +29,9 @@ func TestPrepareFilters(t *testing.T) {
 }
 
 func TestDefaultMatchers_ContainsAllExpectedFilters(t *testing.T) {
-	expectedFilters := []string{
+	t.Parallel()
+
+	expected := []string{
 		FilterKeyName,
 		FilterKeyRuntime,
 		FilterKeyTools,
@@ -39,13 +43,6 @@ func TestDefaultMatchers_ContainsAllExpectedFilters(t *testing.T) {
 	}
 
 	matchers := DefaultMatchers()
-
-	for _, expectedFilter := range expectedFilters {
-		t.Run(expectedFilter, func(t *testing.T) {
-			_, exists := matchers[expectedFilter]
-			require.True(t, exists, "Expected filter %s to be present in DefaultMatchers", expectedFilter)
-		})
-	}
-
-	require.Equal(t, len(expectedFilters), len(matchers), "Number of matchers should match expected filters")
+	actual := slices.Collect(maps.Keys(matchers))
+	require.ElementsMatch(t, expected, actual)
 }
