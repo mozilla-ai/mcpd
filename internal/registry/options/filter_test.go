@@ -25,3 +25,27 @@ func TestPrepareFilters(t *testing.T) {
 		t.Fatalf("original filters should not be mutated")
 	}
 }
+
+func TestDefaultMatchers_ContainsAllExpectedFilters(t *testing.T) {
+	expectedFilters := []string{
+		FilterKeyName,
+		FilterKeyRuntime,
+		FilterKeyTools,
+		FilterKeyTags,
+		FilterKeyCategories,
+		FilterKeyVersion,
+		FilterKeyLicense,
+		FilterKeySource,
+	}
+
+	matchers := DefaultMatchers()
+
+	for _, expectedFilter := range expectedFilters {
+		t.Run(expectedFilter, func(t *testing.T) {
+			_, exists := matchers[expectedFilter]
+			require.True(t, exists, "Expected filter %s to be present in DefaultMatchers", expectedFilter)
+		})
+	}
+
+	require.Equal(t, len(expectedFilters), len(matchers), "Number of matchers should match expected filters")
+}
