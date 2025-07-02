@@ -107,7 +107,7 @@ func WithNameMatcher() Option {
 // The matcher is applied during Match only if the runtime filter key is present in the filters map.
 // Matching is case-insensitive and uses normalized values.
 func WithRuntimeMatcher(provider ValuesProvider) Option {
-	return filter.WithMatcher(FilterKeyRuntime, filter.ContainsAny(provider))
+	return filter.WithMatcher(FilterKeyRuntime, filter.HasAny(provider))
 }
 
 // WithToolsMatcher returns a filter.Option with a matcher configured for the "tools" filter key.
@@ -115,23 +115,23 @@ func WithRuntimeMatcher(provider ValuesProvider) Option {
 // This matcher returns true only if all filter values are found in the package's tools.
 // Matching is case-insensitive and uses normalized values.
 func WithToolsMatcher(provider ValuesProvider) Option {
-	return filter.WithMatcher(FilterKeyTools, filter.ContainsAll(provider))
+	return filter.WithMatcher(FilterKeyTools, filter.HasAll(provider))
 }
 
 // WithTagsMatcher returns a filter.Option with a matcher configured for the "tags" filter key.
 // The matcher is applied during Match only if the tags filter key is present in the filters map.
-// This matcher returns true if all of the filter values are found in the package's tags.
+// This matcher returns true if all the filter values are found in the package's tag as substrings.
 // Matching is case-insensitive and uses normalized values.
 func WithTagsMatcher(provider ValuesProvider) Option {
-	return filter.WithMatcher(FilterKeyTags, filter.ContainsAll(provider))
+	return filter.WithMatcher(FilterKeyTags, filter.PartialAll(provider))
 }
 
 // WithCategoriesMatcher returns a filter.Option with a matcher configured for the "categories" filter key.
 // The matcher is applied during Match only if the categories filter key is present in the filters map.
-// This matcher returns true if all of the filter values are found in the package's categories.
+// This matcher returns true if all the filter values are found in the package's categories as substrings.
 // Matching is case-insensitive and uses normalized values.
 func WithCategoriesMatcher(provider ValuesProvider) Option {
-	return filter.WithMatcher(FilterKeyCategories, filter.ContainsAll(provider))
+	return filter.WithMatcher(FilterKeyCategories, filter.PartialAll(provider))
 }
 
 // WithVersionMatcher returns a filter.Option with a matcher configured for the "version" filter key.
@@ -145,7 +145,7 @@ func WithVersionMatcher(provider ValueProvider) Option {
 // The matcher is applied during Match only if the license filter key is present in the filters map.
 // This matcher performs case-insensitive substring matching on the license field.
 func WithLicenseMatcher(provider ValueProvider) Option {
-	return filter.WithMatcher(FilterKeyLicense, filter.Contains(provider))
+	return filter.WithMatcher(FilterKeyLicense, filter.Partial(provider))
 }
 
 // WithSourceMatcher returns a filter.Option with a matcher configured for the "source" filter key.
@@ -167,19 +167,19 @@ func withWildcardMatcher(providers ...ValueProvider) Predicate {
 		if q == WildcardCharacter {
 			return true
 		}
-		return filter.OrContains(providers...)(pkg, q)
+		return filter.EqualsAny(providers...)(pkg, q)
 	}
 }
 
 func DefaultMatchers() map[string]Predicate {
 	return map[string]Predicate{
 		FilterKeyName:       withWildcardMatcher(NameProvider, DisplayNameProvider, IDProvider),
-		FilterKeyRuntime:    filter.ContainsAny(RuntimesProvider),
-		FilterKeyTools:      filter.ContainsAll(ToolsProvider),
-		FilterKeyTags:       filter.ContainsAll(TagsProvider),
-		FilterKeyCategories: filter.ContainsAll(CategoriesProvider),
+		FilterKeyRuntime:    filter.HasAny(RuntimesProvider),
+		FilterKeyTools:      filter.HasAll(ToolsProvider),
+		FilterKeyTags:       filter.PartialAll(TagsProvider),
+		FilterKeyCategories: filter.PartialAll(CategoriesProvider),
 		FilterKeyVersion:    filter.Equals(VersionProvider),
-		FilterKeyLicense:    filter.Contains(LicenseProvider),
+		FilterKeyLicense:    filter.Partial(LicenseProvider),
 		FilterKeySource:     filter.Equals(SourceProvider),
 	}
 }
