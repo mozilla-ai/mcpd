@@ -98,7 +98,7 @@ func Partial[T any](provider ValueProvider[T]) Predicate[T] {
 }
 
 // PartialAll returns a Predicate that checks if *ALL* comma-separated values in the filter string are found
-// as substrings within provided values.
+// as substrings within provided values (case-insensitive, normalized).
 // Functionally similar to Partial, but operates on a ValuesProvider, and expects the filter to be comma-separated.
 //
 // Example:
@@ -126,8 +126,9 @@ func PartialAll[T any](provider ValuesProvider[T]) Predicate[T] {
 	}
 }
 
-// EqualsAny returns a Predicate that checks if *ANY* of the values from the supplied providers are equal to the filter value.
-// Functionally similar to Equals, but operates on multiple ValueProvider's.
+// EqualsAny returns a Predicate that checks if *ANY* of the values from the supplied providers are equal to the
+// filter value (case-insensitive, normalized).
+// Functionally similar to Equals, but operates on one or more ValueProvider.
 //
 // Example:
 //
@@ -146,8 +147,8 @@ func EqualsAny[T any](providers ...ValueProvider[T]) Predicate[T] {
 	}
 }
 
-// HasOnly returns a Predicate that checks if the values extracted by the provider
-// are a subset of the comma-separated values in the filter string.
+// HasOnly returns a Predicate that checks if the values extracted by the provider are a subset of
+// the comma-separated values in the filter string (case-insensitive, normalized).
 // Returns true only if *ALL* extracted values are present in the filter list.
 //
 // Example:
@@ -172,8 +173,8 @@ func HasOnly[T any](provider ValuesProvider[T]) Predicate[T] {
 	}
 }
 
-// HasAll returns a Predicate that checks if the values extracted by the provider
-// include *ALL* of the comma-separated values in the filter string.
+// HasAll returns a Predicate that checks if the values extracted by the provider include *ALL*
+// of the comma-separated values in the filter string (case-insensitive, normalized)..
 // Returns true only if *ALL* required values are present in the extracted values.
 //
 // Example:
@@ -199,8 +200,8 @@ func HasAll[T any](provider ValuesProvider[T]) Predicate[T] {
 	}
 }
 
-// HasAny returns a Predicate that checks if the values extracted by the provider
-// include ANY of the comma-separated values in the filter string.
+// HasAny returns a Predicate that checks if the values extracted by the provider include *ANY* of
+// the comma-separated values in the filter string (case-insensitive, normalized).
 // Returns true if at least one required value is present in the extracted values.
 //
 // Example:
@@ -209,11 +210,11 @@ func HasAll[T any](provider ValuesProvider[T]) Predicate[T] {
 // result := predicate(pkg, "get_current_time,convert_time") // true if pkg.Tools contains either "get_current_time" or "convert_time"
 func HasAny[T any](provider ValuesProvider[T]) Predicate[T] {
 	return func(item T, val string) bool {
-		required := strings.Split(val, ",")
+		required := NormalizeSlice(strings.Split(val, ","))
 		allowed := make(map[string]struct{}, len(required))
 
 		for _, v := range required {
-			allowed[NormalizeString(v)] = struct{}{}
+			allowed[v] = struct{}{}
 		}
 
 		for _, v := range provider(item) {
