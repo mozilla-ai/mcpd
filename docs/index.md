@@ -48,7 +48,7 @@ Traditional agent frameworks often embed complex subprocess logic, brittle start
 |------------------------------------------------------------------|------------------------------------|---------------------------------------------|
 | `.mcpd.toml`                                                     | Version-controlled agent tool spec | Declarative IaC for tools                   |
 | `mcpd daemon`                                                    | Run everything locally             | Run in container alongside your agentic app |
-| `mcpd config export-env`                                         | Discover required vars             | Populate CI/CD pipelines                    |
+| `mcpd config export`                                             | Discover required vars             | Populate CI/CD pipelines                    |
 | Secure secrets store                                             | Local overrides per dev            | Injected via Control Plane                  |
 | Same binary                                                      | Local builds                       | Cloud deployment                            |
 | [SDKs for Python](https://github.com/mozilla-ai/mcpd-sdk-python) | Iterate locally                    | Plug into prod orchestrators                |

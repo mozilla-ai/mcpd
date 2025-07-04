@@ -75,7 +75,7 @@ func NewSearchCmd(baseCmd *cmd.BaseCmd, opt ...cmdopts.CmdOption) (*cobra.Comman
 		&c.License,
 		"license",
 		"",
-		"Optional, specify the license of the server package (e.g. MIT, Apache)",
+		"Optional, specify a partial match for the license of the server package (e.g. MIT, Apache)",
 	)
 
 	cobraCommand.Flags().StringVar(
@@ -89,14 +89,14 @@ func NewSearchCmd(baseCmd *cmd.BaseCmd, opt ...cmdopts.CmdOption) (*cobra.Comman
 		&c.Tags,
 		"tag",
 		nil,
-		"Optional, specify tags to filter the search results (can be repeated)",
+		"Optional, specify a partial match for required tags (can be repeated)",
 	)
 
 	cobraCommand.Flags().StringArrayVar(
 		&c.Categories,
 		"category",
 		nil,
-		"Optional, specify categories to filter the search results (can be repeated)",
+		"Optional, specify a partial match for required categories (can be repeated)",
 	)
 
 	return cobraCommand, nil
