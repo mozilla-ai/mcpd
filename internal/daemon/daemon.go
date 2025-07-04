@@ -3,6 +3,7 @@ package daemon
 import (
 	"bufio"
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"net"
@@ -31,8 +32,9 @@ type Daemon struct {
 	apiServer         *ApiServer
 	logger            hclog.Logger
 	clientManager     *ClientManager
+	healthTracker     *HealthTracker
 	supportedRuntimes map[runtime.Runtime]struct{}
-	cfgLoader         config.Loader
+	runtimeCfg        []runtime.Server
 }
 
 func NewDaemon(logger hclog.Logger, cfgLoader config.Loader, apiAddr string) (*Daemon, error) {
@@ -46,9 +48,20 @@ func NewDaemon(logger hclog.Logger, cfgLoader config.Loader, apiAddr string) (*D
 		return nil, fmt.Errorf("invalid api address '%s': %w", apiAddr, err)
 	}
 
-	clientManager := NewClientManager()
+	// Load config.
+	cfg, err := loadConfig(cfgLoader)
+	if err != nil {
+		return nil, err
+	}
 
-	apiServer, err := NewApiServer(logger, clientManager, apiAddr)
+	var serverNames []string
+	for _, r := range cfg {
+		serverNames = append(serverNames, r.Name)
+	}
+
+	healthTracker := NewHealthTracker(serverNames)
+	clientManager := NewClientManager()
+	apiServer, err := NewApiServer(logger, clientManager, healthTracker, apiAddr)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create daemon API server: %w", err)
 	}
@@ -56,38 +69,15 @@ func NewDaemon(logger hclog.Logger, cfgLoader config.Loader, apiAddr string) (*D
 	return &Daemon{
 		logger:            logger.Named("daemon"),
 		clientManager:     clientManager,
+		healthTracker:     healthTracker,
 		apiServer:         apiServer,
 		supportedRuntimes: runtime.DefaultSupportedRuntimes(),
-		cfgLoader:         cfgLoader,
+		runtimeCfg:        cfg,
 	}, nil
 }
 
-func (d *Daemon) LoadConfig() ([]runtime.Server, error) {
-	cfgPath := flags.ConfigFile
-	cfg, err := d.cfgLoader.Load(cfgPath)
-	if err != nil {
-		return nil, err
-	}
-
-	// Use the home directory to load the execution context config data (for now).
-	home, err := os.UserHomeDir()
-	if err != nil {
-		return nil, fmt.Errorf("could not determine home directory: %w", err)
-	}
-	executionCtxPath := filepath.Join(home, ".mcpd", "secrets.dev.toml")
-	execCtx, err := configcontext.LoadExecutionContextConfig(executionCtxPath)
-	if err != nil {
-		return nil, err
-	}
-
-	return runtime.AggregateConfigs(cfg, execCtx)
-}
-
 func (d *Daemon) StartAndManage(ctx context.Context) error {
-	runtimeCfg, err := d.LoadConfig()
-	if err != nil {
-		return err
-	}
+	runtimeCfg := d.runtimeCfg
 
 	d.logger.Info(fmt.Sprintf("loaded config for %d daemon(s)", len(runtimeCfg)))
 	fmt.Println(fmt.Sprintf("Attempting to start %d MCP server(s)", len(runtimeCfg)))
@@ -221,7 +211,7 @@ func (d *Daemon) launchServer(ctx context.Context, server runtime.Server, wg *sy
 		initializeCtx,
 		mcp.InitializeRequest{
 			Params: mcp.InitializeParams{
-				ProtocolVersion: "latest",
+				ProtocolVersion: mcp.LATEST_PROTOCOL_VERSION,
 				ClientInfo:      mcp.Implementation{Name: cmd.AppName(), Version: cmd.Version()},
 			},
 		})
@@ -236,6 +226,94 @@ func (d *Daemon) launchServer(ctx context.Context, server runtime.Server, wg *sy
 	d.clientManager.Add(server.Name, stdioClient, server.Tools)
 
 	logger.Info("Ready")
+
+	return nil
+}
+
+func (d *Daemon) healthCheckLoop(
+	ctx context.Context,
+	interval time.Duration,
+	timeout time.Duration,
+) {
+	d.logger.Info("Starting health check loop", "interval", interval, "timeout", timeout)
+
+	ticker := time.NewTicker(interval)
+	defer ticker.Stop()
+
+	d.pingAllServers(ctx, timeout)
+
+	for {
+		select {
+		case <-ctx.Done():
+			d.logger.Info("Stopping MCP server health checks")
+			return
+		case <-ticker.C:
+			d.pingAllServers(ctx, timeout)
+		}
+	}
+}
+
+func (d *Daemon) pingAllServers(ctx context.Context, timeout time.Duration) {
+	for _, name := range d.clientManager.List() {
+		c, ok := d.clientManager.Client(name)
+		if !ok {
+			continue
+		}
+
+		go func(name string, mcpClient *client.Client) {
+			pingCtx, cancel := context.WithTimeout(ctx, timeout)
+			defer cancel()
+
+			start := time.Now()
+			err := mcpClient.Ping(pingCtx)
+			duration := time.Since(start)
+
+			status := HealthStatusUnknown
+			var latency *time.Duration
+
+			switch {
+			case err == nil:
+				status = HealthStatusOK
+				latency = &duration
+				d.logger.Debug("Ping successful", "server", name, "latency", duration)
+			case errors.Is(err, context.DeadlineExceeded):
+				status = HealthStatusTimeout
+				d.logger.Error("Ping timed out", "server", name, "error", err)
+			case errors.Is(err, context.Canceled):
+				status = HealthStatusTimeout
+				d.logger.Warn("Ping context canceled", "server", name)
+			default:
+				status = HealthStatusUnreachable
+				d.logger.Error("Ping unreachable", "server", name, "error", err)
+			}
+
+			if updateErr := d.healthTracker.Update(name, status, latency); updateErr != nil {
+				d.logger.Error("Failed to record health", "server", name, "error", updateErr)
+			}
+		}(name, c)
+	}
+}
+
+// IsValidAddr returns an error if the address is not a valid "host:port" string.
+func IsValidAddr(addr string) error {
+	host, port, err := net.SplitHostPort(addr)
+	if err != nil {
+		return fmt.Errorf("invalid address format: %w", err)
+	}
+
+	if port == "" {
+		return fmt.Errorf("address missing port")
+	}
+
+	// Try parsing port as a number
+	if _, err := strconv.Atoi(port); err != nil {
+		// Try looking up the named port
+		if _, err := net.LookupPort("tcp", port); err != nil {
+			return fmt.Errorf("invalid address port: %s", port)
+		}
+	}
+
+	_ = host // it's ok to accept an empty host (listens on all interfaces)
 
 	return nil
 }
@@ -286,71 +364,24 @@ func normalizeLogLevel(level string) hclog.Level {
 	}
 }
 
-func (d *Daemon) healthCheckLoop(
-	ctx context.Context,
-	interval time.Duration,
-	timeout time.Duration,
-) {
-	d.logger.Info("Starting health check loop", "interval", interval, "timeout", timeout)
+func loadConfig(cfgLoader config.Loader) ([]runtime.Server, error) {
+	cfgPath := flags.ConfigFile
 
-	ticker := time.NewTicker(interval)
-	defer ticker.Stop()
-
-	d.pingAllServers(ctx, timeout)
-
-	for {
-		select {
-		case <-ctx.Done():
-			d.logger.Info("Stopping MCP server health checks")
-			return
-		case <-ticker.C:
-			d.pingAllServers(ctx, timeout)
-		}
-	}
-}
-
-func (d *Daemon) pingAllServers(ctx context.Context, timeout time.Duration) {
-	for _, name := range d.clientManager.List() {
-		c, ok := d.clientManager.Client(name)
-		if !ok {
-			continue
-		}
-
-		go func(name string, mcpClient *client.Client) {
-			pingCtx, cancel := context.WithTimeout(ctx, timeout)
-			defer cancel()
-
-			if err := mcpClient.Ping(pingCtx); err != nil {
-				d.logger.Error(fmt.Sprintf("Error pinging MCP server: '%s'", name), "error", err)
-				return
-			}
-
-			// TODO: Store health state for servers, and expose HTTP API route for /heath
-			d.logger.Debug("Ping successful", "server", name)
-		}(name, c)
-	}
-}
-
-// IsValidAddr returns an error if the address is not a valid "host:port" string.
-func IsValidAddr(addr string) error {
-	host, port, err := net.SplitHostPort(addr)
+	cfg, err := cfgLoader.Load(cfgPath)
 	if err != nil {
-		return fmt.Errorf("invalid address format: %w", err)
+		return nil, err
 	}
 
-	if port == "" {
-		return fmt.Errorf("address missing port")
+	// Use the home directory to load the execution context config data (for now).
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return nil, fmt.Errorf("could not determine home directory: %w", err)
+	}
+	executionCtxPath := filepath.Join(home, ".mcpd", "secrets.dev.toml")
+	execCtx, err := configcontext.LoadExecutionContextConfig(executionCtxPath)
+	if err != nil {
+		return nil, err
 	}
 
-	// Try parsing port as a number
-	if _, err := strconv.Atoi(port); err != nil {
-		// Try looking up the named port
-		if _, err := net.LookupPort("tcp", port); err != nil {
-			return fmt.Errorf("invalid address port: %s", port)
-		}
-	}
-
-	_ = host // it's ok to accept an empty host (listens on all interfaces)
-
-	return nil
+	return runtime.AggregateConfigs(cfg, execCtx)
 }
