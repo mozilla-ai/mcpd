@@ -2,6 +2,7 @@ package api
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"slices"
@@ -162,8 +163,16 @@ func handleServerToolCall(accessor contracts.MCPClientAccessor, server string, t
 		return nil, fmt.Errorf("%w: %s/%s: %v", errors.ErrToolCallFailedUnknown, server, tool, extractMessage(result.Content))
 	}
 
+	// Parse the response content of the tool, ensure we can translate the message as JSON.
+	msg := extractMessage(result.Content)
+	var respData map[string]any
+	err = json.Unmarshal([]byte(msg), &respData)
+	if err != nil {
+		return nil, fmt.Errorf("%w: %s/%s: error parsing response: %s: %w", errors.ErrToolCallFailedUnknown, server, tool, msg, err)
+	}
+
 	resp := &ToolCallResponse{}
-	resp.Body = extractMessage(result.Content)
+	resp.Body = respData
 
 	return resp, nil
 }
