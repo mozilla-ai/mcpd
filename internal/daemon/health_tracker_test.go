@@ -2,55 +2,18 @@ package daemon
 
 import (
 	"encoding/json"
-	"errors"
+	stdErrors "errors"
 	"fmt"
 	"sync"
 	"testing"
 	"time"
 
 	"github.com/stretchr/testify/require"
+
+	"github.com/mozilla-ai/mcpd/v2/internal/api"
+	"github.com/mozilla-ai/mcpd/v2/internal/domain"
+	"github.com/mozilla-ai/mcpd/v2/internal/errors"
 )
-
-func TestDuration_MarshalJSON(t *testing.T) {
-	t.Parallel()
-
-	tests := []struct {
-		name     string
-		duration *Duration
-		want     string
-	}{
-		{
-			name:     "nil duration",
-			duration: nil,
-			want:     "null",
-		},
-		{
-			name:     "zero duration",
-			duration: func() *Duration { d := Duration(0); return &d }(),
-			want:     `"0s"`,
-		},
-		{
-			name:     "positive duration",
-			duration: func() *Duration { d := Duration(100 * time.Millisecond); return &d }(),
-			want:     `"100ms"`,
-		},
-		{
-			name:     "complex duration",
-			duration: func() *Duration { d := Duration(1*time.Hour + 30*time.Minute + 45*time.Second); return &d }(),
-			want:     `"1h30m45s"`,
-		},
-	}
-
-	for _, tc := range tests {
-		t.Run(tc.name, func(t *testing.T) {
-			t.Parallel()
-
-			got, err := tc.duration.MarshalJSON()
-			require.NoError(t, err)
-			require.Equal(t, tc.want, string(got))
-		})
-	}
-}
 
 func TestNewHealthTracker(t *testing.T) {
 	t.Parallel()
@@ -95,7 +58,7 @@ func TestNewHealthTracker(t *testing.T) {
 				health, exists := tracker.statuses[name]
 				require.True(t, exists)
 				require.Equal(t, name, health.Name)
-				require.Equal(t, HealthStatusUnknown, health.Status)
+				require.Equal(t, domain.HealthStatusUnknown, health.Status)
 				require.Nil(t, health.Latency)
 				require.Nil(t, health.LastChecked)
 				require.Nil(t, health.LastSuccessful)
@@ -112,14 +75,14 @@ func TestHealthTracker_Status(t *testing.T) {
 		serverNames []string
 		queryName   string
 		wantError   bool
-		wantStatus  HealthStatus
+		wantStatus  domain.HealthStatus
 	}{
 		{
 			name:        "existing server",
 			serverNames: []string{"server1", "server2"},
 			queryName:   "server1",
 			wantError:   false,
-			wantStatus:  HealthStatusUnknown,
+			wantStatus:  domain.HealthStatusUnknown,
 		},
 		{
 			name:        "non-existing server",
@@ -144,8 +107,8 @@ func TestHealthTracker_Status(t *testing.T) {
 
 			if tc.wantError {
 				require.Error(t, err)
-				require.True(t, errors.Is(err, ErrHealthNotTracked))
-				require.Equal(t, ServerHealth{}, health)
+				require.True(t, stdErrors.Is(err, errors.ErrHealthNotTracked))
+				require.Equal(t, domain.ServerHealth{}, health)
 			} else {
 				require.NoError(t, err)
 				require.Equal(t, tc.queryName, health.Name)
@@ -215,7 +178,7 @@ func TestHealthTracker_Update(t *testing.T) {
 		tests := []struct {
 			name         string
 			serverName   string
-			status       HealthStatus
+			status       domain.HealthStatus
 			latency      *time.Duration
 			wantError    bool
 			checkSuccess bool
@@ -223,7 +186,7 @@ func TestHealthTracker_Update(t *testing.T) {
 			{
 				name:         "update with OK status and latency",
 				serverName:   "server1",
-				status:       HealthStatusOK,
+				status:       domain.HealthStatusOK,
 				latency:      &latency,
 				wantError:    false,
 				checkSuccess: true,
@@ -231,7 +194,7 @@ func TestHealthTracker_Update(t *testing.T) {
 			{
 				name:         "update with timeout status and latency",
 				serverName:   "server1",
-				status:       HealthStatusTimeout,
+				status:       domain.HealthStatusTimeout,
 				latency:      &latency,
 				wantError:    false,
 				checkSuccess: false,
@@ -239,14 +202,14 @@ func TestHealthTracker_Update(t *testing.T) {
 			{
 				name:       "update with unreachable status and nil latency",
 				serverName: "server1",
-				status:     HealthStatusUnreachable,
+				status:     domain.HealthStatusUnreachable,
 				latency:    nil,
 				wantError:  false,
 			},
 			{
 				name:       "update non-existing server",
 				serverName: "server3",
-				status:     HealthStatusOK,
+				status:     domain.HealthStatusOK,
 				latency:    &latency,
 				wantError:  true,
 			},
@@ -259,7 +222,7 @@ func TestHealthTracker_Update(t *testing.T) {
 
 				if tc.wantError {
 					require.Error(t, err)
-					require.True(t, errors.Is(err, ErrHealthNotTracked))
+					require.True(t, stdErrors.Is(err, errors.ErrHealthNotTracked))
 					return
 				}
 
@@ -279,7 +242,7 @@ func TestHealthTracker_Update(t *testing.T) {
 				// Check latency
 				if tc.latency != nil {
 					require.NotNil(t, health.Latency)
-					require.Equal(t, Duration(*tc.latency), *health.Latency)
+					require.Equal(t, *tc.latency, *health.Latency)
 				} else {
 					require.Nil(t, health.Latency)
 				}
@@ -301,7 +264,7 @@ func TestHealthTracker_Update(t *testing.T) {
 		latency := 50 * time.Millisecond
 
 		// First update with OK status
-		err := tracker.Update("server1", HealthStatusOK, &latency)
+		err := tracker.Update("server1", domain.HealthStatusOK, &latency)
 		require.NoError(t, err)
 
 		health, err := tracker.Status("server1")
@@ -313,12 +276,12 @@ func TestHealthTracker_Update(t *testing.T) {
 		time.Sleep(10 * time.Millisecond)
 
 		// Second update with non-OK status
-		err = tracker.Update("server1", HealthStatusTimeout, &latency)
+		err = tracker.Update("server1", domain.HealthStatusTimeout, &latency)
 		require.NoError(t, err)
 
 		health, err = tracker.Status("server1")
 		require.NoError(t, err)
-		require.Equal(t, HealthStatusTimeout, health.Status)
+		require.Equal(t, domain.HealthStatusTimeout, health.Status)
 		require.Equal(t, originalLastSuccessful, health.LastSuccessful, "LastSuccessful should be preserved")
 	})
 }
@@ -345,7 +308,7 @@ func TestHealthTracker_ConcurrentAccess(t *testing.T) {
 				// Alternate between different operations
 				switch j % 3 {
 				case 0:
-					err := tracker.Update(serverName, HealthStatusOK, &latency)
+					err := tracker.Update(serverName, domain.HealthStatusOK, &latency)
 					require.NoError(t, err)
 				case 1:
 					_, err := tracker.Status(serverName)
@@ -365,17 +328,17 @@ func TestServerHealth_JSONSerialization(t *testing.T) {
 	t.Parallel()
 
 	now := time.Now().UTC()
-	latency := Duration(100 * time.Millisecond)
+	latency := 100 * time.Millisecond
 
 	tests := []struct {
 		name   string
-		health ServerHealth
+		health domain.ServerHealth
 	}{
 		{
 			name: "complete health record",
-			health: ServerHealth{
+			health: domain.ServerHealth{
 				Name:           "server1",
-				Status:         HealthStatusOK,
+				Status:         domain.HealthStatusOK,
 				Latency:        &latency,
 				LastChecked:    &now,
 				LastSuccessful: &now,
@@ -383,16 +346,16 @@ func TestServerHealth_JSONSerialization(t *testing.T) {
 		},
 		{
 			name: "minimal health record",
-			health: ServerHealth{
+			health: domain.ServerHealth{
 				Name:   "server2",
-				Status: HealthStatusUnknown,
+				Status: domain.HealthStatusUnknown,
 			},
 		},
 		{
 			name: "health record with nil latency",
-			health: ServerHealth{
+			health: domain.ServerHealth{
 				Name:        "server3",
-				Status:      HealthStatusTimeout,
+				Status:      domain.HealthStatusTimeout,
 				Latency:     nil,
 				LastChecked: &now,
 			},
@@ -403,8 +366,10 @@ func TestServerHealth_JSONSerialization(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
-			// Test marshaling only - unmarshaling requires UnmarshalJSON method
-			data, err := json.Marshal(tc.health)
+			res := api.DomainServerHealth(tc.health).ToAPIType()
+
+			// Test marshaling only - unmarshalling requires UnmarshalJSON method
+			data, err := json.Marshal(res)
 			require.NoError(t, err)
 			require.NotEmpty(t, data)
 
@@ -419,9 +384,24 @@ func TestServerHealth_JSONSerialization(t *testing.T) {
 			// Check required fields are present
 			require.Contains(t, jsonMap, "name")
 			require.Contains(t, jsonMap, "status")
-			require.Contains(t, jsonMap, "latency")
-			require.Contains(t, jsonMap, "last_checked")
-			require.Contains(t, jsonMap, "last_successful")
+
+			if tc.health.Latency != nil {
+				require.Contains(t, jsonMap, "latency")
+			} else {
+				require.NotContains(t, jsonMap, "latency")
+			}
+
+			if tc.health.LastChecked != nil {
+				require.Contains(t, jsonMap, "last_checked")
+			} else {
+				require.NotContains(t, jsonMap, "last_checked")
+			}
+
+			if tc.health.LastSuccessful != nil {
+				require.Contains(t, jsonMap, "last_successful")
+			} else {
+				require.NotContains(t, jsonMap, "last_successful")
+			}
 
 			// Verify field values
 			require.Equal(t, tc.health.Name, jsonMap["name"])
@@ -431,7 +411,7 @@ func TestServerHealth_JSONSerialization(t *testing.T) {
 			if tc.health.Latency != nil {
 				require.NotEqual(t, nil, jsonMap["latency"])
 				require.IsType(t, "", jsonMap["latency"])
-				require.Contains(t, jsonMap["latency"].(string), "ms") // Should contain duration unit
+				require.Equal(t, jsonMap["latency"].(string), "100ms")
 			} else {
 				require.Nil(t, jsonMap["latency"])
 			}
@@ -458,8 +438,8 @@ func TestHealthStatus_Constants(t *testing.T) {
 	t.Parallel()
 
 	// Test that all health status constants are defined correctly
-	require.Equal(t, HealthStatus("ok"), HealthStatusOK)
-	require.Equal(t, HealthStatus("timeout"), HealthStatusTimeout)
-	require.Equal(t, HealthStatus("unreachable"), HealthStatusUnreachable)
-	require.Equal(t, HealthStatus("unknown"), HealthStatusUnknown)
+	require.Equal(t, domain.HealthStatus("ok"), domain.HealthStatusOK)
+	require.Equal(t, domain.HealthStatus("timeout"), domain.HealthStatusTimeout)
+	require.Equal(t, domain.HealthStatus("unreachable"), domain.HealthStatusUnreachable)
+	require.Equal(t, domain.HealthStatus("unknown"), domain.HealthStatusUnknown)
 }

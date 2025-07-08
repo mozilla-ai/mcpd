@@ -6,44 +6,23 @@ import (
 	"slices"
 	"sync"
 	"time"
+
+	"github.com/mozilla-ai/mcpd/v2/internal/domain"
+	"github.com/mozilla-ai/mcpd/v2/internal/errors"
 )
 
-const (
-	HealthStatusOK          HealthStatus = "ok"
-	HealthStatusTimeout     HealthStatus = "timeout"
-	HealthStatusUnreachable HealthStatus = "unreachable"
-	HealthStatusUnknown     HealthStatus = "unknown"
-)
-
-type HealthStatus string
-
-type Duration time.Duration
-
-type ServerHealth struct {
-	Name           string       `json:"name"`
-	Status         HealthStatus `json:"status"`
-	Latency        *Duration    `json:"latency"`
-	LastChecked    *time.Time   `json:"last_checked"`
-	LastSuccessful *time.Time   `json:"last_successful"`
-}
-
+// HealthTracker is used to track the health of registered MCP servers.
+// NewHealthTracker should be used to initialize this type.
 type HealthTracker struct {
 	mu       sync.RWMutex
-	statuses map[string]ServerHealth
+	statuses map[string]domain.ServerHealth
 }
 
-func (d *Duration) MarshalJSON() ([]byte, error) {
-	if d == nil {
-		return []byte("null"), nil
-	}
-	s := fmt.Sprintf(`"%s"`, time.Duration(*d).String())
-	return []byte(s), nil
-}
-
+// NewHealthTracker creates a HealthTracker which tracks the specified MCP server names.
 func NewHealthTracker(serverNames []string) *HealthTracker {
-	statuses := make(map[string]ServerHealth, len(serverNames))
+	statuses := make(map[string]domain.ServerHealth, len(serverNames))
 	for _, name := range serverNames {
-		statuses[name] = ServerHealth{Name: name, Status: HealthStatusUnknown}
+		statuses[name] = domain.ServerHealth{Name: name, Status: domain.HealthStatusUnknown}
 	}
 	return &HealthTracker{
 		statuses: statuses,
@@ -51,7 +30,7 @@ func NewHealthTracker(serverNames []string) *HealthTracker {
 }
 
 // Status returns the health status for a single tracked server.
-func (h *HealthTracker) Status(name string) (ServerHealth, error) {
+func (h *HealthTracker) Status(name string) (domain.ServerHealth, error) {
 	h.mu.RLock()
 	defer h.mu.RUnlock()
 
@@ -59,11 +38,11 @@ func (h *HealthTracker) Status(name string) (ServerHealth, error) {
 		return health, nil
 	}
 
-	return ServerHealth{}, fmt.Errorf("%w: %s", ErrHealthNotTracked, name)
+	return domain.ServerHealth{}, fmt.Errorf("%w: %s", errors.ErrHealthNotTracked, name)
 }
 
 // List returns a copy of all known server health records.
-func (h *HealthTracker) List() []ServerHealth {
+func (h *HealthTracker) List() []domain.ServerHealth {
 	h.mu.RLock()
 	defer h.mu.RUnlock()
 	return slices.Collect(maps.Values(h.statuses))
@@ -72,7 +51,7 @@ func (h *HealthTracker) List() []ServerHealth {
 // Update records a health check for a tracked server.
 // The current time is recorded as LastChecked, and LastSuccessful is updated only if status is HealthStatusOK.
 // Latency can be nil if the ping failed or was not measured.
-func (h *HealthTracker) Update(name string, status HealthStatus, latency *time.Duration) error {
+func (h *HealthTracker) Update(name string, status domain.HealthStatus, latency *time.Duration) error {
 	h.mu.Lock()
 	defer h.mu.Unlock()
 
@@ -80,26 +59,20 @@ func (h *HealthTracker) Update(name string, status HealthStatus, latency *time.D
 
 	prev, exists := h.statuses[name]
 	if !exists {
-		return fmt.Errorf("%w: %s", ErrHealthNotTracked, name)
+		return fmt.Errorf("%w: %s", errors.ErrHealthNotTracked, name)
 	}
 
 	var lastSuccessful *time.Time
-	if status == HealthStatusOK {
+	if status == domain.HealthStatusOK {
 		lastSuccessful = &now
 	} else {
 		lastSuccessful = prev.LastSuccessful
 	}
 
-	var duration *Duration
-	if latency != nil {
-		d := Duration(*latency)
-		duration = &d
-	}
-
-	h.statuses[name] = ServerHealth{
+	h.statuses[name] = domain.ServerHealth{
 		Name:           name,
 		Status:         status,
-		Latency:        duration,
+		Latency:        latency,
 		LastChecked:    &now,
 		LastSuccessful: lastSuccessful,
 	}

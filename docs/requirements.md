@@ -2,9 +2,11 @@
 
 To use `mcpd`, ensure the following tools are installed:
 
-- [`uv` / `uvx`](https://docs.astral.sh/uv/getting-started/installation/) - for running `uvx` Python packages
-- [`npx` / `npm` / `NodeJS`](https://docs.npmjs.com/downloading-and-installing-node-js-and-npm) - for running JavaScript/TypeScript packages
-- [Go](https://go.dev/doc/install) - only required for building and developing `mcpd`
+| Tool           | Purpose                                        | Notes                                                             | 
+|----------------|------------------------------------------------|-------------------------------------------------------------------| 
+| `Go >= 1.24.4` | Required for building `mcpd` and running tests | https://go.dev/doc/install                                        | 
+| `uv`           | for running `uvx` Python packages              | https://docs.astral.sh/uv/getting-started/installation/           |
+| `npx`          | for running JavaScript/TypeScript packages     | https://docs.npmjs.com/downloading-and-installing-node-js-and-npm |
 
 !!! note "Internet Connectivity"
     `mcpd` requires internet access to contact package registries and to allow MCP servers access to the internet if required when running.
