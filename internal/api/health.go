@@ -83,7 +83,7 @@ func RegisterHealthRoutes(routerAPI huma.API, monitor contracts.MCPHealthMonitor
 		huma.Operation{
 			OperationID: "listServersHealth",
 			Method:      http.MethodGet,
-			Path:        "/",
+			Path:        "/servers",
 			Summary:     "List the health statuses for all servers",
 			Tags:        tags,
 		},
