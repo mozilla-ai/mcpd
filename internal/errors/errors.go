@@ -1,6 +1,8 @@
-package daemon
+package errors
 
-import "errors"
+import (
+	"errors"
+)
 
 var (
 	ErrBadRequest            = errors.New("bad request")

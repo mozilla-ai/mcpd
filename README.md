@@ -27,8 +27,8 @@ Covers setup, CLI usage, configuration, secrets, the daemon, Makefile commands, 
 Install dependencies:
 
 - [Go](https://go.dev/doc/install)
-- [uvx](https://docs.astral.sh/uv/getting-started/installation/)
 - [npx](https://docs.npmjs.com/downloading-and-installing-node-js-and-npm)
+- [uvx](https://docs.astral.sh/uv/getting-started/installation/)
 
 Clone the repo:
 ```bash
@@ -62,6 +62,8 @@ Start the daemon:
 ```bash
 mcpd daemon
 ```
+
+API docs will be available at `/docs`, e.g. `http://localhost:8090/docs` 
 
 ## 🧰 Development
 

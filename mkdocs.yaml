@@ -2,6 +2,7 @@ site_name: mcpd documentation
 site_url: https://mozilla-ai.github.io/mcpd/
 repo_name: mozilla-ai/mcpd
 repo_url: https://github.com/mozilla-ai/mcpd
+docs_dir: docs
 theme:
   name: material
   palette:
@@ -34,16 +35,8 @@ nav:
   - Home: index.md
   - Requirements: requirements.md
   - Configuration: configuration.md
-  - CLI Reference:
-      - Overview: commands/mcpd.md
-      - add: commands/mcpd_add.md
-      - config: commands/mcpd_config.md
-      - config set-args: commands/mcpd_config_set-args.md
-      - config set-env: commands/mcpd_config_set-env.md
-      - daemon: commands/mcpd_daemon.md
-      - init: commands/mcpd_init.md
-      - remove: commands/mcpd_remove.md
-      - search: commands/mcpd_search.md
   - Execution Context: execution-context.md
   - Makefile: makefile.md
   - Tutorial: tutorial.md
+  - CLI Reference:
+      - Overview: commands/mcpd.md

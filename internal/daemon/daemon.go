@@ -24,6 +24,8 @@ import (
 	"github.com/mozilla-ai/mcpd/v2/internal/cmd"
 	"github.com/mozilla-ai/mcpd/v2/internal/config"
 	configcontext "github.com/mozilla-ai/mcpd/v2/internal/context"
+	"github.com/mozilla-ai/mcpd/v2/internal/contracts"
+	"github.com/mozilla-ai/mcpd/v2/internal/domain"
 	"github.com/mozilla-ai/mcpd/v2/internal/flags"
 	"github.com/mozilla-ai/mcpd/v2/internal/runtime"
 )
@@ -31,8 +33,8 @@ import (
 type Daemon struct {
 	apiServer         *ApiServer
 	logger            hclog.Logger
-	clientManager     *ClientManager
-	healthTracker     *HealthTracker
+	clientManager     contracts.MCPClientAccessor
+	healthTracker     contracts.MCPHealthMonitor
 	supportedRuntimes map[runtime.Runtime]struct{}
 	runtimeCfg        []runtime.Server
 }
@@ -78,14 +80,12 @@ func NewDaemon(logger hclog.Logger, cfgLoader config.Loader, apiAddr string) (*D
 
 func (d *Daemon) StartAndManage(ctx context.Context) error {
 	runtimeCfg := d.runtimeCfg
-
-	d.logger.Info(fmt.Sprintf("loaded config for %d daemon(s)", len(runtimeCfg)))
-	fmt.Println(fmt.Sprintf("Attempting to start %d MCP server(s)", len(runtimeCfg)))
+	fmt.Println(fmt.Sprintf("Attempting to start %d MCP server(s)", len(runtimeCfg))) // TODO: This shouldn't be in the daemon (it's CLI related).
 
 	var startupWg sync.WaitGroup
 	d.setupSignalHandler()
 
-	// Launch all MCP servers
+	// Launch all MCP servers as sub-processes.
 	startupWg.Add(len(runtimeCfg))
 	for _, r := range runtimeCfg {
 		go func(ctx context.Context, server runtime.Server) {
@@ -95,16 +95,15 @@ func (d *Daemon) StartAndManage(ctx context.Context) error {
 			}
 		}(ctx, r)
 	}
-
 	startupWg.Wait()
-	fmt.Println("MCP server started")
+	fmt.Println("MCP server started") // TODO: This shouldn't be in the daemon (it's CLI related).
 
-	// TODO: Configurable intervals/timeouts.
-	healthcheckInterval := 10 * time.Second
-	pingTimeout := 3 * time.Second
-
+	// Begin regular health checks.
+	healthcheckInterval := 10 * time.Second // TODO: Configurable intervals.
+	pingTimeout := 3 * time.Second          // TODO: Configurable timeouts.
 	go d.healthCheckLoop(ctx, healthcheckInterval, pingTimeout)
 
+	// Start the API server.
 	readyChan := make(chan struct{})
 	go func() {
 		if err := d.apiServer.Start(readyChan); err != nil {
@@ -113,7 +112,7 @@ func (d *Daemon) StartAndManage(ctx context.Context) error {
 	}()
 
 	<-readyChan
-	fmt.Println("Press CTRL+C to shut down.")
+	fmt.Println("Press CTRL+C to shut down.") // TODO: This shouldn't be in the daemon (it's CLI related).
 	select {}
 }
 
@@ -123,7 +122,7 @@ func (d *Daemon) setupSignalHandler() {
 
 	go func() {
 		<-sigChan
-		fmt.Println("\nShutting down all servers...")
+		fmt.Println("\nShutting down all servers...") // TODO: This shouldn't be in the daemon (it's CLI related).
 
 		for _, name := range d.clientManager.List() {
 			c, ok := d.clientManager.Client(name)
@@ -268,22 +267,22 @@ func (d *Daemon) pingAllServers(ctx context.Context, timeout time.Duration) {
 			err := mcpClient.Ping(pingCtx)
 			duration := time.Since(start)
 
-			status := HealthStatusUnknown
+			status := domain.HealthStatusUnknown
 			var latency *time.Duration
 
 			switch {
 			case err == nil:
-				status = HealthStatusOK
+				status = domain.HealthStatusOK
 				latency = &duration
 				d.logger.Debug("Ping successful", "server", name, "latency", duration)
 			case errors.Is(err, context.DeadlineExceeded):
-				status = HealthStatusTimeout
+				status = domain.HealthStatusTimeout
 				d.logger.Error("Ping timed out", "server", name, "error", err)
 			case errors.Is(err, context.Canceled):
-				status = HealthStatusTimeout
+				status = domain.HealthStatusTimeout
 				d.logger.Warn("Ping context canceled", "server", name)
 			default:
-				status = HealthStatusUnreachable
+				status = domain.HealthStatusUnreachable
 				d.logger.Error("Ping unreachable", "server", name, "error", err)
 			}
 
