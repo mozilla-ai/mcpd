@@ -2,6 +2,7 @@ package api
 
 import (
 	"context"
+	"net/http"
 	"slices"
 	"strings"
 	"time"
@@ -75,14 +76,35 @@ func (d DomainServerHealth) ToAPIType() ServerHealth {
 // RegisterHealthRoutes sets up health-related API endpoint routes.
 func RegisterHealthRoutes(routerAPI huma.API, monitor contracts.MCPHealthMonitor, apiPathPrefix string) {
 	healthAPI := huma.NewGroup(routerAPI, apiPathPrefix)
-	huma.Get(healthAPI, "/servers",
+	tags := []string{"Health"}
+
+	huma.Register(
+		healthAPI,
+		huma.Operation{
+			OperationID: "listServersHealth",
+			Method:      http.MethodGet,
+			Path:        "/",
+			Summary:     "List the health statuses for all servers",
+			Tags:        tags,
+		},
 		func(ctx context.Context, _ *struct{}) (*ServersHealthResponse, error) {
 			return handleHealthServers(monitor)
-		})
-	huma.Get(healthAPI, "/servers/{name}",
+		},
+	)
+
+	huma.Register(
+		healthAPI,
+		huma.Operation{
+			OperationID: "getServerHealth",
+			Method:      http.MethodGet,
+			Path:        "/servers/{name}",
+			Summary:     "Get the health status of a server",
+			Tags:        tags,
+		},
 		func(ctx context.Context, input *ServerHealthRequest) (*ServerHealthResponse, error) {
 			return handleHealthServer(monitor, input.Name)
-		})
+		},
+	)
 }
 
 // handleHealthServers is the handler for retrieving the current health for all registered MCP servers.

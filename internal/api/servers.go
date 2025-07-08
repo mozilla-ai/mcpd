@@ -3,6 +3,7 @@ package api
 import (
 	"context"
 	"fmt"
+	"net/http"
 	"slices"
 	"time"
 
@@ -33,25 +34,49 @@ type ServerToolCallRequest struct {
 // RegisterServerRoutes sets up health-related API endpoints
 func RegisterServerRoutes(routerAPI huma.API, accessor contracts.MCPClientAccessor, apiPathPrefix string) {
 	serversAPI := huma.NewGroup(routerAPI, apiPathPrefix)
+	tags := []string{"Servers"}
 
-	huma.Get(
+	huma.Register(
 		serversAPI,
-		"/",
+		huma.Operation{
+			OperationID: "listServers",
+			Method:      http.MethodGet,
+			Path:        "/",
+			Summary:     "List all servers",
+			Tags:        tags,
+		},
 		func(ctx context.Context, _ *struct{}) (*ServersResponse, error) {
 			return handleServers(accessor)
-		})
-	huma.Get(
+		},
+	)
+
+	huma.Register(
 		serversAPI,
-		"/{name}/tools",
+		huma.Operation{
+			OperationID: "listTools",
+			Method:      http.MethodGet,
+			Path:        "/{name}/tools",
+			Summary:     "List all tools",
+			Tags:        append(tags, "Tools"),
+		},
 		func(ctx context.Context, input *ServerToolsRequest) (*ToolsResponse, error) {
 			return handleServerTools(accessor, input.Name)
-		})
-	huma.Post(
-		routerAPI,
-		"/{server}/tools/{tool}",
+		},
+	)
+
+	huma.Register(
+		serversAPI,
+		huma.Operation{
+			OperationID: "callTool",
+			Method:      http.MethodPost,
+			Path:        "/{server}/tools/{tool}",
+			Summary:     "Call a tool for a server",
+			Tags:        append(tags, "Tools"),
+		},
 		func(ctx context.Context, input *ServerToolCallRequest) (*ToolCallResponse, error) {
 			return handleServerToolCall(accessor, input.Server, input.Tool, input.Body)
-		})
+		},
+	)
 }
 
 // handleServers returns the list of configured MCP servers.
