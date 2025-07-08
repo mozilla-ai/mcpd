@@ -56,7 +56,7 @@ func RegisterServerRoutes(routerAPI huma.API, accessor contracts.MCPClientAccess
 			OperationID: "listTools",
 			Method:      http.MethodGet,
 			Path:        "/{name}/tools",
-			Summary:     "List all tools",
+			Summary:     "List server tools",
 			Tags:        append(tags, "Tools"),
 		},
 		func(ctx context.Context, input *ServerToolsRequest) (*ToolsResponse, error) {
