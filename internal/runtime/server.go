@@ -54,7 +54,7 @@ func AggregateConfigs(
 }
 
 func (s *Server) Environ() []string {
-	baseEnvs := os.Environ()
+	baseEnvs := os.Environ() // TODO: Only 'add' required/configured env vars for this server's binary.
 	overrideEnvs := make([]string, 0, len(s.Env))
 	for k, v := range s.Env {
 		overrideEnvs = append(overrideEnvs, fmt.Sprintf("%s=%s", k, v))
