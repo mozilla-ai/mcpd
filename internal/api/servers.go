@@ -36,12 +36,12 @@ func RegisterServerRoutes(routerAPI huma.API, accessor contracts.MCPClientAccess
 	serversAPI := huma.NewGroup(routerAPI, apiPathPrefix)
 	tags := []string{"Servers"}
 
+	// Add route at the root of the group (no path specified).
 	huma.Register(
 		serversAPI,
 		huma.Operation{
 			OperationID: "listServers",
 			Method:      http.MethodGet,
-			Path:        "/",
 			Summary:     "List all servers",
 			Tags:        tags,
 		},
