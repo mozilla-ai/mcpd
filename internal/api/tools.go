@@ -16,7 +16,7 @@ type ToolsResponse struct {
 
 // ToolCallResponse represents the wrapped API response for calling a tool.
 type ToolCallResponse struct {
-	Body map[string]any
+	Body string
 }
 
 // Tool represents a callable tool, following the MCP spec.
