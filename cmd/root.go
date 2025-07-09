@@ -49,7 +49,9 @@ func NewRootCmd(c *RootCmd) (*cobra.Command, error) {
 	}
 
 	// Global flags
-	flags.InitFlags(rootCmd.PersistentFlags())
+	if err := flags.InitFlags(rootCmd.PersistentFlags()); err != nil {
+		return nil, err
+	}
 
 	// Add top-level commands
 	fns := []func(baseCmd *cmd.BaseCmd, opt ...options.CmdOption) (*cobra.Command, error){

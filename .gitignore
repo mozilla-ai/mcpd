@@ -37,6 +37,9 @@ mcpd
 # Project config files
 .mcpd.toml
 
+# Accidental files that shouldn't end up in the project folder
+secrets.dev.toml
+
 # Log files
 *.log
 

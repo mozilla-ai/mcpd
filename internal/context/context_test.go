@@ -90,7 +90,7 @@ func TestSaveAndLoadExecutionContextConfig(t *testing.T) {
 	dir := t.TempDir()
 
 	// Include extra, currently non-existing folder along the way.
-	path := filepath.Join(dir, ".mcpd", "secrets.dev.toml")
+	path := filepath.Join(dir, ".config", "mcpd", "secrets.dev.toml")
 
 	original := ExecutionContextConfig{
 		Servers: map[string]ServerExecutionContext{
@@ -105,4 +105,66 @@ func TestSaveAndLoadExecutionContextConfig(t *testing.T) {
 	loaded, err := LoadExecutionContextConfig(path)
 	require.NoError(t, err)
 	require.Equal(t, original, loaded)
+}
+
+func TestAppDirName(t *testing.T) {
+	t.Parallel()
+
+	require.Equal(t, "mcpd", AppDirName())
+}
+
+func TestContext_UserSpecificConfigDir(t *testing.T) {
+	tests := []struct {
+		name        string
+		xdgValue    string
+		expectedDir func(t *testing.T) string
+	}{
+		{
+			name:     "XDG_CONFIG_HOME is set and used",
+			xdgValue: "/custom/xdg/path",
+			expectedDir: func(t *testing.T) string {
+				return filepath.Join("/custom/xdg/path", AppDirName())
+			},
+		},
+		{
+			name:     "XDG_CONFIG_HOME is set with whitespace and trimmed",
+			xdgValue: "  /trimmed/xdg/path  ",
+			expectedDir: func(t *testing.T) string {
+				return filepath.Join("/trimmed/xdg/path", AppDirName())
+			},
+		},
+		{
+			name:     "XDG_CONFIG_HOME is empty, fall back to default",
+			xdgValue: "",
+			expectedDir: func(t *testing.T) string {
+				home, err := os.UserHomeDir()
+				require.NoError(t, err)
+				return filepath.Join(home, ".config", AppDirName())
+			},
+		},
+		{
+			name:     "XDG_CONFIG_HOME is only whitespace, fall back to default",
+			xdgValue: "   ",
+			expectedDir: func(t *testing.T) string {
+				home, err := os.UserHomeDir()
+				require.NoError(t, err)
+				return filepath.Join(home, ".config", AppDirName())
+			},
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			original := os.Getenv(EnvVarXDGConfigHome)
+			t.Cleanup(func() {
+				require.NoError(t, os.Setenv(EnvVarXDGConfigHome, original))
+			})
+
+			t.Setenv(EnvVarXDGConfigHome, tc.xdgValue)
+
+			result, err := UserSpecificConfigDir()
+			require.NoError(t, err)
+			require.Equal(t, tc.expectedDir(t), result)
+		})
+	}
 }

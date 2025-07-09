@@ -2,8 +2,6 @@ package args
 
 import (
 	"fmt"
-	"os"
-	"path/filepath"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -11,6 +9,7 @@ import (
 	"github.com/mozilla-ai/mcpd/v2/internal/cmd"
 	"github.com/mozilla-ai/mcpd/v2/internal/cmd/options"
 	"github.com/mozilla-ai/mcpd/v2/internal/context"
+	"github.com/mozilla-ai/mcpd/v2/internal/flags"
 )
 
 type ClearCmd struct {
@@ -28,7 +27,7 @@ func NewClearCmd(baseCmd *cmd.BaseCmd, _ ...options.CmdOption) (*cobra.Command, 
 		Short: "Clears configured command line arguments (flags) for an MCP server.",
 		Long: `Clears configured command line arguments (flags) for an MCP server, 
 		from the runtime context configuration file 
-		(e.g. ~/.mcpd/secrets.dev.toml).`,
+		(e.g. ~/.config/mcpd/secrets.dev.toml).`,
 		RunE: c.run,
 		Args: cobra.MinimumNArgs(1), // server-name
 	}
@@ -54,13 +53,7 @@ func (c *ClearCmd) run(cmd *cobra.Command, args []string) error {
 			"please re-run the command with the --force flag", serverName)
 	}
 
-	homeDir, err := os.UserHomeDir()
-	if err != nil {
-		return fmt.Errorf("failed to get user home directory: %w", err)
-	}
-	filePath := filepath.Join(homeDir, ".mcpd", "secrets.dev.toml") // TODO: Allow configuration via flag
-
-	cfg, err := context.LoadExecutionContextConfig(filePath)
+	cfg, err := context.LoadExecutionContextConfig(flags.RuntimeFile)
 	if err != nil {
 		return fmt.Errorf("failed to load execution context config: %w", err)
 	}
@@ -69,7 +62,7 @@ func (c *ClearCmd) run(cmd *cobra.Command, args []string) error {
 		// Clear and reassign the server in the config.
 		s.Args = []string{}
 		cfg.Servers[serverName] = s
-		if err := context.SaveExecutionContextConfig(filePath, cfg); err != nil {
+		if err := context.SaveExecutionContextConfig(flags.RuntimeFile, cfg); err != nil {
 			return fmt.Errorf("failed to clear argument config for '%s': %w", serverName, err)
 		}
 	}
