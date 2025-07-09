@@ -28,7 +28,7 @@ Traditional agent frameworks often embed complex subprocess logic, brittle start
   Define version-pinned MCP servers and tools in `.mcpd.toml`. Reproducible, consistent, and CI-friendly.
 
 🔐 **Project config separated from runtime variables**  
-  Args and environment variables per server in `~/.mcpd/secrets.dev.toml`. Never commit dev specific vars to Git again.
+  Args and environment variables per server e.g. `~/.config/mcpd/secrets.dev.toml`. Never commit dev specific vars to Git again.
 
 🛠️ **Unified Dev Experience**  
   One command: `mcpd daemon`. Starts and manages all servers behind the scenes.

@@ -1,17 +1,35 @@
-# Execution Context Configuration
+# Execution Context (Runtime) Configuration
 
-User-specific secrets and runtime arguments are stored in:
+## Global Configuration
 
-```bash
-~/.mcpd/secrets.dev.toml
-```
+!!! info "Precedence"
+    The order of precedence for these options is:  
+    `CLI flag > environment variable > default value`
 
-This file is modified using the following commands:
+## Runtime File Path
+
+All commands support an optional parameter to specify the location of the `mcpd` runtime file which 
+provides the execution context.
+
+You can provide this path in multiple ways:
+
+- CLI flag: `--runtime-file <path>`
+- Environment variable: `MCPD_RUNTIME_FILE=<path>`
+- Default: `~/.config/mcpd/secrets.dev.toml`
+
+!!! note "XDG_CONFIG_HOME environment variable"
+    mcpd honors the [XDG Base Directory Specification](https://specifications.freedesktop.org/basedir-spec/latest/), 
+    respecting the `XDG_CONFIG_HOME` environment variable. This forms the base directory where `mcpd` will create an 
+    application folder.
+
+---
+
+The runtime file is modified using the following commands:
 
 - `mcpd config args set`
 - `mcpd config env set`
 
-These values apply at runtime and are separate from your project-specific `.mcpd.toml`.
+These values apply at runtime and are separate from your **project-specific** `.mcpd.toml`.
 
 ---
 
@@ -30,4 +48,5 @@ These values apply at runtime and are separate from your project-specific `.mcpd
 ```
 
 !!! warning "Manual Changes"
-    The Execution Context Configuration file is automatically updated by `mcpd config` commands, you shouldn't edit it by hand unless absolutely necessary.
+    The Execution Context Configuration file is automatically updated by `mcpd config` commands, 
+    you shouldn't edit it by hand unless absolutely necessary.

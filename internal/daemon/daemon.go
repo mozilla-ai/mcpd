@@ -9,7 +9,6 @@ import (
 	"net"
 	"os"
 	"os/signal"
-	"path/filepath"
 	"reflect"
 	"strconv"
 	"strings"
@@ -364,20 +363,12 @@ func normalizeLogLevel(level string) hclog.Level {
 }
 
 func loadConfig(cfgLoader config.Loader) ([]runtime.Server, error) {
-	cfgPath := flags.ConfigFile
-
-	cfg, err := cfgLoader.Load(cfgPath)
+	cfg, err := cfgLoader.Load(flags.ConfigFile)
 	if err != nil {
 		return nil, err
 	}
 
-	// Use the home directory to load the execution context config data (for now).
-	home, err := os.UserHomeDir()
-	if err != nil {
-		return nil, fmt.Errorf("could not determine home directory: %w", err)
-	}
-	executionCtxPath := filepath.Join(home, ".mcpd", "secrets.dev.toml")
-	execCtx, err := configcontext.LoadExecutionContextConfig(executionCtxPath)
+	execCtx, err := configcontext.LoadExecutionContextConfig(flags.RuntimeFile)
 	if err != nil {
 		return nil, err
 	}

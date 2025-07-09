@@ -83,7 +83,7 @@ func (c *DaemonCmd) run(cmd *cobra.Command, args []string) error {
 	//	c.Logger.Info("Launching daemon (dev mode)", "bindAddr", addr)
 	//	c.Logger.Info("Local endpoint", "url", "http://"+addr+"/api")
 	//	c.Logger.Info("Dev API key", "value", "dev-api-key-12345")   // TODO: Generate local key
-	//	c.Logger.Info("Secrets file", "path", "~/.mcpd/secrets.dev") // TODO: Configurable?
+	//	c.Logger.Info("Secrets file", "path", "~/.config/mcpd/secrets.dev.toml") // TODO: Configurable?
 	//	c.Logger.Info("Press Ctrl+C to stop.")
 	logger, err := c.Logger()
 	if err != nil {

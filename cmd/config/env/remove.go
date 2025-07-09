@@ -2,8 +2,6 @@ package env
 
 import (
 	"fmt"
-	"os"
-	"path/filepath"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -11,6 +9,7 @@ import (
 	"github.com/mozilla-ai/mcpd/v2/internal/cmd"
 	"github.com/mozilla-ai/mcpd/v2/internal/cmd/options"
 	"github.com/mozilla-ai/mcpd/v2/internal/context"
+	"github.com/mozilla-ai/mcpd/v2/internal/flags"
 )
 
 type RemoveCmd struct {
@@ -28,7 +27,7 @@ func NewRemoveCmd(baseCmd *cmd.BaseCmd, _ ...options.CmdOption) (*cobra.Command,
 		Use:   "remove <server-name> KEY [KEY ...]",
 		Short: "Remove environment variables for an MCP server.",
 		Long: `Remove environment variables for a specified MCP server in the runtime context configuration file 
-		(e.g. ~/.mcpd/secrets.dev.toml).`,
+		(e.g. ~/.config/mcpd/secrets.dev.toml).`,
 		RunE: c.run,
 		Args: cobra.MinimumNArgs(2), // server-name + KEY ...
 	}
@@ -49,13 +48,7 @@ func (c *RemoveCmd) run(cmd *cobra.Command, args []string) error {
 		envMap[key] = struct{}{}
 	}
 
-	homeDir, err := os.UserHomeDir()
-	if err != nil {
-		return fmt.Errorf("failed to get user home directory: %w", err)
-	}
-	filePath := filepath.Join(homeDir, ".mcpd", "secrets.dev.toml") // TODO: Allow configuration via flag
-
-	cfg, err := context.LoadExecutionContextConfig(filePath)
+	cfg, err := context.LoadExecutionContextConfig(flags.RuntimeFile)
 	if err != nil {
 		return fmt.Errorf("failed to load execution context config: %w", err)
 	}
@@ -67,7 +60,7 @@ func (c *RemoveCmd) run(cmd *cobra.Command, args []string) error {
 		}
 		cfg.Servers[serverName] = serverCtx
 
-		if err := context.SaveExecutionContextConfig(filePath, cfg); err != nil {
+		if err := context.SaveExecutionContextConfig(flags.RuntimeFile, cfg); err != nil {
 			return fmt.Errorf("failed to save config: %w", err)
 		}
 	}

@@ -2,8 +2,6 @@ package env
 
 import (
 	"fmt"
-	"os"
-	"path/filepath"
 	"sort"
 	"strings"
 
@@ -12,6 +10,7 @@ import (
 	"github.com/mozilla-ai/mcpd/v2/internal/cmd"
 	"github.com/mozilla-ai/mcpd/v2/internal/cmd/options"
 	"github.com/mozilla-ai/mcpd/v2/internal/context"
+	"github.com/mozilla-ai/mcpd/v2/internal/flags"
 )
 
 type ListCmd struct {
@@ -27,7 +26,7 @@ func NewListCmd(baseCmd *cmd.BaseCmd, _ ...options.CmdOption) (*cobra.Command, e
 		Use:   "list <server-name>",
 		Short: "Lists configured environment variables for a specific MCP server.",
 		Long: `Lists configured environment variables for a specific MCP server, using the runtime context configuration file 
-		(e.g. ~/.mcpd/secrets.dev.toml).`,
+		(e.g. ~/.config/mcpd/secrets.dev.toml).`,
 		RunE: c.run,
 		Args: cobra.MinimumNArgs(1), // server-name
 	}
@@ -41,13 +40,7 @@ func (c *ListCmd) run(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("server-name is required")
 	}
 
-	homeDir, err := os.UserHomeDir()
-	if err != nil {
-		return fmt.Errorf("failed to get user home directory: %w", err)
-	}
-	filePath := filepath.Join(homeDir, ".mcpd", "secrets.dev.toml") // TODO: Allow configuration via flag
-
-	cfg, err := context.LoadExecutionContextConfig(filePath)
+	cfg, err := context.LoadExecutionContextConfig(flags.RuntimeFile)
 	if err != nil {
 		return fmt.Errorf("failed to load execution context config: %w", err)
 	}

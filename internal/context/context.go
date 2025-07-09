@@ -5,9 +5,13 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/BurntSushi/toml"
 )
+
+// EnvVarXDGConfigHome is the XDG Base Directory env var name.
+const EnvVarXDGConfigHome = "XDG_CONFIG_HOME"
 
 // ServerExecutionContext stores execution context data for an MCP server.
 type ServerExecutionContext struct {
@@ -89,4 +93,29 @@ func SaveExecutionContextConfig(path string, cfg ExecutionContextConfig) (err er
 	}
 
 	return nil
+}
+
+// UserSpecificConfigDir returns the directory that should be used to store any user-specific configuration.
+// It adheres to the XDG Base Directory Specification, respecting the XDG_CONFIG_HOME environment variable.
+// When XDG_CONFIG_HOME is not set, it defaults to ~/.config/mcpd/
+// See: https://specifications.freedesktop.org/basedir-spec/latest/
+func UserSpecificConfigDir() (string, error) {
+	// If the relevant environment variable is present and configured, then use it.
+	if ch, ok := os.LookupEnv(EnvVarXDGConfigHome); ok && strings.TrimSpace(ch) != "" {
+		home := strings.TrimSpace(ch)
+		return filepath.Join(home, AppDirName()), nil
+	}
+
+	// Attempt to locate the home directory for the current user and return the path that follows the spec.
+	homeDir, err := os.UserHomeDir()
+	if err != nil {
+		return "", fmt.Errorf("failed to get user home directory: %w", err)
+	}
+
+	return filepath.Join(homeDir, ".config", AppDirName()), nil
+}
+
+// AppDirName returns the name of the application directory for use in user-specific operations where data is being written.
+func AppDirName() string {
+	return "mcpd"
 }

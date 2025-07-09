@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"strings"
 
 	"github.com/hashicorp/go-hclog"
 
@@ -45,20 +44,8 @@ func (c *BaseCmd) Logger() (hclog.Logger, error) {
 		return c.logger, nil
 	}
 
-	// Get log level from flags first, then environment, then default
 	logLevel := flags.LogLevel
-	if logLevel == "" {
-		logLevel = strings.ToLower(os.Getenv(flags.EnvVarLogLevel))
-		if logLevel == "" {
-			logLevel = flags.DefaultLogLevel
-		}
-	}
-
-	// Get log path from flags first, then environment
 	logPath := flags.LogPath
-	if logPath == "" {
-		logPath = strings.TrimSpace(os.Getenv(flags.EnvVarLogPath))
-	}
 
 	// Configure logger output based on the log file path
 	output := io.Discard // Default to discarding log output.

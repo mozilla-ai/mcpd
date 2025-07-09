@@ -1,4 +1,6 @@
-# Global Configuration
+# Project configuration
+
+## Global Configuration
 
 !!! info "Precedence"
     The order of precedence for these options is:  
