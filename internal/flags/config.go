@@ -72,8 +72,7 @@ func initRuntimeVarsFile(fs *pflag.FlagSet) error {
 		&RuntimeFile,
 		FlagNameRuntimeFile,
 		defaultRuntimeVarsFile,
-		fmt.Sprintf("path to runtime (execution context) file that contains env vars, and arguments for your MCP servers. "+
-			"If not present, or the default value (%s) the path will be ~/.config/mcpd", DefaultRuntimeVarsFile),
+		"path to runtime (execution context) file that contains env vars, and arguments for your MCP servers",
 	)
 
 	return nil

@@ -24,9 +24,9 @@ func NewSetCmd(baseCmd *cmd.BaseCmd, _ ...cmdopts.CmdOption) (*cobra.Command, er
 
 	cobraCmd := &cobra.Command{
 		Use:   "set <server-name> -- --arg=value [--arg=value ...]",
-		Short: "Set startup command line arguments (flags) for an MCP server.",
-		Long: `Set startup command line arguments (flags) for an MCP server in the runtime context configuration file
-		(e.g. ~/.config/mcpd/secrets.dev.toml).`,
+		Short: "Set startup command line arguments (flags) for an MCP server",
+		Long: "Set startup command line arguments (flags) for an MCP server in the " +
+			"runtime context configuration file (e.g. ~/.config/mcpd/secrets.dev.toml)",
 		RunE: c.run,
 		Args: func(cmd *cobra.Command, args []string) error {
 			if cmd.ArgsLenAtDash() < 1 || strings.TrimSpace(args[0]) == "" {

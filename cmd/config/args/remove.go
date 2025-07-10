@@ -28,9 +28,9 @@ func NewRemoveCmd(baseCmd *cmd.BaseCmd, _ ...options.CmdOption) (*cobra.Command,
 	cobraCmd := &cobra.Command{
 		Use:     "remove <server-name> -- --arg [--arg ...]",
 		Example: "remove time -- --local-timezone",
-		Short:   "Remove command line arguments (flags) for an MCP server.",
-		Long: `Remove command line arguments (flags) for a specified MCP server in the runtime context configuration file
-		(e.g. ~/.config/mcpd/secrets.dev.toml).`,
+		Short:   "Remove command line arguments (flags) for an MCP server",
+		Long: "Remove command line arguments (flags) for a specified MCP server in the " +
+			"runtime context configuration file (e.g. ~/.config/mcpd/secrets.dev.toml)",
 		RunE: c.run,
 		Args: cobra.MinimumNArgs(2), // server-name + --arg ...
 	}

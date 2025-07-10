@@ -14,8 +14,8 @@ type Cmd struct {
 func NewCmd(baseCmd *cmd.BaseCmd, opt ...options.CmdOption) (*cobra.Command, error) {
 	cobraCmd := &cobra.Command{
 		Use:   "args",
-		Short: "Manages MCP server command line args configuration.",
-		Long:  "Manages MCP server command line args configuration, dealing with setting, removing, clearing and listing configuration.",
+		Short: "Manages MCP server command line args configuration",
+		Long:  "Manages MCP server command line args configuration, dealing with setting, removing, clearing and listing configuration",
 	}
 
 	// Sub-commands for: mcpd config args

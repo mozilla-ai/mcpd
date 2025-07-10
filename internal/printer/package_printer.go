@@ -137,7 +137,7 @@ func (p *PackagePrinter) printDetails(pkg packages.Package) error {
 	}
 
 	if len(pkg.Tools) > 0 {
-		if _, err := fmt.Fprintf(p.out, "  🔨 Tools: %s\n", strings.Join(pkg.Tools, ", ")); err != nil {
+		if _, err := fmt.Fprintf(p.out, "  🔨 Tools: %s\n", strings.Join(pkg.Tools.Names(), ", ")); err != nil {
 			return err
 		}
 	} else if p.opts.showMissingWarning {

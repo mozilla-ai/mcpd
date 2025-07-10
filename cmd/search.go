@@ -45,7 +45,7 @@ func NewSearchCmd(baseCmd *cmd.BaseCmd, opt ...cmdopts.CmdOption) (*cobra.Comman
 
 	cobraCommand := &cobra.Command{
 		Use:   "search <server-name>",
-		Short: "Searches all configured registries for matching MCP servers.",
+		Short: "Searches all configured registries for matching MCP servers",
 		Long:  c.longDescription(),
 		RunE:  c.run,
 	}
@@ -104,7 +104,7 @@ func NewSearchCmd(baseCmd *cmd.BaseCmd, opt ...cmdopts.CmdOption) (*cobra.Comman
 
 // longDescription returns the long version of the command description.
 func (c *SearchCmd) longDescription() string {
-	return `Searches all configured registries for matching MCP servers. Returns aggregated results for matches.`
+	return `Searches all configured registries for matching MCP servers. Returns aggregated results for matches`
 }
 
 func (c *SearchCmd) filters() map[string]string {
@@ -151,11 +151,11 @@ func (c *SearchCmd) run(cmd *cobra.Command, args []string) error {
 		return err
 	}
 	if len(results) == 0 {
-		fmt.Println("No results found")
+		fmt.Println("No packages found")
 		return nil
 	}
 
-	if _, err = fmt.Fprintf(cmd.OutOrStdout(), "\n📦 Registry search results...\n"); err != nil {
+	if _, err = fmt.Fprintf(cmd.OutOrStdout(), "\n🔎 Registry search results...\n"); err != nil {
 		return err
 	}
 	if _, err = fmt.Fprintf(cmd.OutOrStdout(), "\n────────────────────────────────────────────\n\n"); err != nil {
@@ -166,6 +166,14 @@ func (c *SearchCmd) run(cmd *cobra.Command, args []string) error {
 		if err = c.packagePrinter.PrintPackage(pkg); err != nil {
 			return err
 		}
+	}
+
+	if _, err := fmt.Fprintf(
+		cmd.OutOrStdout(),
+		"📦 Found %d package%s\n\n",
+		len(results),
+		map[bool]string{true: "s", false: ""}[len(results) > 1]); err != nil {
+		return err
 	}
 
 	return nil

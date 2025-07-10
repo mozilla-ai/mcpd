@@ -31,7 +31,7 @@ func NewInitCmd(baseCmd *cmd.BaseCmd, opt ...cmdopts.CmdOption) (*cobra.Command,
 
 	cobraCommand := &cobra.Command{
 		Use:   "init",
-		Short: "Initializes the current directory as an mcpd project.",
+		Short: "Initializes the current directory as an mcpd project",
 		Long:  c.longDescription(),
 		RunE:  c.run,
 	}
@@ -44,7 +44,7 @@ func (c *InitCmd) longDescription() string {
 
 This command sets up the basic structure required for an mcpd project.
 
-The configuration file path can be overridden using the '--%s' flag or the '%s' environment variable.`,
+The configuration file path can be overridden using the '--%s' flag or the '%s' environment variable`,
 		flags.DefaultConfigFile,
 		flags.FlagNameConfigFile,
 		flags.EnvVarConfigFile)

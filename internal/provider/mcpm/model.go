@@ -3,6 +3,10 @@ package mcpm
 // MCPServers represents the root JSON object, which is a map of MCP server IDs to MCPServer.
 type MCPServers map[string]MCPServer
 
+// Tools is a wrapper for a collection of Tool.
+// This allows for receivers to be declared that operate on the collection.
+type Tools []Tool
+
 // MCPServer represents the detailed information for a MCP single server.
 // NOTE: Based on mcpm server schema: https://github.com/pathintegral-institute/mcpm.sh/blob/8edbd723cf3c35433739afb27a723fdcdf763c23/mcp-registry/schema/server-schema.json
 type MCPServer struct {
@@ -12,7 +16,7 @@ type MCPServer struct {
 	License       string                  `json:"license"`
 	Arguments     map[string]Argument     `json:"arguments"`
 	Installations map[string]Installation `json:"installations"`
-	Tools         []Tool                  `json:"tools,omitempty"`
+	Tools         Tools                   `json:"tools,omitempty"`
 	IsOfficial    bool                    `json:"is_official"`
 	Repository    Repository              `json:"repository,omitempty"`
 	Homepage      string                  `json:"homepage,omitempty"`
@@ -44,10 +48,23 @@ type Installation struct {
 // This struct is used for tools that have detailed schema (e.g., in other registries),
 // but the MCPM 'tools' field itself is a list of strings.
 type Tool struct {
-	Name           string         `json:"name"`
-	Description    string         `json:"description"`
-	InputSchema    map[string]any `json:"inputSchema"`
-	RequiredInputs []string       `json:"required"`
+	Name           string     `json:"name"`
+	Title          string     `json:"title"`
+	Description    string     `json:"description"`
+	InputSchema    JSONSchema `json:"inputSchema"`
+	RequiredInputs []string   `json:"required"`
+}
+
+// JSONSchema defines the structure for a JSON schema object.
+type JSONSchema struct {
+	// Type defines the type for this schema, e.g. "object".
+	Type string `json:"type"`
+
+	// Properties represents a property name and associated object definition.
+	Properties map[string]any `json:"properties,omitempty"`
+
+	// Required lists the (keys of) Properties that are required.
+	Required []string `json:"required,omitempty"`
 }
 
 type Repository struct {

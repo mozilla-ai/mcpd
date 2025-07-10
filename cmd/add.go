@@ -46,10 +46,10 @@ func NewAddCmd(baseCmd *cmd.BaseCmd, opt ...cmdopts.CmdOption) (*cobra.Command, 
 
 	cobraCommand := &cobra.Command{
 		Use:   "add <server-name>",
-		Short: "Adds an MCP server dependency to the project.",
-		Long: `Adds an MCP server dependency to the project. 
-mcpd will search the registry for the named server and attempt to return information on the version specified, 
-or 'latest' if no version specified.`,
+		Short: "Adds an MCP server dependency to the project",
+		Long: "Adds an MCP server dependency to the project. " +
+			"mcpd will search the registry for the named server and attempt to return information " +
+			"on the version specified, or 'latest' if no version specified",
 		RunE: c.run,
 	}
 
@@ -205,7 +205,7 @@ func parseServerEntry(
 	requestedTools []string,
 	supportedRuntimes []runtime.Runtime,
 ) (config.ServerEntry, error) {
-	requestedTools, err := filter.MatchRequestedSlice(requestedTools, pkg.Tools)
+	requestedTools, err := filter.MatchRequestedSlice(requestedTools, pkg.Tools.Names())
 	if err != nil {
 		return config.ServerEntry{}, fmt.Errorf("error matching requested tools: %w", err)
 	}

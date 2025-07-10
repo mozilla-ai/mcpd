@@ -956,3 +956,84 @@ func TestExtractArgumentMetadata(t *testing.T) {
 		})
 	}
 }
+
+func TestTool_ToDomainType(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name    string
+		input   Tool
+		want    packages.Tool
+		wantErr string
+	}{
+		{
+			name: "valid input",
+			input: Tool{
+				Name:        "t1",
+				Title:       "Tool One",
+				Description: "Test tool",
+				InputSchema: JSONSchema{
+					Type: "object",
+					Properties: map[string]any{
+						"foo": map[string]any{"type": "string"},
+					},
+					Required: []string{"foo"},
+				},
+			},
+			want: packages.Tool{
+				Name:        "t1",
+				Title:       "Tool One",
+				Description: "Test tool",
+				InputSchema: packages.JSONSchema{
+					Type: "object",
+					Properties: map[string]any{
+						"foo": map[string]any{"type": "string"},
+					},
+					Required: []string{"foo"},
+				},
+			},
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			actual, err := tc.input.ToDomainType()
+
+			switch {
+			case tc.wantErr != "":
+				require.Error(t, err)
+				require.Contains(t, err.Error(), tc.wantErr)
+			default:
+				require.NoError(t, err)
+				require.Equal(t, tc.want, actual)
+			}
+		})
+	}
+}
+
+func TestTools_ToDomainType(t *testing.T) {
+	t.Parallel()
+
+	validTool := Tool{
+		Name:        "valid",
+		Title:       "Valid",
+		Description: "ok",
+		InputSchema: JSONSchema{
+			Type:       "object",
+			Properties: map[string]any{},
+			Required:   []string{},
+		},
+	}
+
+	t.Run("all valid", func(t *testing.T) {
+		t.Parallel()
+
+		in := Tools{validTool, validTool}
+		out, err := in.ToDomainType()
+		require.NoError(t, err)
+		require.Len(t, out, 2)
+		require.Equal(t, "valid", out[0].Name)
+	})
+}

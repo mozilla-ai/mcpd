@@ -14,9 +14,9 @@ type Cmd struct {
 func NewCmd(baseCmd *cmd.BaseCmd, opt ...options.CmdOption) (*cobra.Command, error) {
 	cobraCmd := &cobra.Command{
 		Use:   "env",
-		Short: "Manages environment variable configuration for MCP servers.",
-		Long: `Manages environment variable configuration for MCP servers, 
-		dealing with setting, removing, clearing and listing configuration.`,
+		Short: "Manages environment variable configuration for MCP servers",
+		Long: "Manages environment variable configuration for MCP servers, " +
+			"dealing with setting, removing, clearing and listing configuration",
 	}
 
 	// Sub-commands for: mcpd config env

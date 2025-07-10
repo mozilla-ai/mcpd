@@ -12,8 +12,8 @@ import (
 func NewConfigCmd(baseCmd *cmd.BaseCmd, opt ...options.CmdOption) (*cobra.Command, error) {
 	cobraCmd := &cobra.Command{
 		Use:   "config",
-		Short: "Manages configuration for MCP servers.",
-		Long:  "Manages configuration for MCP servers, dealing with environment variables, command line args and exporting config.",
+		Short: "Manages configuration for MCP servers",
+		Long:  "Manages configuration for MCP servers, dealing with environment variables, command line args and exporting config",
 	}
 
 	// Sub-commands for: mcpd config

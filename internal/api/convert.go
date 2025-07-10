@@ -1,5 +1,5 @@
 package api
 
 type Convertible[T any] interface {
-	ToAPIType() T
+	ToAPIType() (T, error)
 }

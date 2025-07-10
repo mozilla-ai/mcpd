@@ -221,7 +221,7 @@ func CategoriesProvider(pkg packages.Package) []string {
 }
 
 func ToolsProvider(pkg packages.Package) []string {
-	return pkg.Tools
+	return pkg.Tools.Names()
 }
 
 func VersionProvider(pkg packages.Package) string {

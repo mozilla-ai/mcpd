@@ -12,14 +12,14 @@ type testLogMessage struct {
 	name    string
 	level   hclog.Level
 	message string
-	args    []interface{}
+	args    []any
 }
 
 type testLoggerSink struct {
 	messages []*testLogMessage
 }
 
-func (cs *testLoggerSink) Accept(name string, level hclog.Level, msg string, args ...interface{}) {
+func (cs *testLoggerSink) Accept(name string, level hclog.Level, msg string, args ...any) {
 	lm := &testLogMessage{
 		name:    name,
 		level:   level,
