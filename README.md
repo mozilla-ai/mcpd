@@ -22,6 +22,10 @@ Full documentation available at:
 
 Covers setup, CLI usage, configuration, secrets, the daemon, Makefile commands, and full tutorials.
 
+Explore the Python SDK, with a list of examples using it with different agent frameworks, at:
+
+👉 **[https://github.com/mozilla-ai/mcpd-sdk-python](https://github.com/mozilla-ai/mcpd-sdk-python)**
+
 ## ⚙️ Quickstart
 
 Install dependencies:
