@@ -9,7 +9,6 @@ with the same experience locally and in production.
 ## 🚀 Features
 
 - Declarative `.mcpd.toml` to define servers/tools
-- Reference servers from the [getmcp.io registry](https://getmcp.io/registry/)
 - Run and manage language-agnostic MCP servers via a single CLI
 - Secure execution context for secrets and runtime args
 - Smooth dev-to-prod transition via the `mcpd` daemon
