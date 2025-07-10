@@ -18,7 +18,7 @@ with the same experience locally and in production.
 | Language   | Repository                                                       | Status                |
 |------------|------------------------------------------------------------------|-----------------------|
 | Python     | [mcpd-sdk-python](https://github.com/mozilla-ai/mcpd-sdk-python) | :white_check_mark:    |
-| JavaScript | _Coming soon_                                                    | :large_yellow_circle: |
+| JavaScript | _Coming soon_                                                    | :yellow_circle: |
 
 ## 📖 Documentation
 
