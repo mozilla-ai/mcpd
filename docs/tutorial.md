@@ -77,6 +77,6 @@ curl -s -X POST -H "Content-Type: application/json" \\
 ```
 
 
-# Using MCPD in your Python application
+# Using mcpd in your Python application
 
-For tutorials on using MCPD with agents in Python, please refer to the [Python MCPD SDK](https://github.com/mozilla-ai/mcpd-sdk-python) documentation.
+For tutorials on using mcpd with agents in Python, please refer to the [Python mcpd SDK](https://github.com/mozilla-ai/mcpd-sdk-python) documentation.
