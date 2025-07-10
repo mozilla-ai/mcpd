@@ -75,3 +75,8 @@ curl -s -X POST -H "Content-Type: application/json" \\
   -d '{"timezone": "America/New_York"}' \\
   http://localhost:8090/api/v1/servers/time/tools/get_current_time | jq
 ```
+
+
+# Using mcpd in your Python application
+
+For tutorials on using mcpd with agents in Python, please refer to the [Python mcpd SDK](https://github.com/mozilla-ai/mcpd-sdk-python) documentation.
