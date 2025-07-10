@@ -12,7 +12,12 @@ with the same experience locally and in production.
 - Run and manage language-agnostic MCP servers via a single CLI
 - Secure execution context for secrets and runtime args
 - Smooth dev-to-prod transition via the `mcpd` daemon
-- Rich CLI and SDK tooling
+- Rich CLI and SDK tooling, see supported languages below:
+
+| Language | Repository | Status |
+| -------- | ---------- | ------ |
+| Python | [mcpd-sdk-python](https://github.com/mozilla-ai/mcpd-sdk-python) | ✅ |
+| Node.js | - | _Coming soon_ |
 
 ## 📖 Documentation
 
