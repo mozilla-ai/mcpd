@@ -14,10 +14,11 @@ with the same experience locally and in production.
 - Smooth dev-to-prod transition via the `mcpd` daemon
 - Rich CLI and SDK tooling, see supported languages below:
 
-| Language | Repository | Status |
-| -------- | ---------- | ------ |
-| Python | [mcpd-sdk-python](https://github.com/mozilla-ai/mcpd-sdk-python) | ✅ |
-| Node.js | - | _Coming soon_ |
+
+| Language   | Repository                                                       | Status                |
+|------------|------------------------------------------------------------------|-----------------------|
+| Python     | [mcpd-sdk-python](https://github.com/mozilla-ai/mcpd-sdk-python) | :white_check_mark:    |
+| JavaScript | _Coming soon_                                                    | :large_yellow_circle: |
 
 ## 📖 Documentation
 
