@@ -58,7 +58,7 @@ type ServerHealthResponse struct {
 }
 
 // ToAPIType can be used to convert a wrapped domain type to an API-safe type.
-func (d DomainServerHealth) ToAPIType() ServerHealth {
+func (d DomainServerHealth) ToAPIType() (ServerHealth, error) {
 	var latency *string
 	if d.Latency != nil {
 		s := d.Latency.String()
@@ -70,7 +70,7 @@ func (d DomainServerHealth) ToAPIType() ServerHealth {
 		Latency:        latency,
 		LastChecked:    d.LastChecked,
 		LastSuccessful: d.LastSuccessful,
-	}
+	}, nil
 }
 
 // RegisterHealthRoutes sets up health-related API endpoint routes.
@@ -117,7 +117,11 @@ func handleHealthServers(monitor contracts.MCPHealthMonitor) (*ServersHealthResp
 
 	apiServers := make([]ServerHealth, 0, len(servers))
 	for _, s := range servers {
-		apiServers = append(apiServers, DomainServerHealth(s).ToAPIType())
+		data, err := DomainServerHealth(s).ToAPIType()
+		if err != nil {
+			return nil, err
+		}
+		apiServers = append(apiServers, data)
 	}
 
 	resp := &ServersHealthResponse{}
@@ -133,8 +137,13 @@ func handleHealthServer(monitor contracts.MCPHealthMonitor, name string) (*Serve
 		return nil, err
 	}
 
+	data, err := DomainServerHealth(health).ToAPIType()
+	if err != nil {
+		return nil, err
+	}
+
 	response := ServerHealthResponse{}
-	response.Body = DomainServerHealth(health).ToAPIType()
+	response.Body = data
 
 	return &response, nil
 }

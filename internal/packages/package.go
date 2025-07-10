@@ -9,7 +9,7 @@ type Package struct {
 	DisplayName         string                           `json:"displayName"`
 	Description         string                           `json:"description"`
 	License             string                           `json:"license"`
-	Tools               []string                         `json:"tools"`
+	Tools               Tools                            `json:"tools"`
 	Tags                []string                         `json:"tags"`
 	Categories          []string                         `json:"categories"`
 	Runtimes            []runtime.Runtime                `json:"runtimes"`

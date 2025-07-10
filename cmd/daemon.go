@@ -35,7 +35,7 @@ func NewDaemonCmd(baseCmd *cmd.BaseCmd, opt ...cmdopts.CmdOption) (*cobra.Comman
 
 	cobraCommand := &cobra.Command{
 		Use:   "daemon",
-		Short: "Launches an mcpd daemon instance (Execution Plane).",
+		Short: "Launches an mcpd daemon instance (Execution Plane)",
 		Long:  c.longDescription(),
 		RunE:  c.run,
 	}
@@ -44,14 +44,14 @@ func NewDaemonCmd(baseCmd *cmd.BaseCmd, opt ...cmdopts.CmdOption) (*cobra.Comman
 		&c.Dev,
 		"dev",
 		false,
-		"Run the daemon in development-focused mode.",
+		"Run the daemon in development-focused mode",
 	)
 
 	cobraCommand.Flags().StringVar(
 		&c.Addr,
 		"addr",
 		"localhost:8090",
-		"Specify the address for the daemon to bind to (e.g., 'localhost:8090'). Not applicable in --dev mode.",
+		"Specify the address for the daemon to bind (not applicable in --dev mode)",
 	)
 	cobraCommand.MarkFlagsMutuallyExclusive("dev", "addr")
 
@@ -62,7 +62,7 @@ func NewDaemonCmd(baseCmd *cmd.BaseCmd, opt ...cmdopts.CmdOption) (*cobra.Comman
 func (c *DaemonCmd) longDescription() string {
 	return `Launches an mcpd daemon instance (Execution Plane).
 In dev mode, binds to localhost, logs to console, and exposes local endpoint.
-In prod, binds to 0.0.0.0, logs to stdout, and runs as background service.`
+In prod, binds to 0.0.0.0, logs to stdout, and runs as background service`
 }
 
 // run is configured (via NewDaemonCmd) to be called by the Cobra framework when the command is executed.

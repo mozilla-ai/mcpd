@@ -231,9 +231,14 @@ func (r *Registry) buildPackageResult(pkgKey string) (packages.Package, bool) {
 	}
 	slices.Sort(runtimes)
 
-	tools := make([]string, 0, len(sd.Tools))
-	for _, tool := range sd.Tools {
-		tools = append(tools, tool.Name)
+	tools, err := sd.Tools.ToDomainType()
+	if err != nil {
+		r.logger.Error(
+			"unable to convert tools to domain type",
+			"name", pkgKey,
+			"error", err,
+		)
+		return packages.Package{}, false
 	}
 
 	// Analyze actual runtime variables and convert to ArgumentMetadata format
@@ -421,6 +426,34 @@ func convertInstallations(src map[string]Installation, supported map[runtime.Run
 	}
 
 	return details
+}
+
+// ToDomainType converts a Tool into the internal domain representation (packages.Tool).
+func (t Tool) ToDomainType() (packages.Tool, error) {
+	return packages.Tool{
+		Name:        t.Name,
+		Title:       t.Title,
+		Description: t.Description,
+		InputSchema: packages.JSONSchema{
+			Type:       t.InputSchema.Type,
+			Properties: t.InputSchema.Properties,
+			Required:   t.InputSchema.Required,
+		},
+	}, nil
+}
+
+// ToDomainType converts Tools into the internal domain representation (packages.Tools).
+func (t Tools) ToDomainType() (packages.Tools, error) {
+	tools := make(packages.Tools, len(t))
+	for i, tool := range t {
+		data, err := tool.ToDomainType()
+		if err != nil {
+			return nil, err
+		}
+		tools[i] = data
+	}
+
+	return tools, nil
 }
 
 // supportedRuntimePackageNames extracts runtime-specific package names for a given MCP server.

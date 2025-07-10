@@ -97,9 +97,12 @@ func (f *fakeBuilder) Build() (registry.PackageProvider, error) {
 func TestAddCmd_Success(t *testing.T) {
 	cfg := &fakeConfig{}
 	pkg := packages.Package{
-		ID:      "server1",
-		Name:    "Server1",
-		Tools:   []string{"toolA", "toolB"},
+		ID:   "server1",
+		Name: "Server1",
+		Tools: []packages.Tool{
+			{Name: "toolA"},
+			{Name: "toolB"},
+		},
 		Version: "1.2.3",
 		InstallationDetails: map[runtime.Runtime]packages.Installation{
 			runtime.UVX: {
@@ -166,7 +169,11 @@ func TestAddCmd_BasicServerAdd(t *testing.T) {
 		ID:      "testserver",
 		Name:    "testserver",
 		Version: "latest",
-		Tools:   []string{"tool1", "tool2", "tool3"},
+		Tools: []packages.Tool{
+			{Name: "tool1"},
+			{Name: "tool2"},
+			{Name: "tool3"},
+		},
 		InstallationDetails: map[runtime.Runtime]packages.Installation{
 			"uvx": {
 				Package:     "mcp-server-testserver",
@@ -386,10 +393,15 @@ func TestParseServerEntry(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
+			tools := make(packages.Tools, len(tc.availableTools))
+			for i, tool := range tc.availableTools {
+				tools[i] = packages.Tool{Name: tool}
+			}
+
 			pkg := packages.Package{
 				ID:                  tc.pkgID,
 				Name:                tc.pkgName,
-				Tools:               tc.availableTools,
+				Tools:               tools,
 				InstallationDetails: tc.installations,
 			}
 

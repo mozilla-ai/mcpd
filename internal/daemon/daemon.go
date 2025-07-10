@@ -111,7 +111,7 @@ func (d *Daemon) StartAndManage(ctx context.Context) error {
 	}()
 
 	<-readyChan
-	fmt.Println("Press CTRL+C to shut down.") // TODO: This shouldn't be in the daemon (it's CLI related).
+	fmt.Println("Press CTRL+C to shut down") // TODO: This shouldn't be in the daemon (it's CLI related).
 	select {}
 }
 

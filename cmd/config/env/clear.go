@@ -24,9 +24,9 @@ func NewClearCmd(baseCmd *cmd.BaseCmd, _ ...options.CmdOption) (*cobra.Command, 
 
 	cobraCmd := &cobra.Command{
 		Use:   "clear <server-name>",
-		Short: "Clears configured environment variables for an MCP server.",
-		Long: `Clears environment variables for a specified MCP server from the runtime context configuration file 
-		(e.g. ~/.config/mcpd/secrets.dev.toml).`,
+		Short: "Clears configured environment variables for an MCP server",
+		Long: "Clears environment variables for a specified MCP server from the " +
+			"runtime context configuration file (e.g. ~/.config/mcpd/secrets.dev.toml)",
 		RunE: c.run,
 		Args: cobra.MinimumNArgs(1), // server-name
 	}
@@ -35,7 +35,7 @@ func NewClearCmd(baseCmd *cmd.BaseCmd, _ ...options.CmdOption) (*cobra.Command, 
 		&c.Force,
 		"force",
 		false,
-		"Force clearing of all environment variables for the specified server without confirmation.",
+		"Force clearing of all environment variables for the specified server without confirmation",
 	)
 
 	return cobraCmd, nil

@@ -118,7 +118,11 @@ func handleServerTools(accessor contracts.MCPClientAccessor, name string) (*Tool
 	tools := make([]Tool, 0, len(result.Tools))
 	for _, tool := range result.Tools {
 		if slices.Contains(allowedTools, tool.Name) {
-			tools = append(tools, DomainTool(tool).ToAPIType())
+			data, err := DomainTool(tool).ToAPIType()
+			if err != nil {
+				return nil, err
+			}
+			tools = append(tools, data)
 		}
 	}
 

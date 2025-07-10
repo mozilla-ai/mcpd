@@ -40,20 +40,27 @@ func Execute() error {
 
 func NewRootCmd(c *RootCmd) (*cobra.Command, error) {
 	rootCmd := &cobra.Command{
-		Use:           "mcpd <command> [sub-command] [args]",
-		Short:         "'mcpd' CLI is the primary interface for developers to interact with mcpd.",
-		Long:          c.longDescription(),
+		Use:   "mcpd",
+		Short: "'mcpd' CLI is the primary interface for developers to interact with mcpd",
+		Long: "The 'mcpd' CLI is the primary interface for developers to interact with the mcpd Control Plane, " +
+			"define their agent projects, and manage MCP server dependencies",
 		SilenceUsage:  true,
 		SilenceErrors: true,
 		Version:       cmd.Version(),
 	}
 
-	// Global flags
+	// Configure app specific global flags that will appear on sub-commands.
 	if err := flags.InitFlags(rootCmd.PersistentFlags()); err != nil {
 		return nil, err
 	}
 
-	// Add top-level commands
+	// Create 'Core' commands for top-level application commands.
+	rootCmd.AddGroup(&cobra.Group{
+		ID:    "core",
+		Title: "Core Commands:",
+	})
+
+	// Create top-level commands and add to 'Core' commands group.
 	fns := []func(baseCmd *cmd.BaseCmd, opt ...options.CmdOption) (*cobra.Command, error){
 		NewInitCmd,
 		NewSearchCmd,
@@ -78,13 +85,37 @@ func NewRootCmd(c *RootCmd) (*cobra.Command, error) {
 		if err != nil {
 			return nil, err
 		}
+
+		// Associate the command with the core group.
+		tempCmd.GroupID = "core"
+
 		rootCmd.AddCommand(tempCmd)
 	}
+
+	// Assign built-in commands (e.g. help, completion) to the 'system' group.
+	rootCmd.AddGroup(&cobra.Group{
+		ID:    "system",
+		Title: "System Commands:",
+	})
+	rootCmd.SetHelpCommandGroupID("system")
+	rootCmd.SetCompletionCommandGroupID("system")
+
+	// Hide the --help flag on all commands.
+	hideHelpFlagsRecursively(rootCmd)
 
 	return rootCmd, nil
 }
 
-func (c *RootCmd) longDescription() string {
-	return `The 'mcpd' CLI is the primary interface for developers to interact with the
-mcpd Control Plane, define their agent projects, and manage MCP server dependencies.`
+func hideHelpFlagsRecursively(cmd *cobra.Command) {
+	// Ensure the command has the help flag initialized.
+	cmd.InitDefaultHelpFlag()
+
+	if f := cmd.Flags().Lookup("help"); f != nil {
+		f.Hidden = true
+	}
+
+	// Recurse into children (depth first).
+	for _, subCmd := range cmd.Commands() {
+		hideHelpFlagsRecursively(subCmd)
+	}
 }

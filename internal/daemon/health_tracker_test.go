@@ -366,7 +366,8 @@ func TestServerHealth_JSONSerialization(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
-			res := api.DomainServerHealth(tc.health).ToAPIType()
+			res, err := api.DomainServerHealth(tc.health).ToAPIType()
+			require.NoError(t, err)
 
 			// Test marshaling only - unmarshalling requires UnmarshalJSON method
 			data, err := json.Marshal(res)
@@ -377,7 +378,7 @@ func TestServerHealth_JSONSerialization(t *testing.T) {
 			require.True(t, json.Valid(data))
 
 			// Verify JSON structure contains expected fields
-			var jsonMap map[string]interface{}
+			var jsonMap map[string]any
 			err = json.Unmarshal(data, &jsonMap)
 			require.NoError(t, err)
 

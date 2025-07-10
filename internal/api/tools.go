@@ -49,11 +49,11 @@ type ToolAnnotation struct {
 }
 
 // ToAPIType can be used to convert a wrapped domain type to an API-safe type.
-func (d DomainTool) ToAPIType() Tool {
+func (d DomainTool) ToAPIType() (Tool, error) {
 	return Tool{
 		Name:        d.Name,
 		Description: d.Description,
 		InputSchema: ToolInputSchema(d.InputSchema),
 		Annotations: ToolAnnotation(d.Annotations),
-	}
+	}, nil
 }
