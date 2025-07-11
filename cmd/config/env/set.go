@@ -2,6 +2,8 @@ package env
 
 import (
 	"fmt"
+	"maps"
+	"slices"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -71,6 +73,6 @@ func (c *SetCmd) run(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("failed to save config: %w", err)
 	}
 
-	fmt.Fprintf(cmd.OutOrStdout(), "✓ Environment variables set for server '%s': %v\n", serverName, envMap)
+	fmt.Fprintf(cmd.OutOrStdout(), "✓ Environment variables set for server '%s': %v\n", serverName, slices.Collect(maps.Keys(envMap)))
 	return nil
 }
