@@ -7,14 +7,13 @@ import (
 	"fmt"
 	"io"
 	"net"
-	"os"
-	"os/signal"
 	"reflect"
 	"strconv"
 	"strings"
 	"sync"
-	"syscall"
 	"time"
+
+	"golang.org/x/sync/errgroup"
 
 	"github.com/hashicorp/go-hclog"
 	"github.com/mark3labs/mcp-go/client"
@@ -77,72 +76,64 @@ func NewDaemon(logger hclog.Logger, cfgLoader config.Loader, apiAddr string) (*D
 	}, nil
 }
 
+// StartAndManage is a long-running method that starts configured MCP servers, and the API.
+// It launches regular health checks on the MCP servers, with statuses visible via API routes.
 func (d *Daemon) StartAndManage(ctx context.Context) error {
-	runtimeCfg := d.runtimeCfg
-	fmt.Println(fmt.Sprintf("Attempting to start %d MCP server(s)", len(runtimeCfg))) // TODO: This shouldn't be in the daemon (it's CLI related).
-
-	var startupWg sync.WaitGroup
-	d.setupSignalHandler()
-
-	// Launch all MCP servers as sub-processes.
-	startupWg.Add(len(runtimeCfg))
-	for _, r := range runtimeCfg {
-		go func(ctx context.Context, server runtime.Server) {
-			err := d.launchServer(ctx, server, &startupWg)
-			if err != nil {
-				d.logger.Error("failed to launch server", "error", err)
+	// Handle clean-up.
+	defer func() {
+		d.logger.Info("Closing MCP server connections")
+		for _, n := range d.clientManager.List() {
+			if c, ok := d.clientManager.Client(n); ok {
+				_ = c.Close()
 			}
-		}(ctx, r)
+		}
+	}()
+
+	// Launch servers
+	if err := d.startMCPServers(ctx); err != nil {
+		return err
 	}
-	startupWg.Wait()
-	fmt.Println("MCP server started") // TODO: This shouldn't be in the daemon (it's CLI related).
 
-	// Begin regular health checks.
-	healthcheckInterval := 10 * time.Second // TODO: Configurable intervals.
-	pingTimeout := 3 * time.Second          // TODO: Configurable timeouts.
-	go d.healthCheckLoop(ctx, healthcheckInterval, pingTimeout)
+	// Run API and regular health checks.
+	runGroup, runGroupCtx := errgroup.WithContext(ctx)
+	runGroup.Go(func() error { return d.apiServer.Start(runGroupCtx) })
+	runGroup.Go(func() error { return d.healthCheckLoop(runGroupCtx, 10*time.Second, 3*time.Second) })
 
-	// Start the API server.
-	readyChan := make(chan struct{})
-	go func() {
-		if err := d.apiServer.Start(readyChan); err != nil {
-			d.logger.Error(fmt.Sprintf("API server failed: %s", err))
-		}
-	}()
-
-	<-readyChan
-	fmt.Println("Press CTRL+C to shut down") // TODO: This shouldn't be in the daemon (it's CLI related).
-	select {}
+	return runGroup.Wait()
 }
 
-func (d *Daemon) setupSignalHandler() {
-	sigChan := make(chan os.Signal, 1)
-	signal.Notify(sigChan, os.Interrupt, syscall.SIGTERM)
+// startMCPServers launches every runtime server concurrently.
+// It returns a combined error containing one entry per failed launch
+// (nil if all servers start successfully).
+func (d *Daemon) startMCPServers(ctx context.Context) error {
+	errs := make([]error, 0, len(d.runtimeCfg))
+	mu := sync.Mutex{}
+	runGroup, runCtx := errgroup.WithContext(ctx)
 
-	go func() {
-		<-sigChan
-		fmt.Println("\nShutting down all servers...") // TODO: This shouldn't be in the daemon (it's CLI related).
+	for _, s := range d.runtimeCfg {
+		s := s
+		runGroup.Go(func() error {
+			if err := d.startMCPServer(runCtx, s); err != nil {
+				mu.Lock()
+				errs = append(errs, fmt.Errorf("%s: %w", s.Name, err))
+				mu.Unlock()
+			}
+			// Since errors are collected, return nil to prevent context cancellation.
+			return nil
+		})
+	}
 
-		for _, name := range d.clientManager.List() {
-			c, ok := d.clientManager.Client(name)
-			if !ok {
-				continue
-			}
-			d.logger.Info("Closing client connection to MCP server", "name", name)
-			if err := c.Close(); err != nil {
-				d.logger.Error("Error closing client connection to MCP server", "name", name, "error", err)
-			}
-		}
-		os.Exit(0) // TODO: should we be exiting for everyone here?
-	}()
+	_ = runGroup.Wait()
+	if len(errs) > 0 {
+		return errors.Join(errs...)
+	}
+
+	return nil
 }
 
-func (d *Daemon) launchServer(ctx context.Context, server runtime.Server, wg *sync.WaitGroup) error {
-	defer wg.Done()
-
+func (d *Daemon) startMCPServer(ctx context.Context, server runtime.Server) error {
 	runtimeBinary := server.Runtime()
-	_, supported := d.supportedRuntimes[runtime.Runtime(runtimeBinary)]
-	if !supported {
+	if _, supported := d.supportedRuntimes[runtime.Runtime(runtimeBinary)]; !supported {
 		return fmt.Errorf("unsupported runtime/repository '%s' for MCP server daemon '%s'", runtimeBinary, server.Name)
 	}
 
@@ -164,7 +155,7 @@ func (d *Daemon) launchServer(ctx context.Context, server runtime.Server, wg *sy
 		"args", args,
 		"environment", env,
 	)
-	fmt.Println(fmt.Sprintf("Starting MCP server: '%s'...", server.Name))
+
 	stdioClient, err := client.NewStdioMCPClient(runtimeBinary, env, args...)
 	if err != nil {
 		return fmt.Errorf("error starting MCP server: '%s': %w", server.Name, err)
@@ -228,68 +219,103 @@ func (d *Daemon) launchServer(ctx context.Context, server runtime.Server, wg *sy
 	return nil
 }
 
-func (d *Daemon) healthCheckLoop(
-	ctx context.Context,
-	interval time.Duration,
-	timeout time.Duration,
-) {
-	d.logger.Info("Starting health check loop", "interval", interval, "timeout", timeout)
+// healthCheckLoop performs health checks (pings) on all servers.
+// Will repeat at the specified interval until the supplied context is cancelled.
+func (d *Daemon) healthCheckLoop(ctx context.Context, interval time.Duration, maxTimeout time.Duration) error {
+	d.logger.Info("Starting health check loop", "interval", interval, "timeout", maxTimeout)
+
+	// Bootstrap health monitoring before starting the loop.
+	if err := d.pingAllServers(ctx, maxTimeout); err != nil {
+		return err
+	}
 
 	ticker := time.NewTicker(interval)
 	defer ticker.Stop()
 
-	d.pingAllServers(ctx, timeout)
-
+	// Start the loop that pings all servers each time the timer ticks,
+	// continues until the context is cancelled.
 	for {
 		select {
 		case <-ctx.Done():
-			d.logger.Info("Stopping MCP server health checks")
-			return
+			d.logger.Info("Stopping health check loop")
+			return ctx.Err()
 		case <-ticker.C:
-			d.pingAllServers(ctx, timeout)
+			err := d.pingAllServers(ctx, maxTimeout)
+			if err != nil {
+				// TODO: err := d.pingAllServers(ctx, maxTimeout)
+			}
 		}
 	}
 }
 
-func (d *Daemon) pingAllServers(ctx context.Context, timeout time.Duration) {
-	for _, name := range d.clientManager.List() {
-		c, ok := d.clientManager.Client(name)
-		if !ok {
-			continue
-		}
-
-		go func(name string, mcpClient *client.Client) {
-			pingCtx, cancel := context.WithTimeout(ctx, timeout)
-			defer cancel()
-
-			start := time.Now()
-			err := mcpClient.Ping(pingCtx)
-			duration := time.Since(start)
-
-			status := domain.HealthStatusUnknown
-			var latency *time.Duration
-
-			switch {
-			case err == nil:
-				status = domain.HealthStatusOK
-				latency = &duration
-				d.logger.Debug("Ping successful", "server", name, "latency", duration)
-			case errors.Is(err, context.DeadlineExceeded):
-				status = domain.HealthStatusTimeout
-				d.logger.Error("Ping timed out", "server", name, "error", err)
-			case errors.Is(err, context.Canceled):
-				status = domain.HealthStatusTimeout
-				d.logger.Warn("Ping context canceled", "server", name)
-			default:
-				status = domain.HealthStatusUnreachable
-				d.logger.Error("Ping unreachable", "server", name, "error", err)
-			}
-
-			if updateErr := d.healthTracker.Update(name, status, latency); updateErr != nil {
-				d.logger.Error("Failed to record health", "server", name, "error", updateErr)
-			}
-		}(name, c)
+// pingServer attempts to ping a named registered MCP server and updates the MCPHealthMonitor with the result.
+func (d *Daemon) pingServer(ctx context.Context, name string) error {
+	c, ok := d.clientManager.Client(name)
+	if !ok {
+		return fmt.Errorf("server '%s' not found", name)
 	}
+
+	start := time.Now()
+	err := c.Ping(ctx)
+	duration := time.Since(start)
+
+	status := domain.HealthStatusUnknown
+	var latency *time.Duration
+
+	switch {
+	case err == nil:
+		status = domain.HealthStatusOK
+		latency = &duration
+		d.logger.Debug("Ping successful", "server", name, "latency", duration)
+	case errors.Is(err, context.DeadlineExceeded):
+		status = domain.HealthStatusTimeout
+		d.logger.Error("Ping timed out", "server", name, "error", err)
+	case errors.Is(err, context.Canceled):
+		status = domain.HealthStatusTimeout
+		d.logger.Warn("Ping context canceled", "server", name)
+	default:
+		status = domain.HealthStatusUnreachable
+		d.logger.Error("Ping unreachable", "server", name, "error", err)
+	}
+
+	if updateErr := d.healthTracker.Update(name, status, latency); updateErr != nil {
+		d.logger.Error("Failed to record health", "server", name, "error", updateErr)
+		return updateErr
+	}
+
+	return nil
+}
+
+// pingServers attempts to ping all registered MCP server and updates the MCPHealthMonitor with the results.
+func (d *Daemon) pingAllServers(ctx context.Context, maxTimeout time.Duration) error {
+	// Ensure the maximum timeout is set (will be lower, if the context has less time left on it already).
+	timeoutCtx, timeoutCancel := context.WithTimeout(ctx, maxTimeout)
+	defer timeoutCancel()
+
+	g, gCtx := errgroup.WithContext(timeoutCtx)
+	mu := sync.Mutex{}
+	clients := d.clientManager.List()
+	errs := make([]error, 0, len(clients))
+
+	for _, name := range clients {
+		name := name
+		g.Go(func() error {
+			if err := d.pingServer(gCtx, name); err != nil {
+				mu.Lock()
+				errs = append(errs, err)
+				mu.Unlock()
+			}
+			// Since errors are collected, return nil to prevent context cancellation.
+			return nil
+		})
+	}
+
+	_ = g.Wait()
+	if len(errs) > 0 {
+		return errors.Join(errs...)
+	}
+
+	return nil
 }
 
 // IsValidAddr returns an error if the address is not a valid "host:port" string.

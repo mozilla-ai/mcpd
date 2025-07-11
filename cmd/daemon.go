@@ -2,8 +2,12 @@ package cmd
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"os"
+	"os/signal"
 	"strings"
+	"syscall"
 
 	"github.com/spf13/cobra"
 
@@ -11,6 +15,7 @@ import (
 	cmdopts "github.com/mozilla-ai/mcpd/v2/internal/cmd/options"
 	"github.com/mozilla-ai/mcpd/v2/internal/config"
 	"github.com/mozilla-ai/mcpd/v2/internal/daemon"
+	"github.com/mozilla-ai/mcpd/v2/internal/flags"
 )
 
 // DaemonCmd should be used to represent the 'daemon' command.
@@ -35,8 +40,8 @@ func NewDaemonCmd(baseCmd *cmd.BaseCmd, opt ...cmdopts.CmdOption) (*cobra.Comman
 
 	cobraCommand := &cobra.Command{
 		Use:   "daemon",
-		Short: "Launches an mcpd daemon instance (Execution Plane)",
-		Long:  c.longDescription(),
+		Short: "Launches an mcpd daemon instance",
+		Long:  "Launches an mcpd daemon instance, which starts MCP servers and provides routing via HTTP API",
 		RunE:  c.run,
 	}
 
@@ -51,18 +56,11 @@ func NewDaemonCmd(baseCmd *cmd.BaseCmd, opt ...cmdopts.CmdOption) (*cobra.Comman
 		&c.Addr,
 		"addr",
 		"localhost:8090",
-		"Specify the address for the daemon to bind (not applicable in --dev mode)",
+		"Address for the daemon to bind (not applicable in --dev mode)",
 	)
 	cobraCommand.MarkFlagsMutuallyExclusive("dev", "addr")
 
 	return cobraCommand, nil
-}
-
-// longDescription returns the long version of the command description.
-func (c *DaemonCmd) longDescription() string {
-	return `Launches an mcpd daemon instance (Execution Plane).
-In dev mode, binds to localhost, logs to console, and exposes local endpoint.
-In prod, binds to 0.0.0.0, logs to stdout, and runs as background service`
 }
 
 // run is configured (via NewDaemonCmd) to be called by the Cobra framework when the command is executed.
@@ -71,35 +69,46 @@ func (c *DaemonCmd) run(cmd *cobra.Command, args []string) error {
 	// Validate flags.
 	addr := strings.TrimSpace(c.Addr)
 	if err := daemon.IsValidAddr(addr); err != nil {
-		return fmt.Errorf("invalid address flag value: %s: %w", addr, err)
+		return err
 	}
 
-	// TODO: Currently only runs in 'dev' mode... (even without flag)
-	//	addr := "localhost:8080"
-	//	if c.Addr != "" {
-	//		addr = c.Addr
-	//	}
-	//
-	//	c.Logger.Info("Launching daemon (dev mode)", "bindAddr", addr)
-	//	c.Logger.Info("Local endpoint", "url", "http://"+addr+"/api")
-	//	c.Logger.Info("Dev API key", "value", "dev-api-key-12345")   // TODO: Generate local key
-	//	c.Logger.Info("Secrets file", "path", "~/.config/mcpd/secrets.dev.toml") // TODO: Configurable?
-	//	c.Logger.Info("Press Ctrl+C to stop.")
 	logger, err := c.Logger()
 	if err != nil {
 		return err
 	}
 
-	daemonCtx, daemonCtxCancel := context.WithCancel(context.Background())
-	defer daemonCtxCancel()
-
 	d, err := daemon.NewDaemon(logger, c.cfgLoader, addr)
 	if err != nil {
 		return fmt.Errorf("failed to create mcpd daemon instance: %w", err)
 	}
-	if err := d.StartAndManage(daemonCtx); err != nil {
-		return fmt.Errorf("daemon start failed: %w", err)
+
+	// Create the signal handling context for the application.
+	daemonCtx, daemonCtxCancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer daemonCtxCancel()
+
+	runErr := make(chan error, 1)
+	go func() {
+		if err := d.StartAndManage(daemonCtx); err != nil && !errors.Is(err, context.Canceled) {
+			runErr <- err
+		}
+	}()
+
+	// Print --dev mode banner if required.
+	if c.Dev {
+		logger.Info("Launching daemon in dev mode", "addr", addr)
+		fmt.Printf("mcpd daemon running in 'dev' mode.\n\n"+
+			"  Local API:\thttp://%s/api/v1\n"+
+			"  OpenAPI UI:\thttp://%s/docs\n"+
+			"  Config file:\t%s\n"+
+			"  Secrets file:\t%s\n\n"+
+			"Press Ctrl+C to stop.\n\n", addr, addr, flags.ConfigFile, flags.RuntimeFile)
 	}
 
-	return nil
+	select {
+	case <-daemonCtx.Done():
+		return nil // Graceful Ctrl+C / SIGTERM
+	case err := <-runErr:
+		logger.Error("error running daemon instance", "error", err)
+		return err // Propagate daemon failure
+	}
 }

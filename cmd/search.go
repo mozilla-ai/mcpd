@@ -44,10 +44,12 @@ func NewSearchCmd(baseCmd *cmd.BaseCmd, opt ...cmdopts.CmdOption) (*cobra.Comman
 	}
 
 	cobraCommand := &cobra.Command{
-		Use:   "search <server-name>",
+		Use:   "search [server-name]",
 		Short: "Searches all configured registries for matching MCP servers",
-		Long:  c.longDescription(),
-		RunE:  c.run,
+		Long: fmt.Sprintf("Searches all configured registries for matching MCP servers, "+
+			"the wildcard '%s' is the default when name is not specified. "+
+			"Returns aggregated results from all configured registries", options.WildcardCharacter),
+		RunE: c.run,
 	}
 
 	cobraCommand.Flags().StringVar(
@@ -102,11 +104,6 @@ func NewSearchCmd(baseCmd *cmd.BaseCmd, opt ...cmdopts.CmdOption) (*cobra.Comman
 	return cobraCommand, nil
 }
 
-// longDescription returns the long version of the command description.
-func (c *SearchCmd) longDescription() string {
-	return `Searches all configured registries for matching MCP servers. Returns aggregated results for matches`
-}
-
 func (c *SearchCmd) filters() map[string]string {
 	f := make(map[string]string)
 
@@ -133,12 +130,10 @@ func (c *SearchCmd) filters() map[string]string {
 }
 
 func (c *SearchCmd) run(cmd *cobra.Command, args []string) error {
-	if len(args) == 0 || strings.TrimSpace(args[0]) == "" {
-		return fmt.Errorf("name is required and cannot be empty")
-	}
-	name := strings.TrimSpace(args[0])
-	if name == "" {
-		return fmt.Errorf("name cannot be empty")
+	// Name not required, default to the wildcard.
+	name := options.WildcardCharacter
+	if len(args) > 0 && strings.TrimSpace(args[0]) != "" {
+		name = strings.TrimSpace(args[0])
 	}
 
 	reg, err := c.registryBuilder.Build()
