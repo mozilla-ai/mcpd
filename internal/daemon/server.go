@@ -1,11 +1,13 @@
 package daemon
 
 import (
+	"context"
 	stdErrors "errors"
 	"fmt"
 	"net/http"
 	"net/url"
 	"reflect"
+	"time"
 
 	"github.com/danielgtaylor/huma/v2"
 	"github.com/danielgtaylor/huma/v2/adapters/humachi"
@@ -53,12 +55,10 @@ func NewApiServer(
 	}, nil
 }
 
-func (a *ApiServer) Start(ready chan<- struct{}) error {
-	// Create mux.
+func (a *ApiServer) Start(ctx context.Context) error {
+	// Create router.
 	mux := chi.NewMux()
 	mux.Use(middleware.StripSlashes)
-
-	// Create router.
 	config := huma.DefaultConfig("mcpd docs", cmd.Version())
 	router := humachi.New(mux, config)
 
@@ -73,18 +73,35 @@ func (a *ApiServer) Start(ready chan<- struct{}) error {
 
 	// Group all routes under the /api/v1 prefix.
 	v1 := huma.NewGroup(router, apiPathPrefix)
-	// Register 'health' routes.
 	api.RegisterHealthRoutes(v1, a.healthTracker, "/health")
-	// Register 'server' routes.
 	api.RegisterServerRoutes(v1, a.clientManager, "/servers")
 
-	a.logger.Info("HTTP REST API listening", "address", a.addr, "prefix", "/api/v1")
-	fqdn := fmt.Sprintf("http://%s/docs", a.addr) // TODO: HTTP/HTTPS
-	fmt.Printf("HTTP REST API listening. Please see: '%s'\n", fqdn)
+	srv := &http.Server{
+		Addr:    a.addr,
+		Handler: mux,
+	}
+	errCh := make(chan error, 1)
 
-	// Signal ready just before blocking for serving the API
-	close(ready)
-	return http.ListenAndServe(a.addr, mux)
+	// Start the API.
+	go func() {
+		a.logger.Info("Starting API server", "address", a.addr, "prefix", apiPathPrefix)
+		if err := srv.ListenAndServe(); err != nil && !stdErrors.Is(err, http.ErrServerClosed) {
+			errCh <- err
+		}
+		close(errCh)
+	}()
+
+	// Handle graceful shutdown.
+	select {
+	case <-ctx.Done():
+		shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second) // TODO: make configurable
+		defer cancel()
+		a.logger.Info("Shutting down API server")
+		_ = srv.Shutdown(shutdownCtx)
+		return ctx.Err()
+	case err := <-errCh:
+		return err
+	}
 }
 
 // mapError maps application domain errors to API errors.
