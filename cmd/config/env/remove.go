@@ -2,6 +2,8 @@ package env
 
 import (
 	"fmt"
+	"maps"
+	"slices"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -65,6 +67,6 @@ func (c *RemoveCmd) run(cmd *cobra.Command, args []string) error {
 		}
 	}
 
-	fmt.Fprintf(cmd.OutOrStdout(), "✓ Environment variables removed for server '%s': %v\n", serverName, envMap)
+	fmt.Fprintf(cmd.OutOrStdout(), "✓ Environment variables removed for server '%s': %v\n", serverName, slices.Collect(maps.Keys(envMap)))
 	return nil
 }
