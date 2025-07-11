@@ -91,6 +91,7 @@ func (c *DaemonCmd) run(cmd *cobra.Command, args []string) error {
 		if err := d.StartAndManage(daemonCtx); err != nil && !errors.Is(err, context.Canceled) {
 			runErr <- err
 		}
+		close(runErr)
 	}()
 
 	// Print --dev mode banner if required.
@@ -106,9 +107,11 @@ func (c *DaemonCmd) run(cmd *cobra.Command, args []string) error {
 
 	select {
 	case <-daemonCtx.Done():
-		return nil // Graceful Ctrl+C / SIGTERM
+		logger.Info("Shutting down daemon")
+		err := <-runErr // Wait for cleanup and deferred logging.
+		return err      // Graceful Ctrl+C / SIGTERM.
 	case err := <-runErr:
 		logger.Error("error running daemon instance", "error", err)
-		return err // Propagate daemon failure
+		return err // Propagate daemon failure.
 	}
 }

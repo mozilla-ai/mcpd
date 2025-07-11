@@ -92,7 +92,7 @@ func (c *RemoveCmd) run(cmd *cobra.Command, args []string) error {
 			msg = fmt.Sprintf("✓ Tools removed for server '%s': %v\n", serverName, slices.Collect(maps.Keys(removed)))
 		}
 
-		_, err = fmt.Fprintf(cmd.OutOrStdout(), msg)
+		_, err = fmt.Fprint(cmd.OutOrStdout(), msg)
 		if err != nil {
 			return err
 		}

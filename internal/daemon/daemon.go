@@ -81,7 +81,7 @@ func NewDaemon(logger hclog.Logger, cfgLoader config.Loader, apiAddr string) (*D
 func (d *Daemon) StartAndManage(ctx context.Context) error {
 	// Handle clean-up.
 	defer func() {
-		d.logger.Info("Closing MCP server connections")
+		d.logger.Info("Shutting down MCP servers and client connections")
 		for _, n := range d.clientManager.List() {
 			if c, ok := d.clientManager.Client(n); ok {
 				_ = c.Close()
@@ -149,8 +149,8 @@ func (d *Daemon) startMCPServer(ctx context.Context, server runtime.Server) erro
 	}
 	args = append([]string{packageNameAndVersion}, server.Args...)
 
-	logger.Info(
-		"attempting to start MCP server",
+	logger.Debug(
+		"attempting to start server",
 		"binary", runtimeBinary,
 		"args", args,
 		"environment", env,
@@ -161,7 +161,7 @@ func (d *Daemon) startMCPServer(ctx context.Context, server runtime.Server) erro
 		return fmt.Errorf("error starting MCP server: '%s': %w", server.Name, err)
 	}
 
-	logger.Info(fmt.Sprintf("MCP server started"))
+	logger.Info("Started")
 
 	// Get stderr reader
 	stderr, ok := client.GetStderr(stdioClient)
@@ -209,12 +209,12 @@ func (d *Daemon) startMCPServer(ctx context.Context, server runtime.Server) erro
 	}
 
 	packageNameAndVersion = fmt.Sprintf("%s@%s", initResult.ServerInfo.Name, initResult.ServerInfo.Version)
-	logger.Info(fmt.Sprintf("Initialized MCP server: '%s'", packageNameAndVersion))
+	logger.Info(fmt.Sprintf("Initialized: '%s'", packageNameAndVersion))
 
 	// Store the client.
 	d.clientManager.Add(server.Name, stdioClient, server.Tools)
 
-	logger.Info("Ready")
+	logger.Info("Ready!")
 
 	return nil
 }
