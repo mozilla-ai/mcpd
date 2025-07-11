@@ -5,6 +5,7 @@ import (
 
 	"github.com/mozilla-ai/mcpd/v2/cmd/config/args"
 	"github.com/mozilla-ai/mcpd/v2/cmd/config/env"
+	"github.com/mozilla-ai/mcpd/v2/cmd/config/tools"
 	"github.com/mozilla-ai/mcpd/v2/internal/cmd"
 	"github.com/mozilla-ai/mcpd/v2/internal/cmd/options"
 )
@@ -18,8 +19,9 @@ func NewConfigCmd(baseCmd *cmd.BaseCmd, opt ...options.CmdOption) (*cobra.Comman
 
 	// Sub-commands for: mcpd config
 	fns := []func(baseCmd *cmd.BaseCmd, opt ...options.CmdOption) (*cobra.Command, error){
-		args.NewCmd, // args
-		env.NewCmd,  // env
+		args.NewCmd,  // args
+		env.NewCmd,   // env
+		tools.NewCmd, // tools
 	}
 
 	for _, fn := range fns {
