@@ -24,6 +24,14 @@ build:
 	@echo "building mcpd (with flags: ${LDFLAGS})..."
 	@go build -o mcpd -ldflags="${LDFLAGS}" .
 
+build-linux:
+	@echo "building mcpd for amd64/linux (with flags: ${LDFLAGS})..."
+	@GOOS=linux GOARCH=amd64 go build -o mcpd -ldflags="${LDFLAGS}" .
+
+build-linux-arm64:
+	@echo "building mcpd for arm64/linux (with flags: ${LDFLAGS})..."
+	@GOOS=linux GOARCH=arm64 go build -o mcpd -ldflags="${LDFLAGS}" .
+
 install: build
 	@# Copy the executable to the install directory
 	@# Requires sudo if INSTALL_DIR is a system path like /usr/local/bin
