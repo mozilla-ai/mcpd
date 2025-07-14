@@ -51,6 +51,24 @@ func TestAnyIntersection(t *testing.T) {
 			b:        []Runtime{NPX, UVX},
 			expected: true,
 		},
+		{
+			name:     "nil and empty",
+			a:        nil,
+			b:        []Runtime{},
+			expected: false,
+		},
+		{
+			name:     "empty and nil",
+			a:        []Runtime{},
+			b:        nil,
+			expected: false,
+		},
+		{
+			name:     "nil nil draw",
+			a:        nil,
+			b:        nil,
+			expected: false,
+		},
 	}
 
 	for _, tc := range tests {

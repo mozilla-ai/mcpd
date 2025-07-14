@@ -21,6 +21,10 @@ const (
 
 // AnyIntersection returns true if any value in a is also in b.
 func AnyIntersection(a []Runtime, b []Runtime) bool {
+	if a == nil || b == nil || len(a) == 0 || len(b) == 0 {
+		return false
+	}
+
 	set := map[Runtime]struct{}{}
 	for _, v := range b {
 		set[v] = struct{}{}

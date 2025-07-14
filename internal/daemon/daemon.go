@@ -141,22 +141,17 @@ func (d *Daemon) startMCPServer(ctx context.Context, server runtime.Server) erro
 
 	// Strip arbitrary package prefix (e.g. uvx::)
 	packageNameAndVersion := strings.TrimPrefix(server.Package, runtimeBinary+"::")
-	env := server.Environ()
+
 	var args []string
 	// TODO: npx requires '-y' before the package name
 	if runtime.Runtime(runtimeBinary) == runtime.NPX {
 		args = append(args, "y")
 	}
-	args = append([]string{packageNameAndVersion}, server.Args...)
+	args = append([]string{packageNameAndVersion}, server.ResolvedArgs()...)
 
-	logger.Debug(
-		"attempting to start server",
-		"binary", runtimeBinary,
-		"args", args,
-		"environment", env,
-	)
+	logger.Debug("attempting to start server", "binary", runtimeBinary)
 
-	stdioClient, err := client.NewStdioMCPClient(runtimeBinary, env, args...)
+	stdioClient, err := client.NewStdioMCPClient(runtimeBinary, server.Environ(), args...)
 	if err != nil {
 		return fmt.Errorf("error starting MCP server: '%s': %w", server.Name, err)
 	}

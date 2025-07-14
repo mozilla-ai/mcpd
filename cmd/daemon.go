@@ -39,7 +39,7 @@ func NewDaemonCmd(baseCmd *cmd.BaseCmd, opt ...cmdopts.CmdOption) (*cobra.Comman
 	}
 
 	cobraCommand := &cobra.Command{
-		Use:   "daemon",
+		Use:   "daemon [--dev] [--addr]",
 		Short: "Launches an mcpd daemon instance",
 		Long:  "Launches an mcpd daemon instance, which starts MCP servers and provides routing via HTTP API",
 		RunE:  c.run,
@@ -55,9 +55,10 @@ func NewDaemonCmd(baseCmd *cmd.BaseCmd, opt ...cmdopts.CmdOption) (*cobra.Comman
 	cobraCommand.Flags().StringVar(
 		&c.Addr,
 		"addr",
-		"localhost:8090",
+		"0.0.0.0:8090",
 		"Address for the daemon to bind (not applicable in --dev mode)",
 	)
+
 	cobraCommand.MarkFlagsMutuallyExclusive("dev", "addr")
 
 	return cobraCommand, nil
@@ -66,14 +67,22 @@ func NewDaemonCmd(baseCmd *cmd.BaseCmd, opt ...cmdopts.CmdOption) (*cobra.Comman
 // run is configured (via NewDaemonCmd) to be called by the Cobra framework when the command is executed.
 // It may return an error (or nil, when there is no error).
 func (c *DaemonCmd) run(cmd *cobra.Command, args []string) error {
-	// Validate flags.
-	addr := strings.TrimSpace(c.Addr)
-	if err := daemon.IsValidAddr(addr); err != nil {
+	logger, err := c.Logger()
+	if err != nil {
 		return err
 	}
 
-	logger, err := c.Logger()
-	if err != nil {
+	// Validate flags.
+	addr := strings.TrimSpace(c.Addr)
+
+	// Override address for dev mode.
+	if c.Dev {
+		devAddr := "localhost:8090"
+		logger.Info("Development-focused mode", "addr", addr, "override", devAddr)
+		addr = devAddr
+	}
+
+	if err := daemon.IsValidAddr(addr); err != nil {
 		return err
 	}
 
@@ -83,7 +92,11 @@ func (c *DaemonCmd) run(cmd *cobra.Command, args []string) error {
 	}
 
 	// Create the signal handling context for the application.
-	daemonCtx, daemonCtxCancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	daemonCtx, daemonCtxCancel := signal.NotifyContext(
+		context.Background(),
+		os.Interrupt,
+		syscall.SIGTERM, syscall.SIGINT,
+	)
 	defer daemonCtxCancel()
 
 	runErr := make(chan error, 1)
@@ -111,7 +124,7 @@ func (c *DaemonCmd) run(cmd *cobra.Command, args []string) error {
 		err := <-runErr // Wait for cleanup and deferred logging.
 		return err      // Graceful Ctrl+C / SIGTERM.
 	case err := <-runErr:
-		logger.Error("error running daemon instance", "error", err)
+		logger.Error("daemon exited with error", "error", err)
 		return err // Propagate daemon failure.
 	}
 }
