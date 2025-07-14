@@ -69,3 +69,11 @@ docs-cli:
 docs-nav: docs-cli
 	@go run -tags=docsgen_nav ./tools/docsgen/cli/nav.go
 	@echo "navigation updated for MkDocs site"
+
+local-up: build-linux
+	@echo "starting mcpd container in detached state"
+	@docker compose up -d --build
+
+local-down:
+	@echo "stopping mcpd container"
+	@docker compose down
