@@ -1,0 +1,17 @@
+services:
+  mcpd:
+    build:
+      context: .
+      args:
+        MCPD_API_PORT: ${MCPD_API_PORT:-8090}
+    container_name: mcpd
+    env_file: .env
+    environment:
+      MCPD_API_PORT: ${MCPD_API_PORT:-8090}
+      MCPD_LOG_LEVEL: ${MCPD_LOG_LEVEL:-INFO}
+    ports:
+      - "${MCPD_API_PORT:-8090}:${MCPD_API_PORT:-8090}"
+    volumes:
+      - "${HOME}/.config/mcpd/secrets.dev.toml:/home/mcpd/.config/mcpd/secrets.prd.toml:ro"
+      - "./.mcpd.toml:/etc/mcpd/.mcpd.toml:ro"
+      - "./mcpd-container-logs:/var/log/mcpd"

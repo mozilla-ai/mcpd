@@ -115,16 +115,16 @@ func mapError(logger hclog.Logger, err error) huma.StatusError {
 		return huma.Error403Forbidden(err.Error())
 	case stdErrors.Is(err, errors.ErrToolListFailed):
 		logger.Error("Tool list failed", "error", err)
-		return huma.Error502BadGateway("MCP server error listing tools")
+		return huma.Error502BadGateway("MCP server error listing tools", err)
 	case stdErrors.Is(err, errors.ErrToolCallFailed):
 		logger.Error("Tool call failed", "error", err)
-		return huma.Error502BadGateway("MCP server error calling tool")
+		return huma.Error502BadGateway("MCP server error calling tool", err)
 	case stdErrors.Is(err, errors.ErrToolCallFailedUnknown):
 		logger.Error("Tool call failed, unknown error", "error", err)
-		return huma.Error502BadGateway("MCP server unknown error calling tool")
+		return huma.Error502BadGateway("MCP server unknown error calling tool", err)
 	default:
 		logger.Error("Unexpected error interacting with MCP server", "error", err)
-		return huma.Error500InternalServerError("Internal server error")
+		return huma.Error500InternalServerError("Internal server error", err)
 	}
 }
 

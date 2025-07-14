@@ -163,7 +163,7 @@ func handleServerToolCall(accessor contracts.MCPClientAccessor, server string, t
 	} else if result == nil {
 		return nil, fmt.Errorf("%w: %s/%s: result was nil", errors.ErrToolCallFailedUnknown, server, tool)
 	} else if result.IsError {
-		return nil, fmt.Errorf("%w: %s/%s: %v", errors.ErrToolCallFailedUnknown, server, tool, extractMessage(result.Content))
+		return nil, fmt.Errorf("%w: %s/%s: %v", errors.ErrToolCallFailed, server, tool, extractMessage(result.Content))
 	}
 
 	resp := &ToolCallResponse{}
