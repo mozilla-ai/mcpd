@@ -65,30 +65,32 @@ func (c *SetCmd) run(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("failed to load execution context config: %w", err)
 	}
 
-	serverCtx, ok := cfg.ListServers()[serverName]
-	if !ok {
-		return fmt.Errorf("server '%s' not found in configuration", serverName)
+	server, exists := cfg.ListServers()[serverName]
+	if !exists {
+		server.Name = serverName
 	}
 
 	// Ensure the map is initialized, in case it didn't exist before.
-	if serverCtx.Env == nil {
-		serverCtx.Env = map[string]string{}
+	if server.Env == nil {
+		server.Env = map[string]string{}
 	}
-	newEnv := maps.Clone(serverCtx.Env)
+	newEnv := maps.Clone(server.Env)
 	// Merge or overwrite environment variables
 	for k, v := range envMap {
 		newEnv[k] = v
 	}
 
-	if !maps.Equal(serverCtx.Env, newEnv) {
-		if err := cfg.RemoveServer(serverName); err != nil {
-			return fmt.Errorf("error removing server, failed to set env vars in config for '%s': %w", serverName, err)
+	if !maps.Equal(server.Env, newEnv) {
+		if exists {
+			if err := cfg.RemoveServer(serverName); err != nil {
+				return fmt.Errorf("error removing server, failed to set env vars in config for '%s': %w", serverName, err)
+			}
 		}
 
 		// Update
-		serverCtx.Env = newEnv
+		server.Env = newEnv
 
-		if err := cfg.AddServer(serverCtx); err != nil {
+		if err := cfg.AddServer(server); err != nil {
 			return fmt.Errorf("error re-adding server, failed to set env vars in config for '%s': %w", serverName, err)
 		}
 	}

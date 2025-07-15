@@ -63,15 +63,17 @@ func (c *SetCmd) run(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("failed to load execution context config: %w", err)
 	}
 
-	server, ok := cfg.ListServers()[serverName]
-	if !ok {
-		return fmt.Errorf("server '%s' not found in configuration", serverName)
+	server, exists := cfg.ListServers()[serverName]
+	if !exists {
+		server.Name = serverName
 	}
 
 	newArgs := config.MergeArgs(server.Args, normalizedArgs)
 	if !slices.Equal(newArgs, server.Args) {
-		if err := cfg.RemoveServer(serverName); err != nil {
-			return fmt.Errorf("error removing server, failed to set args in config for '%s': %w", serverName, err)
+		if exists {
+			if err := cfg.RemoveServer(serverName); err != nil {
+				return fmt.Errorf("error removing server, failed to set args in config for '%s': %w", serverName, err)
+			}
 		}
 
 		// Update...
