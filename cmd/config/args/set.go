@@ -15,11 +15,18 @@ import (
 
 type SetCmd struct {
 	*cmd.BaseCmd
+	ctxLoader context.Loader
 }
 
-func NewSetCmd(baseCmd *cmd.BaseCmd, _ ...cmdopts.CmdOption) (*cobra.Command, error) {
+func NewSetCmd(baseCmd *cmd.BaseCmd, opt ...cmdopts.CmdOption) (*cobra.Command, error) {
+	opts, err := cmdopts.NewOptions(opt...)
+	if err != nil {
+		return nil, err
+	}
+
 	c := &SetCmd{
-		BaseCmd: baseCmd,
+		BaseCmd:   baseCmd,
+		ctxLoader: opts.ContextLoader,
 	}
 
 	cobraCmd := &cobra.Command{
@@ -49,26 +56,31 @@ func (c *SetCmd) run(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("server-name is required")
 	}
 
-	fmt.Fprintf(cmd.OutOrStdout(), "args: %#v\n", args)
-
 	normalizedArgs := config.NormalizeArgs(args[1:])
-	cfg, err := context.LoadOrInitExecutionContext(flags.RuntimeFile)
+	cfg, err := c.ctxLoader.Load(flags.RuntimeFile)
 	if err != nil {
 		return fmt.Errorf("failed to load execution context config: %w", err)
 	}
 
-	serverCtx := cfg.Servers[serverName]
-	serverCtx.Args = config.MergeArgs(serverCtx.Args, normalizedArgs)
-	if serverCtx.Env == nil {
-		serverCtx.Env = map[string]string{}
-	}
-	cfg.Servers[serverName] = serverCtx
-
-	if err := context.SaveExecutionContextConfig(flags.RuntimeFile, cfg); err != nil {
-		return fmt.Errorf("failed to save config: %w", err)
+	server, exists := cfg.Get(serverName)
+	if !exists {
+		server.Name = serverName
 	}
 
-	fmt.Fprintf(cmd.OutOrStdout(), "✓ Startup arguments set for server '%s': %v\n", serverName, normalizedArgs)
+	newArgs := config.MergeArgs(server.Args, normalizedArgs)
+
+	// Update...
+	server.Args = newArgs
+	if len(server.Env) == 0 {
+		server.Env = map[string]string{}
+	}
+
+	res, err := cfg.Upsert(server)
+	if err != nil {
+		return fmt.Errorf("error setting arguments for server '%s': %w", serverName, err)
+	}
+
+	fmt.Fprintf(cmd.OutOrStdout(), "✓ Startup arguments set for server '%s' (operation: %s): %v\n", serverName, string(res), normalizedArgs)
 
 	return nil
 }

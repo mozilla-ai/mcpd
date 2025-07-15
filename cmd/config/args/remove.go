@@ -17,11 +17,18 @@ import (
 
 type RemoveCmd struct {
 	*cmd.BaseCmd
+	ctxLoader context.Loader
 }
 
-func NewRemoveCmd(baseCmd *cmd.BaseCmd, _ ...options.CmdOption) (*cobra.Command, error) {
+func NewRemoveCmd(baseCmd *cmd.BaseCmd, opt ...options.CmdOption) (*cobra.Command, error) {
+	opts, err := options.NewOptions(opt...)
+	if err != nil {
+		return nil, err
+	}
+
 	c := &RemoveCmd{
-		BaseCmd: baseCmd,
+		BaseCmd:   baseCmd,
+		ctxLoader: opts.ContextLoader,
 	}
 
 	// mcpd config args remove time -- --arg [--arg ...]
@@ -51,27 +58,27 @@ func (c *RemoveCmd) run(cmd *cobra.Command, args []string) error {
 		argMap[key] = struct{}{}
 	}
 
-	cfg, err := context.LoadExecutionContextConfig(flags.RuntimeFile)
+	cfg, err := c.ctxLoader.Load(flags.RuntimeFile)
 	if err != nil {
 		return fmt.Errorf("failed to load execution context config: %w", err)
 	}
 
-	if serverCtx := cfg.Servers[serverName]; serverCtx.Args != nil {
-		toRemove := slices.Collect(maps.Keys(argMap))
-		filtered := config.RemoveMatchingFlags(serverCtx.Args, toRemove)
-
-		// Only modify the file if there are actual changes to be made.
-		if !slices.Equal(slices.Clone(serverCtx.Args), slices.Clone(filtered)) {
-			// Update the args, and the server.
-			serverCtx.Args = filtered
-			cfg.Servers[serverName] = serverCtx
-
-			if err := context.SaveExecutionContextConfig(flags.RuntimeFile, cfg); err != nil {
-				return fmt.Errorf("failed to save config: %w", err)
-			}
-		}
+	serverCtx, ok := cfg.Get(serverName)
+	if !ok {
+		return fmt.Errorf("server '%s' not found in configuration", serverName)
 	}
 
-	fmt.Fprintf(cmd.OutOrStdout(), "✓ Args removed for server '%s': %v\n", serverName, slices.Collect(maps.Keys(argMap)))
+	toRemove := slices.Collect(maps.Keys(argMap))
+	filtered := config.RemoveMatchingFlags(serverCtx.Args, toRemove)
+
+	// Update the args, and the server.
+	serverCtx.Args = filtered
+	res, err := cfg.Upsert(serverCtx)
+	if err != nil {
+		return fmt.Errorf("error removing arguments for server '%s': %w", serverName, err)
+	}
+
+	fmt.Fprintf(cmd.OutOrStdout(), "✓ Arguments removed for server '%s' (operation: %s): %v\n", serverName, string(res), slices.Collect(maps.Keys(argMap)))
+
 	return nil
 }

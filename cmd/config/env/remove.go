@@ -16,12 +16,19 @@ import (
 
 type RemoveCmd struct {
 	*cmd.BaseCmd
-	EnvVars []string
+	EnvVars   []string
+	ctxLoader context.Loader
 }
 
-func NewRemoveCmd(baseCmd *cmd.BaseCmd, _ ...options.CmdOption) (*cobra.Command, error) {
+func NewRemoveCmd(baseCmd *cmd.BaseCmd, opt ...options.CmdOption) (*cobra.Command, error) {
+	opts, err := options.NewOptions(opt...)
+	if err != nil {
+		return nil, err
+	}
+
 	c := &RemoveCmd{
-		BaseCmd: baseCmd,
+		BaseCmd:   baseCmd,
+		ctxLoader: opts.ContextLoader,
 	}
 
 	// mcpd config env remove time KEY [KEY ...]
@@ -50,23 +57,25 @@ func (c *RemoveCmd) run(cmd *cobra.Command, args []string) error {
 		envMap[key] = struct{}{}
 	}
 
-	cfg, err := context.LoadExecutionContextConfig(flags.RuntimeFile)
+	cfg, err := c.ctxLoader.Load(flags.RuntimeFile)
 	if err != nil {
 		return fmt.Errorf("failed to load execution context config: %w", err)
 	}
 
-	if serverCtx := cfg.Servers[serverName]; serverCtx.Env != nil {
-		evs := serverCtx.Env
-		for key := range envMap {
-			delete(evs, key)
-		}
-		cfg.Servers[serverName] = serverCtx
-
-		if err := context.SaveExecutionContextConfig(flags.RuntimeFile, cfg); err != nil {
-			return fmt.Errorf("failed to save config: %w", err)
-		}
+	serverCtx, ok := cfg.Get(serverName)
+	if !ok {
+		return fmt.Errorf("server '%s' not found in configuration", serverName)
 	}
 
-	fmt.Fprintf(cmd.OutOrStdout(), "✓ Environment variables removed for server '%s': %v\n", serverName, slices.Collect(maps.Keys(envMap)))
+	for key := range envMap {
+		delete(serverCtx.Env, key)
+	}
+	res, err := cfg.Upsert(serverCtx)
+	if err != nil {
+		return fmt.Errorf("error removing environment variables for server '%s': %w", serverName, err)
+	}
+
+	fmt.Fprintf(cmd.OutOrStdout(), "✓ Environment variables removed for server '%s' (operation: %s): %v\n", serverName, string(res), slices.Collect(maps.Keys(envMap)))
+
 	return nil
 }

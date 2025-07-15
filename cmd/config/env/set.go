@@ -16,11 +16,18 @@ import (
 
 type SetCmd struct {
 	*cmd.BaseCmd
+	ctxLoader context.Loader
 }
 
-func NewSetCmd(baseCmd *cmd.BaseCmd, _ ...options.CmdOption) (*cobra.Command, error) {
+func NewSetCmd(baseCmd *cmd.BaseCmd, opt ...options.CmdOption) (*cobra.Command, error) {
+	opts, err := options.NewOptions(opt...)
+	if err != nil {
+		return nil, err
+	}
+
 	c := &SetCmd{
-		BaseCmd: baseCmd,
+		BaseCmd:   baseCmd,
+		ctxLoader: opts.ContextLoader,
 	}
 
 	cobraCmd := &cobra.Command{
@@ -53,26 +60,32 @@ func (c *SetCmd) run(cmd *cobra.Command, args []string) error {
 		envMap[key] = value
 	}
 
-	cfg, err := context.LoadOrInitExecutionContext(flags.RuntimeFile)
+	cfg, err := c.ctxLoader.Load(flags.RuntimeFile)
 	if err != nil {
 		return fmt.Errorf("failed to load execution context config: %w", err)
 	}
 
-	serverCtx := cfg.Servers[serverName]
-	if serverCtx.Env == nil {
-		serverCtx.Env = map[string]string{}
+	server, exists := cfg.Get(serverName)
+	if !exists {
+		server.Name = serverName
+	}
+
+	// Ensure the map is initialized, in case it didn't exist before.
+	if server.Env == nil {
+		server.Env = map[string]string{}
 	}
 
 	// Merge or overwrite environment variables
 	for k, v := range envMap {
-		serverCtx.Env[k] = v
-	}
-	cfg.Servers[serverName] = serverCtx
-
-	if err := context.SaveExecutionContextConfig(flags.RuntimeFile, cfg); err != nil {
-		return fmt.Errorf("failed to save config: %w", err)
+		server.Env[k] = v
 	}
 
-	fmt.Fprintf(cmd.OutOrStdout(), "✓ Environment variables set for server '%s': %v\n", serverName, slices.Collect(maps.Keys(envMap)))
+	res, err := cfg.Upsert(server)
+	if err != nil {
+		return fmt.Errorf("error setting environment variables for server '%s': %w", serverName, err)
+	}
+
+	fmt.Fprintf(cmd.OutOrStdout(), "✓ Environment variables set for server '%s' (operation: %s): %v\n", serverName, string(res), slices.Collect(maps.Keys(envMap)))
+
 	return nil
 }

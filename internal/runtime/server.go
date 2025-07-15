@@ -13,8 +13,12 @@ import (
 
 // Server composes static config with runtime overrides.
 type Server struct {
-	config.ServerEntry // import from internal/config
+	config.ServerEntry
 	context.ServerExecutionContext
+}
+
+func (s *Server) Name() string {
+	return s.ServerEntry.Name
 }
 
 // Runtime returns the runtime (e.g. python, node) portion of the package string.
@@ -30,7 +34,7 @@ func (s *Server) Runtime() string {
 // Returns (unresolved) runtime configuration for all servers.
 func AggregateConfigs(
 	cfg config.Modifier,
-	executionContextCfg context.ExecutionContextConfig,
+	executionContextCfg context.Modifier,
 ) ([]Server, error) {
 	var runtimeCfg []Server
 
@@ -44,7 +48,7 @@ func AggregateConfigs(
 		}
 
 		// Update with execution context if we have any for this server.
-		if executionCtx, ok := executionContextCfg.Servers[s.Name]; ok {
+		if executionCtx, ok := executionContextCfg.Get(s.Name); ok {
 			runtimeServer.ServerExecutionContext = context.ServerExecutionContext{
 				Args: executionCtx.Args,
 				Env:  executionCtx.Env,
@@ -71,7 +75,7 @@ func (s *Server) Environ() []string {
 	mergedEnvs := mergeEnvs(baseEnvs, overrideEnvs)
 
 	// Filter the environment to remove vars for other MCP servers or mcpd itself.
-	filteredEnvs := filterEnv(mergedEnvs, s.Name)
+	filteredEnvs := filterEnv(mergedEnvs, s.Name())
 
 	// Expand any variables that use templating ${}.
 	expandedEnvs := expandEnvSlice(filteredEnvs)
