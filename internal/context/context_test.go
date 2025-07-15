@@ -1,6 +1,7 @@
 package context
 
 import (
+	"maps"
 	"os"
 	"path/filepath"
 	"testing"
@@ -74,12 +75,15 @@ FOO = "bar"
 			}
 
 			require.NoError(t, err)
+
 			if tc.expectInit {
-				require.Empty(t, cfg.ListServers())
+				_, ok := cfg.Get("myserver")
+				require.False(t, ok)
 			} else {
-				require.Contains(t, cfg.ListServers(), "myserver")
-				require.Equal(t, []string{"--foo", "--bar"}, cfg.ListServers()["myserver"].Args)
-				require.Equal(t, "bar", cfg.ListServers()["myserver"].Env["FOO"])
+				server, ok := cfg.Get("myserver")
+				require.True(t, ok)
+				require.Equal(t, []string{"--foo", "--bar"}, server.Args)
+				require.Equal(t, "bar", server.Env["FOO"])
 			}
 		})
 	}
@@ -171,6 +175,140 @@ func TestContext_UserSpecificConfigDir(t *testing.T) {
 			result, err := UserSpecificConfigDir()
 			require.NoError(t, err)
 			require.Equal(t, tc.expectedDir(t), result)
+		})
+	}
+}
+
+func TestUpsert(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name           string
+		existing       map[string]ServerExecutionContext
+		input          ServerExecutionContext
+		expectedResult UpsertResult
+		verify         func(t *testing.T, cfg *ExecutionContextConfig, path string)
+	}{
+		{
+			name:     "new empty",
+			existing: nil,
+			input: ServerExecutionContext{
+				Name: "foo",
+				Args: []string{},
+				Env:  map[string]string{},
+			},
+			expectedResult: Noop,
+			verify: func(t *testing.T, cfg *ExecutionContextConfig, path string) {
+				_, exists := cfg.Servers["foo"]
+				require.False(t, exists)
+				_, err := os.Stat(path)
+				require.Error(t, err)
+			},
+		},
+		{
+			name:     "new non empty",
+			existing: nil,
+			input: ServerExecutionContext{
+				Name: "bar",
+				Args: []string{"--foo"},
+				Env:  map[string]string{"KEY": "VAL"},
+			},
+			expectedResult: Created,
+			verify: func(t *testing.T, cfg *ExecutionContextConfig, path string) {
+				got, exists := cfg.Servers["bar"]
+				require.True(t, exists)
+				require.Equal(t, []string{"--foo"}, got.Args)
+				require.Equal(t, map[string]string{"KEY": "VAL"}, got.Env)
+				fi, err := os.Stat(path)
+				require.NoError(t, err)
+				require.Greater(t, fi.Size(), int64(0))
+			},
+		},
+		{
+			name: "existing same",
+			existing: map[string]ServerExecutionContext{
+				"baz": {
+					Name: "baz",
+					Args: []string{"--bar"},
+					Env:  map[string]string{"DEBUG": "1"},
+				},
+			},
+			input: ServerExecutionContext{
+				Name: "baz",
+				Args: []string{"--bar"},
+				Env:  map[string]string{"DEBUG": "1"},
+			},
+			expectedResult: Noop,
+			verify: func(t *testing.T, cfg *ExecutionContextConfig, path string) {
+				// File shouldn't exist since we would never have tried to write one.
+				_, err := os.Stat(path)
+				require.Error(t, err)
+			},
+		},
+		{
+			name: "existing updated",
+			existing: map[string]ServerExecutionContext{
+				"baz": {
+					Name: "baz",
+					Args: []string{"--bar"},
+					Env:  map[string]string{"DEBUG": "1"},
+				},
+			},
+			input: ServerExecutionContext{
+				Name: "baz",
+				Args: []string{"--bar", "--extra"},
+				Env:  map[string]string{"DEBUG": "1"},
+			},
+			expectedResult: Updated,
+			verify: func(t *testing.T, cfg *ExecutionContextConfig, path string) {
+				got := cfg.Servers["baz"]
+				require.Equal(t, []string{"--bar", "--extra"}, got.Args)
+				fi, err := os.Stat(path)
+				require.NoError(t, err)
+				require.Greater(t, fi.Size(), int64(0))
+			},
+		},
+		{
+			name: "existing cleared",
+			existing: map[string]ServerExecutionContext{
+				"baz": {
+					Name: "baz",
+					Args: []string{"--bar"},
+					Env:  map[string]string{"DEBUG": "1"},
+				},
+			},
+			input: ServerExecutionContext{
+				Name: "baz",
+				Args: []string{},
+				Env:  map[string]string{},
+			},
+			expectedResult: Deleted,
+			verify: func(t *testing.T, cfg *ExecutionContextConfig, path string) {
+				_, exists := cfg.Servers["baz"]
+				require.False(t, exists)
+				fi, err := os.Stat(path)
+				require.NoError(t, err)
+				require.Greater(t, fi.Size(), int64(0))
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			dir := t.TempDir()
+			path := filepath.Join(dir, ".config", "mcpd", "secrets.test.toml")
+
+			cfg := &ExecutionContextConfig{
+				Servers:  maps.Clone(tt.existing),
+				filePath: path,
+			}
+
+			result, err := cfg.Upsert(tt.input)
+			require.NoError(t, err)
+			require.Equal(t, tt.expectedResult, result)
+			tt.verify(t, cfg, path)
 		})
 	}
 }

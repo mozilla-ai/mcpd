@@ -64,20 +64,18 @@ func (c *ClearCmd) run(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("failed to load execution context config: %w", err)
 	}
 
-	if s, ok := cfg.ListServers()[serverName]; ok {
-		if err := cfg.RemoveServer(serverName); err != nil {
-			return fmt.Errorf("error removing server, failed to clear env var config for '%s': %w", serverName, err)
-		}
-
-		// Clear the env map and reassign the server in the config.
-		s.Env = make(map[string]string)
-
-		if err := cfg.AddServer(s); err != nil {
-			return fmt.Errorf("error re-adding server, failed to clear env var config for '%s': %w", serverName, err)
-		}
+	s, ok := cfg.Get(serverName)
+	if !ok {
+		return fmt.Errorf("server '%s' not found in configuration", serverName)
 	}
 
-	fmt.Fprintf(cmd.OutOrStdout(), "✓ Environment variables cleared for server '%s'\n", serverName)
+	s.Env = make(map[string]string)
+	res, err := cfg.Upsert(s)
+	if err != nil {
+		return fmt.Errorf("error clearing environment variables for server '%s': %w", serverName, err)
+	}
+
+	fmt.Fprintf(cmd.OutOrStdout(), "✓ Environment variables cleared for server '%s' (operation: %s)\n", serverName, string(res))
 
 	return nil
 }

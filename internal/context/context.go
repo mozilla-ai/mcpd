@@ -6,6 +6,7 @@ import (
 	"maps"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 
 	"github.com/BurntSushi/toml"
@@ -19,6 +20,40 @@ type ServerExecutionContext struct {
 	Name string            `toml:"-"`
 	Args []string          `toml:"args,omitempty"`
 	Env  map[string]string `toml:"env,omitempty"`
+}
+
+func (s *ServerExecutionContext) Equals(b ServerExecutionContext) bool {
+	if s.Name != b.Name {
+		return false
+	}
+
+	if !equalSlices(s.Args, b.Args) {
+		return false
+	}
+
+	if len(s.Env) != len(b.Env) || !maps.Equal(s.Env, b.Env) {
+		return false
+	}
+
+	return true
+}
+
+func equalSlices(a []string, b []string) bool {
+	if len(a) != len(b) {
+		return false
+	}
+
+	sortedA := slices.Clone(a)
+	slices.Sort(sortedA)
+
+	sortedB := slices.Clone(b)
+	slices.Sort(sortedB)
+
+	return slices.Equal(sortedA, sortedB)
+}
+
+func (s *ServerExecutionContext) IsEmpty() bool {
+	return len(s.Args) == 0 && len(s.Env) == 0
 }
 
 type DefaultLoader struct{}
@@ -58,46 +93,64 @@ func NewExecutionContextConfig() ExecutionContextConfig {
 	}
 }
 
-func (c *ExecutionContextConfig) AddServer(ec ServerExecutionContext) error {
-	c.Servers[ec.Name] = ec
-
-	// TODO: Any kind of required validation.
-
-	if err := c.saveConfig(); err != nil {
-		return fmt.Errorf("failed to add server, error saving execution context config: %w", err)
-	}
-
-	return nil
-}
-
-func (c *ExecutionContextConfig) RemoveServer(name string) error {
+func (c *ExecutionContextConfig) Get(name string) (ServerExecutionContext, bool) {
 	name = strings.TrimSpace(name)
 	if name == "" {
-		return fmt.Errorf("server name cannot be empty")
+		return ServerExecutionContext{}, false
 	}
 
-	updated := maps.Clone(c.Servers)
-	if _, ok := updated[name]; !ok {
-		return fmt.Errorf("server '%s' not found in execution context config", name)
-	}
-	c.Servers = updated
-	delete(updated, name)
-
-	// TODO: Any kind of required validation.
-
-	if err := c.saveConfig(); err != nil {
-		return fmt.Errorf("failed to remove server, error saving execution context config: %w", err)
+	if srv, ok := c.Servers[name]; ok {
+		return ServerExecutionContext{
+			Name: name,
+			Args: slices.Clone(srv.Args),
+			Env:  maps.Clone(srv.Env),
+		}, true
 	}
 
-	return nil
+	return ServerExecutionContext{}, false
 }
 
-func (c *ExecutionContextConfig) ListServers() map[string]ServerExecutionContext {
-	if len(c.Servers) == 0 {
-		return map[string]ServerExecutionContext{}
+// Upsert updates the execution context for the given server name.
+// If the context is empty and does not exist in config, it does nothing.
+// If the context is empty and previously existed in config, it deletes the entry.
+// If the context differs from the existing one in config, it updates it.
+// If the context is new and non-empty, it adds it.
+// Returns the operation performed (Created, Updated, Deleted, or Noop),
+// and writes changes to disk if applicable.
+func (c *ExecutionContextConfig) Upsert(ec ServerExecutionContext) (UpsertResult, error) {
+	if strings.TrimSpace(ec.Name) == "" {
+		return Noop, fmt.Errorf("server name cannot be empty")
 	}
 
-	return maps.Clone(c.Servers)
+	if len(c.Servers) == 0 {
+		// We've currently got no servers stored in config.
+		c.Servers = map[string]ServerExecutionContext{}
+	}
+
+	current, exists := c.Servers[ec.Name]
+	var op UpsertResult
+
+	switch {
+	case !exists && ec.IsEmpty():
+		return Noop, nil // Nothing existing and trying to save an empty server.
+	case exists && current.Equals(ec):
+		return Noop, nil // No change to existing.
+	case ec.IsEmpty():
+		delete(c.Servers, ec.Name) // Trying to save an empty server over an existing one that wasn't.
+		op = Deleted
+	case exists:
+		op = Updated
+		c.Servers[ec.Name] = ec
+	default:
+		op = Created
+		c.Servers[ec.Name] = ec
+	}
+
+	if err := c.saveConfig(); err != nil {
+		return Noop, fmt.Errorf("error saving execution context config: %w", err)
+	}
+
+	return op, nil
 }
 
 // loadExecutionContextConfig loads a runtime execution context file from disk, using the specified path.

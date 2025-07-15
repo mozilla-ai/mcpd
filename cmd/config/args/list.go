@@ -51,7 +51,7 @@ func (c *ListCmd) run(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("failed to load execution context config: %w", err)
 	}
 
-	server, ok := cfg.ListServers()[serverName]
+	server, ok := cfg.Get(serverName)
 	if !ok {
 		return fmt.Errorf("server '%s' not found in configuration", serverName)
 	}

@@ -65,7 +65,7 @@ func (c *SetCmd) run(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("failed to load execution context config: %w", err)
 	}
 
-	server, exists := cfg.ListServers()[serverName]
+	server, exists := cfg.Get(serverName)
 	if !exists {
 		server.Name = serverName
 	}
@@ -74,28 +74,18 @@ func (c *SetCmd) run(cmd *cobra.Command, args []string) error {
 	if server.Env == nil {
 		server.Env = map[string]string{}
 	}
-	newEnv := maps.Clone(server.Env)
+
 	// Merge or overwrite environment variables
 	for k, v := range envMap {
-		newEnv[k] = v
+		server.Env[k] = v
 	}
 
-	if !maps.Equal(server.Env, newEnv) {
-		if exists {
-			if err := cfg.RemoveServer(serverName); err != nil {
-				return fmt.Errorf("error removing server, failed to set env vars in config for '%s': %w", serverName, err)
-			}
-		}
-
-		// Update
-		server.Env = newEnv
-
-		if err := cfg.AddServer(server); err != nil {
-			return fmt.Errorf("error re-adding server, failed to set env vars in config for '%s': %w", serverName, err)
-		}
+	res, err := cfg.Upsert(server)
+	if err != nil {
+		return fmt.Errorf("error setting environment variables for server '%s': %w", serverName, err)
 	}
 
-	fmt.Fprintf(cmd.OutOrStdout(), "✓ Environment variables set for server '%s': %v\n", serverName, slices.Collect(maps.Keys(envMap)))
+	fmt.Fprintf(cmd.OutOrStdout(), "✓ Environment variables set for server '%s' (operation: %s): %v\n", serverName, string(res), slices.Collect(maps.Keys(envMap)))
 
 	return nil
 }

@@ -64,19 +64,18 @@ func (c *ClearCmd) run(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("failed to load execution context config: %w", err)
 	}
 
-	if s, ok := cfg.ListServers()[serverName]; ok {
-		if err := cfg.RemoveServer(serverName); err != nil {
-			return fmt.Errorf("error removing server, failed to clear argument config for '%s': %w", serverName, err)
-		}
-
-		s.Args = []string{}
-
-		if err := cfg.AddServer(s); err != nil {
-			return fmt.Errorf("error re-adding server, failed to clear argument config for '%s': %w", serverName, err)
-		}
+	s, ok := cfg.Get(serverName)
+	if !ok {
+		return fmt.Errorf("server '%s' not found in configuration", serverName)
 	}
 
-	fmt.Fprintf(cmd.OutOrStdout(), "✓ Arguments cleared for server '%s'\n", serverName)
+	s.Args = []string{}
+	res, err := cfg.Upsert(s)
+	if err != nil {
+		return fmt.Errorf("error clearing arguments for server '%s': %w", serverName, err)
+	}
+
+	fmt.Fprintf(cmd.OutOrStdout(), "✓ Arguments cleared for server '%s' (operation: %s)\n", serverName, string(res))
 
 	return nil
 }

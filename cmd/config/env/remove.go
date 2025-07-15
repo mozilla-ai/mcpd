@@ -62,27 +62,20 @@ func (c *RemoveCmd) run(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("failed to load execution context config: %w", err)
 	}
 
-	if serverCtx := cfg.ListServers()[serverName]; serverCtx.Env != nil {
-		evs := maps.Clone(serverCtx.Env)
-		for key := range envMap {
-			delete(evs, key)
-		}
-
-		// Only modify the file if there are actual changes to be made.
-		if !maps.Equal(evs, serverCtx.Env) {
-			if err := cfg.RemoveServer(serverName); err != nil {
-				return fmt.Errorf("error removing server, failed to remove env vars from config for '%s': %w", serverName, err)
-			}
-
-			serverCtx.Env = evs
-
-			if err := cfg.AddServer(serverCtx); err != nil {
-				return fmt.Errorf("error re-adding server, failed to remove env vars from config for '%s': %w", serverName, err)
-			}
-		}
+	serverCtx, ok := cfg.Get(serverName)
+	if !ok {
+		return fmt.Errorf("server '%s' not found in configuration", serverName)
 	}
 
-	fmt.Fprintf(cmd.OutOrStdout(), "✓ Environment variables removed for server '%s': %v\n", serverName, slices.Collect(maps.Keys(envMap)))
+	for key := range envMap {
+		delete(serverCtx.Env, key)
+	}
+	res, err := cfg.Upsert(serverCtx)
+	if err != nil {
+		return fmt.Errorf("error removing environment variables for server '%s': %w", serverName, err)
+	}
+
+	fmt.Fprintf(cmd.OutOrStdout(), "✓ Environment variables removed for server '%s' (operation: %s): %v\n", serverName, string(res), slices.Collect(maps.Keys(envMap)))
 
 	return nil
 }

@@ -2,7 +2,6 @@ package args
 
 import (
 	"fmt"
-	"slices"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -63,31 +62,25 @@ func (c *SetCmd) run(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("failed to load execution context config: %w", err)
 	}
 
-	server, exists := cfg.ListServers()[serverName]
+	server, exists := cfg.Get(serverName)
 	if !exists {
 		server.Name = serverName
 	}
 
 	newArgs := config.MergeArgs(server.Args, normalizedArgs)
-	if !slices.Equal(newArgs, server.Args) {
-		if exists {
-			if err := cfg.RemoveServer(serverName); err != nil {
-				return fmt.Errorf("error removing server, failed to set args in config for '%s': %w", serverName, err)
-			}
-		}
 
-		// Update...
-		server.Args = newArgs
-		if len(server.Env) == 0 {
-			server.Env = map[string]string{}
-		}
-
-		if err := cfg.AddServer(server); err != nil {
-			return fmt.Errorf("error re-adding server, failed to set args in config for '%s': %w", serverName, err)
-		}
+	// Update...
+	server.Args = newArgs
+	if len(server.Env) == 0 {
+		server.Env = map[string]string{}
 	}
 
-	fmt.Fprintf(cmd.OutOrStdout(), "✓ Startup arguments set for server '%s': %v\n", serverName, normalizedArgs)
+	res, err := cfg.Upsert(server)
+	if err != nil {
+		return fmt.Errorf("error setting arguments for server '%s': %w", serverName, err)
+	}
+
+	fmt.Fprintf(cmd.OutOrStdout(), "✓ Startup arguments set for server '%s' (operation: %s): %v\n", serverName, string(res), normalizedArgs)
 
 	return nil
 }

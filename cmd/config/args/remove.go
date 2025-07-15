@@ -63,26 +63,22 @@ func (c *RemoveCmd) run(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("failed to load execution context config: %w", err)
 	}
 
-	if serverCtx, ok := cfg.ListServers()[serverName]; ok && serverCtx.Args != nil {
-		toRemove := slices.Collect(maps.Keys(argMap))
-		filtered := config.RemoveMatchingFlags(serverCtx.Args, toRemove)
-
-		// Only modify the file if there are actual changes to be made.
-		if !slices.Equal(slices.Clone(serverCtx.Args), slices.Clone(filtered)) {
-			if err := cfg.RemoveServer(serverName); err != nil {
-				return fmt.Errorf("error removing server, failed to remove args from config for '%s': %w", serverName, err)
-			}
-
-			// Update the args, and the server.
-			serverCtx.Args = filtered
-
-			if err := cfg.AddServer(serverCtx); err != nil {
-				return fmt.Errorf("error re-adding server, failed to remove args from config for '%s': %w", serverName, err)
-			}
-		}
+	serverCtx, ok := cfg.Get(serverName)
+	if !ok {
+		return fmt.Errorf("server '%s' not found in configuration", serverName)
 	}
 
-	fmt.Fprintf(cmd.OutOrStdout(), "✓ Args removed for server '%s': %v\n", serverName, slices.Collect(maps.Keys(argMap)))
+	toRemove := slices.Collect(maps.Keys(argMap))
+	filtered := config.RemoveMatchingFlags(serverCtx.Args, toRemove)
+
+	// Update the args, and the server.
+	serverCtx.Args = filtered
+	res, err := cfg.Upsert(serverCtx)
+	if err != nil {
+		return fmt.Errorf("error removing arguments for server '%s': %w", serverName, err)
+	}
+
+	fmt.Fprintf(cmd.OutOrStdout(), "✓ Arguments removed for server '%s' (operation: %s): %v\n", serverName, string(res), slices.Collect(maps.Keys(argMap)))
 
 	return nil
 }
