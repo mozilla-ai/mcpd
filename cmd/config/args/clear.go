@@ -14,12 +14,19 @@ import (
 
 type ClearCmd struct {
 	*cmd.BaseCmd
-	Force bool
+	Force     bool
+	ctxLoader context.Loader
 }
 
-func NewClearCmd(baseCmd *cmd.BaseCmd, _ ...options.CmdOption) (*cobra.Command, error) {
+func NewClearCmd(baseCmd *cmd.BaseCmd, opt ...options.CmdOption) (*cobra.Command, error) {
+	opts, err := options.NewOptions(opt...)
+	if err != nil {
+		return nil, err
+	}
+
 	c := &ClearCmd{
-		BaseCmd: baseCmd,
+		BaseCmd:   baseCmd,
+		ctxLoader: opts.ContextLoader,
 	}
 
 	cobraCmd := &cobra.Command{
@@ -52,20 +59,24 @@ func (c *ClearCmd) run(cmd *cobra.Command, args []string) error {
 			"please re-run the command with the --force flag", serverName)
 	}
 
-	cfg, err := context.LoadExecutionContextConfig(flags.RuntimeFile)
+	cfg, err := c.ctxLoader.Load(flags.RuntimeFile)
 	if err != nil {
 		return fmt.Errorf("failed to load execution context config: %w", err)
 	}
 
-	if s, ok := cfg.Servers[serverName]; ok {
-		// Clear and reassign the server in the config.
+	if s, ok := cfg.ListServers()[serverName]; ok {
+		if err := cfg.RemoveServer(serverName); err != nil {
+			return fmt.Errorf("error removing server, failed to clear argument config for '%s': %w", serverName, err)
+		}
+
 		s.Args = []string{}
-		cfg.Servers[serverName] = s
-		if err := context.SaveExecutionContextConfig(flags.RuntimeFile, cfg); err != nil {
-			return fmt.Errorf("failed to clear argument config for '%s': %w", serverName, err)
+
+		if err := cfg.AddServer(s); err != nil {
+			return fmt.Errorf("error re-adding server, failed to clear argument config for '%s': %w", serverName, err)
 		}
 	}
 
 	fmt.Fprintf(cmd.OutOrStdout(), "✓ Arguments cleared for server '%s'\n", serverName)
+
 	return nil
 }

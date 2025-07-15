@@ -14,6 +14,7 @@ import (
 	"github.com/mozilla-ai/mcpd/v2/internal/cmd"
 	cmdopts "github.com/mozilla-ai/mcpd/v2/internal/cmd/options"
 	"github.com/mozilla-ai/mcpd/v2/internal/config"
+	configcontext "github.com/mozilla-ai/mcpd/v2/internal/context"
 	"github.com/mozilla-ai/mcpd/v2/internal/daemon"
 	"github.com/mozilla-ai/mcpd/v2/internal/flags"
 )
@@ -24,6 +25,7 @@ type DaemonCmd struct {
 	Dev       bool
 	Addr      string
 	cfgLoader config.Loader
+	ctxLoader configcontext.Loader
 }
 
 // NewDaemonCmd creates a newly configured (Cobra) command.
@@ -36,6 +38,7 @@ func NewDaemonCmd(baseCmd *cmd.BaseCmd, opt ...cmdopts.CmdOption) (*cobra.Comman
 	c := &DaemonCmd{
 		BaseCmd:   baseCmd,
 		cfgLoader: opts.ConfigLoader,
+		ctxLoader: opts.ContextLoader,
 	}
 
 	cobraCommand := &cobra.Command{
@@ -86,7 +89,11 @@ func (c *DaemonCmd) run(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	d, err := daemon.NewDaemon(logger, c.cfgLoader, addr)
+	opts, err := daemon.NewDaemonOpts(logger, c.cfgLoader, c.ctxLoader)
+	if err != nil {
+		return fmt.Errorf("error configuring mcpd daemon options: %w", err)
+	}
+	d, err := daemon.NewDaemon(addr, opts)
 	if err != nil {
 		return fmt.Errorf("failed to create mcpd daemon instance: %w", err)
 	}

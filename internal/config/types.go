@@ -33,7 +33,7 @@ type DefaultLoader struct{}
 // Config represents the .mcpd.toml file structure.
 type Config struct {
 	Servers        []ServerEntry `toml:"servers"`
-	configFilePath string
+	configFilePath string        `toml:"-"`
 }
 
 // ServerEntry represents the configuration of a single versioned MCP Server and tools.

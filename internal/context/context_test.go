@@ -63,7 +63,8 @@ FOO = "bar"
 			t.Parallel()
 
 			path := tc.setup(t)
-			cfg, err := LoadOrInitExecutionContext(path)
+			loader := DefaultLoader{}
+			cfg, err := loader.Load(path)
 
 			if tc.wantErr {
 				require.Error(t, err)
@@ -74,11 +75,11 @@ FOO = "bar"
 
 			require.NoError(t, err)
 			if tc.expectInit {
-				require.Empty(t, cfg.Servers)
+				require.Empty(t, cfg.ListServers())
 			} else {
-				require.Contains(t, cfg.Servers, "myserver")
-				require.Equal(t, []string{"--foo", "--bar"}, cfg.Servers["myserver"].Args)
-				require.Equal(t, "bar", cfg.Servers["myserver"].Env["FOO"])
+				require.Contains(t, cfg.ListServers(), "myserver")
+				require.Equal(t, []string{"--foo", "--bar"}, cfg.ListServers()["myserver"].Args)
+				require.Equal(t, "bar", cfg.ListServers()["myserver"].Env["FOO"])
 			}
 		})
 	}
@@ -92,18 +93,23 @@ func TestSaveAndLoadExecutionContextConfig(t *testing.T) {
 	// Include extra, currently non-existing folder along the way.
 	path := filepath.Join(dir, ".config", "mcpd", "secrets.dev.toml")
 
-	original := ExecutionContextConfig{
+	original := &ExecutionContextConfig{
 		Servers: map[string]ServerExecutionContext{
 			"alpha": {
+				Name: "alpha",
 				Args: []string{"--debug"},
 				Env:  map[string]string{"KEY": "VALUE"},
 			},
 		},
+		filePath: path,
 	}
 
-	require.NoError(t, SaveExecutionContextConfig(path, original))
-	loaded, err := LoadExecutionContextConfig(path)
+	require.NoError(t, original.saveConfig())
+
+	loader := DefaultLoader{}
+	loaded, err := loader.Load(path)
 	require.NoError(t, err)
+
 	require.Equal(t, original, loaded)
 }
 

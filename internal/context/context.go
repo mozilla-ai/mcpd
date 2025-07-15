@@ -3,6 +3,7 @@ package context
 import (
 	"errors"
 	"fmt"
+	"maps"
 	"os"
 	"path/filepath"
 	"strings"
@@ -15,13 +16,39 @@ const EnvVarXDGConfigHome = "XDG_CONFIG_HOME"
 
 // ServerExecutionContext stores execution context data for an MCP server.
 type ServerExecutionContext struct {
+	Name string            `toml:"-"`
 	Args []string          `toml:"args,omitempty"`
 	Env  map[string]string `toml:"env,omitempty"`
 }
 
+type DefaultLoader struct{}
+
+func (d *DefaultLoader) Load(path string) (Modifier, error) {
+	path = strings.TrimSpace(path)
+	if path == "" {
+		return nil, fmt.Errorf("path cannot be empty")
+	}
+
+	cfg, err := loadExecutionContextConfig(path)
+	if err != nil {
+		if !errors.Is(err, os.ErrNotExist) {
+			return nil, fmt.Errorf("failed to load execution context config: %w", err)
+		}
+
+		// Config doesn't exist yet, so create a new instance to interact with.
+		cfg = NewExecutionContextConfig()
+	}
+
+	// Update the file path to allow saving later.
+	cfg.filePath = path
+
+	return &cfg, nil
+}
+
 // ExecutionContextConfig stores execution context data for all configured MCP servers.
 type ExecutionContextConfig struct {
-	Servers map[string]ServerExecutionContext `toml:"servers"`
+	Servers  map[string]ServerExecutionContext `toml:"servers"`
+	filePath string                            `toml:"-"`
 }
 
 // NewExecutionContextConfig returns a newly initialized ExecutionContextConfig.
@@ -31,22 +58,50 @@ func NewExecutionContextConfig() ExecutionContextConfig {
 	}
 }
 
-// LoadOrInitExecutionContext loads a runtime execution context file from disk, using the specified path.
-// If the file does not exist a newly initialized ExecutionContextConfig is returned.
-func LoadOrInitExecutionContext(path string) (ExecutionContextConfig, error) {
-	cfg, err := LoadExecutionContextConfig(path)
-	if err != nil {
-		if errors.Is(err, os.ErrNotExist) {
-			// Return a newly initialized execution context config since the file doesn't exist.
-			return NewExecutionContextConfig(), nil
-		}
-		return ExecutionContextConfig{}, fmt.Errorf("failed to load execution context config: %w", err)
+func (c *ExecutionContextConfig) AddServer(ec ServerExecutionContext) error {
+	c.Servers[ec.Name] = ec
+
+	// TODO: Any kind of required validation.
+
+	if err := c.saveConfig(); err != nil {
+		return fmt.Errorf("failed to add server, error saving execution context config: %w", err)
 	}
-	return cfg, nil
+
+	return nil
 }
 
-// LoadExecutionContextConfig loads a runtime execution context file from disk, using the specified path.
-func LoadExecutionContextConfig(path string) (ExecutionContextConfig, error) {
+func (c *ExecutionContextConfig) RemoveServer(name string) error {
+	name = strings.TrimSpace(name)
+	if name == "" {
+		return fmt.Errorf("server name cannot be empty")
+	}
+
+	updated := maps.Clone(c.Servers)
+	if _, ok := updated[name]; !ok {
+		return fmt.Errorf("server '%s' not found in execution context config", name)
+	}
+	c.Servers = updated
+	delete(updated, name)
+
+	// TODO: Any kind of required validation.
+
+	if err := c.saveConfig(); err != nil {
+		return fmt.Errorf("failed to remove server, error saving execution context config: %w", err)
+	}
+
+	return nil
+}
+
+func (c *ExecutionContextConfig) ListServers() map[string]ServerExecutionContext {
+	if len(c.Servers) == 0 {
+		return map[string]ServerExecutionContext{}
+	}
+
+	return maps.Clone(c.Servers)
+}
+
+// loadExecutionContextConfig loads a runtime execution context file from disk, using the specified path.
+func loadExecutionContextConfig(path string) (ExecutionContextConfig, error) { // TODO: unexport
 	var cfg ExecutionContextConfig
 
 	if _, err := os.Stat(path); err != nil {
@@ -61,11 +116,21 @@ func LoadExecutionContextConfig(path string) (ExecutionContextConfig, error) {
 		return cfg, fmt.Errorf("execution context file '%s' could not be parsed: %w", path, err)
 	}
 
+	// Manually set the name field for each ServerExecutionContext.
+	for name, server := range cfg.Servers {
+		server.Name = name
+		cfg.Servers[name] = server
+	}
+
 	return cfg, nil
 }
 
-// SaveExecutionContextConfig saves a runtime execution context file to disk, using the specified path.
-func SaveExecutionContextConfig(path string, cfg ExecutionContextConfig) (err error) {
+func (c *ExecutionContextConfig) saveConfig() error {
+	path := c.filePath
+	if path == "" {
+		return fmt.Errorf("config file path not present")
+	}
+
 	// Ensure the directory exists before creating the file...
 	// owner: rwx, group: r--, others: ---
 	if err := os.MkdirAll(filepath.Dir(path), 0o740); err != nil {
@@ -88,7 +153,7 @@ func SaveExecutionContextConfig(path string, cfg ExecutionContextConfig) (err er
 	}(f)
 
 	encoder := toml.NewEncoder(f)
-	if err := encoder.Encode(cfg); err != nil {
+	if err := encoder.Encode(c); err != nil {
 		return fmt.Errorf("could not encode execution context to file '%s': %w", path, err)
 	}
 

@@ -2,6 +2,7 @@ package args
 
 import (
 	"fmt"
+	"slices"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -15,11 +16,18 @@ import (
 
 type SetCmd struct {
 	*cmd.BaseCmd
+	ctxLoader context.Loader
 }
 
-func NewSetCmd(baseCmd *cmd.BaseCmd, _ ...cmdopts.CmdOption) (*cobra.Command, error) {
+func NewSetCmd(baseCmd *cmd.BaseCmd, opt ...cmdopts.CmdOption) (*cobra.Command, error) {
+	opts, err := cmdopts.NewOptions(opt...)
+	if err != nil {
+		return nil, err
+	}
+
 	c := &SetCmd{
-		BaseCmd: baseCmd,
+		BaseCmd:   baseCmd,
+		ctxLoader: opts.ContextLoader,
 	}
 
 	cobraCmd := &cobra.Command{
@@ -49,23 +57,32 @@ func (c *SetCmd) run(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("server-name is required")
 	}
 
-	fmt.Fprintf(cmd.OutOrStdout(), "args: %#v\n", args)
-
 	normalizedArgs := config.NormalizeArgs(args[1:])
-	cfg, err := context.LoadOrInitExecutionContext(flags.RuntimeFile)
+	cfg, err := c.ctxLoader.Load(flags.RuntimeFile)
 	if err != nil {
 		return fmt.Errorf("failed to load execution context config: %w", err)
 	}
 
-	serverCtx := cfg.Servers[serverName]
-	serverCtx.Args = config.MergeArgs(serverCtx.Args, normalizedArgs)
-	if serverCtx.Env == nil {
-		serverCtx.Env = map[string]string{}
+	server, ok := cfg.ListServers()[serverName]
+	if !ok {
+		return fmt.Errorf("server '%s' not found in configuration", serverName)
 	}
-	cfg.Servers[serverName] = serverCtx
 
-	if err := context.SaveExecutionContextConfig(flags.RuntimeFile, cfg); err != nil {
-		return fmt.Errorf("failed to save config: %w", err)
+	newArgs := config.MergeArgs(server.Args, normalizedArgs)
+	if !slices.Equal(newArgs, server.Args) {
+		if err := cfg.RemoveServer(serverName); err != nil {
+			return fmt.Errorf("error removing server, failed to set args in config for '%s': %w", serverName, err)
+		}
+
+		// Update...
+		server.Args = newArgs
+		if len(server.Env) == 0 {
+			server.Env = map[string]string{}
+		}
+
+		if err := cfg.AddServer(server); err != nil {
+			return fmt.Errorf("error re-adding server, failed to set args in config for '%s': %w", serverName, err)
+		}
 	}
 
 	fmt.Fprintf(cmd.OutOrStdout(), "✓ Startup arguments set for server '%s': %v\n", serverName, normalizedArgs)

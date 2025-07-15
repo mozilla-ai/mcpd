@@ -9,17 +9,27 @@ import (
 
 	"github.com/mozilla-ai/mcpd/v2/internal/cmd"
 	"github.com/mozilla-ai/mcpd/v2/internal/cmd/options"
+	"github.com/mozilla-ai/mcpd/v2/internal/config"
 	"github.com/mozilla-ai/mcpd/v2/internal/context"
 	"github.com/mozilla-ai/mcpd/v2/internal/flags"
 )
 
 type ListCmd struct {
 	*cmd.BaseCmd
+	cfgLoader config.Loader
+	ctxLoader context.Loader
 }
 
-func NewListCmd(baseCmd *cmd.BaseCmd, _ ...options.CmdOption) (*cobra.Command, error) {
+func NewListCmd(baseCmd *cmd.BaseCmd, opt ...options.CmdOption) (*cobra.Command, error) {
+	opts, err := options.NewOptions(opt...)
+	if err != nil {
+		return nil, err
+	}
+
 	c := &ListCmd{
-		BaseCmd: baseCmd,
+		BaseCmd:   baseCmd,
+		cfgLoader: opts.ConfigLoader,
+		ctxLoader: opts.ContextLoader,
 	}
 
 	cobraCmd := &cobra.Command{
@@ -40,12 +50,12 @@ func (c *ListCmd) run(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("server-name is required")
 	}
 
-	cfg, err := context.LoadExecutionContextConfig(flags.RuntimeFile)
+	cfg, err := c.ctxLoader.Load(flags.RuntimeFile)
 	if err != nil {
 		return fmt.Errorf("failed to load execution context config: %w", err)
 	}
 
-	server, ok := cfg.Servers[serverName]
+	server, ok := cfg.ListServers()[serverName]
 	if !ok {
 		return fmt.Errorf("server '%s' not found in configuration", serverName)
 	}

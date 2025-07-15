@@ -16,11 +16,18 @@ import (
 
 type SetCmd struct {
 	*cmd.BaseCmd
+	ctxLoader context.Loader
 }
 
-func NewSetCmd(baseCmd *cmd.BaseCmd, _ ...options.CmdOption) (*cobra.Command, error) {
+func NewSetCmd(baseCmd *cmd.BaseCmd, opt ...options.CmdOption) (*cobra.Command, error) {
+	opts, err := options.NewOptions(opt...)
+	if err != nil {
+		return nil, err
+	}
+
 	c := &SetCmd{
-		BaseCmd: baseCmd,
+		BaseCmd:   baseCmd,
+		ctxLoader: opts.ContextLoader,
 	}
 
 	cobraCmd := &cobra.Command{
@@ -53,26 +60,40 @@ func (c *SetCmd) run(cmd *cobra.Command, args []string) error {
 		envMap[key] = value
 	}
 
-	cfg, err := context.LoadOrInitExecutionContext(flags.RuntimeFile)
+	cfg, err := c.ctxLoader.Load(flags.RuntimeFile)
 	if err != nil {
 		return fmt.Errorf("failed to load execution context config: %w", err)
 	}
 
-	serverCtx := cfg.Servers[serverName]
+	serverCtx, ok := cfg.ListServers()[serverName]
+	if !ok {
+		return fmt.Errorf("server '%s' not found in configuration", serverName)
+	}
+
+	// Ensure the map is initialized, in case it didn't exist before.
 	if serverCtx.Env == nil {
 		serverCtx.Env = map[string]string{}
 	}
-
+	newEnv := maps.Clone(serverCtx.Env)
 	// Merge or overwrite environment variables
 	for k, v := range envMap {
-		serverCtx.Env[k] = v
+		newEnv[k] = v
 	}
-	cfg.Servers[serverName] = serverCtx
 
-	if err := context.SaveExecutionContextConfig(flags.RuntimeFile, cfg); err != nil {
-		return fmt.Errorf("failed to save config: %w", err)
+	if !maps.Equal(serverCtx.Env, newEnv) {
+		if err := cfg.RemoveServer(serverName); err != nil {
+			return fmt.Errorf("error removing server, failed to set env vars in config for '%s': %w", serverName, err)
+		}
+
+		// Update
+		serverCtx.Env = newEnv
+
+		if err := cfg.AddServer(serverCtx); err != nil {
+			return fmt.Errorf("error re-adding server, failed to set env vars in config for '%s': %w", serverName, err)
+		}
 	}
 
 	fmt.Fprintf(cmd.OutOrStdout(), "✓ Environment variables set for server '%s': %v\n", serverName, slices.Collect(maps.Keys(envMap)))
+
 	return nil
 }

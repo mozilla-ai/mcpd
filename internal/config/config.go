@@ -29,6 +29,11 @@ func (d *DefaultLoader) Init(path string) error {
 }
 
 func (d *DefaultLoader) Load(path string) (Modifier, error) {
+	path = strings.TrimSpace(path)
+	if path == "" {
+		return nil, fmt.Errorf("path cannot be empty")
+	}
+
 	_, err := os.Stat(path)
 	if err != nil {
 		if os.IsNotExist(err) {

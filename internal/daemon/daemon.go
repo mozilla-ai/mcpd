@@ -37,37 +37,55 @@ type Daemon struct {
 	runtimeCfg        []runtime.Server
 }
 
-func NewDaemon(logger hclog.Logger, cfgLoader config.Loader, apiAddr string) (*Daemon, error) {
+type Opts struct {
+	logger    hclog.Logger
+	cfgLoader config.Loader
+	ctxLoader configcontext.Loader
+}
+
+func NewDaemonOpts(logger hclog.Logger, cfgLoader config.Loader, ctxLoader configcontext.Loader) (*Opts, error) {
 	if logger == nil || reflect.ValueOf(logger).IsNil() {
 		return nil, fmt.Errorf("logger cannot be nil")
 	}
 	if cfgLoader == nil || reflect.ValueOf(cfgLoader).IsNil() {
 		return nil, fmt.Errorf("config loader cannot be nil")
 	}
+	if ctxLoader == nil || reflect.ValueOf(ctxLoader).IsNil() {
+		return nil, fmt.Errorf("runtime execution context config loader cannot be nil")
+	}
+
+	return &Opts{
+		logger:    logger,
+		cfgLoader: cfgLoader,
+		ctxLoader: ctxLoader,
+	}, nil
+}
+
+func NewDaemon(apiAddr string, opts *Opts) (*Daemon, error) {
 	if err := IsValidAddr(apiAddr); err != nil {
-		return nil, fmt.Errorf("invalid api address '%s': %w", apiAddr, err)
+		return nil, fmt.Errorf("invalid API address '%s': %w", apiAddr, err)
 	}
 
 	// Load config.
-	cfg, err := loadConfig(cfgLoader)
+	cfg, err := loadConfig(opts.cfgLoader, opts.ctxLoader)
 	if err != nil {
 		return nil, err
 	}
 
 	var serverNames []string
 	for _, r := range cfg {
-		serverNames = append(serverNames, r.Name)
+		serverNames = append(serverNames, r.Name())
 	}
 
 	healthTracker := NewHealthTracker(serverNames)
 	clientManager := NewClientManager()
-	apiServer, err := NewApiServer(logger, clientManager, healthTracker, apiAddr)
+	apiServer, err := NewApiServer(opts.logger, clientManager, healthTracker, apiAddr)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create daemon API server: %w", err)
 	}
 
 	return &Daemon{
-		logger:            logger.Named("daemon"),
+		logger:            opts.logger.Named("daemon"),
 		clientManager:     clientManager,
 		healthTracker:     healthTracker,
 		apiServer:         apiServer,
@@ -115,7 +133,7 @@ func (d *Daemon) startMCPServers(ctx context.Context) error {
 		runGroup.Go(func() error {
 			if err := d.startMCPServer(runCtx, s); err != nil {
 				mu.Lock()
-				errs = append(errs, fmt.Errorf("%s: %w", s.Name, err))
+				errs = append(errs, fmt.Errorf("%s: %w", s.Name(), err))
 				mu.Unlock()
 			}
 			// Since errors are collected, return nil to prevent context cancellation.
@@ -134,10 +152,10 @@ func (d *Daemon) startMCPServers(ctx context.Context) error {
 func (d *Daemon) startMCPServer(ctx context.Context, server runtime.Server) error {
 	runtimeBinary := server.Runtime()
 	if _, supported := d.supportedRuntimes[runtime.Runtime(runtimeBinary)]; !supported {
-		return fmt.Errorf("unsupported runtime/repository '%s' for MCP server daemon '%s'", runtimeBinary, server.Name)
+		return fmt.Errorf("unsupported runtime/repository '%s' for MCP server daemon '%s'", runtimeBinary, server.Name())
 	}
 
-	logger := d.logger.Named("mcp").Named(server.Name)
+	logger := d.logger.Named("mcp").Named(server.Name())
 
 	// Strip arbitrary package prefix (e.g. uvx::)
 	packageNameAndVersion := strings.TrimPrefix(server.Package, runtimeBinary+"::")
@@ -153,7 +171,7 @@ func (d *Daemon) startMCPServer(ctx context.Context, server runtime.Server) erro
 
 	stdioClient, err := client.NewStdioMCPClient(runtimeBinary, server.Environ(), args...)
 	if err != nil {
-		return fmt.Errorf("error starting MCP server: '%s': %w", server.Name, err)
+		return fmt.Errorf("error starting MCP server: '%s': %w", server.Name(), err)
 	}
 
 	logger.Info("Started")
@@ -161,7 +179,7 @@ func (d *Daemon) startMCPServer(ctx context.Context, server runtime.Server) erro
 	// Get stderr reader
 	stderr, ok := client.GetStderr(stdioClient)
 	if !ok {
-		return fmt.Errorf("failed to get stderr from new MCP client: '%s'", server.Name)
+		return fmt.Errorf("failed to get stderr from new MCP client: '%s'", server.Name())
 	}
 
 	// Pipe stderr to logger and terminal
@@ -200,14 +218,14 @@ func (d *Daemon) startMCPServer(ctx context.Context, server runtime.Server) erro
 			},
 		})
 	if err != nil {
-		return fmt.Errorf("error initializing MCP client: '%s': %w", server.Name, err)
+		return fmt.Errorf("error initializing MCP client: '%s': %w", server.Name(), err)
 	}
 
 	packageNameAndVersion = fmt.Sprintf("%s@%s", initResult.ServerInfo.Name, initResult.ServerInfo.Version)
 	logger.Info(fmt.Sprintf("Initialized: '%s'", packageNameAndVersion))
 
 	// Store the client.
-	d.clientManager.Add(server.Name, stdioClient, server.Tools)
+	d.clientManager.Add(server.Name(), stdioClient, server.Tools)
 
 	logger.Info("Ready!")
 
@@ -383,13 +401,13 @@ func normalizeLogLevel(level string) hclog.Level {
 	}
 }
 
-func loadConfig(cfgLoader config.Loader) ([]runtime.Server, error) {
+func loadConfig(cfgLoader config.Loader, ctxLoader configcontext.Loader) ([]runtime.Server, error) {
 	cfg, err := cfgLoader.Load(flags.ConfigFile)
 	if err != nil {
 		return nil, err
 	}
 
-	execCtx, err := configcontext.LoadExecutionContextConfig(flags.RuntimeFile)
+	execCtx, err := ctxLoader.Load(flags.RuntimeFile)
 	if err != nil {
 		return nil, err
 	}
