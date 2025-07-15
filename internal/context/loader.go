@@ -12,6 +12,11 @@ type Loader interface {
 type Modifier interface {
 	Get(name string) (ServerExecutionContext, bool)
 	Upsert(ctx ServerExecutionContext) (UpsertResult, error)
+	List() []ServerExecutionContext
+}
+
+type Exporter interface {
+	Export(path string) error
 }
 
 type UpsertResult string
