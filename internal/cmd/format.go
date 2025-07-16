@@ -48,6 +48,7 @@ func (f *OutputFormat) String() string {
 // Set is used by Cobra to set the export format value from a string.
 // This is also required by Cobra as part of implementing flag.Value.
 func (f *OutputFormat) Set(v string) error {
+	v = strings.ToLower(strings.TrimSpace(v))
 	allowed := AllowedOutputFormats()
 
 	for _, a := range allowed {
