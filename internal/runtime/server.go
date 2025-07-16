@@ -30,6 +30,32 @@ func (s *Server) Runtime() string {
 	return ""
 }
 
+func (s *Server) ResolvedArgs() []string {
+	return expandEnvSlice(s.Args)
+}
+
+// Environ returns the server's effective environment with overrides applied,
+// irrelevant variables stripped, and any ${VAR} references expanded.
+func (s *Server) Environ() []string {
+	baseEnvs := os.Environ()
+
+	overrideEnvs := make([]string, 0, len(s.Env))
+	for k, v := range s.Env {
+		overrideEnvs = append(overrideEnvs, fmt.Sprintf("%s=%s", k, v))
+	}
+
+	// Merge the server's environment variables on top of the existing environment.
+	mergedEnvs := mergeEnvs(baseEnvs, overrideEnvs)
+
+	// Filter the environment to remove vars for other MCP servers or mcpd itself.
+	filteredEnvs := filterEnv(mergedEnvs, s.Name())
+
+	// Expand any variables that use templating ${}.
+	expandedEnvs := expandEnvSlice(filteredEnvs)
+
+	return expandedEnvs
+}
+
 // AggregateConfigs merges static server config with any matching execution context overrides.
 // Returns (unresolved) runtime configuration for all servers.
 func AggregateConfigs(
@@ -59,28 +85,6 @@ func AggregateConfigs(
 	}
 
 	return runtimeCfg, nil
-}
-
-// Environ returns the server's effective environment with overrides applied,
-// irrelevant variables stripped, and any ${VAR} references expanded.
-func (s *Server) Environ() []string {
-	baseEnvs := os.Environ()
-
-	overrideEnvs := make([]string, 0, len(s.Env))
-	for k, v := range s.Env {
-		overrideEnvs = append(overrideEnvs, fmt.Sprintf("%s=%s", k, v))
-	}
-
-	// Merge the server's environment variables on top of the existing environment.
-	mergedEnvs := mergeEnvs(baseEnvs, overrideEnvs)
-
-	// Filter the environment to remove vars for other MCP servers or mcpd itself.
-	filteredEnvs := filterEnv(mergedEnvs, s.Name())
-
-	// Expand any variables that use templating ${}.
-	expandedEnvs := expandEnvSlice(filteredEnvs)
-
-	return expandedEnvs
 }
 
 // mergeEnvs combines two environment slices, applying overrides where keys overlap.
@@ -255,8 +259,4 @@ func expandEnvSlice(input []string) []string {
 	}
 
 	return result
-}
-
-func (s *Server) ResolvedArgs() []string {
-	return expandEnvSlice(s.Args)
 }

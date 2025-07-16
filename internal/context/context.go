@@ -1,6 +1,7 @@
 package context
 
 import (
+	"cmp"
 	"errors"
 	"fmt"
 	"maps"
@@ -91,6 +92,63 @@ func NewExecutionContextConfig() ExecutionContextConfig {
 	return ExecutionContextConfig{
 		Servers: map[string]ServerExecutionContext{},
 	}
+}
+
+func (c *ExecutionContextConfig) Export(path string) error {
+	if len(c.Servers) == 0 {
+		return fmt.Errorf("export error, no servers defined in execution context config")
+	}
+
+	const appName = "MCPD" // TODO: Reference shared app name.
+
+	res := ExecutionContextConfig{
+		Servers:  map[string]ServerExecutionContext{},
+		filePath: path,
+	}
+
+	for name, srv := range c.Servers {
+		n := strings.ToUpper(strings.ReplaceAll(name, "-", "_"))
+		envs := map[string]string{}
+		args := make([]string, len(srv.Args))
+
+		for k := range srv.Env {
+			key := strings.ToUpper(k)
+			value := fmt.Sprintf("${%s__%s__%s}", appName, n, key)
+			envs[k] = value
+		}
+
+		for i, v := range srv.Args {
+			if idx := strings.IndexByte(v, '='); idx != -1 {
+				arg := v[:idx]
+				parsed := strings.ToUpper(strings.ReplaceAll(strings.TrimLeft(arg, "--"), "-", "_"))
+				args[i] = fmt.Sprintf("%s=${%s__%s__ARG__%s}", arg, appName, n, parsed)
+			} else {
+				args[i] = v
+			}
+		}
+
+		res.Servers[name] = ServerExecutionContext{
+			Name: name,
+			Args: args,
+			Env:  envs,
+		}
+	}
+
+	if err := res.saveConfig(); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (c *ExecutionContextConfig) List() []ServerExecutionContext {
+	servers := slices.Collect(maps.Values(c.Servers))
+
+	slices.SortFunc(servers, func(a, b ServerExecutionContext) int {
+		return cmp.Compare(a.Name, b.Name)
+	})
+
+	return servers
 }
 
 func (c *ExecutionContextConfig) Get(name string) (ServerExecutionContext, bool) {
