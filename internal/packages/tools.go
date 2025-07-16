@@ -21,11 +21,11 @@ type Tool struct {
 	Description string `json:"description,omitempty"`
 
 	// InputSchema is JSONSchema defining the expected parameters for the tool.
-	InputSchema JSONSchema `json:"inputSchema"`
+	InputSchema JSONSchema `json:"input_schema"`
 
 	// OutputSchema is an optional JSONSchema defining the structure of the tool's
 	// output returned in the structured content field of a tool call result.
-	OutputSchema *JSONSchema `json:"outputSchema,omitempty"`
+	OutputSchema *JSONSchema `json:"output_schema,omitempty"`
 
 	// Annotations provide optional additional tool information.
 	// Display name precedence order is: title, annotations.title when present, then tool name.
@@ -58,23 +58,23 @@ type ToolAnnotations struct {
 	Title *string `json:"title,omitempty"`
 
 	// ReadOnlyHint if true, the tool should not modify its environment.
-	ReadOnlyHint *bool `json:"readOnlyHint,omitempty"`
+	ReadOnlyHint *bool `json:"read_only_hint,omitempty"`
 
 	// DestructiveHint if true, the tool may perform destructive updates to its environment.
 	// If false, the tool performs only additive updates.
 	// (This property is meaningful only when ReadOnlyHint is false)
-	DestructiveHint *bool `json:"destructiveHint,omitempty"`
+	DestructiveHint *bool `json:"destructive_hint,omitempty"`
 
 	// IdempotentHint if true, calling the tool repeatedly with the same arguments
 	// will have no additional effect on its environment.
 	// (This property is meaningful only when ReadOnlyHint is false)
-	IdempotentHint *bool `json:"idempotentHint,omitempty"`
+	IdempotentHint *bool `json:"idempotent_hint,omitempty"`
 
 	// OpenWorldHint if true, this tool may interact with an "open world" of external
 	// entities. If false, the tool's domain of interaction is closed.
 	// For example, the world of a web search tool is open, whereas that
 	// of a memory tool is not.
-	OpenWorldHint *bool `json:"openWorldHint,omitempty"`
+	OpenWorldHint *bool `json:"open_world_hint,omitempty"`
 }
 
 // Names returns the names of all tools in the Tools collection.
