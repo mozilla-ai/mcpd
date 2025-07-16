@@ -3,6 +3,7 @@ package cmd
 import (
 	"bytes"
 	"errors"
+	"slices"
 	"testing"
 
 	"github.com/mozilla-ai/mcpd/v2/internal/printer"
@@ -59,11 +60,7 @@ func (f *fakePrinter) PrintPackage(pkg packages.Package) error {
 }
 
 func (f *fakePrinter) SetOptions(opt ...printer.PackagePrinterOption) error {
-	opts := make([]printer.PackagePrinterOption, 0, len(opt))
-	for i, o := range opt {
-		opts[i] = o
-	}
-	f.opts = opts
+	f.opts = slices.Clone(opt)
 
 	return nil
 }

@@ -100,12 +100,6 @@ func (p *PackagePrinter) printDetails(pkg packages.Package) error {
 		return err
 	}
 
-	if strings.TrimSpace(pkg.DisplayName) != "" {
-		if _, err := fmt.Fprintf(p.out, "  🏷️ Name: %s\n", pkg.Name); err != nil {
-			return err
-		}
-	}
-
 	if _, err := fmt.Fprintf(p.out, "  📁 Registry: %s\n", pkg.Source); err != nil {
 		return err
 	}

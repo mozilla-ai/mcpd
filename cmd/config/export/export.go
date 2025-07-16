@@ -38,20 +38,10 @@ func NewCmd(baseCmd *cmd.BaseCmd, opt ...options.CmdOption) (*cobra.Command, err
 	cobraCmd := &cobra.Command{
 		Use:   "export",
 		Short: "Exports current configuration, generating a pair of safe and portable configuration files",
-		Long: "Exports current configuration, generating a pair of safe and portable configuration files.\n\n" +
-			"Using a project's required configuration (e.g. .mcpd.toml) and the locally configured runtime values " +
-			"from the execution context file (e.g. ~/.config/mcpd/secrets.dev.toml), outputs both an 'Environment Contract' " +
-			"and 'Portable Execution Context' file." +
-			"These files are safe to check into version control if required.\n\n" +
-			"This allows running an mcpd project in any environment, cleanly separating the configuration structure " +
-			"from the secret values.",
-		RunE: c.run,
+		Long:  c.longDescription(),
+		RunE:  c.run,
 	}
 
-	// Portable Execution Context:
-	//
-	// A new secrets.toml file that defines the runtime args and env sections for each server,
-	// using the placeholders from the environment contract.
 	cobraCmd.Flags().StringVar(
 		&c.ContextOutput,
 		"context-output",
@@ -59,13 +49,6 @@ func NewCmd(baseCmd *cmd.BaseCmd, opt ...options.CmdOption) (*cobra.Command, err
 		"Optional, specify the output path for the templated execution context config file",
 	)
 
-	// Environment Contract:
-	//
-	// Lists all required and configured environment variables as secure, namespaced placeholders
-	// 		e.g. MCPD__{SERVER_NAME}__{ENV_VAR}
-	// Creates placeholders for command line arguments to be populated with env vars
-	// 		e.g. MCPD__{SERVER_NAME}__ARG_{ARG_NAME}
-	// This file is intended for the platform operator or CI/CD system.
 	cobraCmd.Flags().StringVar(
 		&c.ContractOutput,
 		"contract-output",
@@ -73,7 +56,7 @@ func NewCmd(baseCmd *cmd.BaseCmd, opt ...options.CmdOption) (*cobra.Command, err
 		"Optional, specify the output path for the templated environment file",
 	)
 
-	allowed := cmd.AllowedFormats()
+	allowed := cmd.AllowedExportFormats()
 	cobraCmd.Flags().Var(
 		&c.Format,
 		"format",
@@ -81,6 +64,25 @@ func NewCmd(baseCmd *cmd.BaseCmd, opt ...options.CmdOption) (*cobra.Command, err
 	)
 
 	return cobraCmd, nil
+}
+
+func (c *Cmd) longDescription() string {
+	return `Exports current configuration, generating a pair of safe and portable configuration files.
+	
+Using a project's required configuration (e.g. .mcpd.toml) and the locally configured runtime values from the execution context file (e.g. ~/.config/mcpd/secrets.dev.toml), the export command outputs two files:
+	
+Environment Contract:
+	- Lists all required and configured environment variables as secure, namespaced placeholders
+	  e.g. MCPD__{SERVER_NAME}__{ENV_VAR}
+	- Creates placeholders for command line arguments to be populated with env vars
+	  e.g. MCPD__{SERVER_NAME}__ARG_{ARG_NAME}
+	- This file is intended for the platform operator or CI/CD system
+	
+Portable Execution Context:
+	- A new secrets .toml file that defines sanitized runtime args and env sections for each server using the placeholders aligned with the environment contract
+	- These files are safe to check into version control if required.
+
+"This allows running an mcpd project in any environment, cleanly separating the configuration structure from the secret values`
 }
 
 func (c *Cmd) run(cmd *cobra.Command, args []string) error {

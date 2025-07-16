@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"fmt"
+	"slices"
 	"strings"
 )
 
@@ -23,14 +24,18 @@ const (
 	FormatKubernetesSecret ExportFormat = "k8s"
 )
 
-// AllowedFormats returns the allowed formats for the export command.
-func AllowedFormats() ExportFormats {
-	return ExportFormats{
+// AllowedExportFormats returns the allowed formats for the export command.
+func AllowedExportFormats() ExportFormats {
+	formats := ExportFormats{
 		FormatDotEnv,
 		// TODO: Uncomment to enable, as we add support for each.
 		// FormatGitHubActions,
 		// FormatKubernetesSecret,
 	}
+
+	slices.Sort(formats)
+
+	return formats
 }
 
 // String implements fmt.Stringer for a collection of export formats,
@@ -53,7 +58,7 @@ func (f *ExportFormat) String() string {
 // Set is used by Cobra to set the export format value from a string.
 // This is also required by Cobra as part of implementing flag.Value.
 func (f *ExportFormat) Set(v string) error {
-	allowed := AllowedFormats()
+	allowed := AllowedExportFormats()
 
 	for _, a := range allowed {
 		if string(a) == v {
