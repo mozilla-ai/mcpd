@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"fmt"
+	"slices"
 	"strings"
 )
 
@@ -16,11 +17,15 @@ const (
 )
 
 func AllowedOutputFormats() OutputFormats {
-	return OutputFormats{
+	formats := []OutputFormat{
 		FormatJSON,
 		FormatText,
 		FormatYAML,
 	}
+
+	slices.Sort(formats)
+
+	return formats
 }
 
 // String implements fmt.Stringer for a collection of export formats,

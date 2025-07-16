@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"fmt"
+	"slices"
 	"strings"
 )
 
@@ -25,12 +26,16 @@ const (
 
 // AllowedExportFormats returns the allowed formats for the export command.
 func AllowedExportFormats() ExportFormats {
-	return ExportFormats{
+	formats := ExportFormats{
 		FormatDotEnv,
 		// TODO: Uncomment to enable, as we add support for each.
 		// FormatGitHubActions,
 		// FormatKubernetesSecret,
 	}
+
+	slices.Sort(formats)
+
+	return formats
 }
 
 // String implements fmt.Stringer for a collection of export formats,
