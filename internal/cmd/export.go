@@ -23,8 +23,8 @@ const (
 	FormatKubernetesSecret ExportFormat = "k8s"
 )
 
-// AllowedFormats returns the allowed formats for the export command.
-func AllowedFormats() ExportFormats {
+// AllowedExportFormats returns the allowed formats for the export command.
+func AllowedExportFormats() ExportFormats {
 	return ExportFormats{
 		FormatDotEnv,
 		// TODO: Uncomment to enable, as we add support for each.
@@ -53,7 +53,7 @@ func (f *ExportFormat) String() string {
 // Set is used by Cobra to set the export format value from a string.
 // This is also required by Cobra as part of implementing flag.Value.
 func (f *ExportFormat) Set(v string) error {
-	allowed := AllowedFormats()
+	allowed := AllowedExportFormats()
 
 	for _, a := range allowed {
 		if string(a) == v {
