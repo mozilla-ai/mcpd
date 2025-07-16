@@ -6,15 +6,17 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/mozilla-ai/mcpd/v2/internal/cmd"
+	internalcmd "github.com/mozilla-ai/mcpd/v2/internal/cmd"
 	cmdopts "github.com/mozilla-ai/mcpd/v2/internal/cmd/options"
+	"github.com/mozilla-ai/mcpd/v2/internal/cmd/output"
+	"github.com/mozilla-ai/mcpd/v2/internal/packages"
 	"github.com/mozilla-ai/mcpd/v2/internal/printer"
 	"github.com/mozilla-ai/mcpd/v2/internal/registry"
 	"github.com/mozilla-ai/mcpd/v2/internal/registry/options"
 )
 
 type SearchCmd struct {
-	*cmd.BaseCmd
+	*internalcmd.BaseCmd
 	Version         string
 	Runtime         string
 	Tools           []string
@@ -22,11 +24,12 @@ type SearchCmd struct {
 	Categories      []string
 	License         string
 	Source          string
+	Format          internalcmd.OutputFormat
 	registryBuilder registry.Builder
 	packagePrinter  printer.Printer
 }
 
-func NewSearchCmd(baseCmd *cmd.BaseCmd, opt ...cmdopts.CmdOption) (*cobra.Command, error) {
+func NewSearchCmd(baseCmd *internalcmd.BaseCmd, opt ...cmdopts.CmdOption) (*cobra.Command, error) {
 	opts, err := cmdopts.NewOptions(opt...)
 	if err != nil {
 		return nil, err
@@ -39,6 +42,7 @@ func NewSearchCmd(baseCmd *cmd.BaseCmd, opt ...cmdopts.CmdOption) (*cobra.Comman
 
 	c := &SearchCmd{
 		BaseCmd:         baseCmd,
+		Format:          internalcmd.FormatText, // Default to plain text
 		registryBuilder: opts.RegistryBuilder,
 		packagePrinter:  opts.Printer,
 	}
@@ -101,6 +105,13 @@ func NewSearchCmd(baseCmd *cmd.BaseCmd, opt ...cmdopts.CmdOption) (*cobra.Comman
 		"Optional, specify a partial match for required categories (can be repeated)",
 	)
 
+	allowed := internalcmd.AllowedOutputFormats()
+	cobraCommand.Flags().Var(
+		&c.Format,
+		"format",
+		fmt.Sprintf("Specify the output format (one of: %s)", allowed.String()),
+	)
+
 	return cobraCommand, nil
 }
 
@@ -129,7 +140,21 @@ func (c *SearchCmd) filters() map[string]string {
 	return f
 }
 
-func (c *SearchCmd) run(cmd *cobra.Command, args []string) error {
+func (c *SearchCmd) run(cmd *cobra.Command, args []string) (err error) {
+	// Configure the handler based on the requested format.
+	var handler output.Handler[packages.Package]
+	switch c.Format {
+	case internalcmd.FormatJSON:
+		handler = output.NewJSONHandler[packages.Package](cmd.OutOrStdout(), 2)
+	case internalcmd.FormatYAML:
+		handler = output.NewYAMLHandler[packages.Package](cmd.OutOrStdout(), 2)
+	case internalcmd.FormatText:
+		pkgListPrinter := printer.NewPackageListPrinter(c.packagePrinter)
+		handler = output.NewTextHandler[packages.Package](cmd.OutOrStdout(), pkgListPrinter)
+	default:
+		return fmt.Errorf("unexpected error, no handler for output format: %s", c.Format)
+	}
+
 	// Name not required, default to the wildcard.
 	name := options.WildcardCharacter
 	if len(args) > 0 && strings.TrimSpace(args[0]) != "" {
@@ -138,38 +163,13 @@ func (c *SearchCmd) run(cmd *cobra.Command, args []string) error {
 
 	reg, err := c.registryBuilder.Build()
 	if err != nil {
-		return err
+		return handler.HandleError(err)
 	}
 
 	results, err := reg.Search(name, c.filters(), []options.SearchOption{options.WithSearchSource(c.Source)}...)
 	if err != nil {
-		return err
-	}
-	if len(results) == 0 {
-		fmt.Println("No packages found")
-		return nil
+		return handler.HandleError(err)
 	}
 
-	if _, err = fmt.Fprintf(cmd.OutOrStdout(), "\n🔎 Registry search results...\n"); err != nil {
-		return err
-	}
-	if _, err = fmt.Fprintf(cmd.OutOrStdout(), "\n────────────────────────────────────────────\n\n"); err != nil {
-		return err
-	}
-
-	for _, pkg := range results {
-		if err = c.packagePrinter.PrintPackage(pkg); err != nil {
-			return err
-		}
-	}
-
-	if _, err := fmt.Fprintf(
-		cmd.OutOrStdout(),
-		"📦 Found %d package%s\n\n",
-		len(results),
-		map[bool]string{true: "s", false: ""}[len(results) > 1]); err != nil {
-		return err
-	}
-
-	return nil
+	return handler.HandleResults(results)
 }
