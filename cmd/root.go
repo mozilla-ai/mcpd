@@ -48,7 +48,7 @@ func NewRootCmd(c *RootCmd) (*cobra.Command, error) {
 		SilenceErrors: true,
 	}
 
-	// Manaully set the version template to prevent duplication in output.
+	// Manually set the version template to prevent duplication in output.
 	rootCmd.SetVersionTemplate("{{.Version}}\n")
 	rootCmd.Version = cmd.Version()
 
