@@ -1,12 +1,8 @@
 name: Deploy Docs
 
 on:
-  push:
-    branches: [main]
-    paths:
-      - "cmd/**"
-      - "docs/**"
-      - "tools/docsgen/**"
+  release:
+    types: [published]
   workflow_dispatch:
 
 permissions:
@@ -14,6 +10,7 @@ permissions:
 
 jobs:
   docs:
+    if: startsWith(github.ref, 'refs/tags/v')
     runs-on: ubuntu-latest
 
     steps:
