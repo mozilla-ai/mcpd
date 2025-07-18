@@ -15,7 +15,9 @@ func LoadFromURL[T any](url, registryName string) (T, error) {
 	if err != nil {
 		return target, fmt.Errorf("failed to fetch '%s' registry data from URL '%s': %w", registryName, url, err)
 	}
-	defer resp.Body.Close()
+	defer func(Body io.ReadCloser) {
+		_ = Body.Close()
+	}(resp.Body)
 
 	if resp.StatusCode != http.StatusOK {
 		return target, fmt.Errorf("received non-OK HTTP status from '%s' registry for URL '%s': %d", registryName, url, resp.StatusCode)

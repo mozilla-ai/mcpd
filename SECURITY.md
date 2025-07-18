@@ -11,7 +11,7 @@ This document outlines the process for reporting vulnerabilities in `mcpd`.
 The following versions are currently supported for security updates:
 
 | Version | Supported          |
-| ------- | ------------------ |
+|---------|--------------------|
 | 0.0.x   | :white_check_mark: |
 
 **Please ensure you are using a supported version when reporting a vulnerability.**

@@ -13,7 +13,6 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/mozilla-ai/mcpd/v2/internal/cmd"
-	internalcmd "github.com/mozilla-ai/mcpd/v2/internal/cmd"
 	cmdopts "github.com/mozilla-ai/mcpd/v2/internal/cmd/options"
 	"github.com/mozilla-ai/mcpd/v2/internal/packages"
 	"github.com/mozilla-ai/mcpd/v2/internal/printer"
@@ -105,7 +104,7 @@ func TestSearchCmd_Filters(t *testing.T) {
 func TestSearchCmd_NewSearchCmd_Defaults(t *testing.T) {
 	t.Parallel()
 
-	base := &internalcmd.BaseCmd{}
+	base := &cmd.BaseCmd{}
 	cmdCobra, err := NewSearchCmd(base)
 	require.NoError(t, err)
 
@@ -117,13 +116,13 @@ func TestSearchCmd_NewSearchCmd_Defaults(t *testing.T) {
 	require.NotNil(t, flag)
 	// The default value is stored in SearchCmd.Format, but we can inspect the usage text
 	usage := flag.Usage
-	require.Contains(t, usage, string(internalcmd.FormatText))
+	require.Contains(t, usage, string(cmd.FormatText))
 }
 
 func TestSearchCmd_Run_UnexpectedFormat(t *testing.T) {
 	t.Parallel()
 	// Create a SearchCmd with an unsupported format
-	sc := &SearchCmd{Format: internalcmd.OutputFormat("bogus")}
+	sc := &SearchCmd{Format: cmd.OutputFormat("bogus")}
 
 	// We need a cobra.Command to satisfy the signature; out writer doesn't matter
 	cmdCobra := &cobra.Command{RunE: sc.run}
@@ -581,7 +580,7 @@ func (t *testPrinter) PrintPackage(pkg packages.Package) error {
 	return err
 }
 
-func (t *testPrinter) SetOptions(opt ...printer.PackagePrinterOption) error {
+func (t *testPrinter) SetOptions(_ ...printer.PackagePrinterOption) error {
 	return nil
 }
 
@@ -615,7 +614,7 @@ func TestParseOutputFormat(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
-			cobraCmd, err := NewSearchCmd(&internalcmd.BaseCmd{})
+			cobraCmd, err := NewSearchCmd(&cmd.BaseCmd{})
 			require.NoError(t, err)
 
 			cobraCmd.SetArgs([]string{"--format", tc.input})

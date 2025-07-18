@@ -132,13 +132,13 @@ func (c *SearchCmd) filters() map[string]string {
 	if c.Runtime != "" {
 		f["runtime"] = c.Runtime
 	}
-	if c.Tools != nil && len(c.Tools) > 0 {
+	if len(c.Tools) > 0 {
 		f["tools"] = strings.Join(c.Tools, ",")
 	}
-	if c.Tags != nil && len(c.Tags) > 0 {
+	if len(c.Tags) > 0 {
 		f["tags"] = strings.Join(c.Tags, ",")
 	}
-	if c.Categories != nil && len(c.Categories) > 0 {
+	if len(c.Categories) > 0 {
 		f["categories"] = strings.Join(c.Categories, ",")
 	}
 	if c.License != "" {

@@ -120,7 +120,7 @@ func (c *ExecutionContextConfig) Export(path string) error {
 		for i, v := range srv.Args {
 			if idx := strings.IndexByte(v, '='); idx != -1 {
 				arg := v[:idx]
-				parsed := strings.ToUpper(strings.ReplaceAll(strings.TrimLeft(arg, "--"), "-", "_"))
+				parsed := strings.ToUpper(strings.ReplaceAll(strings.TrimLeft(arg, strings.Repeat("-", 2)), "-", "_"))
 				args[i] = fmt.Sprintf("%s=${%s__%s__ARG__%s}", arg, appName, n, parsed)
 			} else {
 				args[i] = v

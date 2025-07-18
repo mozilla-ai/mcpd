@@ -80,7 +80,12 @@ func (c *SetCmd) run(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("error setting arguments for server '%s': %w", serverName, err)
 	}
 
-	fmt.Fprintf(cmd.OutOrStdout(), "✓ Startup arguments set for server '%s' (operation: %s): %v\n", serverName, string(res), normalizedArgs)
+	if _, err := fmt.Fprintf(
+		cmd.OutOrStdout(),
+		"✓ Startup arguments set for server '%s' (operation: %s): %v\n", serverName, string(res), normalizedArgs,
+	); err != nil {
+		return err
+	}
 
 	return nil
 }

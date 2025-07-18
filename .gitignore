@@ -48,3 +48,5 @@ docs/commands/
 
 # Any Python virtual environments
 .venv/
+# Added by goreleaser init:
+dist/

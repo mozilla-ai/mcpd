@@ -69,7 +69,7 @@ func NewDaemonCmd(baseCmd *cmd.BaseCmd, opt ...cmdopts.CmdOption) (*cobra.Comman
 
 // run is configured (via NewDaemonCmd) to be called by the Cobra framework when the command is executed.
 // It may return an error (or nil, when there is no error).
-func (c *DaemonCmd) run(cmd *cobra.Command, args []string) error {
+func (c *DaemonCmd) run(_ *cobra.Command, _ []string) error {
 	logger, err := c.Logger()
 	if err != nil {
 		return err

@@ -60,7 +60,12 @@ func (c *InitCmd) run(cmd *cobra.Command, _ []string) error {
 
 	// If the config file flag just has the default value, we're expecting to create it in the current working directory.
 	if flags.ConfigFile == flags.DefaultConfigFile {
-		fmt.Fprintf(cmd.OutOrStdout(), "📄 Using default config file: '%s' in the current directory\n", flags.DefaultConfigFile)
+		if _, err := fmt.Fprintf(
+			cmd.OutOrStdout(),
+			"📄 Using default config file: '%s' in the current directory\n", flags.DefaultConfigFile,
+		); err != nil {
+			return err
+		}
 		cwd, err := os.Getwd()
 		if err != nil {
 			logger.Error("Failed to get working directory", "error", err)
@@ -71,12 +76,22 @@ func (c *InitCmd) run(cmd *cobra.Command, _ []string) error {
 		initFilePath = flags.ConfigFile
 	}
 
-	fmt.Fprintf(cmd.OutOrStdout(), "🚀 Initializing mcpd project at: %s\n", initFilePath)
+	if _, err := fmt.Fprintf(
+		cmd.OutOrStdout(),
+		"🚀 Initializing mcpd project at: %s\n", initFilePath,
+	); err != nil {
+		return err
+	}
 	if err := c.cfgInitializer.Init(initFilePath); err != nil {
 		logger.Error("Project initialization failed", "error", err)
 		return fmt.Errorf("error initializing mcpd project: %w", err)
 	}
-	fmt.Fprintf(cmd.OutOrStdout(), "✅ Config file created: %s\n", initFilePath)
+	if _, err := fmt.Fprintf(
+		cmd.OutOrStdout(),
+		"✅ Config file created: %s\n", initFilePath,
+	); err != nil {
+		return err
+	}
 
 	return nil
 }

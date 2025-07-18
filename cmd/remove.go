@@ -68,7 +68,12 @@ func (c *RemoveCmd) run(cmd *cobra.Command, args []string) error {
 	}
 
 	logger.Debug("Server removed", "name", name)
-	fmt.Fprintf(cmd.OutOrStdout(), "✓ Removed server '%s'\n", name)
+	if _, err := fmt.Fprintf(
+		cmd.OutOrStdout(),
+		"✓ Removed server '%s'\n", name,
+	); err != nil {
+		return err
+	}
 
 	return nil
 }
