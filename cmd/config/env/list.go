@@ -36,7 +36,7 @@ func NewListCmd(baseCmd *cmd.BaseCmd, opt ...options.CmdOption) (*cobra.Command,
 		Use:   "list <server-name>",
 		Short: "Lists configured environment variables for a specific MCP server",
 		Long: "Lists configured environment variables for a specific MCP server, using the " +
-			"runtime context configuration file (e.g. ~/.config/mcpd/secrets.dev.toml)",
+			"runtime context configuration file (e.g. `~/.config/mcpd/secrets.dev.toml`)",
 		RunE: c.run,
 		Args: cobra.MinimumNArgs(1), // server-name
 	}

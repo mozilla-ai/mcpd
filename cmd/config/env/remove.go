@@ -36,7 +36,7 @@ func NewRemoveCmd(baseCmd *cmd.BaseCmd, opt ...options.CmdOption) (*cobra.Comman
 		Use:   "remove <server-name> KEY [KEY ...]",
 		Short: "Remove environment variables for an MCP server",
 		Long: "Remove environment variables for a specified MCP server in the " +
-			"runtime context configuration file (e.g. ~/.config/mcpd/secrets.dev.toml)",
+			"runtime context configuration file (e.g. `~/.config/mcpd/secrets.dev.toml`)",
 		RunE: c.run,
 		Args: cobra.MinimumNArgs(2), // server-name + KEY ...
 	}

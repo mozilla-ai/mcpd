@@ -48,8 +48,8 @@ func NewAddCmd(baseCmd *cmd.BaseCmd, opt ...cmdopts.CmdOption) (*cobra.Command, 
 		Use:   "add <server-name>",
 		Short: "Adds an MCP server dependency to the project",
 		Long: "Adds an MCP server dependency to the project. " +
-			"mcpd will search the registry for the named server and attempt to return information " +
-			"on the version specified, or 'latest' if no version specified",
+			"`mcpd` will search the registry for the named server and attempt to return information " +
+			"on the version specified, or 'latest' if no version specified", // TODO: Remove 'latest' reference when we have our own registry
 		RunE: c.run,
 	}
 
@@ -71,14 +71,14 @@ func NewAddCmd(baseCmd *cmd.BaseCmd, opt ...cmdopts.CmdOption) (*cobra.Command, 
 		&c.Runtime,
 		"runtime",
 		"",
-		"Optional, specify the runtime of the server package (e.g. uvx, npx)",
+		"Optional, specify the runtime of the server package (e.g. `uvx`, `npx`)",
 	)
 
 	cobraCommand.Flags().StringVar(
 		&c.Source,
 		"source",
 		"",
-		"Optional, specify the source registry of the server package (e.g. mcpm)",
+		"Optional, specify the source registry of the server package (e.g. `mcpm`)",
 	)
 
 	return cobraCommand, nil

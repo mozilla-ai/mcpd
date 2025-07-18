@@ -33,17 +33,11 @@ func NewRemoveCmd(baseCmd *cmd.BaseCmd, opt ...cmdopts.CmdOption) (*cobra.Comman
 	cobraCommand := &cobra.Command{
 		Use:   "remove <server-name>",
 		Short: "Removes an MCP server dependency from the project",
-		Long:  c.longDescription(),
+		Long:  "Removes an MCP server dependency from the project",
 		RunE:  c.run,
 	}
 
 	return cobraCommand, nil
-}
-
-// longDescription returns the long version of the command description.
-func (c *RemoveCmd) longDescription() string {
-	return `Removes an MCP server dependency from the project config file.
-Specify the server name to remove it`
 }
 
 // run is configured (via NewRemoveCmd) to be called by the Cobra framework when the command is executed.

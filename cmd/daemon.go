@@ -43,8 +43,8 @@ func NewDaemonCmd(baseCmd *cmd.BaseCmd, opt ...cmdopts.CmdOption) (*cobra.Comman
 
 	cobraCommand := &cobra.Command{
 		Use:   "daemon [--dev] [--addr]",
-		Short: "Launches an mcpd daemon instance",
-		Long:  "Launches an mcpd daemon instance, which starts MCP servers and provides routing via HTTP API",
+		Short: "Launches an `mcpd` daemon instance",
+		Long:  "Launches an `mcpd` daemon instance, which starts MCP servers and provides routing via HTTP API",
 		RunE:  c.run,
 	}
 

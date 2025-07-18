@@ -30,9 +30,9 @@ func NewListCmd(baseCmd *cmd.BaseCmd, opt ...options.CmdOption) (*cobra.Command,
 
 	cobraCmd := &cobra.Command{
 		Use:   "list <server-name>",
-		Short: "Lists the configured command line arguments (flags) for a specific MCP server",
-		Long: "Lists the configured command line arguments (flags) for a specific MCP server, " +
-			"using the runtime context configuration file (e.g. ~/.config/mcpd/secrets.dev.toml)",
+		Short: "Lists the configured command line arguments for a specific MCP server",
+		Long: "Lists the configured command line arguments for a specific MCP server, " +
+			"using the runtime context configuration file (e.g. `~/.config/mcpd/secrets.dev.toml`)",
 		RunE: c.run,
 		Args: cobra.MinimumNArgs(1), // server-name
 	}

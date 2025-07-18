@@ -41,8 +41,8 @@ func Execute() error {
 func NewRootCmd(c *RootCmd) (*cobra.Command, error) {
 	rootCmd := &cobra.Command{
 		Use:   "mcpd",
-		Short: "'mcpd' CLI is the primary interface for developers to interact with mcpd",
-		Long: "The 'mcpd' CLI is the primary interface for developers to interact with the mcpd Control Plane, " +
+		Short: "`mcpd` CLI is the primary interface for developers to interact with, and configure `mcpd`",
+		Long: "The `mcpd` CLI is the primary interface for developers to interact with `mcpd` " +
 			"define their agent projects, and manage MCP server dependencies",
 		SilenceUsage:  true,
 		SilenceErrors: true,
