@@ -163,7 +163,7 @@ func (d *Daemon) startMCPServer(ctx context.Context, server runtime.Server) erro
 	var args []string
 	// TODO: npx requires '-y' before the package name
 	if runtime.Runtime(runtimeBinary) == runtime.NPX {
-		args = append(args, "y")
+		args = append(args, "-y")
 	}
 	args = append(args, packageNameAndVersion)
 	args = append(args, server.ResolvedArgs()...)
