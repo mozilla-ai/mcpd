@@ -77,8 +77,7 @@ func (c *BaseCmd) Build() (registry.PackageProvider, error) {
 	opts := runtime.WithSupportedRuntimes(supportedRuntimes...)
 	l := logger.Named("registry")
 
-	// TODO: Should we be using a hardcoded URL
-	mcpm, err := mcpm.NewRegistry(l, "https://getmcp.io/api/servers.json", opts)
+	mcpm, err := mcpm.NewRegistry(l, mcpm.ManifestURL, opts)
 	if err != nil {
 		// TODO: Handle tolerating some failed registries, as long as we can meet a minimum requirement.
 		return nil, err
