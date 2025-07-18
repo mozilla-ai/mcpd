@@ -19,7 +19,6 @@ var (
 	version = "dev"     // Set via ldflags
 	commit  = "unknown" // Set via ldflags
 	date    = "unknown" // Set via ldflags
-	builtBy = "unknown" // Set via ldflags
 )
 
 // Version is used by other packages to retrieve the build version of mcpd.

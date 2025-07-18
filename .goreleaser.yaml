@@ -25,7 +25,6 @@ builds:
       - -X 'github.com/mozilla-ai/mcpd/v2/internal/cmd.version={{.Version}}'  # Bake in version
       - -X 'github.com/mozilla-ai/mcpd/v2/internal/cmd.commit={{.Commit}}'    # Bake in commit hash
       - -X 'github.com/mozilla-ai/mcpd/v2/internal/cmd.date={{.Date}}'        # Bake in build date
-      - -X 'github.com/mozilla-ai/mcpd/v2/internal/cmd.builtBy=goreleaser'    # Bake in build tool
     flags:
       - -trimpath  # Remove file system paths from binary
 archives:

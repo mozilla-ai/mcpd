@@ -21,8 +21,7 @@ DATE := $(shell date -u +"%Y-%m-%dT%H:%M:%SZ")
 # The path is MODULE_PATH/package.variableName
 LDFLAGS := -s -w -X '$(MODULE_PATH)/internal/cmd.version=$(VERSION)' \
 				-X '$(MODULE_PATH)/internal/cmd.commit=$(COMMIT)' \
-				-X '$(MODULE_PATH)/internal/cmd.date=$(DATE)' \
-				-X '$(MODULE_PATH)/internal/cmd.builtBy=Makefile'
+				-X '$(MODULE_PATH)/internal/cmd.date=$(DATE)'
 
 # Build flags for optimization
 BUILDFLAGS := -trimpath
@@ -47,8 +46,7 @@ build-dev:
 	@echo "building mcpd for development (version: $(VERSION), commit: $(COMMIT))..."
 	@go build -o mcpd -ldflags="-X '$(MODULE_PATH)/internal/cmd.version=$(VERSION)' \
 		-X '$(MODULE_PATH)/internal/cmd.commit=$(COMMIT)' \
-		-X '$(MODULE_PATH)/internal/cmd.date=$(DATE)' \
-		-X '$(MODULE_PATH)/internal/cmd.builtBy=Makefile-dev'" .
+		-X '$(MODULE_PATH)/internal/cmd.date=$(DATE)'" .
 
 install: build
 	@# Copy the executable to the install directory
