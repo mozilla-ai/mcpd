@@ -15,7 +15,13 @@ import (
 	"github.com/mozilla-ai/mcpd/v2/internal/runtime"
 )
 
-const registryName = "mcpm"
+const (
+	// RegistryName is the name of this registry that will appear as the Package.Source, and in logs/errors.
+	RegistryName = "mcpm"
+
+	// ManifestURL is the URL at which the servers JSON file for the registry can be found for MCPM.
+	ManifestURL = "https://mcpm.sh/api/servers.json"
+)
 
 // Ensure Registry implements PackageProvider
 var _ registry.PackageProvider = (*Registry)(nil)
@@ -53,14 +59,14 @@ func NewRegistry(logger hclog.Logger, url string, opt ...runtime.Option) (*Regis
 	}
 
 	// Handle retrieving the JSON data to bootstrap the registry.
-	servers, err := runtime.LoadFromURL[MCPServers](url, registryName)
+	servers, err := runtime.LoadFromURL[MCPServers](url, RegistryName)
 	if err != nil {
 		return nil, err
 	}
 
 	// Configure 'standard' filtering options that should always be included.
 	// e.g. for unsupported 'version'.
-	l := logger.Named(registryName)
+	l := logger.Named(RegistryName)
 	filterOpts := []options.Option{
 		options.WithUnsupportedKeys(options.FilterKeyVersion),
 		options.WithLogFunc(func(key, val string) {
@@ -85,7 +91,7 @@ func registrySupportedRuntimes() []runtime.Runtime {
 }
 
 func (r *Registry) ID() string {
-	return registryName
+	return RegistryName
 }
 
 // Resolve implements the PackageGetter interface for Registry.
@@ -245,7 +251,7 @@ func (r *Registry) buildPackageResult(pkgKey string) (packages.Package, bool) {
 	arguments := extractArgumentMetadata(sd, r.supportedRuntimes)
 
 	return packages.Package{
-		Source:              registryName,
+		Source:              RegistryName,
 		ID:                  pkgKey,
 		Name:                pkgKey,
 		DisplayName:         sd.DisplayName,
