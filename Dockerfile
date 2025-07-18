@@ -11,12 +11,14 @@ FROM ghcr.io/astral-sh/uv:0.7.20 AS uv-builder
 # ==============================================================================
 FROM node:current-alpine3.22
 
+ARG MCPD_VERSION=unknown
+
 # --- Metadata ---
 # The version label should be dynamically overridden in a CI/CD pipeline
 # (e.g., --label "org.opencontainers.image.version=${GIT_TAG}").
 LABEL org.opencontainers.image.authors="Mozilla AI <security@mozilla.ai>"
 LABEL org.opencontainers.image.description="A container for the mcpd application."
-LABEL org.opencontainers.image.version="1.0.0"
+LABEL org.opencontainers.image.version=$MCPD_VERSION
 
 ARG MCPD_USER=mcpd
 ARG MCPD_HOME=/home/$MCPD_USER
