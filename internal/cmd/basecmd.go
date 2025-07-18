@@ -77,7 +77,7 @@ func (c *BaseCmd) Build() (registry.PackageProvider, error) {
 	opts := runtime.WithSupportedRuntimes(supportedRuntimes...)
 	l := logger.Named("registry")
 
-	mcpm, err := mcpm.NewRegistry(l, mcpm.ManifestURL, opts)
+	mcpmRegistry, err := mcpm.NewRegistry(l, mcpm.ManifestURL, opts)
 	if err != nil {
 		// TODO: Handle tolerating some failed registries, as long as we can meet a minimum requirement.
 		return nil, err
@@ -85,7 +85,7 @@ func (c *BaseCmd) Build() (registry.PackageProvider, error) {
 
 	// NOTE: The order the registries are added here determines their precedence when searching and resolving packages.
 	registries := []registry.PackageProvider{
-		mcpm,
+		mcpmRegistry,
 	}
 
 	aggregator, err := registry.NewRegistry(l, registries...)

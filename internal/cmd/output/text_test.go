@@ -23,24 +23,37 @@ type fakePrinter[T comparable] struct {
 func (p *fakePrinter[T]) Header(w io.Writer, count int) {
 	p.headerCalled = true
 	p.headerCount = count
-	w.Write([]byte("HEADER\n"))
+	_, _ = w.Write([]byte("HEADER\n"))
 }
 
 func (p *fakePrinter[T]) Item(w io.Writer, t T) error {
 	p.items = append(p.items, t)
-	w.Write([]byte("ITEM:"))
-	w.Write([]byte(fmt.Sprint(t)))
-	w.Write([]byte("\n"))
+
+	if _, err := w.Write([]byte("ITEM:")); err != nil {
+		return err
+	}
+
+	if _, err := fmt.Fprint(w, t); err != nil {
+		return err
+	}
+
+	if _, err := w.Write([]byte("\n")); err != nil {
+		return err
+	}
+
 	if t == p.errOnItem {
 		return errors.New("item error")
 	}
+
 	return nil
 }
 
 func (p *fakePrinter[T]) Footer(w io.Writer, count int) {
 	p.footerCalled = true
 	p.footerCount = count
-	w.Write([]byte("FOOTER\n"))
+	if _, err := w.Write([]byte("FOOTER\n")); err != nil {
+		panic(err)
+	}
 }
 
 func TestNewTextHandler_Writer(t *testing.T) {

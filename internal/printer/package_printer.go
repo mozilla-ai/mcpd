@@ -29,7 +29,7 @@ func (p *DefaultPrinter) PrintPackage(pkg packages.Package) error {
 	return nil
 }
 
-func (p *DefaultPrinter) SetOptions(opt ...PackagePrinterOption) error {
+func (p *DefaultPrinter) SetOptions(_ ...PackagePrinterOption) error {
 	return nil
 }
 
@@ -55,9 +55,7 @@ func (p *PackagePrinter) SetOptions(opt ...PackagePrinterOption) error {
 	}
 
 	// Add updated options.
-	for _, o := range opt {
-		opts = append(opts, o)
-	}
+	opts = append(opts, opt...)
 
 	// 'last write wins' for options, so updated options will be applied.
 	newOpts, err := NewPackagePrinterOptions(opts...)

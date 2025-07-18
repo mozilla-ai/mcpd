@@ -75,7 +75,12 @@ func (c *ClearCmd) run(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("error clearing environment variables for server '%s': %w", serverName, err)
 	}
 
-	fmt.Fprintf(cmd.OutOrStdout(), "✓ Environment variables cleared for server '%s' (operation: %s)\n", serverName, string(res))
+	if _, err := fmt.Fprintf(
+		cmd.OutOrStdout(),
+		"✓ Environment variables cleared for server '%s' (operation: %s)\n", serverName, string(res),
+	); err != nil {
+		return err
+	}
 
 	return nil
 }

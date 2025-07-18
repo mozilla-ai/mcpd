@@ -7,7 +7,6 @@ import (
 
 	"github.com/mozilla-ai/mcpd/v2/internal/cmd"
 	"github.com/mozilla-ai/mcpd/v2/internal/cmd/options"
-	cmdopts "github.com/mozilla-ai/mcpd/v2/internal/cmd/options"
 	"github.com/mozilla-ai/mcpd/v2/internal/config"
 	"github.com/mozilla-ai/mcpd/v2/internal/context"
 	"github.com/mozilla-ai/mcpd/v2/internal/flags"
@@ -23,7 +22,7 @@ type Cmd struct {
 }
 
 func NewCmd(baseCmd *cmd.BaseCmd, opt ...options.CmdOption) (*cobra.Command, error) {
-	opts, err := cmdopts.NewOptions(opt...)
+	opts, err := options.NewOptions(opt...)
 	if err != nil {
 		return nil, err
 	}
@@ -82,7 +81,7 @@ func (c *Cmd) longDescription() string {
 		"from the secret values"
 }
 
-func (c *Cmd) run(cmd *cobra.Command, args []string) error {
+func (c *Cmd) run(cmd *cobra.Command, _ []string) error {
 	contextPath := c.ContextOutput
 	// contractPath := c.ContractOutput
 
@@ -90,13 +89,23 @@ func (c *Cmd) run(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	fmt.Fprintf(cmd.OutOrStdout(), "✓ Portable Execution Context exported: %s\n", contextPath)
+	if _, err := fmt.Fprintf(
+		cmd.OutOrStdout(),
+		"✓ Portable Execution Context exported: %s\n", contextPath,
+	); err != nil {
+		return err
+	}
 
 	// Export 'Environment Contract'
 	// TODO: export to contractPath based on format
 	// fmt.Fprintf(cmd.OutOrStdout(), "✓ Environment Contract exported: %s\n", contractPath)
 
-	fmt.Fprintf(cmd.OutOrStdout(), "✓ Export completed successfully!\n")
+	if _, err := fmt.Fprintf(
+		cmd.OutOrStdout(),
+		"✓ Export completed successfully!\n",
+	); err != nil {
+		return err
+	}
 
 	return nil
 }

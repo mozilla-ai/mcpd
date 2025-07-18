@@ -165,7 +165,8 @@ func (d *Daemon) startMCPServer(ctx context.Context, server runtime.Server) erro
 	if runtime.Runtime(runtimeBinary) == runtime.NPX {
 		args = append(args, "y")
 	}
-	args = append([]string{packageNameAndVersion}, server.ResolvedArgs()...)
+	args = append(args, packageNameAndVersion)
+	args = append(args, server.ResolvedArgs()...)
 
 	logger.Debug("attempting to start server", "binary", runtimeBinary)
 
@@ -255,7 +256,7 @@ func (d *Daemon) healthCheckLoop(ctx context.Context, interval time.Duration, ma
 		case <-ticker.C:
 			err := d.pingAllServers(ctx, maxTimeout)
 			if err != nil {
-				// TODO: err := d.pingAllServers(ctx, maxTimeout)
+				d.logger.Error("Error pinging all servers", "error", err)
 			}
 		}
 	}
@@ -272,7 +273,7 @@ func (d *Daemon) pingServer(ctx context.Context, name string) error {
 	err := c.Ping(ctx)
 	duration := time.Since(start)
 
-	status := domain.HealthStatusUnknown
+	var status domain.HealthStatus
 	var latency *time.Duration
 
 	switch {
@@ -385,7 +386,6 @@ func parseAndLogMCPMessage(logger hclog.Logger, line string) {
 	}
 
 	// Either no logging (off) or a level we're not configured to log at.
-	return
 }
 
 func normalizeLogLevel(level string) hclog.Level {

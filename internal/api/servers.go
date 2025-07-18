@@ -175,7 +175,7 @@ func handleServerToolCall(accessor contracts.MCPClientAccessor, server string, t
 // extractMessage attempts to extract a single message from content that is returned from a tool call.
 func extractMessage(content []mcp.Content) string {
 	message := ""
-	if content == nil || len(content) == 0 {
+	if len(content) == 0 {
 		return message
 	}
 

@@ -78,7 +78,12 @@ func (c *RemoveCmd) run(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("error removing arguments for server '%s': %w", serverName, err)
 	}
 
-	fmt.Fprintf(cmd.OutOrStdout(), "✓ Arguments removed for server '%s' (operation: %s): %v\n", serverName, string(res), slices.Collect(maps.Keys(argMap)))
+	if _, err := fmt.Fprintf(
+		cmd.OutOrStdout(),
+		"✓ Arguments removed for server '%s' (operation: %s): %v\n", serverName, string(res), slices.Collect(maps.Keys(argMap)),
+	); err != nil {
+		return err
+	}
 
 	return nil
 }

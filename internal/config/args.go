@@ -53,7 +53,7 @@ func NormalizeArgs(rawArgs []string) []string {
 		// isNotFlag returns true if the given string does not appear to be a flag
 		isNotFlag := func(v string) bool {
 			v = strings.TrimSpace(v)
-			return !(strings.HasPrefix(v, FlagPrefixShort) || strings.HasPrefix(v, FlagPrefixLong))
+			return !strings.HasPrefix(v, FlagPrefixShort) && !strings.HasPrefix(v, FlagPrefixLong)
 		}
 
 		// We shouldn't encounter args that aren't flags, because we look-ahead to extract arg values.

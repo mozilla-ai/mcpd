@@ -44,7 +44,7 @@ func NewListCmd(baseCmd *cmd.BaseCmd, opt ...options.CmdOption) (*cobra.Command,
 	return cobraCmd, nil
 }
 
-func (c *ListCmd) run(cmd *cobra.Command, args []string) error {
+func (c *ListCmd) run(_ *cobra.Command, args []string) error {
 	serverName := strings.TrimSpace(args[0])
 	if serverName == "" {
 		return fmt.Errorf("server-name is required")

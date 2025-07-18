@@ -4,12 +4,12 @@ import (
 	"errors"
 	"testing"
 
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"github.com/mozilla-ai/mcpd/v2/internal/config"
 	"github.com/mozilla-ai/mcpd/v2/internal/printer"
 	"github.com/mozilla-ai/mcpd/v2/internal/registry"
-	"github.com/stretchr/testify/assert"
 )
 
 type fakeLoader struct {

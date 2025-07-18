@@ -75,7 +75,12 @@ func (c *RemoveCmd) run(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("error removing environment variables for server '%s': %w", serverName, err)
 	}
 
-	fmt.Fprintf(cmd.OutOrStdout(), "✓ Environment variables removed for server '%s' (operation: %s): %v\n", serverName, string(res), slices.Collect(maps.Keys(envMap)))
+	if _, err := fmt.Fprintf(
+		cmd.OutOrStdout(),
+		"✓ Environment variables removed for server '%s' (operation: %s): %v\n", serverName, string(res), slices.Collect(maps.Keys(envMap)),
+	); err != nil {
+		return err
+	}
 
 	return nil
 }

@@ -2,6 +2,7 @@ package api
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 	"slices"
 	"strings"
@@ -59,6 +60,11 @@ type ServerHealthResponse struct {
 
 // ToAPIType can be used to convert a wrapped domain type to an API-safe type.
 func (d DomainServerHealth) ToAPIType() (ServerHealth, error) {
+	status, err := parseHealthStatus(d.Status)
+	if err != nil {
+		return ServerHealth{}, err
+	}
+
 	var latency *string
 	if d.Latency != nil {
 		s := d.Latency.String()
@@ -66,7 +72,7 @@ func (d DomainServerHealth) ToAPIType() (ServerHealth, error) {
 	}
 	return ServerHealth{
 		Name:           d.Name,
-		Status:         HealthStatus(d.Status), // TODO: Validation?
+		Status:         status,
 		Latency:        latency,
 		LastChecked:    d.LastChecked,
 		LastSuccessful: d.LastSuccessful,
@@ -146,4 +152,19 @@ func handleHealthServer(monitor contracts.MCPHealthMonitor, name string) (*Serve
 	response.Body = data
 
 	return &response, nil
+}
+
+func parseHealthStatus(status domain.HealthStatus) (HealthStatus, error) {
+	switch status {
+	case domain.HealthStatusOK:
+		return HealthStatusOK, nil
+	case domain.HealthStatusTimeout:
+		return HealthStatusTimeout, nil
+	case domain.HealthStatusUnreachable:
+		return HealthStatusUnreachable, nil
+	case domain.HealthStatusUnknown:
+		return HealthStatusUnknown, nil
+	default:
+		return "", fmt.Errorf("unknown health status: %s", status)
+	}
 }

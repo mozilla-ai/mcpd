@@ -12,23 +12,41 @@ import (
 )
 
 const (
-	// Env vars
+	// EnvVarConfigFile is the name of the environment variable that defines the config file location.
 	EnvVarConfigFile = "MCPD_CONFIG_FILE"
-	EnvRuntimeFile   = "MCPD_RUNTIME_FILE"
-	EnvVarLogPath    = "MCPD_LOG_PATH"
-	EnvVarLogLevel   = "MCPD_LOG_LEVEL"
 
-	// Defaults
-	DefaultConfigFile      = ".mcpd.toml"
+	// EnvRuntimeFile is the name of the environment variable that defines the runtime config file location.
+	EnvRuntimeFile = "MCPD_RUNTIME_FILE"
+
+	// EnvVarLogPath is the name of the environment variable that defines the log file location.
+	EnvVarLogPath = "MCPD_LOG_PATH"
+
+	// EnvVarLogLevel is the name of the environment variable that defines the log level to use when a log file location is configured.
+	EnvVarLogLevel = "MCPD_LOG_LEVEL"
+
+	// DefaultConfigFile represents the default name of the config file.
+	DefaultConfigFile = ".mcpd.toml"
+
+	// DefaultRuntimeVarsFile represents the default name of the runtime execution context (secrets) config file.
 	DefaultRuntimeVarsFile = "secrets.dev.toml"
-	DefaultLogPath         = ""
-	DefaultLogLevel        = "info"
 
-	// Flag names
-	FlagNameConfigFile  = "config-file"
+	// DefaultLogPath represents the default log path (none).
+	DefaultLogPath = ""
+
+	// DefaultLogLevel represents the default log level to use when a log path is configured.
+	DefaultLogLevel = "info"
+
+	// FlagNameConfigFile is the name of the flag which represents the config file (.mcpd.toml).
+	FlagNameConfigFile = "config-file"
+
+	// FlagNameRuntimeFile is the name of the flag which represents the runtime execution context (secrets) file.
 	FlagNameRuntimeFile = "runtime-file"
-	FlagNameLogPath     = "log-path"
-	FlagNameLogLevel    = "log-level"
+
+	// FlagNameLogPath is the name of the flag which represents the log file path.
+	FlagNameLogPath = "log-path"
+
+	// FlagNameLogLevel is the name of the flag which represents the log level.
+	FlagNameLogLevel = "log-level"
 )
 
 var (

@@ -30,7 +30,7 @@ We encourage contributions via GitHub pull requests. Before you start, please re
     git checkout -b your-feature-or-bugfix-branch
     ```
 1. **Make your changes.**
-1. **Format and Lint:** Ensure your code is formatted using [gofumpt](https://github.com/mvdan/gofumpt).
+1. **Format and Lint:** Ensure your code is formatted using [gofumpt](https://github.com/mvdan/gofumpt) and [golangci-lint run ./...](https://golangci-lint.run/welcome/install/).
 1. **Add Unit Tests:** All new features and bug fixes should be accompanied by relevant unit tests.
 1. **Commit your changes** with a clear and descriptive message.
 1. **Push your branch** to your forked repository.

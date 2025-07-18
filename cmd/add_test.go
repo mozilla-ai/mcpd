@@ -31,7 +31,7 @@ func (f *fakeConfig) AddServer(entry config.ServerEntry) error {
 	return nil
 }
 
-func (f *fakeConfig) RemoveServer(name string) error {
+func (f *fakeConfig) RemoveServer(_ string) error {
 	return nil
 }
 
@@ -44,7 +44,7 @@ type fakeLoader struct {
 	err error
 }
 
-func (f *fakeLoader) Load(path string) (config.Modifier, error) {
+func (f *fakeLoader) Load(_ string) (config.Modifier, error) {
 	return f.cfg, f.err
 }
 
