@@ -13,13 +13,18 @@ import (
 	"github.com/mozilla-ai/mcpd/v2/internal/runtime"
 )
 
-// version should not be moved/modified without consulting the Makefile,
-// as the path to this var is set on the LDFLAGS variable in the script.
-var version = "dev" // Set at build time using -ldflags
+var (
+	// version should not be moved/modified without consulting the Makefile and GoReleaser config,
+	// as the path to this var is set on the LDFLAGS variable in the script.
+	version = "dev"     // Set via ldflags
+	commit  = "unknown" // Set via ldflags
+	date    = "unknown" // Set via ldflags
+	builtBy = "unknown" // Set via ldflags
+)
 
 // Version is used by other packages to retrieve the build version of mcpd.
 func Version() string {
-	return version
+	return fmt.Sprintf("mcpd %s (%s), built %s", version, commit, date)
 }
 
 // AppName returns the name of the mcpd application.
