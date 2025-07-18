@@ -36,6 +36,9 @@ const (
 
 	// FilterKeySource is the key to use for filtering 'source'.
 	FilterKeySource = "source"
+
+	// FilterKeyIsOfficial is the key to use for filtering 'is_official'.
+	FilterKeyIsOfficial = "is_official"
 )
 
 // Predicate for matching a packages.Package.
@@ -44,11 +47,14 @@ type Predicate = filter.Predicate[packages.Package]
 // Option for providing a packages.Package.
 type Option = filter.Option[packages.Package]
 
-// ValueProvider is used to provide a specific string value from a packages.Package.
-type ValueProvider = filter.ValueProvider[packages.Package]
+// BoolValueProvider is used to provide a specific boolean value from a packages.Package.
+type BoolValueProvider = filter.BoolValueProvider[packages.Package]
 
-// ValuesProvider is used to provide a specific string slice value from a packages.Package.
-type ValuesProvider = filter.ValuesProvider[packages.Package]
+// StringValueProvider is used to provide a specific string value from a packages.Package.
+type StringValueProvider = filter.StringValueProvider[packages.Package]
+
+// StringValuesProvider is used to provide a specific string slice value from a packages.Package.
+type StringValuesProvider = filter.StringValuesProvider[packages.Package]
 
 // Match filters a packages.Package using optional predicate matchers defined by the supplied filter keys.
 // Each filter key corresponds to a predicate that (if supplied) evaluates a specific field in the packages.Package.
@@ -106,7 +112,7 @@ func WithNameMatcher() Option {
 // WithRuntimeMatcher returns a filter.Option with a matcher configured for the "runtime" filter key.
 // The matcher is applied during Match only if the runtime filter key is present in the filters map.
 // Matching is case-insensitive and uses normalized values.
-func WithRuntimeMatcher(provider ValuesProvider) Option {
+func WithRuntimeMatcher(provider StringValuesProvider) Option {
 	return filter.WithMatcher(FilterKeyRuntime, filter.HasAny(provider))
 }
 
@@ -114,7 +120,7 @@ func WithRuntimeMatcher(provider ValuesProvider) Option {
 // The matcher is applied during Match only if the tools filter key is present in the filters map.
 // This matcher returns true only if all filter values are found in the package's tools.
 // Matching is case-insensitive and uses normalized values.
-func WithToolsMatcher(provider ValuesProvider) Option {
+func WithToolsMatcher(provider StringValuesProvider) Option {
 	return filter.WithMatcher(FilterKeyTools, filter.HasAll(provider))
 }
 
@@ -122,7 +128,7 @@ func WithToolsMatcher(provider ValuesProvider) Option {
 // The matcher is applied during Match only if the tags filter key is present in the filters map.
 // This matcher returns true if all the filter values are found in the package's tag as substrings.
 // Matching is case-insensitive and uses normalized values.
-func WithTagsMatcher(provider ValuesProvider) Option {
+func WithTagsMatcher(provider StringValuesProvider) Option {
 	return filter.WithMatcher(FilterKeyTags, filter.PartialAll(provider))
 }
 
@@ -130,29 +136,36 @@ func WithTagsMatcher(provider ValuesProvider) Option {
 // The matcher is applied during Match only if the categories filter key is present in the filters map.
 // This matcher returns true if all the filter values are found in the package's categories as substrings.
 // Matching is case-insensitive and uses normalized values.
-func WithCategoriesMatcher(provider ValuesProvider) Option {
+func WithCategoriesMatcher(provider StringValuesProvider) Option {
 	return filter.WithMatcher(FilterKeyCategories, filter.PartialAll(provider))
 }
 
 // WithVersionMatcher returns a filter.Option with a matcher configured for the "version" filter key.
 // The matcher is applied during Match only if the version filter key is present in the filters map.
 // This matcher performs case-insensitive equality matching on the version field.
-func WithVersionMatcher(provider ValueProvider) Option {
+func WithVersionMatcher(provider StringValueProvider) Option {
 	return filter.WithMatcher(FilterKeyVersion, filter.Equals(provider))
 }
 
 // WithLicenseMatcher returns a filter.Option with a matcher configured for the "license" filter key.
 // The matcher is applied during Match only if the license filter key is present in the filters map.
 // This matcher performs case-insensitive substring matching on the license field.
-func WithLicenseMatcher(provider ValueProvider) Option {
+func WithLicenseMatcher(provider StringValueProvider) Option {
 	return filter.WithMatcher(FilterKeyLicense, filter.Partial(provider))
 }
 
 // WithSourceMatcher returns a filter.Option with a matcher configured for the "source" filter key.
 // The matcher is applied during Match only if the source filter key is present in the filters map.
 // This matcher performs case-insensitive equality matching on the source field.
-func WithSourceMatcher(provider ValueProvider) Option {
+func WithSourceMatcher(provider StringValueProvider) Option {
 	return filter.WithMatcher(FilterKeySource, filter.Equals(provider))
+}
+
+// WithIsOfficialMatcher returns a filter.Option with a matcher configured for the "is_official" filter key.
+// The matcher is applied during Match only if the 'is_official' filter key is present in the filters map.
+// This matcher performs boolean comparison on a parsed input string value, with the provided field.
+func WithIsOfficialMatcher(provider BoolValueProvider) Option {
+	return filter.WithMatcher(FilterKeyIsOfficial, filter.EqualsBool(provider))
 }
 
 func WithDefaultMatchers() Option {
@@ -161,7 +174,7 @@ func WithDefaultMatchers() Option {
 
 // withWildcardMatcher returns a Predicate that checks if any of the provided
 // value providers contain the input string, or matches the WildcardCharacter.
-func withWildcardMatcher(providers ...ValueProvider) Predicate {
+func withWildcardMatcher(providers ...StringValueProvider) Predicate {
 	return func(pkg packages.Package, val string) bool {
 		q := filter.NormalizeString(val)
 		if q == WildcardCharacter {
@@ -181,6 +194,7 @@ func DefaultMatchers() map[string]Predicate {
 		FilterKeyVersion:    filter.Equals(VersionProvider),
 		FilterKeyLicense:    filter.Partial(LicenseProvider),
 		FilterKeySource:     filter.Equals(SourceProvider),
+		FilterKeyIsOfficial: filter.EqualsBool(IsOfficialProvider),
 	}
 }
 
@@ -226,4 +240,8 @@ func ToolsProvider(pkg packages.Package) []string {
 
 func VersionProvider(pkg packages.Package) string {
 	return pkg.Version
+}
+
+func IsOfficialProvider(pkg packages.Package) bool {
+	return pkg.IsOfficial
 }

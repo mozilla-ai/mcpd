@@ -67,6 +67,27 @@ func TestSearchCmd_Filters(t *testing.T) {
 				"license": "MIT",
 			},
 		},
+		{
+			name: "official",
+			setters: func(c *SearchCmd) {
+				c.IsOfficial = true
+				c.License = "MIT"
+			},
+			wantFilter: map[string]string{
+				"is_official": "true",
+				"license":     "MIT",
+			},
+		},
+		{
+			name: "official missing when not true",
+			setters: func(c *SearchCmd) {
+				c.IsOfficial = false
+				c.License = "MIT"
+			},
+			wantFilter: map[string]string{
+				"license": "MIT",
+			},
+		},
 	}
 
 	for _, tc := range tests {

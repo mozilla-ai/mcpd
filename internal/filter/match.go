@@ -5,6 +5,7 @@ import (
 	"maps"
 	"slices"
 	"sort"
+	"strconv"
 	"strings"
 )
 
@@ -15,7 +16,7 @@ type Predicate[T any] func(item T, filterValue string) bool
 type Options[T any] struct {
 	matchers    map[string]Predicate[T]
 	unsupported map[string]struct{}
-	logFunc     func(key, val string)
+	logFunc     func(key string, val string)
 }
 
 // Option configures filter Options.
@@ -61,11 +62,20 @@ func NewOptions[T any](opt ...Option[T]) (Options[T], error) {
 	return opts, nil
 }
 
-// ValueProvider extracts a single string value from an item of type T.
-type ValueProvider[T any] func(T) string
+// Provider is a generic function type that encapsulates the logic for extracting
+// a value of type V from an filterValue of type T. It provides a flexible way to
+// retrieve specific data from various types of structures or sources.
+type Provider[T any, V any] func(T) V
 
-// ValuesProvider extracts a slice of string values from an item of type T.
-type ValuesProvider[T any] func(T) []string
+// BoolValueProvider extracts a single boolean value from an item of type T.
+type BoolValueProvider[T any] Provider[T, bool]
+
+// StringValueProvider extracts a single string value from an item of type T.
+type StringValueProvider[T any] Provider[T, string]
+
+// StringValuesProvider extracts a slice of string values from an item of type T.
+// type ValuesProvider[T any] func(T) []string
+type StringValuesProvider[T any] Provider[T, []string]
 
 // Equals returns a Predicate that checks if the value extracted by the provider
 // exactly matches the filter value (case-insensitive, normalized).
@@ -74,11 +84,28 @@ type ValuesProvider[T any] func(T) []string
 //
 // predicate := Equals(options.SourceProvider),
 // result := predicate(pkg, "github") // true if pkg.Source equals "github"
-func Equals[T any](provider ValueProvider[T]) Predicate[T] {
+func Equals[T any](provider StringValueProvider[T]) Predicate[T] {
 	return func(item T, val string) bool {
 		actual := NormalizeString(provider(item))
 		expected := NormalizeString(val)
 		return actual == expected
+	}
+}
+
+// EqualsBool returns a Predicate that checks if the value extracted by the provider
+// matches the parsed boolean representation of the filter value.
+//
+// Example:
+//
+// predicate := EqualsBool(options.IsOfficialProvider),
+// result := predicate(pkg, "true") // true if pkg.IsOfficial is true
+func EqualsBool[T any](provider BoolValueProvider[T]) Predicate[T] {
+	return func(item T, val string) bool {
+		parsedVal, err := strconv.ParseBool(NormalizeString(val))
+		if err != nil {
+			return false
+		}
+		return provider(item) == parsedVal
 	}
 }
 
@@ -89,7 +116,7 @@ func Equals[T any](provider ValueProvider[T]) Predicate[T] {
 //
 // predicate := Partial(options.VersionProvider),
 // result := predicate(pkg, "1.2") // true if pkg.Version contains "1.2"
-func Partial[T any](provider ValueProvider[T]) Predicate[T] {
+func Partial[T any](provider StringValueProvider[T]) Predicate[T] {
 	return func(item T, val string) bool {
 		actual := NormalizeString(provider(item))
 		expected := NormalizeString(val)
@@ -105,7 +132,7 @@ func Partial[T any](provider ValueProvider[T]) Predicate[T] {
 //
 // predicate := PartialAll(options.ToolsProvider),
 // result := predicate(pkg, "get_current_time,convert_time") // true if pkg.Tools contains values with "get_current_time" and "convert_time" as substrings
-func PartialAll[T any](provider ValuesProvider[T]) Predicate[T] {
+func PartialAll[T any](provider StringValuesProvider[T]) Predicate[T] {
 	return func(item T, val string) bool {
 		required := NormalizeSlice(strings.Split(val, ","))
 		actual := NormalizeSlice(provider(item))
@@ -128,13 +155,13 @@ func PartialAll[T any](provider ValuesProvider[T]) Predicate[T] {
 
 // EqualsAny returns a Predicate that checks if *ANY* of the values from the supplied providers are equal to the
 // filter value (case-insensitive, normalized).
-// Functionally similar to Equals, but operates on one or more ValueProvider.
+// Functionally similar to Equals, but operates on one or more StringValueProvider.
 //
 // Example:
 //
 // predicate := EqualsAny(options.ToolsProvider),
 // result := predicate(pkg, "get_current_time,convert_time") // true if pkg.Tools contains values "get_current_time" or "convert_time"
-func EqualsAny[T any](providers ...ValueProvider[T]) Predicate[T] {
+func EqualsAny[T any](providers ...StringValueProvider[T]) Predicate[T] {
 	return func(item T, val string) bool {
 		q := NormalizeString(val)
 		for _, p := range providers {
@@ -155,7 +182,7 @@ func EqualsAny[T any](providers ...ValueProvider[T]) Predicate[T] {
 //
 // predicate := HasOnly(options.ToolsProvider),
 // result := predicate(pkg, "get_current_time,convert_time") // true if pkg.Tools only contains tools from the list
-func HasOnly[T any](provider ValuesProvider[T]) Predicate[T] {
+func HasOnly[T any](provider StringValuesProvider[T]) Predicate[T] {
 	return func(item T, val string) bool {
 		required := strings.Split(val, ",")
 		expected := make(map[string]struct{}, len(required))
@@ -181,7 +208,7 @@ func HasOnly[T any](provider ValuesProvider[T]) Predicate[T] {
 //
 // predicate := HasAll(options.ToolsProvider),
 // result := predicate(pkg, "get_current_time,convert_time") // true if pkg.Tools contains both "get_current_time" and "convert_time"
-func HasAll[T any](provider ValuesProvider[T]) Predicate[T] {
+func HasAll[T any](provider StringValuesProvider[T]) Predicate[T] {
 	return func(item T, val string) bool {
 		required := NormalizeSlice(strings.Split(val, ","))
 		actual := provider(item)
@@ -208,7 +235,7 @@ func HasAll[T any](provider ValuesProvider[T]) Predicate[T] {
 //
 // predicate := HasAny(options.ToolsProvider),
 // result := predicate(pkg, "get_current_time,convert_time") // true if pkg.Tools contains either "get_current_time" or "convert_time"
-func HasAny[T any](provider ValuesProvider[T]) Predicate[T] {
+func HasAny[T any](provider StringValuesProvider[T]) Predicate[T] {
 	return func(item T, val string) bool {
 		required := NormalizeSlice(strings.Split(val, ","))
 		allowed := make(map[string]struct{}, len(required))
@@ -256,7 +283,7 @@ func WithUnsupportedKeys[T any](keys ...string) Option[T] {
 }
 
 // WithLogFunc sets a log function which will be used to log info if unsupported keys are encountered.
-func WithLogFunc[T any](logFunc func(key, val string)) Option[T] {
+func WithLogFunc[T any](logFunc func(key string, val string)) Option[T] {
 	return func(o *Options[T]) error {
 		if logFunc != nil {
 			o.logFunc = logFunc

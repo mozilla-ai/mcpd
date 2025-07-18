@@ -40,6 +40,7 @@ func TestDefaultMatchers_ContainsAllExpectedFilters(t *testing.T) {
 		FilterKeyVersion,
 		FilterKeyLicense,
 		FilterKeySource,
+		FilterKeyIsOfficial,
 	}
 
 	matchers := DefaultMatchers()
