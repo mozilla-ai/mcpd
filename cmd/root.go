@@ -46,8 +46,11 @@ func NewRootCmd(c *RootCmd) (*cobra.Command, error) {
 			"define their agent projects, and manage MCP server dependencies",
 		SilenceUsage:  true,
 		SilenceErrors: true,
-		Version:       cmd.Version(),
 	}
+
+	// Manually set the version template to prevent duplication in output.
+	rootCmd.SetVersionTemplate("{{.Version}}\n")
+	rootCmd.Version = cmd.Version()
 
 	// Configure app specific global flags that will appear on sub-commands.
 	if err := flags.InitFlags(rootCmd.PersistentFlags()); err != nil {

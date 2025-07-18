@@ -1,0 +1,56 @@
+# yaml-language-server: $schema=https://goreleaser.com/static/schema.json
+# vim: set ts=2 sw=2 tw=0 fo=cnqoj
+
+version: 2
+
+before:
+  hooks:
+    - go mod tidy
+    - go generate ./...
+
+builds:
+  - env:
+      - CGO_ENABLED=0
+    goos:
+      - linux
+      - windows
+      - darwin
+    goarch:
+      - amd64
+      - arm64
+    main: .
+    binary: mcpd
+    ldflags:
+      - -s -w  # Strip debug info and symbol table
+      - -X 'github.com/mozilla-ai/mcpd/v2/internal/cmd.version={{.Version}}'  # Bake in version
+      - -X 'github.com/mozilla-ai/mcpd/v2/internal/cmd.commit={{.Commit}}'    # Bake in commit hash
+      - -X 'github.com/mozilla-ai/mcpd/v2/internal/cmd.date={{.Date}}'        # Bake in build date
+    flags:
+      - -trimpath  # Remove file system paths from binary
+archives:
+  - formats: [tar.gz]
+    # name template makes the OS and Arch compatible with the results of `uname`.
+    name_template: >-
+      {{ .ProjectName }}_
+      {{- title .Os }}_
+      {{- if eq .Arch "amd64" }}x86_64
+      {{- else if eq .Arch "386" }}i386
+      {{- else }}{{ .Arch }}{{ end }}
+      {{- if .Arm }}v{{ .Arm }}{{ end }}
+    # use zip for windows archives
+    format_overrides:
+      - goos: windows
+        formats: [zip]
+
+changelog:
+  disable: true
+
+release:
+  replace_existing_draft: true
+  draft: true
+  prerelease: auto
+  footer: >-
+
+    ---
+
+    Released by [GoReleaser](https://github.com/goreleaser/goreleaser).

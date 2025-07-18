@@ -1,4 +1,4 @@
-.PHONY: build clean docs docs-cli docs-local docs-nav install test uninstall
+.PHONY: build build-dev build-linux build-linux-arm64 clean docs docs-cli docs-local docs-nav install local-down local-up test uninstall
 
 MODULE_PATH := github.com/mozilla-ai/mcpd/v2
 
@@ -13,42 +13,58 @@ INSTALL_DIR := /usr/local/bin
 #   - e.g., "dev" if git is not available or no commits yet
 VERSION := $(shell git describe --tags --always --dirty 2>/dev/null || echo "dev")
 
-# Linker flags for injecting version
+# Get commit hash and date
+COMMIT := $(shell git rev-parse HEAD 2>/dev/null || echo "unknown")
+DATE := $(shell date -u +"%Y-%m-%dT%H:%M:%SZ")
+
+# Linker flags for injecting version and optimizations
 # The path is MODULE_PATH/package.variableName
-LDFLAGS := -X '$(MODULE_PATH)/internal/cmd.version=$(VERSION)'
+LDFLAGS := -s -w -X '$(MODULE_PATH)/internal/cmd.version=$(VERSION)' \
+				-X '$(MODULE_PATH)/internal/cmd.commit=$(COMMIT)' \
+				-X '$(MODULE_PATH)/internal/cmd.date=$(DATE)'
+
+# Build flags for optimization
+BUILDFLAGS := -trimpath
 
 test:
 	go test ./...
 
 build:
-	@echo "building mcpd (with flags: ${LDFLAGS})..."
-	@go build -o mcpd -ldflags="${LDFLAGS}" .
+	@echo "building mcpd (version: $(VERSION), commit: $(COMMIT))..."
+	@go build $(BUILDFLAGS) -o mcpd -ldflags="$(LDFLAGS)" .
 
 build-linux:
-	@echo "building mcpd for amd64/linux (with flags: ${LDFLAGS})..."
-	@GOOS=linux GOARCH=amd64 go build -o mcpd -ldflags="${LDFLAGS}" .
+	@echo "building mcpd for amd64/linux (version: $(VERSION), commit: $(COMMIT))..."
+	@GOOS=linux GOARCH=amd64 go build $(BUILDFLAGS) -o mcpd -ldflags="$(LDFLAGS)" .
 
 build-linux-arm64:
-	@echo "building mcpd for arm64/linux (with flags: ${LDFLAGS})..."
-	@GOOS=linux GOARCH=arm64 go build -o mcpd -ldflags="${LDFLAGS}" .
+	@echo "building mcpd for arm64/linux (version: $(VERSION), commit: $(COMMIT))..."
+	@GOOS=linux GOARCH=arm64 go build $(BUILDFLAGS) -o mcpd -ldflags="$(LDFLAGS)" .
+
+# For development builds without optimizations (for debugging)
+build-dev:
+	@echo "building mcpd for development (version: $(VERSION), commit: $(COMMIT))..."
+	@go build -o mcpd -ldflags="-X '$(MODULE_PATH)/internal/cmd.version=$(VERSION)' \
+		-X '$(MODULE_PATH)/internal/cmd.commit=$(COMMIT)' \
+		-X '$(MODULE_PATH)/internal/cmd.date=$(DATE)'" .
 
 install: build
 	@# Copy the executable to the install directory
 	@# Requires sudo if INSTALL_DIR is a system path like /usr/local/bin
+	@echo "installing mcpd to $(INSTALL_DIR)..."
 	@cp mcpd $(INSTALL_DIR)/mcpd
-	@echo "mcpd installed to $(INSTALL_DIR)/mcpd"
+	@chmod +x $(INSTALL_DIR)/mcpd
 
 clean:
 	@# Remove the built executable and any temporary files
+	@echo "cleaning up local build artifacts..."
 	@rm -f mcpd # The executable itself
-	@# Add any other build artifacts here if they accumulate (e.g., cache files)
-	@echo "build artifacts cleaned"
 
 uninstall:
 	@# Remove the installed executable from the system
 	@# Requires sudo if INSTALL_DIR is a system path
+	@echo "uninstalling mcpd from $(INSTALL_DIR)..."
 	@rm -f $(INSTALL_DIR)/mcpd
-	@echo "mcpd uninstalled from $(INSTALL_DIR)/mcpd"
 
 # Runs MkDocs locally
 docs: docs-local
