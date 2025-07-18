@@ -25,6 +25,7 @@ type SearchCmd struct {
 	License         string
 	Source          string
 	Format          internalcmd.OutputFormat
+	IsOfficial      bool
 	registryBuilder registry.Builder
 	packagePrinter  printer.Printer
 }
@@ -105,6 +106,13 @@ func NewSearchCmd(baseCmd *internalcmd.BaseCmd, opt ...cmdopts.CmdOption) (*cobr
 		"Optional, specify a partial match for required categories (can be repeated)",
 	)
 
+	cobraCommand.Flags().BoolVar(
+		&c.IsOfficial,
+		"official",
+		false,
+		"Optional, only official server packages are included in results",
+	)
+
 	allowed := internalcmd.AllowedOutputFormats()
 	cobraCommand.Flags().Var(
 		&c.Format,
@@ -135,6 +143,9 @@ func (c *SearchCmd) filters() map[string]string {
 	}
 	if c.License != "" {
 		f["license"] = c.License
+	}
+	if c.IsOfficial {
+		f["is_official"] = "true"
 	}
 
 	return f

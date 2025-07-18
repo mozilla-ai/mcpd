@@ -100,6 +100,10 @@ func (p *PackagePrinter) printDetails(pkg packages.Package) error {
 		return err
 	}
 
+	if _, err := fmt.Fprintf(p.out, "  🔒 Official: %s\n", map[bool]string{true: "✅", false: "❌"}[pkg.IsOfficial]); err != nil {
+		return err
+	}
+
 	if _, err := fmt.Fprintf(p.out, "  📁 Registry: %s\n", pkg.Source); err != nil {
 		return err
 	}

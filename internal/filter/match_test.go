@@ -8,9 +8,10 @@ import (
 )
 
 type testItem struct {
-	Name     string
-	Category string
-	Tags     []string
+	Name       string
+	Category   string
+	Tags       []string
+	IsOfficial bool
 }
 
 func TestNormalizeString(t *testing.T) {
@@ -131,6 +132,111 @@ func TestMatch_BasicEquals(t *testing.T) {
 	match, err := Match(m, map[string]string{"id": "ABC123"}, WithMatchers(matchers))
 	require.NoError(t, err)
 	assert.True(t, match)
+}
+
+func TestMatch_EqualsBool(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name          string
+		itemVal       bool
+		filterValue   string
+		expectedMatch bool
+	}{
+		{
+			name:          "true",
+			itemVal:       true,
+			filterValue:   "true",
+			expectedMatch: true,
+		},
+		{
+			name:          "true whitespace",
+			itemVal:       true,
+			filterValue:   "  true  ",
+			expectedMatch: true,
+		},
+		{
+			name:          "true upper",
+			itemVal:       true,
+			filterValue:   "TRUE",
+			expectedMatch: true,
+		},
+		{
+			name:          "true mixed",
+			itemVal:       true,
+			filterValue:   "TruE",
+			expectedMatch: true,
+		},
+		{
+			name:          "true all",
+			itemVal:       true,
+			filterValue:   "  trUE  ",
+			expectedMatch: true,
+		},
+		{
+			name:          "false",
+			itemVal:       false,
+			filterValue:   "false",
+			expectedMatch: true,
+		},
+		{
+			name:          "false whitespace",
+			itemVal:       false,
+			filterValue:   "  false  ",
+			expectedMatch: true,
+		},
+		{
+			name:          "false upper",
+			itemVal:       false,
+			filterValue:   "FALSE",
+			expectedMatch: true,
+		},
+		{
+			name:          "false mixed",
+			itemVal:       false,
+			filterValue:   "FalsE",
+			expectedMatch: true,
+		},
+		{
+			name:          "false all",
+			itemVal:       false,
+			filterValue:   "  FAlse  ",
+			expectedMatch: true,
+		},
+		{
+			name:          "no match when filter is non-bool value",
+			itemVal:       false,
+			filterValue:   "hello",
+			expectedMatch: false,
+		},
+		{
+			name:          "no match when filter true, but item false",
+			itemVal:       false,
+			filterValue:   "true",
+			expectedMatch: false,
+		},
+		{
+			name:          "no match when filter false, but item true",
+			itemVal:       true,
+			filterValue:   "false",
+			expectedMatch: false,
+		},
+	}
+
+	key := "is_official"
+	matcher := WithMatcher(key, EqualsBool(func(i testItem) bool { return i.IsOfficial }))
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			item := testItem{IsOfficial: tc.itemVal}
+			filters := map[string]string{key: tc.filterValue}
+			match, err := Match(item, filters, matcher)
+			require.NoError(t, err)
+			assert.Equal(t, tc.expectedMatch, match)
+		})
+	}
 }
 
 func TestMatch_FailsOnMismatch(t *testing.T) {
