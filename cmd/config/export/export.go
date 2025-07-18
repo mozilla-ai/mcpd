@@ -67,22 +67,19 @@ func NewCmd(baseCmd *cmd.BaseCmd, opt ...options.CmdOption) (*cobra.Command, err
 }
 
 func (c *Cmd) longDescription() string {
-	return `Exports current configuration, generating a pair of safe and portable configuration files.
-	
-Using a project's required configuration (e.g. .mcpd.toml) and the locally configured runtime values from the execution context file (e.g. ~/.config/mcpd/secrets.dev.toml), the export command outputs two files:
-	
-Environment Contract:
-	- Lists all required and configured environment variables as secure, namespaced placeholders
-	  e.g. MCPD__{SERVER_NAME}__{ENV_VAR}
-	- Creates placeholders for command line arguments to be populated with env vars
-	  e.g. MCPD__{SERVER_NAME}__ARG_{ARG_NAME}
-	- This file is intended for the platform operator or CI/CD system
-	
-Portable Execution Context:
-	- A new secrets .toml file that defines sanitized runtime args and env sections for each server using the placeholders aligned with the environment contract
-	- These files are safe to check into version control if required.
-
-"This allows running an mcpd project in any environment, cleanly separating the configuration structure from the secret values`
+	return "Exports current configuration, generating a pair of safe and portable configuration files.\n\n" +
+		"Using a project's required configuration (e.g. `.mcpd.toml`) and the locally configured runtime values from the " +
+		"execution context file (e.g. `~/.config/mcpd/secrets.dev.toml`), the export command outputs two files:\n\n" +
+		"Environment Contract:\n\n" +
+		"Lists all required and configured environment variables as secure, namespaced placeholders:\n\n" +
+		"`MCPD__{SERVER_NAME}__{ENV_VAR}` - Creates placeholders for command line arguments to be populated with env vars\n\n" +
+		"`MCPD__{SERVER_NAME}__ARG_{ARG_NAME}` - This file is intended for the platform operator or CI/CD system\n\n" +
+		"Portable Execution Context:\n\n" +
+		"- A new secrets `.toml` file that defines sanitized runtime args and env sections for each server using the " +
+		"placeholders aligned with the environment contract\n" +
+		"- These files are safe to check into version control if required.\n\n" +
+		"This allows running an mcpd project in any environment, cleanly separating the configuration structure " +
+		"from the secret values"
 }
 
 func (c *Cmd) run(cmd *cobra.Command, args []string) error {

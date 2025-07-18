@@ -34,7 +34,7 @@ func NewSetCmd(baseCmd *cmd.BaseCmd, opt ...options.CmdOption) (*cobra.Command, 
 		Use:   "set <server-name> KEY=VALUE [KEY=VALUE ...]",
 		Short: "Set or update environment variables for an MCP server",
 		Long: "Set or update environment variables for a specified MCP server in the " +
-			"runtime context configuration file (e.g. ~/.config/mcpd/secrets.dev.toml)",
+			"runtime context configuration file (e.g. `~/.config/mcpd/secrets.dev.toml`)",
 		RunE: c.run,
 		Args: cobra.MinimumNArgs(2), // server_name and KEY=VALUE
 	}

@@ -52,7 +52,7 @@ func NewSearchCmd(baseCmd *internalcmd.BaseCmd, opt ...cmdopts.CmdOption) (*cobr
 		Use:   "search [server-name]",
 		Short: "Searches all configured registries for matching MCP servers",
 		Long: fmt.Sprintf("Searches all configured registries for matching MCP servers, "+
-			"the wildcard '%s' is the default when name is not specified. "+
+			"when name is not specified, the wildcard character (`%s`) is used. "+
 			"Returns aggregated results from all configured registries", options.WildcardCharacter),
 		RunE: c.run,
 	}

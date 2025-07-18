@@ -33,7 +33,7 @@ func NewClearCmd(baseCmd *cmd.BaseCmd, opt ...options.CmdOption) (*cobra.Command
 		Use:   "clear <server-name>",
 		Short: "Clears configured environment variables for an MCP server",
 		Long: "Clears environment variables for a specified MCP server from the " +
-			"runtime context configuration file (e.g. ~/.config/mcpd/secrets.dev.toml)",
+			"runtime context configuration file (e.g. `~/.config/mcpd/secrets.dev.toml`)",
 		RunE: c.run,
 		Args: cobra.MinimumNArgs(1), // server-name
 	}
