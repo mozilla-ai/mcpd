@@ -3,10 +3,12 @@ package printer
 import (
 	"bytes"
 	"errors"
+	"io"
 	"testing"
 
 	"github.com/stretchr/testify/require"
 
+	"github.com/mozilla-ai/mcpd/v2/internal/cmd/output"
 	"github.com/mozilla-ai/mcpd/v2/internal/packages"
 )
 
@@ -16,7 +18,11 @@ type testPrinterInner struct {
 	errOnPackage   string
 }
 
-func (f *testPrinterInner) PrintPackage(pkg packages.Package) error {
+func (f *testPrinterInner) Header(_ io.Writer, _ int) {}
+
+func (f *testPrinterInner) SetHeader(_ output.WriteFunc[packages.Package]) {}
+
+func (f *testPrinterInner) Item(_ io.Writer, pkg packages.Package) error {
 	f.calledPackages = append(f.calledPackages, pkg)
 	if pkg.Name == f.errOnPackage {
 		return errors.New("print error")
@@ -24,9 +30,9 @@ func (f *testPrinterInner) PrintPackage(pkg packages.Package) error {
 	return nil
 }
 
-func (f *testPrinterInner) SetOptions(_ ...PackagePrinterOption) error {
-	return nil // no-op for testing
-}
+func (f *testPrinterInner) Footer(_ io.Writer, _ int) {}
+
+func (f *testPrinterInner) SetFooter(_ output.WriteFunc[packages.Package]) {}
 
 // dummy package for testing
 func newPkg(name string) packages.Package {
@@ -37,7 +43,7 @@ func TestPackageListPrinter_Header(t *testing.T) {
 	t.Parallel()
 
 	buf := &bytes.Buffer{}
-	printer := NewPackageListPrinter(&testPrinterInner{})
+	printer := NewPackageResultsPrinter(&testPrinterInner{})
 	printer.Header(buf, 5)
 
 	out := buf.String()
@@ -50,7 +56,7 @@ func TestPackageListPrinter_Item(t *testing.T) {
 	t.Parallel()
 
 	inner := &testPrinterInner{}
-	printer := NewPackageListPrinter(inner)
+	printer := NewPackageResultsPrinter(inner)
 
 	pkg := newPkg("testpkg")
 	err := printer.Item(nil, pkg)
@@ -59,7 +65,7 @@ func TestPackageListPrinter_Item(t *testing.T) {
 
 	// error case
 	inner = &testPrinterInner{errOnPackage: "badpkg"}
-	printer = NewPackageListPrinter(inner)
+	printer = NewPackageResultsPrinter(inner)
 	bad := newPkg("badpkg")
 	err = printer.Item(nil, bad)
 	require.EqualError(t, err, "print error")
@@ -69,7 +75,7 @@ func TestPackageListPrinter_Footer(t *testing.T) {
 	t.Parallel()
 
 	buf := &bytes.Buffer{}
-	printer := NewPackageListPrinter(&testPrinterInner{})
+	printer := NewPackageResultsPrinter(&testPrinterInner{})
 
 	// singular
 	printer.Footer(buf, 1)

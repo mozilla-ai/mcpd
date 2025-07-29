@@ -7,6 +7,7 @@ import (
 
 	"github.com/hashicorp/go-hclog"
 
+	"github.com/mozilla-ai/mcpd/v2/internal/cmd/output"
 	"github.com/mozilla-ai/mcpd/v2/internal/flags"
 	"github.com/mozilla-ai/mcpd/v2/internal/provider/mcpm"
 	"github.com/mozilla-ai/mcpd/v2/internal/registry"
@@ -106,4 +107,33 @@ func (c *BaseCmd) MCPDSupportedRuntimes() []runtime.Runtime {
 		runtime.NPX,
 		runtime.UVX,
 	}
+}
+
+// FormatHandler returns an output.Handler[T] that formats values of type T according to the specified OutputFormat.
+//
+// It supports JSON, YAML, and plain text output. The handler writes to the  provided io.Writer and uses
+// the given output.Printer[T] implementation when text formatting is required.
+//
+// Supported formats:
+//   - FormatJSON: Pretty-printed JSON with 2-space indentation.
+//   - FormatYAML: YAML with 2-space indentation.
+//   - FormatText: Uses the provided printer for text formatting.
+//
+// If the format is not recognized, an error is returned.
+func FormatHandler[T any](w io.Writer, format OutputFormat, p output.Printer[T]) (output.Handler[T], error) {
+	// Configure the handler based on the requested format.
+	var handler output.Handler[T]
+
+	switch format {
+	case FormatJSON:
+		handler = output.NewJSONHandler[T](w, 2)
+	case FormatYAML:
+		handler = output.NewYAMLHandler[T](w, 2)
+	case FormatText:
+		handler = output.NewTextHandler[T](w, p)
+	default:
+		return nil, fmt.Errorf("unexpected error, no handler for output format: %s", format)
+	}
+
+	return handler, nil
 }

@@ -14,8 +14,8 @@ import (
 
 	"github.com/mozilla-ai/mcpd/v2/internal/cmd"
 	cmdopts "github.com/mozilla-ai/mcpd/v2/internal/cmd/options"
+	"github.com/mozilla-ai/mcpd/v2/internal/cmd/output"
 	"github.com/mozilla-ai/mcpd/v2/internal/packages"
-	"github.com/mozilla-ai/mcpd/v2/internal/printer"
 	"github.com/mozilla-ai/mcpd/v2/internal/registry/options"
 	"github.com/mozilla-ai/mcpd/v2/internal/runtime"
 )
@@ -147,21 +147,20 @@ func TestSearchCmd_DefaultFormat(t *testing.T) {
 		Runtimes: []runtime.Runtime{runtime.UVX},
 	}
 
-	output := new(bytes.Buffer)
+	o := new(bytes.Buffer)
 	cmdObj, err := NewSearchCmd(
 		&cmd.BaseCmd{},
 		cmdopts.WithRegistryBuilder(&fakeBuilder{reg: &fakeRegistry{pkg: pkg}}),
-		cmdopts.WithPrinter(&testPrinter{out: output}),
 	)
 	require.NoError(t, err)
 
-	cmdObj.SetOut(output)
+	cmdObj.SetOut(o)
 	cmdObj.SetArgs([]string{"test-server"})
 
 	err = cmdObj.Execute()
 	require.NoError(t, err)
 
-	outStr := output.String()
+	outStr := o.String()
 	assert.Contains(t, outStr, "🔎 Registry search results...")
 	assert.Contains(t, outStr, "🆔 test-server")
 	assert.Contains(t, outStr, "📦 Found 1 package")
@@ -180,21 +179,20 @@ func TestSearchCmd_TextFormat(t *testing.T) {
 		Runtimes: []runtime.Runtime{runtime.UVX},
 	}
 
-	output := new(bytes.Buffer)
+	o := new(bytes.Buffer)
 	cmdObj, err := NewSearchCmd(
 		&cmd.BaseCmd{},
 		cmdopts.WithRegistryBuilder(&fakeBuilder{reg: &fakeRegistry{pkg: pkg}}),
-		cmdopts.WithPrinter(&testPrinter{out: output}),
 	)
 	require.NoError(t, err)
 
-	cmdObj.SetOut(output)
+	cmdObj.SetOut(o)
 	cmdObj.SetArgs([]string{"test-server", "--format=text"})
 
 	err = cmdObj.Execute()
 	require.NoError(t, err)
 
-	outStr := output.String()
+	outStr := o.String()
 	assert.Contains(t, outStr, "🔎 Registry search results...")
 	assert.Contains(t, outStr, "🆔 test-server")
 	assert.Contains(t, outStr, "📦 Found 1 package")
@@ -213,26 +211,24 @@ func TestSearchCmd_JSONFormat(t *testing.T) {
 		Runtimes: []runtime.Runtime{runtime.UVX},
 	}
 
-	output := new(bytes.Buffer)
+	o := new(bytes.Buffer)
 	cmdObj, err := NewSearchCmd(
 		&cmd.BaseCmd{},
 		cmdopts.WithRegistryBuilder(&fakeBuilder{reg: &fakeRegistry{pkg: pkg}}),
-		cmdopts.WithPrinter(&fakePrinter{}),
 	)
 	require.NoError(t, err)
 
-	cmdObj.SetOut(output)
+	cmdObj.SetOut(o)
 	cmdObj.SetArgs([]string{"test-server", "--format=json"})
 
 	err = cmdObj.Execute()
 	require.NoError(t, err)
 
-	result := struct {
-		Results []packages.Package `json:"results"`
-	}{}
-	err = json.Unmarshal(output.Bytes(), &result)
+	var result output.ResultsPayload[packages.Package]
+	err = json.Unmarshal(o.Bytes(), &result)
 	require.NoError(t, err)
-
+	require.NotNil(t, result)
+	require.NotNil(t, result.Results)
 	assert.Len(t, result.Results, 1)
 	assert.Equal(t, "test-server", result.Results[0].ID)
 	assert.Equal(t, "Test Server", result.Results[0].Name)
@@ -244,15 +240,14 @@ func TestSearchCmd_JSONFormat(t *testing.T) {
 }
 
 func TestSearchCmd_JSONFormat_EmptyResults(t *testing.T) {
-	output := new(bytes.Buffer)
+	o := new(bytes.Buffer)
 	cmdObj, err := NewSearchCmd(
 		&cmd.BaseCmd{},
 		cmdopts.WithRegistryBuilder(&fakeBuilder{reg: &fakeRegistryMultiple{packages: []packages.Package{}}}),
-		cmdopts.WithPrinter(&fakePrinter{}),
 	)
 	require.NoError(t, err)
 
-	cmdObj.SetOut(output)
+	cmdObj.SetOut(o)
 	cmdObj.SetArgs([]string{"nonexistent", "--format=json"})
 
 	err = cmdObj.Execute()
@@ -261,7 +256,7 @@ func TestSearchCmd_JSONFormat_EmptyResults(t *testing.T) {
 	result := struct {
 		Results []packages.Package `json:"results"`
 	}{}
-	err = json.Unmarshal(output.Bytes(), &result)
+	err = json.Unmarshal(o.Bytes(), &result)
 	require.NoError(t, err)
 
 	assert.Empty(t, result.Results)
@@ -298,7 +293,6 @@ func TestSearchCmd_JSONFormat_MultipleResults(t *testing.T) {
 	cmdObj, err := NewSearchCmd(
 		&cmd.BaseCmd{},
 		cmdopts.WithRegistryBuilder(&fakeBuilder{reg: fakeReg}),
-		cmdopts.WithPrinter(&fakePrinter{}),
 	)
 	require.NoError(t, err)
 
@@ -324,7 +318,6 @@ func TestSearchCmd_InvalidFormat(t *testing.T) {
 	cmdObj, err := NewSearchCmd(
 		&cmd.BaseCmd{},
 		cmdopts.WithRegistryBuilder(&fakeBuilder{reg: &fakeRegistry{}}),
-		cmdopts.WithPrinter(&fakePrinter{}),
 	)
 	require.NoError(t, err)
 
@@ -367,15 +360,14 @@ func TestSearchCmd_CaseInsensitiveFormat(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			output := new(bytes.Buffer)
+			o := new(bytes.Buffer)
 			cmdObj, err := NewSearchCmd(
 				&cmd.BaseCmd{},
 				cmdopts.WithRegistryBuilder(&fakeBuilder{reg: &fakeRegistry{pkg: pkg}}),
-				cmdopts.WithPrinter(&testPrinter{out: output}),
 			)
 			require.NoError(t, err)
 
-			cmdObj.SetOut(output)
+			cmdObj.SetOut(o)
 			cmdObj.SetArgs([]string{"test-server", fmt.Sprintf("--format=%s", tc.format)})
 
 			err = cmdObj.Execute()
@@ -393,12 +385,12 @@ func TestSearchCmd_CaseInsensitiveFormat(t *testing.T) {
 				result := struct {
 					Results []packages.Package `json:"results"`
 				}{}
-				err = json.Unmarshal(output.Bytes(), &result)
+				err = json.Unmarshal(o.Bytes(), &result)
 				require.NoError(t, err)
 				assert.Len(t, result.Results, 1)
 				assert.Equal(t, "test-server", result.Results[0].ID)
 			} else {
-				outStr := output.String()
+				outStr := o.String()
 				assert.Contains(t, outStr, "🔎 Registry search results...")
 				assert.Contains(t, outStr, "🆔 test-server")
 				assert.Contains(t, outStr, "📦 Found 1 package")
@@ -408,15 +400,14 @@ func TestSearchCmd_CaseInsensitiveFormat(t *testing.T) {
 }
 
 func TestSearchCmd_JSONFormat_RegistryError(t *testing.T) {
-	output := new(bytes.Buffer)
+	o := new(bytes.Buffer)
 	cmdObj, err := NewSearchCmd(
 		&cmd.BaseCmd{},
 		cmdopts.WithRegistryBuilder(&fakeBuilder{err: errors.New("registry build failed")}),
-		cmdopts.WithPrinter(&fakePrinter{}),
 	)
 	require.NoError(t, err)
 
-	cmdObj.SetOut(output)
+	cmdObj.SetOut(o)
 	cmdObj.SetArgs([]string{"test-server", "--format=json"})
 	err = cmdObj.Execute()
 	require.NoError(t, err)
@@ -424,22 +415,21 @@ func TestSearchCmd_JSONFormat_RegistryError(t *testing.T) {
 	result := struct {
 		Error string `json:"error"`
 	}{}
-	err = json.Unmarshal(output.Bytes(), &result)
+	err = json.Unmarshal(o.Bytes(), &result)
 	require.NoError(t, err)
 
 	assert.Equal(t, "registry build failed", result.Error)
 }
 
 func TestSearchCmd_JSONFormat_SearchError(t *testing.T) {
-	output := new(bytes.Buffer)
+	o := new(bytes.Buffer)
 	cmdObj, err := NewSearchCmd(
 		&cmd.BaseCmd{},
 		cmdopts.WithRegistryBuilder(&fakeBuilder{reg: &fakeRegistry{err: errors.New("search failed")}}),
-		cmdopts.WithPrinter(&fakePrinter{}),
 	)
 	require.NoError(t, err)
 
-	cmdObj.SetOut(output)
+	cmdObj.SetOut(o)
 	cmdObj.SetArgs([]string{"test-server", "--format=json"})
 
 	err = cmdObj.Execute()
@@ -448,7 +438,7 @@ func TestSearchCmd_JSONFormat_SearchError(t *testing.T) {
 	result := struct {
 		Error string `json:"error"`
 	}{}
-	err = json.Unmarshal(output.Bytes(), &result)
+	err = json.Unmarshal(o.Bytes(), &result)
 	require.NoError(t, err)
 
 	assert.Equal(t, "search failed", result.Error)
@@ -457,21 +447,20 @@ func TestSearchCmd_JSONFormat_SearchError(t *testing.T) {
 func TestSearchCmd_TextFormat_NoResults(t *testing.T) {
 	fakeReg := &fakeRegistryMultiple{packages: []packages.Package{}}
 
-	output := new(bytes.Buffer)
+	o := new(bytes.Buffer)
 	cmdObj, err := NewSearchCmd(
 		&cmd.BaseCmd{},
 		cmdopts.WithRegistryBuilder(&fakeBuilder{reg: fakeReg}),
-		cmdopts.WithPrinter(&testPrinter{out: output}),
 	)
 	require.NoError(t, err)
 
-	cmdObj.SetOut(output)
+	cmdObj.SetOut(o)
 	cmdObj.SetArgs([]string{"nonexistent", "--format=text"})
 
 	err = cmdObj.Execute()
 	require.NoError(t, err)
 
-	outStr := output.String()
+	outStr := o.String()
 	assert.Contains(t, outStr, "No items found")
 }
 
@@ -488,15 +477,14 @@ func TestSearchCmd_FlagsWithJSONFormat(t *testing.T) {
 		Runtimes: []runtime.Runtime{runtime.UVX},
 	}
 
-	output := new(bytes.Buffer)
+	o := new(bytes.Buffer)
 	cmdObj, err := NewSearchCmd(
 		&cmd.BaseCmd{},
 		cmdopts.WithRegistryBuilder(&fakeBuilder{reg: &fakeRegistry{pkg: pkg}}),
-		cmdopts.WithPrinter(&fakePrinter{}),
 	)
 	require.NoError(t, err)
 
-	cmdObj.SetOut(output)
+	cmdObj.SetOut(o)
 	cmdObj.SetArgs([]string{"test-server", "--format=json", "--runtime=uvx", "--license=MIT"})
 
 	err = cmdObj.Execute()
@@ -505,7 +493,7 @@ func TestSearchCmd_FlagsWithJSONFormat(t *testing.T) {
 	result := struct {
 		Results []packages.Package `json:"results"`
 	}{}
-	err = json.Unmarshal(output.Bytes(), &result)
+	err = json.Unmarshal(o.Bytes(), &result)
 	require.NoError(t, err)
 
 	assert.Len(t, result.Results, 1)
@@ -525,15 +513,14 @@ func TestSearchCmd_WildcardSearch(t *testing.T) {
 		Runtimes: []runtime.Runtime{runtime.UVX},
 	}
 
-	output := new(bytes.Buffer)
+	o := new(bytes.Buffer)
 	cmdObj, err := NewSearchCmd(
 		&cmd.BaseCmd{},
 		cmdopts.WithRegistryBuilder(&fakeBuilder{reg: &fakeRegistry{pkg: pkg}}),
-		cmdopts.WithPrinter(&fakePrinter{}),
 	)
 	require.NoError(t, err)
 
-	cmdObj.SetOut(output)
+	cmdObj.SetOut(o)
 	cmdObj.SetArgs([]string{"--format=json"}) // No search term, should use wildcard
 
 	err = cmdObj.Execute()
@@ -542,7 +529,7 @@ func TestSearchCmd_WildcardSearch(t *testing.T) {
 	result := struct {
 		Results []packages.Package `json:"results"`
 	}{}
-	err = json.Unmarshal(output.Bytes(), &result)
+	err = json.Unmarshal(o.Bytes(), &result)
 	require.NoError(t, err)
 
 	assert.Len(t, result.Results, 1)
@@ -568,20 +555,6 @@ func (f *fakeRegistryMultiple) Search(_ string, _ map[string]string, _ ...option
 
 func (f *fakeRegistryMultiple) ID() string {
 	return "fake-multiple"
-}
-
-// testPrinter writes directly to a buffer for testing
-type testPrinter struct {
-	out io.Writer
-}
-
-func (t *testPrinter) PrintPackage(pkg packages.Package) error {
-	_, err := fmt.Fprintf(t.out, "  🆔 %s\n", pkg.ID)
-	return err
-}
-
-func (t *testPrinter) SetOptions(_ ...printer.PackagePrinterOption) error {
-	return nil
 }
 
 func TestParseOutputFormat(t *testing.T) {

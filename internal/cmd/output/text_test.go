@@ -26,6 +26,10 @@ func (p *fakePrinter[T]) Header(w io.Writer, count int) {
 	_, _ = w.Write([]byte("HEADER\n"))
 }
 
+func (p *fakePrinter[T]) SetHeader(_ WriteFunc[T]) {}
+
+func (p *fakePrinter[T]) SetFooter(_ WriteFunc[T]) {}
+
 func (p *fakePrinter[T]) Item(w io.Writer, t T) error {
 	p.items = append(p.items, t)
 
@@ -72,7 +76,7 @@ func TestHandleResults_Empty(t *testing.T) {
 	printer := &fakePrinter[int]{}
 	h := NewTextHandler[int](buf, printer)
 
-	err := h.HandleResults([]int{})
+	err := h.HandleResults([]int{}...)
 	require.NoError(t, err)
 	require.False(t, printer.headerCalled)
 	require.False(t, printer.footerCalled)
@@ -86,7 +90,7 @@ func TestHandleResults_WithItems(t *testing.T) {
 	h := NewTextHandler[string](buf, printer)
 
 	items := []string{"a", "b", "c"}
-	err := h.HandleResults(items)
+	err := h.HandleResults(items...)
 	require.NoError(t, err)
 
 	require.True(t, printer.headerCalled)
@@ -110,7 +114,7 @@ func TestHandleResults_ItemError(t *testing.T) {
 	printer := &fakePrinter[int]{errOnItem: 2}
 	h := NewTextHandler[int](buf, printer)
 
-	err := h.HandleResults([]int{1, 2, 3})
+	err := h.HandleResults([]int{1, 2, 3}...)
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "item error")
 

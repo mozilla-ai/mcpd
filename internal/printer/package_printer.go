@@ -3,117 +3,81 @@ package printer
 import (
 	"fmt"
 	"io"
-	"os"
 	"slices"
 	"strings"
 
+	"github.com/mozilla-ai/mcpd/v2/internal/cmd/output"
 	"github.com/mozilla-ai/mcpd/v2/internal/packages"
 )
 
-type Printer interface {
-	PrintPackage(pkg packages.Package) error
-	SetOptions(opt ...PackagePrinterOption) error
+var _ output.Printer[packages.Package] = (*PackagePrinter)(nil)
+
+func DefaultPackageHeader() output.WriteFunc[packages.Package] {
+	return nil
 }
 
-type DefaultPrinter struct{}
+func DefaultPackageFooter() output.WriteFunc[packages.Package] {
+	return func(w io.Writer, _ int) {
+		_, _ = fmt.Fprintln(w, "")
+		_, _ = fmt.Fprintln(w, "────────────────────────────────────────────")
+		_, _ = fmt.Fprintln(w, "")
+	}
+}
 
 type PackagePrinter struct {
-	out  io.Writer
-	opts PackagePrinterOptions
+	headerFunc output.WriteFunc[packages.Package]
+	footerFunc output.WriteFunc[packages.Package]
 }
 
-func (p *DefaultPrinter) PrintPackage(pkg packages.Package) error {
-	if _, err := fmt.Fprintf(os.Stderr, "Default:\n%#v\n", pkg); err != nil {
-		return err
-	}
-	return nil
-}
-
-func (p *DefaultPrinter) SetOptions(_ ...PackagePrinterOption) error {
-	return nil
-}
-
-// NewPrinter creates a new Printer with the provided output options.
-func NewPrinter(out io.Writer, options ...PackagePrinterOption) (Printer, error) {
-	opts, err := NewPackagePrinterOptions(options...)
-	if err != nil {
-		return nil, err
-	}
-
+func NewPackagePrinter() *PackagePrinter {
 	return &PackagePrinter{
-		out:  out,
-		opts: opts,
-	}, nil
+		headerFunc: DefaultPackageHeader(),
+		footerFunc: DefaultPackageFooter(),
+	}
 }
 
-func (p *PackagePrinter) SetOptions(opt ...PackagePrinterOption) error {
-	// Get current options.
-	opts := []PackagePrinterOption{
-		WithHeader(p.opts.showHeader),
-		WithSeparator(p.opts.showSeparator),
-		WithMissingWarnings(p.opts.showMissingWarning),
+func (p *PackagePrinter) Header(w io.Writer, count int) {
+	if p.headerFunc != nil {
+		p.headerFunc(w, count)
 	}
-
-	// Add updated options.
-	opts = append(opts, opt...)
-
-	// 'last write wins' for options, so updated options will be applied.
-	newOpts, err := NewPackagePrinterOptions(opts...)
-	if err != nil {
-		return err
-	}
-	p.opts = newOpts
-
-	return nil
 }
 
-// PrintPackage outputs a single package entry with options.
-func (p *PackagePrinter) PrintPackage(pkg packages.Package) error {
-	err := p.printDetails(pkg)
-	if err != nil {
-		return err
-	}
-
-	if p.opts.showSeparator {
-		_, err := fmt.Fprintln(p.out)
-		if err != nil {
-			return err
-		}
-		_, err = fmt.Fprintln(p.out, "────────────────────────────────────────────")
-		if err != nil {
-			return err
-		}
-		_, err = fmt.Fprintln(p.out)
-		if err != nil {
-			return err
-		}
-	}
-
-	return nil
+func (p *PackagePrinter) SetHeader(fn output.WriteFunc[packages.Package]) {
+	p.headerFunc = fn
 }
 
-// printDetails contains the actual printing logic of package details.
-func (p *PackagePrinter) printDetails(pkg packages.Package) error {
-	if _, err := fmt.Fprintf(p.out, "  🆔 %s\n", pkg.ID); err != nil {
+func (p *PackagePrinter) Footer(w io.Writer, count int) {
+	if p.footerFunc != nil {
+		p.footerFunc(w, count)
+	}
+}
+
+func (p *PackagePrinter) SetFooter(fn output.WriteFunc[packages.Package]) {
+	p.footerFunc = fn
+}
+
+// Item outputs a single package entry.
+func (p *PackagePrinter) Item(w io.Writer, pkg packages.Package) error {
+	if _, err := fmt.Fprintf(w, "  🆔 %s\n", pkg.ID); err != nil {
 		return err
 	}
 
-	if _, err := fmt.Fprintf(p.out, "  🔒 Official: %s\n", map[bool]string{true: "✅", false: "❌"}[pkg.IsOfficial]); err != nil {
+	if _, err := fmt.Fprintf(w, "  🔒 Official: %s\n", map[bool]string{true: "✅", false: "❌"}[pkg.IsOfficial]); err != nil {
 		return err
 	}
 
-	if _, err := fmt.Fprintf(p.out, "  📁 Registry: %s\n", pkg.Source); err != nil {
+	if _, err := fmt.Fprintf(w, "  📁 Registry: %s\n", pkg.Source); err != nil {
 		return err
 	}
 
 	if strings.TrimSpace(pkg.Description) != "" {
-		if _, err := fmt.Fprintf(p.out, "  ℹ️ Description: %s\n", pkg.Description); err != nil {
+		if _, err := fmt.Fprintf(w, "  ℹ️ Description: %s\n", pkg.Description); err != nil {
 			return err
 		}
 	}
 
 	if strings.TrimSpace(pkg.License) != "" {
-		if _, err := fmt.Fprintf(p.out, "  📄 License: %s\n", pkg.License); err != nil {
+		if _, err := fmt.Fprintf(w, "  📄 License: %s\n", pkg.License); err != nil {
 			return err
 		}
 	}
@@ -123,70 +87,70 @@ func (p *PackagePrinter) printDetails(pkg packages.Package) error {
 		for i, r := range pkg.Runtimes {
 			runtimes[i] = string(r)
 		}
-		if _, err := fmt.Fprintf(p.out, "  🏗️ Runtimes: %s\n", strings.Join(runtimes, ", ")); err != nil {
+		if _, err := fmt.Fprintf(w, "  🏗️ Runtimes: %s\n", strings.Join(runtimes, ", ")); err != nil {
 			return err
 		}
-	} else if p.opts.showMissingWarning {
-		if _, err := fmt.Fprintf(p.out, "  ⚠️ Warning: No supported runtimes found in package description\n"); err != nil {
+	} else {
+		if _, err := fmt.Fprintf(w, "  ⚠️ Warning: No supported runtimes found in package description\n"); err != nil {
 			return err
 		}
 	}
 
 	if len(pkg.Tools) > 0 {
-		if _, err := fmt.Fprintf(p.out, "  🔨 Tools: %s\n", strings.Join(pkg.Tools.Names(), ", ")); err != nil {
+		if _, err := fmt.Fprintf(w, "  🔨 Tools: %s\n", strings.Join(pkg.Tools.Names(), ", ")); err != nil {
 			return err
 		}
-	} else if p.opts.showMissingWarning {
-		if _, err := fmt.Fprintf(p.out, "  ⚠️ Warning: No tools found in package description\n"); err != nil {
+	} else {
+		if _, err := fmt.Fprintf(w, "  ⚠️ Warning: No tools found in package description\n"); err != nil {
 			return err
 		}
 	}
 
 	if len(pkg.Tags) > 0 {
-		if _, err := fmt.Fprintf(p.out, "  🏷️ Tags: %s\n", strings.Join(pkg.Tags, ", ")); err != nil {
+		if _, err := fmt.Fprintf(w, "  🏷️ Tags: %s\n", strings.Join(pkg.Tags, ", ")); err != nil {
 			return err
 		}
 	}
 
 	if len(pkg.Categories) > 0 {
-		if _, err := fmt.Fprintf(p.out, "  📂 Categories: %s\n", strings.Join(pkg.Categories, ", ")); err != nil {
+		if _, err := fmt.Fprintf(w, "  📂 Categories: %s\n", strings.Join(pkg.Categories, ", ")); err != nil {
 			return err
 		}
 	}
 
 	if len(pkg.Arguments) > 0 {
-		if _, err := fmt.Fprintln(p.out, "  ⚙️ Found startup args..."); err != nil {
+		if _, err := fmt.Fprintln(w, "  ⚙️ Found startup args..."); err != nil {
 			return err
 		}
 		requiredArgs := getArgs(pkg.Arguments, true)
 		if len(requiredArgs) > 0 {
-			if _, err := fmt.Fprintf(p.out, "  ❗ Required: %s\n", strings.Join(requiredArgs, ", ")); err != nil {
+			if _, err := fmt.Fprintf(w, "  ❗ Required: %s\n", strings.Join(requiredArgs, ", ")); err != nil {
 				return err
 			}
 		}
 		optionalArgs := getArgs(pkg.Arguments, false)
 		if len(optionalArgs) > 0 {
-			if _, err := fmt.Fprintf(p.out, "  🔹️ Optional: %s\n", strings.Join(optionalArgs, ", ")); err != nil {
+			if _, err := fmt.Fprintf(w, "  🔹️ Optional: %s\n", strings.Join(optionalArgs, ", ")); err != nil {
 				return err
 			}
 		}
 
 		envs := pkg.Arguments.FilterBy(packages.EnvVar).Names()
 		if len(envs) > 0 {
-			if _, err := fmt.Fprintln(p.out, "  📋 Args configurable via environment variables..."); err != nil {
+			if _, err := fmt.Fprintln(w, "  📋 Args configurable via environment variables..."); err != nil {
 				return err
 			}
-			if _, err := fmt.Fprintf(p.out, "  🌍 %s\n", strings.Join(envs, ", ")); err != nil {
+			if _, err := fmt.Fprintf(w, "  🌍 %s\n", strings.Join(envs, ", ")); err != nil {
 				return err
 			}
 		}
 
 		args := pkg.Arguments.FilterBy(packages.Argument).Names()
 		if len(args) > 0 {
-			if _, err := fmt.Fprintln(p.out, "  📋 Args configurable via command line..."); err != nil {
+			if _, err := fmt.Fprintln(w, "  📋 Args configurable via command line..."); err != nil {
 				return err
 			}
-			if _, err := fmt.Fprintf(p.out, "  🖥️ %s\n", strings.Join(args, ", ")); err != nil {
+			if _, err := fmt.Fprintf(w, "  🖥️ %s\n", strings.Join(args, ", ")); err != nil {
 				return err
 			}
 		}
