@@ -4,7 +4,7 @@
 
 Today, `mcpd` launches MCP servers as subprocesses using STDIO (Standard Input/Output) and acts as an HTTP proxy between agents and the tools they expose. This enables agent-compatible workflows with support for secrets, runtime arguments, and reproducible configurations, no matter where `mcpd` is running.
 
-We're developing a Kubernetes operator, guided by our internal roadmap, to extend mcpd for deploying and managing MCP servers as long-lived services in production. It will use the same .mcpd.toml configuration and proxy model, making it easier to scale and manage lifecycles without changing the developer experience.
+We're developing a Kubernetes operator, guided by our internal roadmap, to extend `mcpd` for deploying and managing MCP servers as long-lived services in production. It will use the same `.mcpd.toml` configuration and proxy model, making it easier to scale and manage lifecycles without changing the developer experience.
 
 > Built by [Mozilla AI](https://mozilla.ai)
 
