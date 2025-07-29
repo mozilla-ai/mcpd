@@ -1,6 +1,6 @@
 # mcpd
 
-**mcpd** is a tool to declaratively manage [Model Context Protocol](https://github.com/mozilla-ai/mcp-spec) (MCP) servers, providing a consistent interface to define and run tools across environments, from local development to containerized cloud deployments.
+**mcpd** is a tool to declaratively manage [Model Context Protocol](https://modelcontextprotocol.io/overview) (MCP) servers, providing a consistent interface to define and run tools across environments, from local development to containerized cloud deployments.
 
 Today, mcpd launches MCP servers as subprocesses using stdio and acts as an HTTP proxy between agents and the tools they expose. This enables agent-compatible workflows with support for secrets, runtime arguments, and reproducible configurations ,no matter where mcpd is running.
 
