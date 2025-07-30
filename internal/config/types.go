@@ -40,21 +40,21 @@ type Config struct {
 type ServerEntry struct {
 	// Name is the unique name/ID from the registry, referenced by the user.
 	// e.g. 'github-server'
-	Name string `toml:"name"`
+	Name string `toml:"name" json:"name" yaml:"name"`
 
 	// Package contains the identifier including runtime and version.
 	// e.g. 'uvx::modelcontextprotocol/github-server@1.2.3'
-	Package string `toml:"package"`
+	Package string `toml:"package" json:"package" yaml:"package"`
 
 	// Tools lists the names of the tools which should be allowed on this server.
 	// e.g. 'create_repository'
-	Tools []string `toml:"tools"`
+	Tools []string `toml:"tools" json:"tools" yaml:"tools"`
 
 	// RequiredEnvVars captures any environment variables required to run the server.
-	RequiredEnvVars []string `toml:"required_env,omitempty"`
+	RequiredEnvVars []string `toml:"required_env,omitempty" json:"required_env,omitempty" yaml:"required_env,omitempty"`
 
 	// RequiredArgs captures any command line args required to run the server.
-	RequiredArgs []string `toml:"required_args,omitempty"`
+	RequiredArgs []string `toml:"required_args,omitempty" json:"required_args,omitempty" yaml:"required_args,omitempty"`
 }
 
 type serverKey struct {

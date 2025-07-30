@@ -4,7 +4,6 @@ import (
 	"github.com/mozilla-ai/mcpd/v2/internal/cmd"
 	"github.com/mozilla-ai/mcpd/v2/internal/config"
 	"github.com/mozilla-ai/mcpd/v2/internal/context"
-	"github.com/mozilla-ai/mcpd/v2/internal/printer"
 	"github.com/mozilla-ai/mcpd/v2/internal/registry"
 )
 
@@ -14,7 +13,6 @@ type CmdOptions struct {
 	ConfigLoader      config.Loader
 	ConfigInitializer config.Initializer
 	ContextLoader     context.Loader
-	Printer           printer.Printer
 	RegistryBuilder   registry.Builder
 }
 
@@ -24,7 +22,6 @@ func defaultOptions() CmdOptions {
 		ConfigLoader:      configLoader,
 		ConfigInitializer: configLoader,
 		ContextLoader:     &context.DefaultLoader{},
-		Printer:           &printer.DefaultPrinter{},
 		RegistryBuilder:   &cmd.BaseCmd{},
 	}
 }
@@ -53,13 +50,6 @@ func WithConfigLoader(l config.Loader) CmdOption {
 func WithContextLoader(l context.Loader) CmdOption {
 	return func(o *CmdOptions) error {
 		o.ContextLoader = l
-		return nil
-	}
-}
-
-func WithPrinter(p printer.Printer) CmdOption {
-	return func(o *CmdOptions) error {
-		o.Printer = p
 		return nil
 	}
 }

@@ -30,7 +30,7 @@ func TestYAMLHandler_HandleResults(t *testing.T) {
 	h := NewYAMLHandler[testYAMLSample](buf, 2)
 
 	samples := []testYAMLSample{{ID: 1, Name: "Alice"}, {ID: 2, Name: "Bob"}}
-	err := h.HandleResults(samples)
+	err := h.HandleResults(samples...)
 	require.NoError(t, err)
 
 	// Expect YAML with top-level 'results' sequence
@@ -48,7 +48,7 @@ func TestYAMLHandler_HandleResults_Empty(t *testing.T) {
 	buf := &bytes.Buffer{}
 	h := NewYAMLHandler[testYAMLSample](buf, 0)
 
-	err := h.HandleResults(nil)
+	err := h.HandleResults(nil...)
 	require.NoError(t, err)
 
 	// Nil slice yields null results

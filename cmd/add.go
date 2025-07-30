@@ -2,12 +2,14 @@ package cmd
 
 import (
 	"fmt"
+	"io"
 	"strings"
 
 	"github.com/spf13/cobra"
 
-	"github.com/mozilla-ai/mcpd/v2/internal/cmd"
+	internalcmd "github.com/mozilla-ai/mcpd/v2/internal/cmd"
 	cmdopts "github.com/mozilla-ai/mcpd/v2/internal/cmd/options"
+	"github.com/mozilla-ai/mcpd/v2/internal/cmd/output"
 	"github.com/mozilla-ai/mcpd/v2/internal/config"
 	"github.com/mozilla-ai/mcpd/v2/internal/filter"
 	"github.com/mozilla-ai/mcpd/v2/internal/flags"
@@ -20,18 +22,19 @@ import (
 
 // AddCmd should be used to represent the 'add' command.
 type AddCmd struct {
-	*cmd.BaseCmd
+	*internalcmd.BaseCmd
 	Version         string
 	Tools           []string
 	Runtime         string
 	Source          string
+	Format          internalcmd.OutputFormat
 	cfgLoader       config.Loader
-	packagePrinter  printer.Printer
+	packagePrinter  output.Printer[config.ServerEntry]
 	registryBuilder registry.Builder
 }
 
 // NewAddCmd creates a newly configured (Cobra) command.
-func NewAddCmd(baseCmd *cmd.BaseCmd, opt ...cmdopts.CmdOption) (*cobra.Command, error) {
+func NewAddCmd(baseCmd *internalcmd.BaseCmd, opt ...cmdopts.CmdOption) (*cobra.Command, error) {
 	opts, err := cmdopts.NewOptions(opt...)
 	if err != nil {
 		return nil, err
@@ -39,8 +42,9 @@ func NewAddCmd(baseCmd *cmd.BaseCmd, opt ...cmdopts.CmdOption) (*cobra.Command, 
 
 	c := &AddCmd{
 		BaseCmd:         baseCmd,
+		Format:          internalcmd.FormatText, // Default to plain text
 		cfgLoader:       opts.ConfigLoader,
-		packagePrinter:  opts.Printer,
+		packagePrinter:  &printer.ServerEntryPrinter{},
 		registryBuilder: opts.RegistryBuilder,
 	}
 
@@ -81,26 +85,38 @@ func NewAddCmd(baseCmd *cmd.BaseCmd, opt ...cmdopts.CmdOption) (*cobra.Command, 
 		"Optional, specify the source registry of the server package (e.g. `mcpm`)",
 	)
 
+	allowed := internalcmd.AllowedOutputFormats()
+	cobraCommand.Flags().Var(
+		&c.Format,
+		"format",
+		fmt.Sprintf("Specify the output format (one of: %s)", allowed.String()),
+	)
+
 	return cobraCommand, nil
 }
 
 // run is configured (via NewAddCmd) to be called by the Cobra framework when the command is executed.
 // It may return an error (or nil, when there is no error).
 func (c *AddCmd) run(cmd *cobra.Command, args []string) error {
+	handler, err := internalcmd.FormatHandler(cmd.OutOrStdout(), c.Format, c.packagePrinter)
+	if err != nil {
+		return err
+	}
+
 	if len(args) == 0 || strings.TrimSpace(args[0]) == "" {
-		return fmt.Errorf("server name is required and cannot be empty")
+		return handler.HandleError(fmt.Errorf("server name is required and cannot be empty"))
 	}
 
 	name := strings.TrimSpace(args[0])
 
 	logger, err := c.Logger()
 	if err != nil {
-		return err
+		return handler.HandleError(err)
 	}
 
 	reg, err := c.registryBuilder.Build()
 	if err != nil {
-		return err
+		return handler.HandleError(err)
 	}
 
 	pkg, err := reg.Resolve(name, c.options()...)
@@ -114,35 +130,37 @@ func (c *AddCmd) run(cmd *cobra.Command, args []string) error {
 			"source", c.Source,
 			"error", err,
 		)
-		return fmt.Errorf("⚠️ Failed to get package '%s@%s' from registry: %w", name, c.Version, err)
+		return handler.HandleError(fmt.Errorf(
+			"⚠️ Failed to get package '%s@%s' from registry: %w",
+			name,
+			c.Version,
+			err),
+		)
 	}
 
 	entry, err := parseServerEntry(pkg, runtime.Runtime(c.Runtime), c.Tools, c.MCPDSupportedRuntimes())
 	if err != nil {
-		return fmt.Errorf("error parsing server entry: %w", err)
+		return handler.HandleError(fmt.Errorf("error parsing server entry: %w", err))
 	}
 
 	cfg, err := c.cfgLoader.Load(flags.ConfigFile)
 	if err != nil {
-		return err
+		return handler.HandleError(err)
 	}
 
 	err = cfg.AddServer(entry)
 	if err != nil {
-		return err
+		return handler.HandleError(err)
 	}
 
-	// User-friendly output + logging
-	_, err = fmt.Fprintf(
-		cmd.OutOrStdout(),
-		"✓ Added server '%s' (version: %s), tools: %s\n",
-		name,
-		entry.PackageVersion(),
-		strings.Join(entry.Tools, ", "),
-	)
-	if err != nil {
-		return err
-	}
+	// User-friendly output for text format.
+	c.packagePrinter.SetHeader(func(w io.Writer, count int) {
+		_, _ = fmt.Fprintln(w)
+	})
+	c.packagePrinter.SetFooter(func(w io.Writer, count int) {
+		_, _ = fmt.Fprintln(w)
+	})
+
 	logger.Debug(
 		"Server added",
 		"name", name,
@@ -152,16 +170,7 @@ func (c *AddCmd) run(cmd *cobra.Command, args []string) error {
 	)
 
 	// Print the package info.
-	if err = c.packagePrinter.PrintPackage(pkg); err != nil {
-		return err
-	}
-
-	_, err = fmt.Fprintln(cmd.OutOrStdout())
-	if err != nil {
-		return err
-	}
-
-	return nil
+	return handler.HandleResult(entry)
 }
 
 // selectRuntime returns the most appropriate runtime from a set of installations,

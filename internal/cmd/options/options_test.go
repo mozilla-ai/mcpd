@@ -8,16 +8,11 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/mozilla-ai/mcpd/v2/internal/config"
-	"github.com/mozilla-ai/mcpd/v2/internal/printer"
 	"github.com/mozilla-ai/mcpd/v2/internal/registry"
 )
 
 type fakeLoader struct {
 	config.Loader
-}
-
-type fakePrinter struct {
-	printer.Printer
 }
 
 type fakeBuilder struct {
@@ -29,7 +24,6 @@ func TestDefaultOptions(t *testing.T) {
 
 	require.NotNil(t, opts.ConfigLoader)
 	require.NotNil(t, opts.ConfigInitializer)
-	require.NotNil(t, opts.Printer)
 	require.NotNil(t, opts.RegistryBuilder)
 }
 
@@ -39,24 +33,20 @@ func TestNewOptions_NoOverrides(t *testing.T) {
 
 	require.NotNil(t, opts.ConfigLoader)
 	require.NotNil(t, opts.ConfigInitializer)
-	require.NotNil(t, opts.Printer)
 	require.NotNil(t, opts.RegistryBuilder)
 }
 
 func TestNewOptions_WithOverrides(t *testing.T) {
 	loader := &fakeLoader{}
-	prn := &fakePrinter{}
 	builder := &fakeBuilder{}
 
 	opts, err := NewOptions(
 		WithConfigLoader(loader),
-		WithPrinter(prn),
 		WithRegistryBuilder(builder),
 	)
 	require.NoError(t, err)
 
 	require.Equal(t, loader, opts.ConfigLoader)
-	require.Equal(t, prn, opts.Printer)
 	require.Equal(t, builder, opts.RegistryBuilder)
 }
 

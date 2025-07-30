@@ -3,10 +3,7 @@ package cmd
 import (
 	"bytes"
 	"errors"
-	"slices"
 	"testing"
-
-	"github.com/mozilla-ai/mcpd/v2/internal/printer"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -48,23 +45,6 @@ func (f *fakeLoader) Load(_ string) (config.Modifier, error) {
 	return f.cfg, f.err
 }
 
-type fakePrinter struct {
-	printed packages.Package
-	opts    []printer.PackagePrinterOption
-	err     error
-}
-
-func (f *fakePrinter) PrintPackage(pkg packages.Package) error {
-	f.printed = pkg
-	return f.err
-}
-
-func (f *fakePrinter) SetOptions(opt ...printer.PackagePrinterOption) error {
-	f.opts = slices.Clone(opt)
-
-	return nil
-}
-
 type fakeRegistry struct {
 	pkg packages.Package
 	err error
@@ -103,6 +83,7 @@ func TestAddCmd_Success(t *testing.T) {
 		Version: "1.2.3",
 		InstallationDetails: map[runtime.Runtime]packages.Installation{
 			runtime.UVX: {
+				Command:     "uvx",
 				Package:     "mcp-server-1",
 				Recommended: true,
 			},
@@ -114,13 +95,12 @@ func TestAddCmd_Success(t *testing.T) {
 		&cmd.BaseCmd{},
 		cmdopts.WithConfigLoader(&fakeLoader{cfg: cfg}),
 		cmdopts.WithRegistryBuilder(&fakeBuilder{reg: &fakeRegistry{pkg: pkg}}),
-		cmdopts.WithPrinter(&fakePrinter{}),
 	)
 	require.NoError(t, err)
 	require.NotNil(t, cmdObj)
 
 	cmdObj.SetOut(buf)
-	cmdObj.SetArgs([]string{"mcp-server-1", "--version=1.2.3", "--tool=toolA", "--runtime=uvx"})
+	cmdObj.SetArgs([]string{"server1", "--version=1.2.3", "--tool=toolA", "--runtime=uvx"})
 
 	err = cmdObj.Execute()
 	require.NoError(t, err)
@@ -134,7 +114,6 @@ func TestAddCmd_MissingArgs(t *testing.T) {
 	cmdObj, err := NewAddCmd(&cmd.BaseCmd{},
 		cmdopts.WithConfigLoader(&fakeLoader{}),
 		cmdopts.WithRegistryBuilder(&fakeBuilder{}),
-		cmdopts.WithPrinter(&fakePrinter{}),
 	)
 	require.NoError(t, err)
 
@@ -149,7 +128,6 @@ func TestAddCmd_RegistryFails(t *testing.T) {
 	cmdObj, err := NewAddCmd(&cmd.BaseCmd{},
 		cmdopts.WithConfigLoader(&fakeLoader{}),
 		cmdopts.WithRegistryBuilder(&fakeBuilder{err: errors.New("registry error")}),
-		cmdopts.WithPrinter(&fakePrinter{}),
 	)
 	require.NoError(t, err)
 
@@ -160,7 +138,7 @@ func TestAddCmd_RegistryFails(t *testing.T) {
 }
 
 func TestAddCmd_BasicServerAdd(t *testing.T) {
-	output := &bytes.Buffer{}
+	o := &bytes.Buffer{}
 
 	pkg := packages.Package{
 		ID:      "testserver",
@@ -173,6 +151,7 @@ func TestAddCmd_BasicServerAdd(t *testing.T) {
 		},
 		InstallationDetails: map[runtime.Runtime]packages.Installation{
 			"uvx": {
+				Command:     "uvx",
 				Package:     "mcp-server-testserver",
 				Recommended: true,
 			},
@@ -180,17 +159,15 @@ func TestAddCmd_BasicServerAdd(t *testing.T) {
 	}
 
 	cfg := &fakeConfig{}
-	fp := &fakePrinter{}
 	cmdObj, err := NewAddCmd(
 		&cmd.BaseCmd{},
 		cmdopts.WithConfigLoader(&fakeLoader{cfg: cfg}),
 		cmdopts.WithRegistryBuilder(&fakeBuilder{reg: &fakeRegistry{pkg: pkg}}),
-		cmdopts.WithPrinter(fp),
 	)
 	require.NoError(t, err)
 
-	cmdObj.SetOut(output)
-	cmdObj.SetErr(output)
+	cmdObj.SetOut(o)
+	cmdObj.SetErr(o)
 	cmdObj.SetArgs([]string{"testserver"})
 
 	// Run the command
@@ -198,7 +175,7 @@ func TestAddCmd_BasicServerAdd(t *testing.T) {
 	require.NoError(t, err)
 
 	// Output assertions
-	outStr := output.String()
+	outStr := o.String()
 	assert.Contains(t, outStr, "✓ Added server 'testserver'")
 	assert.Contains(t, outStr, "version: latest")
 

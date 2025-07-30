@@ -9,7 +9,6 @@ import (
 	"github.com/mozilla-ai/mcpd/v2/internal/cmd"
 	"github.com/mozilla-ai/mcpd/v2/internal/cmd/options"
 	"github.com/mozilla-ai/mcpd/v2/internal/flags"
-	"github.com/mozilla-ai/mcpd/v2/internal/printer"
 )
 
 type RootCmd struct {
@@ -74,17 +73,7 @@ func NewRootCmd(c *RootCmd) (*cobra.Command, error) {
 	}
 
 	for _, fn := range fns {
-		p, err := printer.NewPrinter(rootCmd.OutOrStdout())
-		if err != nil {
-			return nil, err
-		}
-
-		opts := []options.CmdOption{
-			options.WithPrinter(p),
-			options.WithRegistryBuilder(c.BaseCmd),
-		}
-
-		tempCmd, err := fn(c.BaseCmd, opts...)
+		tempCmd, err := fn(c.BaseCmd, options.WithRegistryBuilder(c.BaseCmd))
 		if err != nil {
 			return nil, err
 		}

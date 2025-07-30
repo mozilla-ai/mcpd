@@ -27,7 +27,7 @@ type SearchCmd struct {
 	Format          internalcmd.OutputFormat
 	IsOfficial      bool
 	registryBuilder registry.Builder
-	packagePrinter  printer.Printer
+	packagePrinter  output.Printer[packages.Package]
 }
 
 func NewSearchCmd(baseCmd *internalcmd.BaseCmd, opt ...cmdopts.CmdOption) (*cobra.Command, error) {
@@ -36,16 +36,13 @@ func NewSearchCmd(baseCmd *internalcmd.BaseCmd, opt ...cmdopts.CmdOption) (*cobr
 		return nil, err
 	}
 
-	// Override printer options to show separator for search.
-	if err = opts.Printer.SetOptions(printer.WithSeparator(true)); err != nil {
-		return nil, err
-	}
+	pkgPrinter := printer.NewPackagePrinter()
 
 	c := &SearchCmd{
 		BaseCmd:         baseCmd,
 		Format:          internalcmd.FormatText, // Default to plain text
 		registryBuilder: opts.RegistryBuilder,
-		packagePrinter:  opts.Printer,
+		packagePrinter:  printer.NewPackageResultsPrinter(pkgPrinter),
 	}
 
 	cobraCommand := &cobra.Command{
@@ -152,18 +149,9 @@ func (c *SearchCmd) filters() map[string]string {
 }
 
 func (c *SearchCmd) run(cmd *cobra.Command, args []string) (err error) {
-	// Configure the handler based on the requested format.
-	var handler output.Handler[packages.Package]
-	switch c.Format {
-	case internalcmd.FormatJSON:
-		handler = output.NewJSONHandler[packages.Package](cmd.OutOrStdout(), 2)
-	case internalcmd.FormatYAML:
-		handler = output.NewYAMLHandler[packages.Package](cmd.OutOrStdout(), 2)
-	case internalcmd.FormatText:
-		pkgListPrinter := printer.NewPackageListPrinter(c.packagePrinter)
-		handler = output.NewTextHandler[packages.Package](cmd.OutOrStdout(), pkgListPrinter)
-	default:
-		return fmt.Errorf("unexpected error, no handler for output format: %s", c.Format)
+	handler, err := internalcmd.FormatHandler(cmd.OutOrStdout(), c.Format, c.packagePrinter)
+	if err != nil {
+		return err
 	}
 
 	// Name not required, default to the wildcard.
@@ -182,5 +170,5 @@ func (c *SearchCmd) run(cmd *cobra.Command, args []string) (err error) {
 		return handler.HandleError(err)
 	}
 
-	return handler.HandleResults(results)
+	return handler.HandleResults(results...)
 }

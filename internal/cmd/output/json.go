@@ -24,14 +24,17 @@ func (h *JSONHandler[T]) Writer() io.Writer {
 	return h.out
 }
 
-// HandleResults marshals the given slice of items under a "results" key to JSON.
-func (h *JSONHandler[T]) HandleResults(items []T) error {
-	payload := struct {
-		Results []T `json:"results"`
-	}{
-		items,
-	}
+// HandleResult marshals the given item under a "result" key to JSON.
+func (h *JSONHandler[T]) HandleResult(item T) error {
+	payload := ResultPayload[T]{Result: item}
+	enc := json.NewEncoder(h.out)
+	enc.SetIndent("", h.indent)
+	return enc.Encode(payload)
+}
 
+// HandleResults marshals the given slice of items under a "results" key to JSON.
+func (h *JSONHandler[T]) HandleResults(items ...T) error {
+	payload := ResultsPayload[T]{Results: items}
 	enc := json.NewEncoder(h.out)
 	enc.SetIndent("", h.indent)
 	return enc.Encode(payload)
@@ -39,11 +42,7 @@ func (h *JSONHandler[T]) HandleResults(items []T) error {
 
 // HandleError marshals the given error string under an "error" key to JSON.
 func (h *JSONHandler[T]) HandleError(err error) error {
-	payload := struct {
-		Error string `json:"error"`
-	}{
-		err.Error(),
-	}
+	payload := ErrorPayload{Error: err.Error()}
 
 	enc := json.NewEncoder(h.out)
 	enc.SetIndent("", h.indent)

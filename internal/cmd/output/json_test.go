@@ -29,7 +29,7 @@ func TestJSONHandler_HandleResults(t *testing.T) {
 	h := NewJSONHandler[testJSONSample](buf, 2)
 
 	samples := []testJSONSample{{ID: 1, Name: "Alice"}, {ID: 2, Name: "Bob"}}
-	err := h.HandleResults(samples)
+	err := h.HandleResults(samples...)
 	require.NoError(t, err)
 
 	// The output should be valid JSON with "results" key containing the array
@@ -54,7 +54,7 @@ func TestJSONHandler_HandleResults_Empty(t *testing.T) {
 	buf := &bytes.Buffer{}
 	h := NewJSONHandler[testJSONSample](buf, 0)
 
-	err := h.HandleResults(nil)
+	err := h.HandleResults(nil...)
 	require.NoError(t, err)
 
 	// With zero indent, expect compact JSON
