@@ -72,9 +72,17 @@ func NewDaemon(apiAddr string, opts *Opts) (*Daemon, error) {
 		return nil, err
 	}
 
-	var serverNames []string
-	for _, r := range cfg {
-		serverNames = append(serverNames, r.Name())
+	var serverNames []string // Track server names for server health tracker creation.
+	var validateErrs error
+	for _, srv := range cfg {
+		serverNames = append(serverNames, srv.Name())
+		// Validate the config since the daemon will be required to start MCP servers using it.
+		if err := srv.Validate(); err != nil {
+			validateErrs = errors.Join(validateErrs, err)
+		}
+	}
+	if validateErrs != nil {
+		return nil, fmt.Errorf("invalid runtime configuration: %w", validateErrs)
 	}
 
 	healthTracker := NewHealthTracker(serverNames)

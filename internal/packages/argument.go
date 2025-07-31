@@ -8,10 +8,13 @@ import (
 
 const (
 	// VariableTypeEnv represents an environment variable.
-	VariableTypeEnv = "environment"
+	VariableTypeEnv VariableType = "environment"
 
-	// VariableTypeArg represents a command line argument.
-	VariableTypeArg = "argument"
+	// VariableTypeArg represents a command line argument which requires a value.
+	VariableTypeArg VariableType = "argument"
+
+	// VariableTypeArgBool represents a command line argument that is a boolean flag (doesn't have a value).
+	VariableTypeArgBool VariableType = "argument_bool"
 )
 
 // EnvVarPlaceholderRegex is used to find environment variable placeholders like ${VAR_NAME}.
@@ -67,6 +70,16 @@ func EnvVar(_ string, data ArgumentMetadata) bool {
 }
 
 // Argument is a predicate that requires the argument is a command line argument.
-func Argument(_ string, data ArgumentMetadata) bool {
+func Argument(s string, data ArgumentMetadata) bool {
+	return ValueArgument(s, data) || BoolArgument(s, data)
+}
+
+// ValueArgument is a predicate that requires the argument is a command line argument which requires a value.
+func ValueArgument(_ string, data ArgumentMetadata) bool {
 	return data.VariableType == VariableTypeArg
+}
+
+// BoolArgument is a predicate that requires the argument is a command line argument which is a boolean flag.
+func BoolArgument(_ string, data ArgumentMetadata) bool {
+	return data.VariableType == VariableTypeArgBool
 }

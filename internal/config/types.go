@@ -53,8 +53,11 @@ type ServerEntry struct {
 	// RequiredEnvVars captures any environment variables required to run the server.
 	RequiredEnvVars []string `toml:"required_env,omitempty" json:"required_env,omitempty" yaml:"required_env,omitempty"`
 
-	// RequiredArgs captures any command line args required to run the server.
-	RequiredArgs []string `toml:"required_args,omitempty" json:"required_args,omitempty" yaml:"required_args,omitempty"`
+	// RequiredValueArgs captures any command line args that need values, which are required to run the server.
+	RequiredValueArgs []string `toml:"required_args,omitempty" json:"required_args,omitempty" yaml:"required_args,omitempty"`
+
+	// RequiredBoolArgs captures any command line args that are boolean flags when present, which are required to run the server.
+	RequiredBoolArgs []string `toml:"required_args_bool,omitempty" json:"required_args_bool,omitempty" yaml:"required_args_bool,omitempty"`
 }
 
 type serverKey struct {
@@ -92,4 +95,9 @@ func (e *argEntry) String() string {
 		return e.key + FlagValueSeparator + e.value
 	}
 	return e.key
+}
+
+// RequiredArguments returns all required CLI arguments, including both value-based and boolean flags.
+func (e *ServerEntry) RequiredArguments() []string {
+	return append(e.RequiredValueArgs, e.RequiredBoolArgs...)
 }

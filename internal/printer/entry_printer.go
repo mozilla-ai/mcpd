@@ -45,15 +45,26 @@ func (p *ServerEntryPrinter) Item(w io.Writer, elem config.ServerEntry) error {
 		_, _ = fmt.Fprint(w, "\nsee: mcpd config env set --help\n")
 	}
 
-	if len(elem.RequiredArgs) > 0 {
-		_, _ = fmt.Fprintf(
-			w,
-			"\n! The following command line arguments are required for this server:\n\n  %s\n",
-			strings.Join(elem.RequiredArgs, "\n  "),
-		)
+	if len(elem.RequiredValueArgs) > 0 || len(elem.RequiredBoolArgs) > 0 {
+		if len(elem.RequiredValueArgs) > 0 {
+			_, _ = fmt.Fprintf(
+				w,
+				"\n! The following command line arguments are required (along with values) for this server:\n\n  %s\n",
+				strings.Join(elem.RequiredValueArgs, "\n  "),
+			)
+		}
+
+		if len(elem.RequiredBoolArgs) > 0 {
+			_, _ = fmt.Fprintf(
+				w,
+				"\n! The following command line arguments are required (as boolean flags) for this server:\n\n  %s\n",
+				strings.Join(elem.RequiredBoolArgs, "\n  "),
+			)
+		}
 
 		_, _ = fmt.Fprint(w, "\nsee: mcpd config args set --help\n")
 	}
+
 	return nil
 }
 

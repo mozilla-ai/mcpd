@@ -297,16 +297,6 @@ func extractArgumentMetadata(server MCPServer, supported map[runtime.Runtime]str
 	schema := server.Arguments
 	out := make(map[string]packages.ArgumentMetadata)
 
-	// add copies metadata from schema[metaKey] but stores under key
-	add := func(key, metaKey string, vt packages.VariableType) {
-		m := schema[metaKey] // zero-value ok if metaKey not declared
-		out[key] = packages.ArgumentMetadata{
-			VariableType: vt,
-			Required:     m.Required,
-			Description:  m.Description,
-		}
-	}
-
 	for name, inst := range server.Installations {
 		rt := runtime.Runtime(inst.Command)
 		if _, ok := supported[rt]; !ok {
@@ -318,56 +308,108 @@ func extractArgumentMetadata(server MCPServer, supported map[runtime.Runtime]str
 
 		spec := runtime.Specs()[rt]
 
-		// Environment variables
-		for envName, envVal := range inst.Env {
-			metaKey := envName
-			if placeholder := extractPlaceholder(envVal); placeholder != "" {
-				// If the placeholder appears in the schema, borrow its metadata.
-				if _, ok := schema[placeholder]; ok {
-					metaKey = placeholder
-				}
-			}
-			add(envName, metaKey, packages.VariableTypeEnv)
+		// Extract environment variables metadata
+		envMeta := extractEnvMetadata(inst.Env, schema)
+		for k, v := range envMeta {
+			out[k] = v
 		}
 
-		// Command line args (may require look-ahead).
-		for i := 0; i < len(inst.Args); i++ {
-			arg := inst.Args[i]
-			if !strings.HasPrefix(arg, "-") {
-				continue
-			}
-
-			flag := extractActualCommandLineFlag(arg)
-			if flag == "" {
-				continue
-			}
-			if spec.ShouldIgnoreFlag != nil && spec.ShouldIgnoreFlag(flag) {
-				continue
-			}
-
-			// Track the meta key declared in the server's 'arguments' that should
-			// be used to reference required, and description.
-			metaKey := flag
-			nextArgIndex := i + 1
-
-			if placeholder := extractPlaceholder(arg); placeholder != "" {
-				// This value had a placeholder in it.
-				if _, ok := schema[placeholder]; ok {
-					metaKey = placeholder
-				}
-			} else if nextArgIndex < len(inst.Args) {
-				// As long as we're not breaking out of the array, try looking ahead
-				// in case the flag's value in the next token has the placeholder.
-				if placeholder := extractPlaceholder(inst.Args[nextArgIndex]); placeholder != "" {
-					if _, ok := schema[placeholder]; ok {
-						metaKey = placeholder
-					}
-				}
-			}
-
-			add(flag, metaKey, packages.VariableTypeArg)
+		// Extract CLI arguments metadata
+		cliMeta := extractCLIArgMetadata(inst.Args, schema, spec)
+		for k, v := range cliMeta {
+			out[k] = v
 		}
 	}
+
+	return out
+}
+
+func extractEnvMetadata(
+	env map[string]string,
+	schema map[string]Argument,
+) map[string]packages.ArgumentMetadata {
+	out := make(map[string]packages.ArgumentMetadata)
+
+	for envName, envVal := range env {
+		metaKey := envName
+		if placeholder := extractPlaceholder(envVal); placeholder != "" {
+			if _, ok := schema[placeholder]; ok {
+				metaKey = placeholder
+			}
+		}
+		m := schema[metaKey] // zero-value if missing
+		out[envName] = packages.ArgumentMetadata{
+			VariableType: packages.VariableTypeEnv,
+			Required:     m.Required,
+			Description:  m.Description,
+		}
+	}
+
+	return out
+}
+
+func extractCLIArgMetadata(
+	args []string,
+	schema map[string]Argument,
+	spec runtime.Spec,
+) map[string]packages.ArgumentMetadata {
+	out := make(map[string]packages.ArgumentMetadata)
+
+	for i := 0; i < len(args); i++ {
+		arg := args[i]
+		if !strings.HasPrefix(arg, "--") {
+			continue
+		}
+
+		flag := extractActualCommandLineFlag(arg)
+		if flag == "" || (spec.ShouldIgnoreFlag != nil && spec.ShouldIgnoreFlag(flag)) {
+			continue
+		}
+
+		metaKey := flag
+
+		// Check placeholder in current arg
+		if placeholder := extractPlaceholder(arg); placeholder != "" {
+			if _, ok := schema[placeholder]; ok {
+				metaKey = placeholder
+				m := schema[metaKey]
+				out[flag] = packages.ArgumentMetadata{
+					VariableType: packages.VariableTypeArg,
+					Required:     m.Required,
+					Description:  m.Description,
+				}
+				continue
+			}
+		}
+
+		// Determine if boolean flag (no value expected)
+		nextArgIndex := i + 1
+		isBoolFlag := nextArgIndex >= len(args) || strings.HasPrefix(args[nextArgIndex], "--")
+
+		// Check placeholder in next arg if not bool
+		if !isBoolFlag && nextArgIndex < len(args) {
+			if placeholder := extractPlaceholder(args[nextArgIndex]); placeholder != "" {
+				if _, ok := schema[placeholder]; ok {
+					metaKey = placeholder
+				}
+			}
+		}
+
+		m := schema[metaKey]
+		var vt packages.VariableType
+		if isBoolFlag {
+			vt = packages.VariableTypeArgBool
+		} else {
+			vt = packages.VariableTypeArg
+		}
+
+		out[flag] = packages.ArgumentMetadata{
+			VariableType: vt,
+			Required:     m.Required,
+			Description:  m.Description,
+		}
+	}
+
 	return out
 }
 
@@ -499,6 +541,7 @@ func (r *Registry) supportedRuntimePackageNames(installations map[string]Install
 // extractActualCommandLineFlag extracts the actual flag name from a command line argument
 // e.g., "--local-timezone=${TZ}" returns "--local-timezone"
 // e.g., "--verbose" returns "--verbose"
+// NOTE: Only supports long flag style at present
 func extractActualCommandLineFlag(arg string) string {
 	if strings.Contains(arg, "=") {
 		parts := strings.SplitN(arg, "=", 2)
