@@ -236,14 +236,16 @@ func parseServerEntry(
 	runtimePackageVersion := fmt.Sprintf("%s::%s@%s", selectedRuntime, runtimeSpecificName, v)
 
 	envs := packages.FilterArguments(pkg.Arguments, packages.EnvVar, packages.Required)
-	args := packages.FilterArguments(pkg.Arguments, packages.Argument, packages.Required)
+	args := packages.FilterArguments(pkg.Arguments, packages.ValueArgument, packages.Required)
+	boolArgs := packages.FilterArguments(pkg.Arguments, packages.BoolArgument, packages.Required)
 
 	return config.ServerEntry{
-		Name:            pkg.ID,
-		Package:         runtimePackageVersion,
-		Tools:           requestedTools,
-		RequiredArgs:    args.Names(),
-		RequiredEnvVars: envs.Names(),
+		Name:              pkg.ID,
+		Package:           runtimePackageVersion,
+		Tools:             requestedTools,
+		RequiredValueArgs: args.Names(),
+		RequiredBoolArgs:  boolArgs.Names(),
+		RequiredEnvVars:   envs.Names(),
 	}, nil
 }
 

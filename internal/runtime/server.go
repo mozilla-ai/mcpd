@@ -260,3 +260,48 @@ func expandEnvSlice(input []string) []string {
 
 	return result
 }
+
+// validateRequiredValueArgs validates that all required value arguments are present in the server's args.
+func (s *Server) validateRequiredValueArgs() error {
+	for _, requiredArg := range s.RequiredValueArgs {
+		found := false
+		for _, arg := range s.Args {
+			if strings.HasPrefix(arg, "--"+requiredArg+"=") {
+				found = true
+				break
+			}
+		}
+		if !found {
+			return fmt.Errorf("required value argument --%s not found", requiredArg)
+		}
+	}
+	return nil
+}
+
+// validateRequiredBoolArgs validates that all required boolean arguments are present in the server's args.
+func (s *Server) validateRequiredBoolArgs() error {
+	for _, requiredArg := range s.RequiredBoolArgs {
+		found := false
+		for _, arg := range s.Args {
+			if arg == "--"+requiredArg {
+				found = true
+				break
+			}
+		}
+		if !found {
+			return fmt.Errorf("required boolean argument --%s not found", requiredArg)
+		}
+	}
+	return nil
+}
+
+// Validate validates that all required arguments are present in the server configuration.
+func (s *Server) Validate() error {
+	if err := s.validateRequiredValueArgs(); err != nil {
+		return err
+	}
+	if err := s.validateRequiredBoolArgs(); err != nil {
+		return err
+	}
+	return nil
+}
