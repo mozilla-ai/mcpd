@@ -74,10 +74,6 @@ run:
   # - `wd` (NOT recommended): the paths will be relative to the place where golangci-lint is run.
   # Default: cfg
   relative-path-mode: gomod
-  # List of build tags, all linters use it.
-  # Default: []
-  build-tags:
-    #- mytag
   modules-download-mode: readonly
   allow-parallel-runners: true
   allow-serial-runners: true
