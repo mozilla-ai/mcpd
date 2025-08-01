@@ -1,9 +1,14 @@
 package runtime
 
 import (
+	"os"
+	"path/filepath"
 	"testing"
 
 	"github.com/stretchr/testify/require"
+
+	"github.com/mozilla-ai/mcpd/v2/internal/config"
+	"github.com/mozilla-ai/mcpd/v2/internal/context"
 )
 
 func TestServer_filterEnv(t *testing.T) {
@@ -474,6 +479,671 @@ func TestServer_ExpandEnvSlice(t *testing.T) {
 
 			result := expandEnvSlice(tc.input)
 			require.Equal(t, tc.expected, result)
+		})
+	}
+}
+
+func TestValidateRequiredEnvVars(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name       string
+		env        map[string]string
+		reqEnvVars []string
+		wantErr    bool
+	}{
+		{"all set", map[string]string{"FOO": "bar"}, []string{"FOO"}, false},
+		{"missing", map[string]string{}, []string{"FOO"}, true},
+		{"empty", map[string]string{"FOO": ""}, []string{"FOO"}, true},
+		{"extra env", map[string]string{"FOO": "bar", "BAR": "baz"}, []string{"FOO"}, false},
+		{"no required env", map[string]string{"FOO": "bar"}, []string{}, false},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			s := &Server{
+				ServerEntry: config.ServerEntry{
+					RequiredEnvVars:   tc.reqEnvVars,
+					RequiredValueArgs: nil,
+					RequiredBoolArgs:  nil,
+				},
+				ServerExecutionContext: context.ServerExecutionContext{
+					Env:  tc.env,
+					Args: nil,
+				},
+			}
+
+			err := s.validateRequiredEnvVars()
+			if tc.wantErr {
+				require.Error(t, err)
+			} else {
+				require.NoError(t, err)
+			}
+		})
+	}
+}
+
+func TestValidateRequiredValueArgs(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name       string
+		args       []string
+		reqValArgs []string
+		wantErr    bool
+	}{
+		{"single --key=val", []string{"--foo=bar"}, []string{"--foo"}, false},
+		{"single --key val", []string{"--foo", "bar"}, []string{"--foo"}, false},
+		{"missing value", []string{"--foo"}, []string{"--foo"}, true},
+		{"missing arg", []string{}, []string{"--foo"}, true},
+		{"multiple args present", []string{"--foo=bar", "--baz=qux"}, []string{"--foo", "--baz"}, false},
+		{"value looks like flag", []string{"--foo", "--bar"}, []string{"--foo"}, true},
+		// TODO: Uncomment or remove after deciding whether to support this kind of validation
+		// {"value is short flag", []string{"--foo", "-b"}, []string{"--foo"}, true},
+		{"empty args & none required", []string{}, []string{}, false},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			s := &Server{
+				ServerEntry: config.ServerEntry{
+					RequiredEnvVars:   nil,
+					RequiredValueArgs: tc.reqValArgs,
+					RequiredBoolArgs:  nil,
+				},
+				ServerExecutionContext: context.ServerExecutionContext{
+					Env:  nil,
+					Args: tc.args,
+				},
+			}
+
+			err := s.validateRequiredValueArgs()
+			if tc.wantErr {
+				require.Error(t, err)
+			} else {
+				require.NoError(t, err)
+			}
+		})
+	}
+}
+
+func TestValidateRequiredBoolArgs(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name        string
+		args        []string
+		reqBoolArgs []string
+		wantErr     bool
+	}{
+		{"single flag present", []string{"--flag"}, []string{"--flag"}, false},
+		{"flag missing", []string{}, []string{"--flag"}, true},
+		{"multiple flags present", []string{"--foo", "--bar"}, []string{"--foo", "--bar"}, false},
+		{"flag present among others", []string{"--foo", "--bar"}, []string{"--bar"}, false},
+		{"flag as prefix no match", []string{"--foobar"}, []string{"--foo"}, true},
+		{"empty args & none required", []string{}, []string{}, false},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			s := &Server{
+				ServerEntry: config.ServerEntry{
+					RequiredEnvVars:   nil,
+					RequiredValueArgs: nil,
+					RequiredBoolArgs:  tc.reqBoolArgs,
+				},
+				ServerExecutionContext: context.ServerExecutionContext{
+					Env:  nil,
+					Args: tc.args,
+				},
+			}
+
+			err := s.validateRequiredBoolArgs()
+			if tc.wantErr {
+				require.Error(t, err)
+			} else {
+				require.NoError(t, err)
+			}
+		})
+	}
+}
+
+func TestValidate(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name        string
+		env         map[string]string
+		args        []string
+		reqEnv      []string
+		reqValArgs  []string
+		reqBoolArgs []string
+		wantErr     bool
+	}{
+		{
+			name:        "all valid",
+			env:         map[string]string{"FOO": "bar"},
+			args:        []string{"--foo=val", "--flag"},
+			reqEnv:      []string{"FOO"},
+			reqValArgs:  []string{"--foo"},
+			reqBoolArgs: []string{"--flag"},
+			wantErr:     false,
+		},
+		{
+			name:        "missing env",
+			env:         map[string]string{},
+			args:        []string{"--foo=val", "--flag"},
+			reqEnv:      []string{"FOO"},
+			reqValArgs:  []string{"--foo"},
+			reqBoolArgs: []string{"--flag"},
+			wantErr:     true,
+		},
+		{
+			name:        "missing val arg",
+			env:         map[string]string{"FOO": "bar"},
+			args:        []string{"--flag"},
+			reqEnv:      []string{"FOO"},
+			reqValArgs:  []string{"--foo"},
+			reqBoolArgs: []string{"--flag"},
+			wantErr:     true,
+		},
+		{
+			name:        "missing bool arg",
+			env:         map[string]string{"FOO": "bar"},
+			args:        []string{"--foo=val"},
+			reqEnv:      []string{"FOO"},
+			reqValArgs:  []string{"--foo"},
+			reqBoolArgs: []string{"--flag"},
+			wantErr:     true,
+		},
+		{
+			name:        "all missing",
+			env:         map[string]string{},
+			args:        []string{},
+			reqEnv:      []string{"FOO"},
+			reqValArgs:  []string{"--foo"},
+			reqBoolArgs: []string{"--flag"},
+			wantErr:     true,
+		},
+		{
+			name:        "empty requirements",
+			env:         map[string]string{},
+			args:        []string{},
+			reqEnv:      nil,
+			reqValArgs:  nil,
+			reqBoolArgs: nil,
+			wantErr:     false,
+		},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			s := &Server{
+				ServerEntry: config.ServerEntry{
+					RequiredEnvVars:   tc.reqEnv,
+					RequiredValueArgs: tc.reqValArgs,
+					RequiredBoolArgs:  tc.reqBoolArgs,
+				},
+				ServerExecutionContext: context.ServerExecutionContext{
+					Env:  tc.env,
+					Args: tc.args,
+				},
+			}
+
+			err := s.Validate()
+			if tc.wantErr {
+				require.Error(t, err)
+			} else {
+				require.NoError(t, err)
+			}
+		})
+	}
+}
+
+func TestServer_exportRuntimeArgs(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name          string
+		args          []string
+		seen          map[string]struct{}
+		expectedArgs  []string
+		expectedCalls map[string]string // env var name -> env var reference
+	}{
+		{
+			name:          "empty args",
+			args:          []string{},
+			seen:          map[string]struct{}{},
+			expectedArgs:  []string{},
+			expectedCalls: map[string]string{},
+		},
+		{
+			name:          "single bool flag",
+			args:          []string{"--verbose"},
+			seen:          map[string]struct{}{},
+			expectedArgs:  []string{"--verbose"},
+			expectedCalls: map[string]string{},
+		},
+		{
+			name:         "single value arg with equals",
+			args:         []string{"--host=localhost"},
+			seen:         map[string]struct{}{},
+			expectedArgs: []string{"--host=${MCPD__TEST_SERVER__ARG__HOST}"},
+			expectedCalls: map[string]string{
+				"MCPD__TEST_SERVER__ARG__HOST": "${MCPD__TEST_SERVER__ARG__HOST}",
+			},
+		},
+		{
+			name:         "single value arg separate",
+			args:         []string{"--host", "localhost"},
+			seen:         map[string]struct{}{},
+			expectedArgs: []string{"--host=${MCPD__TEST_SERVER__ARG__HOST}"},
+			expectedCalls: map[string]string{
+				"MCPD__TEST_SERVER__ARG__HOST": "${MCPD__TEST_SERVER__ARG__HOST}",
+			},
+		},
+		{
+			name: "mixed args",
+			args: []string{"--host=localhost", "--port", "8080", "--debug"},
+			seen: map[string]struct{}{},
+			expectedArgs: []string{
+				"--host=${MCPD__TEST_SERVER__ARG__HOST}",
+				"--port=${MCPD__TEST_SERVER__ARG__PORT}",
+				"--debug",
+			},
+			expectedCalls: map[string]string{
+				"MCPD__TEST_SERVER__ARG__HOST": "${MCPD__TEST_SERVER__ARG__HOST}",
+				"MCPD__TEST_SERVER__ARG__PORT": "${MCPD__TEST_SERVER__ARG__PORT}",
+			},
+		},
+		{
+			name: "skip already seen args",
+			args: []string{"--host=localhost", "--port", "8080", "--debug"},
+			seen: map[string]struct{}{
+				"--host":  {},
+				"--debug": {},
+			},
+			expectedArgs: []string{"--port=${MCPD__TEST_SERVER__ARG__PORT}"},
+			expectedCalls: map[string]string{
+				"MCPD__TEST_SERVER__ARG__PORT": "${MCPD__TEST_SERVER__ARG__PORT}",
+			},
+		},
+		{
+			name: "skip non-flag arguments",
+			args: []string{"--host", "localhost", "not-a-flag", "--debug"},
+			seen: map[string]struct{}{},
+			expectedArgs: []string{
+				"--host=${MCPD__TEST_SERVER__ARG__HOST}",
+				"--debug",
+			},
+			expectedCalls: map[string]string{
+				"MCPD__TEST_SERVER__ARG__HOST": "${MCPD__TEST_SERVER__ARG__HOST}",
+			},
+		},
+		{
+			name:          "flag followed by another flag",
+			args:          []string{"--verbose", "--debug"},
+			seen:          map[string]struct{}{},
+			expectedArgs:  []string{"--verbose", "--debug"},
+			expectedCalls: map[string]string{},
+		},
+		{
+			name:         "complex server name normalization",
+			args:         []string{"--api-key=secret"},
+			seen:         map[string]struct{}{},
+			expectedArgs: []string{"--api-key=${MCPD__TEST_SERVER__ARG__API_KEY}"},
+			expectedCalls: map[string]string{
+				"MCPD__TEST_SERVER__ARG__API_KEY": "${MCPD__TEST_SERVER__ARG__API_KEY}",
+			},
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			server := &Server{
+				ServerEntry: config.ServerEntry{
+					Name: "test-server",
+				},
+				ServerExecutionContext: context.ServerExecutionContext{
+					Args: tc.args,
+				},
+			}
+
+			actualCalls := make(map[string]string)
+			recordFunc := func(k, v string) {
+				actualCalls[k] = v
+			}
+
+			result := server.exportRuntimeArgs("mcpd", tc.seen, recordFunc)
+
+			if len(tc.expectedArgs) == 0 {
+				require.Empty(t, result)
+			} else {
+				require.Equal(t, tc.expectedArgs, result)
+			}
+			require.Equal(t, tc.expectedCalls, actualCalls)
+		})
+	}
+}
+
+func TestServer_exportArgs(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name                  string
+		serverName            string
+		requiredValueArgs     []string
+		requiredBoolArgs      []string
+		runtimeArgs           []string
+		expectedArgs          []string
+		expectedContractCalls map[string]string
+	}{
+		{
+			name:              "only required args",
+			serverName:        "test",
+			requiredValueArgs: []string{"--config", "--port"},
+			requiredBoolArgs:  []string{"--verbose"},
+			runtimeArgs:       []string{},
+			expectedArgs: []string{
+				"--verbose",
+				"--config=${MCPD__TEST__ARG__CONFIG}",
+				"--port=${MCPD__TEST__ARG__PORT}",
+			},
+			expectedContractCalls: map[string]string{
+				"MCPD__TEST__ARG__CONFIG": "${MCPD__TEST__ARG__CONFIG}",
+				"MCPD__TEST__ARG__PORT":   "${MCPD__TEST__ARG__PORT}",
+			},
+		},
+		{
+			name:              "only runtime args",
+			serverName:        "test",
+			requiredValueArgs: []string{},
+			requiredBoolArgs:  []string{},
+			runtimeArgs:       []string{"--host=localhost", "--debug"},
+			expectedArgs: []string{
+				"--host=${MCPD__TEST__ARG__HOST}",
+				"--debug",
+			},
+			expectedContractCalls: map[string]string{
+				"MCPD__TEST__ARG__HOST": "${MCPD__TEST__ARG__HOST}",
+			},
+		},
+		{
+			name:              "mixed required and runtime args",
+			serverName:        "test",
+			requiredValueArgs: []string{"--config"},
+			requiredBoolArgs:  []string{"--verbose"},
+			runtimeArgs:       []string{"--host=localhost", "--debug"},
+			expectedArgs: []string{
+				"--verbose",
+				"--config=${MCPD__TEST__ARG__CONFIG}",
+				"--host=${MCPD__TEST__ARG__HOST}",
+				"--debug",
+			},
+			expectedContractCalls: map[string]string{
+				"MCPD__TEST__ARG__CONFIG": "${MCPD__TEST__ARG__CONFIG}",
+				"MCPD__TEST__ARG__HOST":   "${MCPD__TEST__ARG__HOST}",
+			},
+		},
+		{
+			name:              "runtime args duplicate required args",
+			serverName:        "test",
+			requiredValueArgs: []string{"--config"},
+			requiredBoolArgs:  []string{"--verbose"},
+			runtimeArgs:       []string{"--config=override", "--verbose", "--extra"},
+			expectedArgs: []string{
+				"--verbose",
+				"--config=${MCPD__TEST__ARG__CONFIG}",
+				"--extra",
+			},
+			expectedContractCalls: map[string]string{
+				"MCPD__TEST__ARG__CONFIG": "${MCPD__TEST__ARG__CONFIG}",
+			},
+		},
+		{
+			name:              "server name with hyphens",
+			serverName:        "github-server",
+			requiredValueArgs: []string{"--token"},
+			requiredBoolArgs:  []string{},
+			runtimeArgs:       []string{"--repo-name=test"},
+			expectedArgs: []string{
+				"--token=${MCPD__GITHUB_SERVER__ARG__TOKEN}",
+				"--repo-name=${MCPD__GITHUB_SERVER__ARG__REPO_NAME}",
+			},
+			expectedContractCalls: map[string]string{
+				"MCPD__GITHUB_SERVER__ARG__TOKEN":     "${MCPD__GITHUB_SERVER__ARG__TOKEN}",
+				"MCPD__GITHUB_SERVER__ARG__REPO_NAME": "${MCPD__GITHUB_SERVER__ARG__REPO_NAME}",
+			},
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			server := &Server{
+				ServerEntry: config.ServerEntry{
+					Name:              tc.serverName,
+					RequiredValueArgs: tc.requiredValueArgs,
+					RequiredBoolArgs:  tc.requiredBoolArgs,
+				},
+				ServerExecutionContext: context.ServerExecutionContext{
+					Args: tc.runtimeArgs,
+				},
+			}
+
+			actualContractCalls := make(map[string]string)
+			recordFunc := func(k, v string) {
+				actualContractCalls[k] = v
+			}
+
+			result := server.exportArgs("mcpd", recordFunc)
+
+			require.Equal(t, tc.expectedArgs, result)
+			require.Equal(t, tc.expectedContractCalls, actualContractCalls)
+		})
+	}
+}
+
+func TestServer_exportEnvVars(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name            string
+		serverName      string
+		requiredEnvVars []string
+		runtimeEnv      map[string]string
+		expectedEnv     map[string]string
+	}{
+		{
+			name:            "only required env vars",
+			serverName:      "test",
+			requiredEnvVars: []string{"API_KEY", "HOST"},
+			runtimeEnv:      map[string]string{},
+			expectedEnv: map[string]string{
+				"API_KEY": "${MCPD__TEST__API_KEY}",
+				"HOST":    "${MCPD__TEST__HOST}",
+			},
+		},
+		{
+			name:            "only runtime env vars",
+			serverName:      "test",
+			requiredEnvVars: []string{},
+			runtimeEnv: map[string]string{
+				"DEBUG": "true",
+				"PORT":  "8080",
+			},
+			expectedEnv: map[string]string{
+				"DEBUG": "${MCPD__TEST__DEBUG}",
+				"PORT":  "${MCPD__TEST__PORT}",
+			},
+		},
+		{
+			name:            "mixed required and runtime env vars",
+			serverName:      "test",
+			requiredEnvVars: []string{"API_KEY"},
+			runtimeEnv: map[string]string{
+				"DEBUG": "true",
+				"PORT":  "8080",
+			},
+			expectedEnv: map[string]string{
+				"API_KEY": "${MCPD__TEST__API_KEY}",
+				"DEBUG":   "${MCPD__TEST__DEBUG}",
+				"PORT":    "${MCPD__TEST__PORT}",
+			},
+		},
+		{
+			name:            "runtime env overrides required env (should not duplicate)",
+			serverName:      "test",
+			requiredEnvVars: []string{"API_KEY"},
+			runtimeEnv: map[string]string{
+				"API_KEY": "override",
+				"DEBUG":   "true",
+			},
+			expectedEnv: map[string]string{
+				"API_KEY": "${MCPD__TEST__API_KEY}",
+				"DEBUG":   "${MCPD__TEST__DEBUG}",
+			},
+		},
+		{
+			name:            "server name with hyphens",
+			serverName:      "github-server",
+			requiredEnvVars: []string{"GITHUB_TOKEN"},
+			runtimeEnv: map[string]string{
+				"DEBUG_MODE": "true",
+			},
+			expectedEnv: map[string]string{
+				"GITHUB_TOKEN": "${MCPD__GITHUB_SERVER__GITHUB_TOKEN}",
+				"DEBUG_MODE":   "${MCPD__GITHUB_SERVER__DEBUG_MODE}",
+			},
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			server := &Server{
+				ServerEntry: config.ServerEntry{
+					Name:            tc.serverName,
+					RequiredEnvVars: tc.requiredEnvVars,
+				},
+				ServerExecutionContext: context.ServerExecutionContext{
+					Env: tc.runtimeEnv,
+				},
+			}
+
+			result := server.exportEnvVars("mcpd")
+
+			require.Equal(t, tc.expectedEnv, result)
+		})
+	}
+}
+
+func TestServers_Export(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name             string
+		servers          Servers
+		expectedErr      string
+		expectedContract map[string]string
+	}{
+		{
+			name:        "no servers",
+			servers:     Servers{},
+			expectedErr: "export error, no servers defined in runtime config",
+		},
+		{
+			name: "single server with all types of configuration",
+			servers: Servers{
+				{
+					ServerEntry: config.ServerEntry{
+						Name:              "test-server",
+						RequiredEnvVars:   []string{"API_KEY"},
+						RequiredValueArgs: []string{"--config"},
+						RequiredBoolArgs:  []string{"--verbose"},
+					},
+					ServerExecutionContext: context.ServerExecutionContext{
+						Env: map[string]string{
+							"DEBUG": "true",
+						},
+						Args: []string{"--host=localhost", "--flag"},
+					},
+				},
+			},
+			expectedContract: map[string]string{
+				"MCPD__TEST_SERVER__ARG__CONFIG": "${MCPD__TEST_SERVER__ARG__CONFIG}",
+				"MCPD__TEST_SERVER__ARG__HOST":   "${MCPD__TEST_SERVER__ARG__HOST}",
+			},
+		},
+		{
+			name: "multiple servers",
+			servers: Servers{
+				{
+					ServerEntry: config.ServerEntry{
+						Name:              "server-a",
+						RequiredValueArgs: []string{"--token"},
+					},
+					ServerExecutionContext: context.ServerExecutionContext{
+						Args: []string{"--port=8080"},
+					},
+				},
+				{
+					ServerEntry: config.ServerEntry{
+						Name:            "server-b",
+						RequiredEnvVars: []string{"SECRET"},
+					},
+					ServerExecutionContext: context.ServerExecutionContext{
+						Env: map[string]string{
+							"DEBUG": "false",
+						},
+					},
+				},
+			},
+			expectedContract: map[string]string{
+				"MCPD__SERVER_A__ARG__TOKEN": "${MCPD__SERVER_A__ARG__TOKEN}",
+				"MCPD__SERVER_A__ARG__PORT":  "${MCPD__SERVER_A__ARG__PORT}",
+			},
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			dir := t.TempDir()
+			path := filepath.Join(dir, "mcpd-export-test.toml")
+
+			contract, err := tc.servers.Export(path)
+
+			if tc.expectedErr != "" {
+				require.Error(t, err)
+				require.Contains(t, err.Error(), tc.expectedErr)
+				require.Nil(t, contract)
+			} else {
+				require.NoError(t, err)
+				require.Equal(t, tc.expectedContract, contract)
+
+				// Verify config file was created
+				fi, err := os.Stat(path)
+				require.NoError(t, err)
+				require.Greater(t, fi.Size(), int64(0))
+
+				// Verify we can load the created config
+				loader := context.DefaultLoader{}
+				loadedCfg, err := loader.Load(path)
+				require.NoError(t, err)
+				require.NotNil(t, loadedCfg)
+				require.Len(t, loadedCfg.List(), len(tc.servers))
+			}
 		})
 	}
 }

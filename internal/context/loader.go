@@ -16,7 +16,7 @@ type Modifier interface {
 }
 
 type Exporter interface {
-	Export(path string) error
+	Export(path string) (map[string]string, error)
 }
 
 type UpsertResult string

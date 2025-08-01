@@ -2,6 +2,8 @@ package export
 
 import (
 	"fmt"
+	"os"
+	"strings"
 
 	"github.com/spf13/cobra"
 
@@ -10,6 +12,7 @@ import (
 	"github.com/mozilla-ai/mcpd/v2/internal/config"
 	"github.com/mozilla-ai/mcpd/v2/internal/context"
 	"github.com/mozilla-ai/mcpd/v2/internal/flags"
+	"github.com/mozilla-ai/mcpd/v2/internal/runtime"
 )
 
 type Cmd struct {
@@ -82,44 +85,51 @@ func (c *Cmd) longDescription() string {
 }
 
 func (c *Cmd) run(cmd *cobra.Command, _ []string) error {
-	contextPath := c.ContextOutput
-	// contractPath := c.ContractOutput
-
-	if err := exportPortableExecutionContext(c.ctxLoader, flags.RuntimeFile, contextPath); err != nil {
+	if err := c.handleExport(); err != nil {
 		return err
 	}
 
-	if _, err := fmt.Fprintf(
-		cmd.OutOrStdout(),
-		"✓ Portable Execution Context exported: %s\n", contextPath,
-	); err != nil {
-		return err
-	}
-
-	// Export 'Environment Contract'
-	// TODO: export to contractPath based on format
-	// fmt.Fprintf(cmd.OutOrStdout(), "✓ Environment Contract exported: %s\n", contractPath)
-
-	if _, err := fmt.Fprintf(
-		cmd.OutOrStdout(),
-		"✓ Export completed successfully!\n",
-	); err != nil {
-		return err
-	}
+	_, _ = fmt.Fprintf(cmd.OutOrStdout(), "✓ Environment Contract exported: %s\n", c.ContractOutput)
+	_, _ = fmt.Fprintf(cmd.OutOrStdout(), "✓ Portable Execution Context exported: %s\n", c.ContextOutput)
+	_, _ = fmt.Fprintf(cmd.OutOrStdout(), "✓ Export completed successfully!\n")
 
 	return nil
 }
 
-func exportPortableExecutionContext(loader context.Loader, src string, dest string) error {
-	mod, err := loader.Load(src)
+func (c *Cmd) handleExport() error {
+	cfg, err := c.cfgLoader.Load(flags.ConfigFile)
+	if err != nil {
+		return fmt.Errorf("failed to load config: %w", err)
+	}
+
+	rtCtx, err := c.ctxLoader.Load(flags.RuntimeFile)
 	if err != nil {
 		return fmt.Errorf("failed to load execution context config: %w", err)
 	}
 
-	exp, ok := mod.(context.Exporter)
-	if !ok {
-		return fmt.Errorf("execution context config does not support exporting")
+	servers, err := runtime.AggregateConfigs(cfg, rtCtx)
+	if err != nil {
+		return err
 	}
 
-	return exp.Export(dest)
+	contract, err := servers.Export(c.ContextOutput)
+	if err != nil {
+		return err
+	}
+
+	// TODO: Support other 'c.Format's
+	return writeDotenvFile(c.ContractOutput, contract)
+}
+
+func writeDotenvFile(path string, data map[string]string) error {
+	var b strings.Builder
+
+	for k, v := range data {
+		escaped := strings.ReplaceAll(v, "\n", "\\n")
+		if _, err := fmt.Fprintf(&b, "%s=%s\n", k, escaped); err != nil {
+			return err
+		}
+	}
+
+	return os.WriteFile(path, []byte(b.String()), 0o644)
 }

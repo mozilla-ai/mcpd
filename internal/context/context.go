@@ -72,13 +72,10 @@ func (d *DefaultLoader) Load(path string) (Modifier, error) {
 		}
 
 		// Config doesn't exist yet, so create a new instance to interact with.
-		cfg = NewExecutionContextConfig()
+		cfg = NewExecutionContextConfig(path)
 	}
 
-	// Update the file path to allow saving later.
-	cfg.filePath = path
-
-	return &cfg, nil
+	return cfg, nil
 }
 
 // ExecutionContextConfig stores execution context data for all configured MCP servers.
@@ -88,57 +85,11 @@ type ExecutionContextConfig struct {
 }
 
 // NewExecutionContextConfig returns a newly initialized ExecutionContextConfig.
-func NewExecutionContextConfig() ExecutionContextConfig {
-	return ExecutionContextConfig{
-		Servers: map[string]ServerExecutionContext{},
-	}
-}
-
-func (c *ExecutionContextConfig) Export(path string) error {
-	if len(c.Servers) == 0 {
-		return fmt.Errorf("export error, no servers defined in execution context config")
-	}
-
-	const appName = "MCPD" // TODO: Reference shared app name.
-
-	res := ExecutionContextConfig{
+func NewExecutionContextConfig(path string) *ExecutionContextConfig {
+	return &ExecutionContextConfig{
 		Servers:  map[string]ServerExecutionContext{},
-		filePath: path,
+		filePath: strings.TrimSpace(path),
 	}
-
-	for name, srv := range c.Servers {
-		n := strings.ToUpper(strings.ReplaceAll(name, "-", "_"))
-		envs := map[string]string{}
-		args := make([]string, len(srv.Args))
-
-		for k := range srv.Env {
-			key := strings.ToUpper(k)
-			value := fmt.Sprintf("${%s__%s__%s}", appName, n, key)
-			envs[k] = value
-		}
-
-		for i, v := range srv.Args {
-			if idx := strings.IndexByte(v, '='); idx != -1 {
-				arg := v[:idx]
-				parsed := strings.ToUpper(strings.ReplaceAll(strings.TrimLeft(arg, strings.Repeat("-", 2)), "-", "_"))
-				args[i] = fmt.Sprintf("%s=${%s__%s__ARG__%s}", arg, appName, n, parsed)
-			} else {
-				args[i] = v
-			}
-		}
-
-		res.Servers[name] = ServerExecutionContext{
-			Name: name,
-			Args: args,
-			Env:  envs,
-		}
-	}
-
-	if err := res.saveConfig(); err != nil {
-		return err
-	}
-
-	return nil
 }
 
 func (c *ExecutionContextConfig) List() []ServerExecutionContext {
@@ -204,7 +155,7 @@ func (c *ExecutionContextConfig) Upsert(ec ServerExecutionContext) (UpsertResult
 		c.Servers[ec.Name] = ec
 	}
 
-	if err := c.saveConfig(); err != nil {
+	if err := c.SaveConfig(); err != nil {
 		return Noop, fmt.Errorf("error saving execution context config: %w", err)
 	}
 
@@ -212,19 +163,19 @@ func (c *ExecutionContextConfig) Upsert(ec ServerExecutionContext) (UpsertResult
 }
 
 // loadExecutionContextConfig loads a runtime execution context file from disk, using the specified path.
-func loadExecutionContextConfig(path string) (ExecutionContextConfig, error) { // TODO: unexport
-	var cfg ExecutionContextConfig
+func loadExecutionContextConfig(path string) (*ExecutionContextConfig, error) { // TODO: unexport
+	cfg := NewExecutionContextConfig(path)
 
 	if _, err := os.Stat(path); err != nil {
 		if errors.Is(err, os.ErrNotExist) {
-			return cfg, fmt.Errorf("execution context file '%s' does not exist: %w", path, err)
+			return nil, fmt.Errorf("execution context file '%s' does not exist: %w", path, err)
 		}
 
-		return cfg, fmt.Errorf("could not stat execution context file '%s': %w", path, err)
+		return nil, fmt.Errorf("could not stat execution context file '%s': %w", path, err)
 	}
 
-	if _, err := toml.DecodeFile(path, &cfg); err != nil {
-		return cfg, fmt.Errorf("execution context file '%s' could not be parsed: %w", path, err)
+	if _, err := toml.DecodeFile(path, cfg); err != nil {
+		return nil, fmt.Errorf("execution context file '%s' could not be parsed: %w", path, err)
 	}
 
 	// Manually set the name field for each ServerExecutionContext.
@@ -236,7 +187,9 @@ func loadExecutionContextConfig(path string) (ExecutionContextConfig, error) { /
 	return cfg, nil
 }
 
-func (c *ExecutionContextConfig) saveConfig() error {
+// SaveConfig writes the ExecutionContextConfig to disk as a TOML file,
+// creating parent directories and setting secure file permissions.
+func (c *ExecutionContextConfig) SaveConfig() error {
 	path := c.filePath
 	if path == "" {
 		return fmt.Errorf("config file path not present")

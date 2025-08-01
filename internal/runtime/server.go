@@ -1,6 +1,7 @@
 package runtime
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"regexp"
@@ -10,6 +11,8 @@ import (
 	"github.com/mozilla-ai/mcpd/v2/internal/config"
 	"github.com/mozilla-ai/mcpd/v2/internal/context"
 )
+
+type Servers []Server
 
 // Server composes static config with runtime overrides.
 type Server struct {
@@ -56,12 +59,233 @@ func (s *Server) Environ() []string {
 	return expandedEnvs
 }
 
+// validateRequiredEnvVars checks that all required environment variables are set and non-empty.
+func (s *Server) validateRequiredEnvVars() error {
+	var errs error
+
+	for _, key := range s.RequiredEnvVars {
+		if v, ok := s.Env[key]; !ok || v == "" { // TODO: Verify if we need to check the value (and what is valid for a value).
+			errs = errors.Join(errs, fmt.Errorf("required env var %s not set or empty", key))
+		}
+	}
+
+	return errs
+}
+
+// validateRequiredValueArgs verifies all required arguments that must have values are present with values.
+func (s *Server) validateRequiredValueArgs() error {
+	var errs error
+
+	// Validate required value args (must have an associated value)
+	for _, key := range s.RequiredValueArgs {
+		found := false
+		// Using counter to allow us to look ahead to check for values that are supplied separately.
+		// e.g. ["--foo=bar"] vs. ["--foo", "bar"] which are both valid.
+		for i := 0; i < len(s.Args); i++ {
+			arg := s.Args[i]
+
+			// Validate --foo=bar
+			if strings.HasPrefix(arg, key+"=") {
+				found = true
+				break
+			}
+
+			// Validate --foo bar
+			if arg == key && i+1 < len(s.Args) && !strings.HasPrefix(s.Args[i+1], "--") { // NOTE: Doesn't support validating short flags being the next value.
+				found = true
+				break
+			}
+		}
+		if !found {
+			errs = errors.Join(errs, fmt.Errorf("required argument %s with value missing", key))
+		}
+	}
+
+	return errs
+}
+
+// validateRequiredBoolArgs ensures all required boolean flags are present in the arguments.
+func (s *Server) validateRequiredBoolArgs() error {
+	var errs error
+
+	// Validate required bool args (must be present, no value needed)
+	for _, key := range s.RequiredBoolArgs {
+		found := false
+
+		for _, arg := range s.Args {
+			if arg == key {
+				found = true
+				break
+			}
+		}
+		if !found {
+			errs = errors.Join(errs, fmt.Errorf("required boolean flag %s missing", key))
+		}
+	}
+
+	return errs
+}
+
+// Validate can be used to ensure that any required env vars and args declared in config, are present in the runtime config.
+func (s *Server) Validate() error {
+	var errs error
+
+	if envErrs := s.validateRequiredEnvVars(); envErrs != nil {
+		errs = errors.Join(errs, envErrs)
+	}
+
+	if valueArgsErrs := s.validateRequiredValueArgs(); valueArgsErrs != nil {
+		errs = errors.Join(errs, valueArgsErrs)
+	}
+
+	if boolArgsErrs := s.validateRequiredBoolArgs(); boolArgsErrs != nil {
+		errs = errors.Join(errs, boolArgsErrs)
+	}
+
+	return errs
+}
+
+func (s *Server) exportArgs(appName string, recordContractFunc func(k, v string)) []string {
+	args := make([]string, 0, len(s.RequiredArguments()))
+
+	// Add all required bool args (flags).
+	args = append(args, s.RequiredBoolArgs...)
+
+	// Transform and add the required args that need values.
+	for _, v := range s.RequiredValueArgs {
+		t := transformValueArg(appName, s.Name(), v)
+		args = append(args, t.FormattedArg)                 // Track for portable execution context export.
+		recordContractFunc(t.EnvVarName, t.EnvVarReference) // Track for contract export (e.g. '.env' file).
+	}
+
+	// Capture the required args we've now seen.
+	seen := make(map[string]struct{}, len(args))
+	for _, k := range args {
+		k = extractArgNameWithPrefix(k)
+		seen[k] = struct{}{}
+	}
+
+	// Include any additional args that were set in the runtime config.
+	args = append(args, s.exportRuntimeArgs(appName, seen, recordContractFunc)...)
+
+	return args
+}
+
+func (s *Server) exportEnvVars(appName string) map[string]string {
+	appName = normalizeForEnvVarName(appName)
+
+	parseEnvVar := func(serverName string, envVarName string) string {
+		key := strings.ToUpper(envVarName)
+		return fmt.Sprintf("${%s__%s__%s}", appName, normalizeForEnvVarName(serverName), key)
+	}
+
+	envs := map[string]string{}
+
+	// Any required env names from config should be included.
+	for _, k := range s.RequiredEnvVars {
+		envs[k] = parseEnvVar(s.Name(), k)
+	}
+
+	// Update with any vars that were set in runtime execution context config.
+	for k := range s.Env {
+		// Skip if we've already captured this variable via required env vars.
+		if _, ok := envs[k]; !ok {
+			envs[k] = parseEnvVar(s.Name(), k)
+		}
+	}
+
+	return envs
+}
+
+func (s *Server) exportRuntimeArgs(appName string, seen map[string]struct{}, recordContractFunc func(k, v string)) []string {
+	var args []string
+
+	for i := 0; i < len(s.Args); i++ {
+		rawArg := s.Args[i]
+
+		// Sanity check for arg.
+		if !strings.HasPrefix(rawArg, "--") {
+			continue // value
+		}
+
+		arg := extractArgNameWithPrefix(rawArg)
+		if _, ok := seen[arg]; ok {
+			continue // Already handled.
+		}
+
+		// --arg=val case
+		if strings.HasPrefix(rawArg, arg+"=") {
+			t := transformValueArg(appName, s.Name(), rawArg)
+			args = append(args, t.FormattedArg)
+			recordContractFunc(t.EnvVarName, t.EnvVarReference)
+			seen[arg] = struct{}{}
+			continue
+		}
+
+		// --arg val case
+		if rawArg == arg && i+1 < len(s.Args) && !strings.HasPrefix(s.Args[i+1], "--") {
+			t := transformValueArg(appName, s.Name(), rawArg)
+			args = append(args, t.FormattedArg)
+			recordContractFunc(t.EnvVarName, t.EnvVarReference)
+			seen[arg] = struct{}{}
+			i++ // Skip the next item since it's an actual value.
+			continue
+		}
+
+		// bool flag
+		if rawArg == arg {
+			args = append(args, arg)
+			seen[arg] = struct{}{}
+			continue
+		}
+	}
+
+	return args
+}
+
+func (s *Servers) Export(path string) (map[string]string, error) {
+	servers := *s
+	if len(servers) == 0 {
+		return nil, fmt.Errorf("export error, no servers defined in runtime config")
+	}
+
+	const appName = "mcpd" // TODO: Reference shared app name from somewhere without cyclic import issues.
+
+	contract := make(map[string]string)
+	pec := context.NewExecutionContextConfig(path)
+
+	for _, srv := range servers {
+		// Export env vars.
+		envs := srv.exportEnvVars(appName)
+
+		// Export args.
+		args := srv.exportArgs(appName, func(k, v string) {
+			contract[k] = v
+		})
+
+		// Store the parsed and sanitized data in the new portable execution context.
+		pec.Servers[srv.Name()] = context.ServerExecutionContext{
+			Name: srv.Name(),
+			Args: args,
+			Env:  envs,
+		}
+	}
+
+	// Save the fully formed portable execution context.
+	err := pec.SaveConfig()
+	if err != nil {
+		return nil, fmt.Errorf("export error, failed to save portable execution config: %v", err)
+	}
+
+	return contract, nil
+}
+
 // AggregateConfigs merges static server config with any matching execution context overrides.
 // Returns (unresolved) runtime configuration for all servers.
 func AggregateConfigs(
 	cfg config.Modifier,
 	executionContextCfg context.Modifier,
-) ([]Server, error) {
+) (Servers, error) {
 	var runtimeCfg []Server
 
 	for _, s := range cfg.ListServers() {
