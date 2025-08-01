@@ -1,6 +1,6 @@
 [servers]
   [servers.server-a]
-    args = ["--token=${MCPD__SERVER_A__ARG__TOKEN}", "--port=${MCPD__SERVER_A__ARG__PORT}"]
+    args = ["--token=${MCPD__SERVER_A__TOKEN}", "--port=${MCPD__SERVER_A__PORT}"]
   [servers.server-b]
     [servers.server-b.env]
       DATABASE_URL = "${MCPD__SERVER_B__DATABASE_URL}"

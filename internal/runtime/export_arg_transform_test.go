@@ -201,35 +201,35 @@ func TestBuildEnvVarName(t *testing.T) {
 			appName:    "mcpd",
 			serverName: "test",
 			argName:    "foo",
-			expected:   "MCPD__TEST__ARG__FOO",
+			expected:   "MCPD__TEST__FOO",
 		},
 		{
 			name:       "hyphenated server name",
 			appName:    "mcpd",
 			serverName: "my-server",
 			argName:    "foo",
-			expected:   "MCPD__MY_SERVER__ARG__FOO",
+			expected:   "MCPD__MY_SERVER__FOO",
 		},
 		{
 			name:       "hyphenated arg name",
 			appName:    "mcpd",
 			serverName: "test",
 			argName:    "my-arg",
-			expected:   "MCPD__TEST__ARG__MY_ARG",
+			expected:   "MCPD__TEST__MY_ARG",
 		},
 		{
 			name:       "all hyphenated",
 			appName:    "my-app",
 			serverName: "my-server",
 			argName:    "my-arg",
-			expected:   "MY_APP__MY_SERVER__ARG__MY_ARG",
+			expected:   "MY_APP__MY_SERVER__MY_ARG",
 		},
 		{
 			name:       "mixed case inputs",
 			appName:    "McPd",
 			serverName: "Test-Server",
 			argName:    "My-Arg",
-			expected:   "MCPD__TEST_SERVER__ARG__MY_ARG",
+			expected:   "MCPD__TEST_SERVER__MY_ARG",
 		},
 	}
 
@@ -261,9 +261,9 @@ func TestTransformArg(t *testing.T) {
 			expected: &valueArgTransformation{
 				Raw:             "--foo=bar",
 				Name:            "foo",
-				EnvVarName:      "MCPD__TEST__ARG__FOO",
-				EnvVarReference: "${MCPD__TEST__ARG__FOO}",
-				FormattedArg:    "--foo=${MCPD__TEST__ARG__FOO}",
+				EnvVarName:      "MCPD__TEST__FOO",
+				EnvVarReference: "${MCPD__TEST__FOO}",
+				FormattedArg:    "--foo=${MCPD__TEST__FOO}",
 			},
 		},
 		{
@@ -274,9 +274,9 @@ func TestTransformArg(t *testing.T) {
 			expected: &valueArgTransformation{
 				Raw:             "--my-arg",
 				Name:            "my-arg",
-				EnvVarName:      "MCPD__TEST__ARG__MY_ARG",
-				EnvVarReference: "${MCPD__TEST__ARG__MY_ARG}",
-				FormattedArg:    "--my-arg=${MCPD__TEST__ARG__MY_ARG}",
+				EnvVarName:      "MCPD__TEST__MY_ARG",
+				EnvVarReference: "${MCPD__TEST__MY_ARG}",
+				FormattedArg:    "--my-arg=${MCPD__TEST__MY_ARG}",
 			},
 		},
 		{
@@ -287,9 +287,9 @@ func TestTransformArg(t *testing.T) {
 			expected: &valueArgTransformation{
 				Raw:             "--my-arg=123",
 				Name:            "my-arg",
-				EnvVarName:      "MCPD__TEST__ARG__MY_ARG",
-				EnvVarReference: "${MCPD__TEST__ARG__MY_ARG}",
-				FormattedArg:    "--my-arg=${MCPD__TEST__ARG__MY_ARG}",
+				EnvVarName:      "MCPD__TEST__MY_ARG",
+				EnvVarReference: "${MCPD__TEST__MY_ARG}",
+				FormattedArg:    "--my-arg=${MCPD__TEST__MY_ARG}",
 			},
 		},
 		{
@@ -300,9 +300,9 @@ func TestTransformArg(t *testing.T) {
 			expected: &valueArgTransformation{
 				Raw:             "--config=file.json",
 				Name:            "config",
-				EnvVarName:      "MCPD__MY_SERVER__ARG__CONFIG",
-				EnvVarReference: "${MCPD__MY_SERVER__ARG__CONFIG}",
-				FormattedArg:    "--config=${MCPD__MY_SERVER__ARG__CONFIG}",
+				EnvVarName:      "MCPD__MY_SERVER__CONFIG",
+				EnvVarReference: "${MCPD__MY_SERVER__CONFIG}",
+				FormattedArg:    "--config=${MCPD__MY_SERVER__CONFIG}",
 			},
 		},
 		{
@@ -313,9 +313,9 @@ func TestTransformArg(t *testing.T) {
 			expected: &valueArgTransformation{
 				Raw:             "-f=file.txt",
 				Name:            "f",
-				EnvVarName:      "MCPD__TEST__ARG__F",
-				EnvVarReference: "${MCPD__TEST__ARG__F}",
-				FormattedArg:    "-f=${MCPD__TEST__ARG__F}",
+				EnvVarName:      "MCPD__TEST__F",
+				EnvVarReference: "${MCPD__TEST__F}",
+				FormattedArg:    "-f=${MCPD__TEST__F}",
 			},
 		},
 		{
@@ -326,9 +326,9 @@ func TestTransformArg(t *testing.T) {
 			expected: &valueArgTransformation{
 				Raw:             "--empty=",
 				Name:            "empty",
-				EnvVarName:      "MCPD__TEST__ARG__EMPTY",
-				EnvVarReference: "${MCPD__TEST__ARG__EMPTY}",
-				FormattedArg:    "--empty=${MCPD__TEST__ARG__EMPTY}",
+				EnvVarName:      "MCPD__TEST__EMPTY",
+				EnvVarReference: "${MCPD__TEST__EMPTY}",
+				FormattedArg:    "--empty=${MCPD__TEST__EMPTY}",
 			},
 		},
 	}

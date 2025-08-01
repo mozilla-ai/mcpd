@@ -1,6 +1,6 @@
 [servers]
   [servers.test-server]
-    args = ["--verbose", "--debug", "--config=${MCPD__TEST_SERVER__ARG__CONFIG}", "--port=${MCPD__TEST_SERVER__ARG__PORT}", "--extra=${MCPD__TEST_SERVER__ARG__EXTRA}"]
+    args = ["--verbose", "--debug", "--config=${MCPD__TEST_SERVER__CONFIG}", "--port=${MCPD__TEST_SERVER__PORT}", "--extra=${MCPD__TEST_SERVER__EXTRA}"]
     [servers.test-server.env]
       API_KEY = "${MCPD__TEST_SERVER__API_KEY}"
       EXTRA_VAR = "${MCPD__TEST_SERVER__EXTRA_VAR}"

@@ -1,6 +1,6 @@
 [servers]
   [servers.github-server]
-    args = ["--org=${MCPD__GITHUB_SERVER__ARG__ORG}", "--api-version=${MCPD__GITHUB_SERVER__ARG__API_VERSION}"]
+    args = ["--org=${MCPD__GITHUB_SERVER__ORG}", "--api-version=${MCPD__GITHUB_SERVER__API_VERSION}"]
     [servers.github-server.env]
       DEBUG = "${MCPD__GITHUB_SERVER__DEBUG}"
       GITHUB_TOKEN = "${MCPD__GITHUB_SERVER__GITHUB_TOKEN}"
