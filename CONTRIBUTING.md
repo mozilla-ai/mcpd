@@ -15,26 +15,44 @@ We encourage contributions via GitHub pull requests. Before you start, please re
 * **Features:** Please use our [Feature Request template](.github/ISSUE_TEMPLATE/feature_request.yaml) to describe the problem your idea solves and your proposed solution.
 * **Search First:** Before creating a new issue, please search existing issues to see if your topic has already been discussed.
 
+### Requirements
+
+* [gofumpt](https://github.com/mvdan/gofumpt)
+* [golangci-lint](https://golangci-lint.run/welcome/install/)
+
 ### Contributing Code
 
 1. **Fork** the repository on GitHub.
-1. **Clone** your forked repository to your local machine.
+2. **Clone** your forked repository to your local machine.
     ```bash
     git clone https://github.com/{YOUR_GITHUB_USERNAME}/mcpd.git
     cd mcpd
     ```
-1. **Create a new branch** for your changes based on the `main` branch.
+3. **Create a new branch** for your changes based on the `main` branch.
     ```bash
     git checkout main
     git pull origin main
     git checkout -b your-feature-or-bugfix-branch
     ```
-1. **Make your changes.**
-1. **Format and Lint:** Ensure your code is formatted using [gofumpt](https://github.com/mvdan/gofumpt) and [golangci-lint run ./...](https://golangci-lint.run/welcome/install/).
-1. **Add Unit Tests:** All new features and bug fixes should be accompanied by relevant unit tests.
-1. **Commit your changes** with a clear and descriptive message.
-1. **Push your branch** to your forked repository.
-1. **Open a Pull Request** from your branch to the `main` branch of the upstream `mozilla-ai/mcpd` repository, 
+4. **Make your changes:** You can build your changes with:
+   ```bash
+   make build
+   ```
+5. **Format and Lint:** Ensure your code passes linting and formatting checks:
+   ```bash
+   # Run golangci-lint (uses .golangci.yaml config)
+   golangci-lint run
+   
+   # Auto-fix formatting issues (recommended)
+   golangci-lint run --fix
+   ```
+6. **Add Unit Tests:** All new features and bug fixes should be accompanied by relevant unit tests. Run tests with:
+   ```bash
+   make test
+   ```
+7. **Commit your changes** with a clear and descriptive message.
+8. **Push your branch** to your forked repository.
+9. **Open a Pull Request** from your branch to the `main` branch of the upstream `mozilla-ai/mcpd` repository, 
   reference the relevant GitHub issue in your PR summary.
 
 ## Security Vulnerabilities
