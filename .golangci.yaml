@@ -5,7 +5,7 @@ linters:
     - errcheck
     - govet
     - ineffassign
-    - staticheck
+    - staticcheck
     - unused
     - tagliatelle
     - tagalign
@@ -17,7 +17,6 @@ formatters:
     - gofumpt
     - goimports
     - golines
-    - swaggo
   settings:
     gci:
       # Section configuration to compare against.
