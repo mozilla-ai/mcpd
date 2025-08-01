@@ -197,25 +197,20 @@ func envVarsToContract(envs map[string]string) map[string]string {
 // exportEnvVars generates environment variable placeholders for both required and runtime env vars.
 // Returns a map where keys are env var names (e.g., "API_KEY") and values are placeholder references (e.g., "${MCPD__SERVER__API_KEY}").
 func (s *Server) exportEnvVars(appName string) map[string]string {
-	appName = normalizeForEnvVarName(appName)
-
-	parseEnvVar := func(serverName string, envVarName string) string {
-		key := strings.ToUpper(envVarName)
-		return fmt.Sprintf("${%s__%s__%s}", appName, normalizeForEnvVarName(serverName), key)
-	}
-
 	envs := map[string]string{}
 
 	// Any required env names from config should be included.
 	for _, k := range s.RequiredEnvVars {
-		envs[k] = parseEnvVar(s.Name(), k)
+		envVarName := buildEnvVarName(appName, s.Name(), k)
+		envs[k] = fmt.Sprintf("${%s}", envVarName)
 	}
 
 	// Update with any vars that were set in runtime execution context config.
 	for k := range s.Env {
 		// Skip if we've already captured this variable via required env vars.
 		if _, ok := envs[k]; !ok {
-			envs[k] = parseEnvVar(s.Name(), k)
+			envVarName := buildEnvVarName(appName, s.Name(), k)
+			envs[k] = fmt.Sprintf("${%s}", envVarName)
 		}
 	}
 

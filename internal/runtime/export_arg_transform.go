@@ -10,9 +10,9 @@ import (
 type valueArgTransformation struct {
 	Raw             string // --foo=bar
 	Name            string // foo
-	EnvVarName      string // MCPD__TEST__ARG__FOO
-	EnvVarReference string // ${MCPD__TEST__ARG__FOO}
-	FormattedArg    string // --foo=${MCPD__TEST__ARG__FOO}
+	EnvVarName      string // MCPD__TEST__FOO
+	EnvVarReference string // ${MCPD__TEST__FOO}
+	FormattedArg    string // --foo=${MCPD__TEST__FOO}
 }
 
 // normalizeForEnvVarName converts string name (e.g. app name, env var name) to uppercase with underscores
@@ -41,12 +41,12 @@ func extractArgNameWithPrefix(rawArg string) string {
 	return rawArg
 }
 
-// buildEnvVarName creates the environment variable name: MCPD__TEST__ARG__FOO
+// buildEnvVarName creates the environment variable name: MCPD__TEST__FOO
 func buildEnvVarName(appName, serverName, argName string) string {
 	sanitizedAppName := normalizeForEnvVarName(appName)
 	sanitizedServer := normalizeForEnvVarName(serverName)
 	sanitizedArg := strings.ToUpper(strings.ReplaceAll(argName, "-", "_"))
-	return fmt.Sprintf("%s__%s__ARG__%s", sanitizedAppName, sanitizedServer, sanitizedArg)
+	return fmt.Sprintf("%s__%s__%s", sanitizedAppName, sanitizedServer, sanitizedArg)
 }
 
 // transformValueArg converts a raw CLI argument into its transformed representations.
@@ -57,7 +57,7 @@ func transformValueArg(appName, serverName, rawArg string) *valueArgTransformati
 	envVarName := buildEnvVarName(appName, serverName, argName)
 	argPrefix := extractArgNameWithPrefix(rawArg)
 
-	// Value argument: --foo=bar => --foo=${MCPD__TEST__ARG__FOO}
+	// Value argument: --foo=bar => --foo=${MCPD__TEST__FOO}
 	formattedArg := fmt.Sprintf("%s=${%s}", argPrefix, envVarName)
 
 	return &valueArgTransformation{

@@ -432,14 +432,14 @@ func TestServer_ExpandEnvSlice(t *testing.T) {
 		{
 			name: "full env",
 			env: map[string]string{
-				"MCPD__DATABASE__HOST":     "localhost",
-				"MCPD__DATABASE__ARG__LOG": "true",
-				"RANDOM_1":                 "foo",
-				"RANDOM_2":                 "bar",
+				"MCPD__DATABASE__HOST": "localhost",
+				"MCPD__DATABASE__LOG":  "true",
+				"RANDOM_1":             "foo",
+				"RANDOM_2":             "bar",
 			},
 			input: []string{
 				"MCPD__DATABASE__HOST=${MCPD__DATABASE__HOST}",
-				"LOGGING_ENABLED=${MCPD__DATABASE__ARG__LOG}",
+				"LOGGING_ENABLED=${MCPD__DATABASE__LOG}",
 				"RANDOM_2=${RANDOM_2}",
 			},
 			expected: []string{
@@ -451,14 +451,14 @@ func TestServer_ExpandEnvSlice(t *testing.T) {
 		{
 			name: "full args",
 			env: map[string]string{
-				"MCPD__DATABASE__HOST":     "localhost",
-				"MCPD__DATABASE__ARG__LOG": "true",
-				"RANDOM_1":                 "foo",
-				"RANDOM_2":                 "bar",
+				"MCPD__DATABASE__HOST": "localhost",
+				"MCPD__DATABASE__LOG":  "true",
+				"RANDOM_1":             "foo",
+				"RANDOM_2":             "bar",
 			},
 			input: []string{
 				"--my-arg1=${MCPD__DATABASE__HOST}",
-				"--my-arg2=${MCPD__DATABASE__ARG__LOG}",
+				"--my-arg2=${MCPD__DATABASE__LOG}",
 				"--my-arg3=${RANDOM_2}",
 				"--my-flag",
 			},
@@ -733,18 +733,18 @@ func TestServer_exportRuntimeArgs(t *testing.T) {
 			name:         "single value arg with equals",
 			args:         []string{"--host=localhost"},
 			seen:         map[string]struct{}{},
-			expectedArgs: []string{"--host=${MCPD__TEST_SERVER__ARG__HOST}"},
+			expectedArgs: []string{"--host=${MCPD__TEST_SERVER__HOST}"},
 			expectedCalls: map[string]string{
-				"MCPD__TEST_SERVER__ARG__HOST": "${MCPD__TEST_SERVER__ARG__HOST}",
+				"MCPD__TEST_SERVER__HOST": "${MCPD__TEST_SERVER__HOST}",
 			},
 		},
 		{
 			name:         "single value arg separate",
 			args:         []string{"--host", "localhost"},
 			seen:         map[string]struct{}{},
-			expectedArgs: []string{"--host=${MCPD__TEST_SERVER__ARG__HOST}"},
+			expectedArgs: []string{"--host=${MCPD__TEST_SERVER__HOST}"},
 			expectedCalls: map[string]string{
-				"MCPD__TEST_SERVER__ARG__HOST": "${MCPD__TEST_SERVER__ARG__HOST}",
+				"MCPD__TEST_SERVER__HOST": "${MCPD__TEST_SERVER__HOST}",
 			},
 		},
 		{
@@ -752,13 +752,13 @@ func TestServer_exportRuntimeArgs(t *testing.T) {
 			args: []string{"--host=localhost", "--port", "8080", "--debug"},
 			seen: map[string]struct{}{},
 			expectedArgs: []string{
-				"--host=${MCPD__TEST_SERVER__ARG__HOST}",
-				"--port=${MCPD__TEST_SERVER__ARG__PORT}",
+				"--host=${MCPD__TEST_SERVER__HOST}",
+				"--port=${MCPD__TEST_SERVER__PORT}",
 				"--debug",
 			},
 			expectedCalls: map[string]string{
-				"MCPD__TEST_SERVER__ARG__HOST": "${MCPD__TEST_SERVER__ARG__HOST}",
-				"MCPD__TEST_SERVER__ARG__PORT": "${MCPD__TEST_SERVER__ARG__PORT}",
+				"MCPD__TEST_SERVER__HOST": "${MCPD__TEST_SERVER__HOST}",
+				"MCPD__TEST_SERVER__PORT": "${MCPD__TEST_SERVER__PORT}",
 			},
 		},
 		{
@@ -768,9 +768,9 @@ func TestServer_exportRuntimeArgs(t *testing.T) {
 				"--host":  {},
 				"--debug": {},
 			},
-			expectedArgs: []string{"--port=${MCPD__TEST_SERVER__ARG__PORT}"},
+			expectedArgs: []string{"--port=${MCPD__TEST_SERVER__PORT}"},
 			expectedCalls: map[string]string{
-				"MCPD__TEST_SERVER__ARG__PORT": "${MCPD__TEST_SERVER__ARG__PORT}",
+				"MCPD__TEST_SERVER__PORT": "${MCPD__TEST_SERVER__PORT}",
 			},
 		},
 		{
@@ -778,11 +778,11 @@ func TestServer_exportRuntimeArgs(t *testing.T) {
 			args: []string{"--host", "localhost", "not-a-flag", "--debug"},
 			seen: map[string]struct{}{},
 			expectedArgs: []string{
-				"--host=${MCPD__TEST_SERVER__ARG__HOST}",
+				"--host=${MCPD__TEST_SERVER__HOST}",
 				"--debug",
 			},
 			expectedCalls: map[string]string{
-				"MCPD__TEST_SERVER__ARG__HOST": "${MCPD__TEST_SERVER__ARG__HOST}",
+				"MCPD__TEST_SERVER__HOST": "${MCPD__TEST_SERVER__HOST}",
 			},
 		},
 		{
@@ -796,9 +796,9 @@ func TestServer_exportRuntimeArgs(t *testing.T) {
 			name:         "complex server name normalization",
 			args:         []string{"--api-key=secret"},
 			seen:         map[string]struct{}{},
-			expectedArgs: []string{"--api-key=${MCPD__TEST_SERVER__ARG__API_KEY}"},
+			expectedArgs: []string{"--api-key=${MCPD__TEST_SERVER__API_KEY}"},
 			expectedCalls: map[string]string{
-				"MCPD__TEST_SERVER__ARG__API_KEY": "${MCPD__TEST_SERVER__ARG__API_KEY}",
+				"MCPD__TEST_SERVER__API_KEY": "${MCPD__TEST_SERVER__API_KEY}",
 			},
 		},
 	}
@@ -853,12 +853,12 @@ func TestServer_exportArgs(t *testing.T) {
 			runtimeArgs:       []string{},
 			expectedArgs: []string{
 				"--verbose",
-				"--config=${MCPD__TEST__ARG__CONFIG}",
-				"--port=${MCPD__TEST__ARG__PORT}",
+				"--config=${MCPD__TEST__CONFIG}",
+				"--port=${MCPD__TEST__PORT}",
 			},
 			expectedContractCalls: map[string]string{
-				"MCPD__TEST__ARG__CONFIG": "${MCPD__TEST__ARG__CONFIG}",
-				"MCPD__TEST__ARG__PORT":   "${MCPD__TEST__ARG__PORT}",
+				"MCPD__TEST__CONFIG": "${MCPD__TEST__CONFIG}",
+				"MCPD__TEST__PORT":   "${MCPD__TEST__PORT}",
 			},
 		},
 		{
@@ -868,11 +868,11 @@ func TestServer_exportArgs(t *testing.T) {
 			requiredBoolArgs:  []string{},
 			runtimeArgs:       []string{"--host=localhost", "--debug"},
 			expectedArgs: []string{
-				"--host=${MCPD__TEST__ARG__HOST}",
+				"--host=${MCPD__TEST__HOST}",
 				"--debug",
 			},
 			expectedContractCalls: map[string]string{
-				"MCPD__TEST__ARG__HOST": "${MCPD__TEST__ARG__HOST}",
+				"MCPD__TEST__HOST": "${MCPD__TEST__HOST}",
 			},
 		},
 		{
@@ -883,13 +883,13 @@ func TestServer_exportArgs(t *testing.T) {
 			runtimeArgs:       []string{"--host=localhost", "--debug"},
 			expectedArgs: []string{
 				"--verbose",
-				"--config=${MCPD__TEST__ARG__CONFIG}",
-				"--host=${MCPD__TEST__ARG__HOST}",
+				"--config=${MCPD__TEST__CONFIG}",
+				"--host=${MCPD__TEST__HOST}",
 				"--debug",
 			},
 			expectedContractCalls: map[string]string{
-				"MCPD__TEST__ARG__CONFIG": "${MCPD__TEST__ARG__CONFIG}",
-				"MCPD__TEST__ARG__HOST":   "${MCPD__TEST__ARG__HOST}",
+				"MCPD__TEST__CONFIG": "${MCPD__TEST__CONFIG}",
+				"MCPD__TEST__HOST":   "${MCPD__TEST__HOST}",
 			},
 		},
 		{
@@ -900,11 +900,11 @@ func TestServer_exportArgs(t *testing.T) {
 			runtimeArgs:       []string{"--config=override", "--verbose", "--extra"},
 			expectedArgs: []string{
 				"--verbose",
-				"--config=${MCPD__TEST__ARG__CONFIG}",
+				"--config=${MCPD__TEST__CONFIG}",
 				"--extra",
 			},
 			expectedContractCalls: map[string]string{
-				"MCPD__TEST__ARG__CONFIG": "${MCPD__TEST__ARG__CONFIG}",
+				"MCPD__TEST__CONFIG": "${MCPD__TEST__CONFIG}",
 			},
 		},
 		{
@@ -914,12 +914,12 @@ func TestServer_exportArgs(t *testing.T) {
 			requiredBoolArgs:  []string{},
 			runtimeArgs:       []string{"--repo-name=test"},
 			expectedArgs: []string{
-				"--token=${MCPD__GITHUB_SERVER__ARG__TOKEN}",
-				"--repo-name=${MCPD__GITHUB_SERVER__ARG__REPO_NAME}",
+				"--token=${MCPD__GITHUB_SERVER__TOKEN}",
+				"--repo-name=${MCPD__GITHUB_SERVER__REPO_NAME}",
 			},
 			expectedContractCalls: map[string]string{
-				"MCPD__GITHUB_SERVER__ARG__TOKEN":     "${MCPD__GITHUB_SERVER__ARG__TOKEN}",
-				"MCPD__GITHUB_SERVER__ARG__REPO_NAME": "${MCPD__GITHUB_SERVER__ARG__REPO_NAME}",
+				"MCPD__GITHUB_SERVER__TOKEN":     "${MCPD__GITHUB_SERVER__TOKEN}",
+				"MCPD__GITHUB_SERVER__REPO_NAME": "${MCPD__GITHUB_SERVER__REPO_NAME}",
 			},
 		},
 	}
@@ -1080,10 +1080,10 @@ func TestServers_Export(t *testing.T) {
 				},
 			},
 			expectedContract: map[string]string{
-				"MCPD__TEST_SERVER__API_KEY":     "${MCPD__TEST_SERVER__API_KEY}",     // From RequiredEnvVars
-				"MCPD__TEST_SERVER__DEBUG":       "${MCPD__TEST_SERVER__DEBUG}",       // From runtime Env
-				"MCPD__TEST_SERVER__ARG__CONFIG": "${MCPD__TEST_SERVER__ARG__CONFIG}", // From RequiredValueArgs
-				"MCPD__TEST_SERVER__ARG__HOST":   "${MCPD__TEST_SERVER__ARG__HOST}",   // From runtime Args
+				"MCPD__TEST_SERVER__API_KEY": "${MCPD__TEST_SERVER__API_KEY}", // From RequiredEnvVars
+				"MCPD__TEST_SERVER__DEBUG":   "${MCPD__TEST_SERVER__DEBUG}",   // From runtime Env
+				"MCPD__TEST_SERVER__CONFIG":  "${MCPD__TEST_SERVER__CONFIG}",  // From RequiredValueArgs
+				"MCPD__TEST_SERVER__HOST":    "${MCPD__TEST_SERVER__HOST}",    // From runtime Args
 			},
 		},
 		{
@@ -1111,10 +1111,10 @@ func TestServers_Export(t *testing.T) {
 				},
 			},
 			expectedContract: map[string]string{
-				"MCPD__SERVER_A__ARG__TOKEN": "${MCPD__SERVER_A__ARG__TOKEN}", // From RequiredValueArgs
-				"MCPD__SERVER_A__ARG__PORT":  "${MCPD__SERVER_A__ARG__PORT}",  // From runtime Args
-				"MCPD__SERVER_B__SECRET":     "${MCPD__SERVER_B__SECRET}",     // From RequiredEnvVars
-				"MCPD__SERVER_B__DEBUG":      "${MCPD__SERVER_B__DEBUG}",      // From runtime Env
+				"MCPD__SERVER_A__TOKEN":  "${MCPD__SERVER_A__TOKEN}",  // From RequiredValueArgs
+				"MCPD__SERVER_A__PORT":   "${MCPD__SERVER_A__PORT}",   // From runtime Args
+				"MCPD__SERVER_B__SECRET": "${MCPD__SERVER_B__SECRET}", // From RequiredEnvVars
+				"MCPD__SERVER_B__DEBUG":  "${MCPD__SERVER_B__DEBUG}",  // From runtime Env
 			},
 		},
 	}

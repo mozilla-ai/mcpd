@@ -75,8 +75,8 @@ func (c *Cmd) longDescription() string {
 		"execution context file (e.g. `~/.config/mcpd/secrets.dev.toml`), the export command outputs two files:\n\n" +
 		"Environment Contract:\n\n" +
 		"Lists all required and configured environment variables as secure, namespaced placeholders:\n\n" +
-		"`MCPD__{SERVER_NAME}__{ENV_VAR}` - Creates placeholders for command line arguments to be populated with env vars\n\n" +
-		"`MCPD__{SERVER_NAME}__ARG_{ARG_NAME}` - This file is intended for the platform operator or CI/CD system\n\n" +
+		"`MCPD__{SERVER_NAME}__{VAR_NAME}` - Creates placeholders for both environment variables and command line arguments to be populated with env vars\n\n" +
+		"This file is intended for the platform operator or CI/CD system\n\n" +
 		"Portable Execution Context:\n\n" +
 		"- A new secrets `.toml` file that defines sanitized runtime args and env sections for each server using the " +
 		"placeholders aligned with the environment contract\n" +
