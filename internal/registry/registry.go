@@ -113,7 +113,12 @@ func (r *Registry) Resolve(name string, opt ...options.ResolveOption) (packages.
 				"package", name,
 				"error", err,
 			)
-			return packages.Package{}, fmt.Errorf("error resolving package '%s' from registry '%s': %w", name, reg.ID(), err)
+			return packages.Package{}, fmt.Errorf(
+				"error resolving package '%s' from registry '%s': %w",
+				name,
+				reg.ID(),
+				err,
+			)
 		}
 
 		return result, nil
@@ -146,7 +151,11 @@ func (r *Registry) Resolve(name string, opt ...options.ResolveOption) (packages.
 // Search implements the PackageSearcher interface for Registry.
 // It iterates through all contained registries, calls their Search method, and then aggregates and de-duplicates the results.
 // Filters can be used to specify
-func (r *Registry) Search(name string, filters map[string]string, opt ...options.SearchOption) ([]packages.Package, error) {
+func (r *Registry) Search(
+	name string,
+	filters map[string]string,
+	opt ...options.SearchOption,
+) ([]packages.Package, error) {
 	// Handle name
 	name = filter.NormalizeString(name)
 	if name == "" {

@@ -132,7 +132,11 @@ func TestExportCommand_Integration(t *testing.T) {
 			require.NoError(t, err)
 			expectedContextContent, err := os.ReadFile(paths.contextFile)
 			require.NoError(t, err)
-			require.Equal(t, strings.TrimSpace(string(expectedContextContent)), strings.TrimSpace(string(contextContent)))
+			require.Equal(
+				t,
+				strings.TrimSpace(string(expectedContextContent)),
+				strings.TrimSpace(string(contextContent)),
+			)
 
 			// Verify contract output content
 			contractContent, err := os.ReadFile(contractOutput)

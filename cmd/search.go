@@ -142,7 +142,7 @@ func (c *SearchCmd) filters() map[string]string {
 		f["license"] = c.License
 	}
 	if c.IsOfficial {
-		f["is_official"] = "true"
+		f["isOfficial"] = "true"
 	}
 
 	return f

@@ -5,12 +5,11 @@ import (
 	"os"
 	"testing"
 
-	"github.com/mozilla-ai/mcpd/v2/internal/cmd"
-
 	"github.com/BurntSushi/toml"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/mozilla-ai/mcpd/v2/internal/cmd"
 	"github.com/mozilla-ai/mcpd/v2/internal/config"
 	"github.com/mozilla-ai/mcpd/v2/internal/flags"
 )

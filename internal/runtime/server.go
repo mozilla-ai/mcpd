@@ -65,7 +65,8 @@ func (s *Server) validateRequiredEnvVars() error {
 	var errs error
 
 	for _, key := range s.RequiredEnvVars {
-		if v, ok := s.Env[key]; !ok || v == "" { // TODO: Verify if we need to check the value (and what is valid for a value).
+		// TODO: Verify if we need to check the value (and what is valid for a value).
+		if v, ok := s.Env[key]; !ok || v == "" {
 			errs = errors.Join(errs, fmt.Errorf("required env var %s not set or empty", key))
 		}
 	}
@@ -92,7 +93,8 @@ func (s *Server) validateRequiredValueArgs() error {
 			}
 
 			// Validate --foo bar
-			if arg == key && i+1 < len(s.Args) && !strings.HasPrefix(s.Args[i+1], "--") { // NOTE: Doesn't support validating short flags being the next value.
+			// NOTE: Doesn't support validating short flags being the next value.
+			if arg == key && i+1 < len(s.Args) && !strings.HasPrefix(s.Args[i+1], "--") {
 				found = true
 				break
 			}
@@ -177,7 +179,7 @@ func (s *Server) exportArgs(appName string, recordContractFunc func(k, v string)
 // Returns a map of placeholder name → placeholder reference (e.g., "MCPD__SERVER__API_KEY" → "${MCPD__SERVER__API_KEY}")
 func envVarsToContract(envs map[string]string) map[string]string {
 	contract := make(map[string]string, len(envs))
-	
+
 	for _, placeholderRef := range envs {
 		// Extract placeholder name from reference: "${MCPD__SERVER__VAR}" → "MCPD__SERVER__VAR"
 		if strings.HasPrefix(placeholderRef, "${") && strings.HasSuffix(placeholderRef, "}") {
@@ -188,7 +190,7 @@ func envVarsToContract(envs map[string]string) map[string]string {
 			}
 		}
 	}
-	
+
 	return contract
 }
 
@@ -220,7 +222,11 @@ func (s *Server) exportEnvVars(appName string) map[string]string {
 	return envs
 }
 
-func (s *Server) exportRuntimeArgs(appName string, seen map[string]struct{}, recordContractFunc func(k, v string)) []string {
+func (s *Server) exportRuntimeArgs(
+	appName string,
+	seen map[string]struct{},
+	recordContractFunc func(k, v string),
+) []string {
 	var args []string
 
 	for i := 0; i < len(s.Args); i++ {

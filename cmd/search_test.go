@@ -73,8 +73,8 @@ func TestSearchCmd_Filters(t *testing.T) {
 				c.License = "MIT"
 			},
 			wantFilter: map[string]string{
-				"is_official": "true",
-				"license":     "MIT",
+				"isOfficial": "true",
+				"license":    "MIT",
 			},
 		},
 		{
@@ -549,7 +549,11 @@ func (f *fakeRegistryMultiple) Resolve(_ string, _ ...options.ResolveOption) (pa
 	return packages.Package{}, f.err
 }
 
-func (f *fakeRegistryMultiple) Search(_ string, _ map[string]string, _ ...options.SearchOption) ([]packages.Package, error) {
+func (f *fakeRegistryMultiple) Search(
+	_ string,
+	_ map[string]string,
+	_ ...options.SearchOption,
+) ([]packages.Package, error) {
 	return f.packages, f.err
 }
 

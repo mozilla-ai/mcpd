@@ -223,7 +223,7 @@ func TestMatch_EqualsBool(t *testing.T) {
 		},
 	}
 
-	key := "is_official"
+	key := "isOfficial"
 	matcher := WithMatcher(key, EqualsBool(func(i testItem) bool { return i.IsOfficial }))
 
 	for _, tc := range tests {
