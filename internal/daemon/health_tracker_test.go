@@ -250,7 +250,10 @@ func TestHealthTracker_Update(t *testing.T) {
 				// Check LastSuccessful
 				if tc.checkSuccess {
 					require.NotNil(t, health.LastSuccessful)
-					require.True(t, health.LastSuccessful.After(beforeUpdate) || health.LastSuccessful.Equal(beforeUpdate))
+					require.True(
+						t,
+						health.LastSuccessful.After(beforeUpdate) || health.LastSuccessful.Equal(beforeUpdate),
+					)
 				}
 			})
 		}

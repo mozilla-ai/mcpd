@@ -154,7 +154,11 @@ func (r *Registry) Resolve(name string, opt ...options.ResolveOption) (packages.
 }
 
 // Search implements the PackageSearcher interface for Registry.
-func (r *Registry) Search(name string, filters map[string]string, opt ...options.SearchOption) ([]packages.Package, error) {
+func (r *Registry) Search(
+	name string,
+	filters map[string]string,
+	opt ...options.SearchOption,
+) ([]packages.Package, error) {
 	name = filter.NormalizeString(name)
 	if name == "" {
 		return nil, fmt.Errorf("name must not be empty")
@@ -293,7 +297,10 @@ func (i *Installation) isValid(name string) bool {
 	}
 }
 
-func extractArgumentMetadata(server MCPServer, supported map[runtime.Runtime]struct{}) map[string]packages.ArgumentMetadata {
+func extractArgumentMetadata(
+	server MCPServer,
+	supported map[runtime.Runtime]struct{},
+) map[string]packages.ArgumentMetadata {
 	schema := server.Arguments
 	out := make(map[string]packages.ArgumentMetadata)
 
@@ -439,7 +446,10 @@ func shouldIgnoreFlag(rt runtime.Runtime, flag string) bool {
 	return false
 }
 
-func convertInstallations(src map[string]Installation, supported map[runtime.Runtime]struct{}) map[runtime.Runtime]packages.Installation {
+func convertInstallations(
+	src map[string]Installation,
+	supported map[runtime.Runtime]struct{},
+) map[runtime.Runtime]packages.Installation {
 	if src == nil {
 		return nil
 	}
@@ -510,7 +520,9 @@ func (t Tools) ToDomainType() (packages.Tools, error) {
 //
 // Only installations where the command matches a supported runtime may be included.
 // An error is returned if a supported runtime is found but a valid package name cannot be extracted.
-func (r *Registry) supportedRuntimePackageNames(installations map[string]Installation) (map[runtime.Runtime]string, error) {
+func (r *Registry) supportedRuntimePackageNames(
+	installations map[string]Installation,
+) (map[runtime.Runtime]string, error) {
 	result := make(map[runtime.Runtime]string)
 
 	specs := runtime.Specs()

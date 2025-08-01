@@ -26,9 +26,9 @@ type ServerToolsRequest struct {
 
 // ServerToolCallRequest represents the incoming API request to call a tool on a particular server.
 type ServerToolCallRequest struct {
-	Server string         `path:"server" example:"time" doc:"Name of the server"`
-	Tool   string         `path:"tool" example:"get_current_time" doc:"Name of the tool to call"`
-	Body   map[string]any `path:"body" doc:"Body of the tool to call"`
+	Server string         `path:"server" example:"time"             doc:"Name of the server"`
+	Tool   string         `path:"tool"   example:"get_current_time" doc:"Name of the tool to call"`
+	Body   map[string]any `path:"body"                              doc:"Body of the tool to call"`
 }
 
 // RegisterServerRoutes sets up health-related API endpoints
@@ -133,7 +133,12 @@ func handleServerTools(accessor contracts.MCPClientAccessor, name string) (*Tool
 }
 
 // handleServerToolCall handles making a call to a specific tool which exists on an MCP server.
-func handleServerToolCall(accessor contracts.MCPClientAccessor, server string, tool string, data map[string]any) (*ToolCallResponse, error) {
+func handleServerToolCall(
+	accessor contracts.MCPClientAccessor,
+	server string,
+	tool string,
+	data map[string]any,
+) (*ToolCallResponse, error) {
 	// TODO: How to get context from Huma/request for the instance of the request without passing it in?
 	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 	defer cancel()

@@ -13,11 +13,10 @@ import (
 	"sync"
 	"time"
 
-	"golang.org/x/sync/errgroup"
-
 	"github.com/hashicorp/go-hclog"
 	"github.com/mark3labs/mcp-go/client"
 	"github.com/mark3labs/mcp-go/mcp"
+	"golang.org/x/sync/errgroup"
 
 	"github.com/mozilla-ai/mcpd/v2/internal/cmd"
 	"github.com/mozilla-ai/mcpd/v2/internal/config"
@@ -161,7 +160,11 @@ func (d *Daemon) startMCPServers(ctx context.Context) error {
 func (d *Daemon) startMCPServer(ctx context.Context, server runtime.Server) error {
 	runtimeBinary := server.Runtime()
 	if _, supported := d.supportedRuntimes[runtime.Runtime(runtimeBinary)]; !supported {
-		return fmt.Errorf("unsupported runtime/repository '%s' for MCP server daemon '%s'", runtimeBinary, server.Name())
+		return fmt.Errorf(
+			"unsupported runtime/repository '%s' for MCP server daemon '%s'",
+			runtimeBinary,
+			server.Name(),
+		)
 	}
 
 	logger := d.logger.Named("mcp").Named(server.Name())

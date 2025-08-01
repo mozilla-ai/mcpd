@@ -231,7 +231,10 @@ func parseServerEntry(
 
 	runtimeSpecificName := pkg.InstallationDetails[selectedRuntime].Package
 	if runtimeSpecificName == "" {
-		return config.ServerEntry{}, fmt.Errorf("installation package name is missing for runtime '%s'", selectedRuntime)
+		return config.ServerEntry{}, fmt.Errorf(
+			"installation package name is missing for runtime '%s'",
+			selectedRuntime,
+		)
 	}
 	runtimePackageVersion := fmt.Sprintf("%s::%s@%s", selectedRuntime, runtimeSpecificName, v)
 

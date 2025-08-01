@@ -313,7 +313,11 @@ func TestMCPMRegistrySearch(t *testing.T) {
 			expectedCount: 3, // time, math, no_env_or_args
 			expectedIDs:   []string{"time", "math", "no_env_or_args"},
 			expectedEnv:   map[string][]string{"time": {}, "math": {"API_KEY"}, "no_env_or_args": {}},
-			expectedArgs:  map[string][]string{"time": {"--local-timezone"}, "math": {"--api-key"}, "no_env_or_args": {}},
+			expectedArgs: map[string][]string{
+				"time":           {"--local-timezone"},
+				"math":           {"--api-key"},
+				"no_env_or_args": {},
+			},
 		},
 		{
 			name:          "Search with tool filter 'add'",
@@ -382,7 +386,11 @@ func TestMCPMRegistrySearch(t *testing.T) {
 			expectedCount: 3,
 			expectedIDs:   []string{"no_env_or_args", "time", "math"},
 			expectedEnv:   map[string][]string{"time": {}, "math": {"API_KEY"}, "no_env_or_args": {}},
-			expectedArgs:  map[string][]string{"time": {"--local-timezone"}, "math": {"--api-key"}, "no_env_or_args": {}},
+			expectedArgs: map[string][]string{
+				"time":           {"--local-timezone"},
+				"math":           {"--api-key"},
+				"no_env_or_args": {},
+			},
 		},
 	}
 
