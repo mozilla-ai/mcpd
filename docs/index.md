@@ -65,6 +65,16 @@ Traditional agent frameworks often embed complex subprocess logic, brittle start
 
 ---
 
+## Install
+
+### Homebrew
+
+```bash
+brew install --cask mozilla-ai/tap/mcpd
+```
+
+---
+
 ## 📚 Explore the Docs
 
 Use the sidebar to explore:
