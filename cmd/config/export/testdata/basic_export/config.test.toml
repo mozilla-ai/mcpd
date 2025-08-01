@@ -1,0 +1,7 @@
+[[servers]]
+name = "test-server"
+package = "uvx::test-package@latest"
+tools = ["test_tool"]
+required_env = ["API_KEY", "SECRET"]
+required_args = ["--config", "--port"]
+required_args_bool = ["--verbose", "--debug"]
