@@ -37,8 +37,8 @@ const (
 	// FilterKeySource is the key to use for filtering 'source'.
 	FilterKeySource = "source"
 
-	// FilterKeyIsOfficial is the key to use for filtering 'is_official'.
-	FilterKeyIsOfficial = "is_official"
+	// FilterKeyIsOfficial is the key to use for filtering 'isOfficial'.
+	FilterKeyIsOfficial = "isOfficial"
 )
 
 // Predicate for matching a packages.Package.
@@ -161,7 +161,7 @@ func WithSourceMatcher(provider StringValueProvider) Option {
 	return filter.WithMatcher(FilterKeySource, filter.Equals(provider))
 }
 
-// WithIsOfficialMatcher returns a filter.Option with a matcher configured for the "is_official" filter key.
+// WithIsOfficialMatcher returns a filter.Option with a matcher configured for the 'is Official' filter key.
 // The matcher is applied during Match only if the 'is_official' filter key is present in the filters map.
 // This matcher performs boolean comparison on a parsed input string value, with the provided field.
 func WithIsOfficialMatcher(provider BoolValueProvider) Option {

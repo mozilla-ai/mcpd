@@ -6,7 +6,7 @@ import "github.com/mozilla-ai/mcpd/v2/internal/runtime"
 type Package struct {
 	ID                  string                           `json:"id"`
 	Name                string                           `json:"name"`
-	DisplayName         string                           `json:"display_name"`
+	DisplayName         string                           `json:"displayName"`
 	Description         string                           `json:"description"`
 	License             string                           `json:"license"`
 	Tools               Tools                            `json:"tools"`
@@ -17,6 +17,6 @@ type Package struct {
 	Arguments           Arguments                        `json:"arguments"`
 	Source              string                           `json:"source"`
 	Version             string                           `json:"version"`
-	Transport           string                           `json:"transport"`   // TODO: Default to stdio.
-	IsOfficial          bool                             `json:"is_official"` // TODO: Not all registries support this.
+	Transport           string                           `json:"transport"`  // TODO: Default to stdio.
+	IsOfficial          bool                             `json:"isOfficial"` // TODO: Not all registries support this.
 }

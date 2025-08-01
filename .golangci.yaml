@@ -1,7 +1,7 @@
 version: "2"
 
 linters:
-  enabled:
+  enable:
     - errcheck
     - govet
     - ineffassign
@@ -9,6 +9,21 @@ linters:
     - unused
     - tagliatelle
     - tagalign
+  settings:
+    tagliatelle:
+      case:
+        rules:
+          json: camel
+          yaml: snake
+          toml: snake
+        overrides:
+          # Ignore the _meta field on 'Tool'
+          - pkg: internal/packages
+            ignored-fields:
+              - Meta
+          # Ignore casing conflicts in upstream data
+          - pkg: internal/provider/mcpm
+            ignore: true
 
 formatters:
   enable:

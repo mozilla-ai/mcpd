@@ -73,8 +73,8 @@ func TestSearchCmd_Filters(t *testing.T) {
 				c.License = "MIT"
 			},
 			wantFilter: map[string]string{
-				"is_official": "true",
-				"license":     "MIT",
+				"isOfficial": "true",
+				"license":    "MIT",
 			},
 		},
 		{

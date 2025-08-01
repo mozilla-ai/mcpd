@@ -396,15 +396,15 @@ func TestServerHealth_JSONSerialization(t *testing.T) {
 			}
 
 			if tc.health.LastChecked != nil {
-				require.Contains(t, jsonMap, "last_checked")
+				require.Contains(t, jsonMap, "lastChecked")
 			} else {
-				require.NotContains(t, jsonMap, "last_checked")
+				require.NotContains(t, jsonMap, "lastChecked")
 			}
 
 			if tc.health.LastSuccessful != nil {
-				require.Contains(t, jsonMap, "last_successful")
+				require.Contains(t, jsonMap, "lastSuccessful")
 			} else {
-				require.NotContains(t, jsonMap, "last_successful")
+				require.NotContains(t, jsonMap, "lastSuccessful")
 			}
 
 			// Verify field values
@@ -422,17 +422,17 @@ func TestServerHealth_JSONSerialization(t *testing.T) {
 
 			// Check timestamp fields
 			if tc.health.LastChecked != nil {
-				require.NotNil(t, jsonMap["last_checked"])
-				require.IsType(t, "", jsonMap["last_checked"]) // Should be a string (RFC3339)
+				require.NotNil(t, jsonMap["lastChecked"])
+				require.IsType(t, "", jsonMap["lastChecked"]) // Should be a string (RFC3339)
 			} else {
-				require.Nil(t, jsonMap["last_checked"])
+				require.Nil(t, jsonMap["lastChecked"])
 			}
 
 			if tc.health.LastSuccessful != nil {
-				require.NotNil(t, jsonMap["last_successful"])
-				require.IsType(t, "", jsonMap["last_successful"]) // Should be a string (RFC3339)
+				require.NotNil(t, jsonMap["lastSuccessful"])
+				require.IsType(t, "", jsonMap["lastSuccessful"]) // Should be a string (RFC3339)
 			} else {
-				require.Nil(t, jsonMap["last_successful"])
+				require.Nil(t, jsonMap["lastSuccessful"])
 			}
 		})
 	}

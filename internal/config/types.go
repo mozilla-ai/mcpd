@@ -40,24 +40,24 @@ type Config struct {
 type ServerEntry struct {
 	// Name is the unique name/ID from the registry, referenced by the user.
 	// e.g. 'github-server'
-	Name string `toml:"name" json:"name" yaml:"name"`
+	Name string `json:"name" toml:"name" yaml:"name"`
 
 	// Package contains the identifier including runtime and version.
 	// e.g. 'uvx::modelcontextprotocol/github-server@1.2.3'
-	Package string `toml:"package" json:"package" yaml:"package"`
+	Package string `json:"package" toml:"package" yaml:"package"`
 
 	// Tools lists the names of the tools which should be allowed on this server.
 	// e.g. 'create_repository'
-	Tools []string `toml:"tools" json:"tools" yaml:"tools"`
+	Tools []string `json:"tools" toml:"tools" yaml:"tools"`
 
 	// RequiredEnvVars captures any environment variables required to run the server.
-	RequiredEnvVars []string `toml:"required_env,omitempty" json:"required_env,omitempty" yaml:"required_env,omitempty"`
+	RequiredEnvVars []string `json:"requiredEnv,omitempty" toml:"required_env,omitempty" yaml:"required_env,omitempty"`
 
 	// RequiredValueArgs captures any command line args that need values, which are required to run the server.
-	RequiredValueArgs []string `toml:"required_args,omitempty" json:"required_args,omitempty" yaml:"required_args,omitempty"`
+	RequiredValueArgs []string `json:"requiredArgs,omitempty" toml:"required_args,omitempty" yaml:"required_args,omitempty"`
 
 	// RequiredBoolArgs captures any command line args that are boolean flags when present, which are required to run the server.
-	RequiredBoolArgs []string `toml:"required_args_bool,omitempty" json:"required_args_bool,omitempty" yaml:"required_args_bool,omitempty"`
+	RequiredBoolArgs []string `json:"requiredArgsBool,omitempty" toml:"required_args_bool,omitempty" yaml:"required_args_bool,omitempty"`
 }
 
 type serverKey struct {

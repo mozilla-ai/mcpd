@@ -32,8 +32,8 @@ type ServerHealth struct {
 	Name           string       `json:"name"`
 	Status         HealthStatus `json:"status"`
 	Latency        *string      `json:"latency,omitempty"`
-	LastChecked    *time.Time   `json:"last_checked,omitempty"`
-	LastSuccessful *time.Time   `json:"last_successful,omitempty"`
+	LastChecked    *time.Time   `json:"lastChecked,omitempty"`
+	LastSuccessful *time.Time   `json:"lastSuccessful,omitempty"`
 }
 
 // ServersHealth represents a collection of ServerHealth.
@@ -44,13 +44,13 @@ type ServersHealth struct {
 // ServersHealthResponse is the response for GET /health
 type ServersHealthResponse struct {
 	Body struct {
-		Servers []ServerHealth `json:"servers" doc:"Tracked MCP server health statuses"`
+		Servers []ServerHealth `doc:"Tracked MCP server health statuses" json:"servers"`
 	}
 }
 
 // ServerHealthRequest represents the incoming request for obtaining ServerHealth.
 type ServerHealthRequest struct {
-	Name string `path:"name" example:"time" doc:"Name of the server to check"`
+	Name string `doc:"Name of the server to check" example:"time" path:"name"`
 }
 
 // ServerHealthResponse represents the wrapped API response for a ServerHealth.
