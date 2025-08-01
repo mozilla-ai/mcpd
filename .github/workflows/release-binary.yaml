@@ -38,8 +38,8 @@ jobs:
           version: latest
           args: >
             release --clean
-            ${{ github.event.inputs.skip_publish == 'true' && ' --skip-publish' || '' }}
-            ${{ github.event.inputs.skip_announce == 'true' && ' --skip-announce' || '' }}
+            ${{ github.event.inputs.skip_publish == 'true' && ' --skip publish' || '' }}
+            ${{ github.event.inputs.skip_announce == 'true' && ' --skip announce' || '' }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           HOMEBREW_TAP_GITHUB_TOKEN: ${{ secrets.HOMEBREW_TAP_GITHUB_TOKEN }}
