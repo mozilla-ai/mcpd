@@ -117,12 +117,19 @@ func (c *DaemonCmd) run(_ *cobra.Command, _ []string) error {
 	// Print --dev mode banner if required.
 	if c.Dev {
 		logger.Info("Launching daemon in dev mode", "addr", addr)
-		fmt.Printf("mcpd daemon running in 'dev' mode.\n\n"+
+		banner := fmt.Sprintf("mcpd daemon running in 'dev' mode.\n\n"+
 			"  Local API:\thttp://%s/api/v1\n"+
 			"  OpenAPI UI:\thttp://%s/docs\n"+
 			"  Config file:\t%s\n"+
-			"  Secrets file:\t%s\n\n"+
-			"Press Ctrl+C to stop.\n\n", addr, addr, flags.ConfigFile, flags.RuntimeFile)
+			"  Secrets file:\t%s\n",
+			addr, addr, flags.ConfigFile, flags.RuntimeFile)
+
+		if flags.LogPath != "" {
+			banner += fmt.Sprintf("  Log file:\t%s => (%s)\n", flags.LogPath, flags.LogLevel)
+		}
+
+		banner += "\nPress Ctrl+C to stop.\n\n"
+		fmt.Print(banner)
 	}
 
 	select {
