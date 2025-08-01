@@ -82,7 +82,8 @@ func NewDaemon(apiAddr string, opts *Opts) (*Daemon, error) {
 		}
 	}
 	if validateErrs != nil {
-		return nil, fmt.Errorf("invalid runtime configuration: %w", validateErrs)
+		// NOTE: Include a line break in the output to improve readability of the validation errors.
+		return nil, fmt.Errorf("invalid runtime configuration:\n%w", validateErrs)
 	}
 
 	healthTracker := NewHealthTracker(serverNames)
