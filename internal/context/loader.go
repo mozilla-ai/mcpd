@@ -16,6 +16,9 @@ type Modifier interface {
 }
 
 type Exporter interface {
+	// Export handles exporting runtime execution context data to the specified path.
+	// It returns a map which can be used by the caller, and is intended to contain
+	// additional information such as the contract data for processing.
 	Export(path string) (map[string]string, error)
 }
 

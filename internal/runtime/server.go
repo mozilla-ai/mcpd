@@ -3,6 +3,7 @@ package runtime
 import (
 	"errors"
 	"fmt"
+	"maps"
 	"os"
 	"regexp"
 	"slices"
@@ -171,6 +172,28 @@ func (s *Server) exportArgs(appName string, recordContractFunc func(k, v string)
 	return args
 }
 
+// envVarsToContract converts environment variable mappings to contract format.
+// Takes a map of env var name → placeholder reference (e.g., "API_KEY" → "${MCPD__SERVER__API_KEY}")
+// Returns a map of placeholder name → placeholder reference (e.g., "MCPD__SERVER__API_KEY" → "${MCPD__SERVER__API_KEY}")
+func envVarsToContract(envs map[string]string) map[string]string {
+	contract := make(map[string]string, len(envs))
+	
+	for _, placeholderRef := range envs {
+		// Extract placeholder name from reference: "${MCPD__SERVER__VAR}" → "MCPD__SERVER__VAR"
+		if strings.HasPrefix(placeholderRef, "${") && strings.HasSuffix(placeholderRef, "}") {
+			placeholderName := strings.TrimSpace(placeholderRef[2 : len(placeholderRef)-1])
+			// Skip empty placeholder names
+			if placeholderName != "" {
+				contract[placeholderName] = placeholderRef
+			}
+		}
+	}
+	
+	return contract
+}
+
+// exportEnvVars generates environment variable placeholders for both required and runtime env vars.
+// Returns a map where keys are env var names (e.g., "API_KEY") and values are placeholder references (e.g., "${MCPD__SERVER__API_KEY}").
 func (s *Server) exportEnvVars(appName string) map[string]string {
 	appName = normalizeForEnvVarName(appName)
 
@@ -257,6 +280,7 @@ func (s *Servers) Export(path string) (map[string]string, error) {
 	for _, srv := range servers {
 		// Export env vars.
 		envs := srv.exportEnvVars(appName)
+		maps.Copy(contract, envVarsToContract(envs))
 
 		// Export args.
 		args := srv.exportArgs(appName, func(k, v string) {
@@ -291,9 +315,12 @@ func AggregateConfigs(
 	for _, s := range cfg.ListServers() {
 		runtimeServer := Server{
 			ServerEntry: config.ServerEntry{
-				Name:    s.Name,
-				Package: s.Package,
-				Tools:   s.Tools,
+				Name:              s.Name,
+				Package:           s.Package,
+				Tools:             s.Tools,
+				RequiredEnvVars:   s.RequiredEnvVars,
+				RequiredValueArgs: s.RequiredValueArgs,
+				RequiredBoolArgs:  s.RequiredBoolArgs,
 			},
 		}
 
@@ -483,49 +510,4 @@ func expandEnvSlice(input []string) []string {
 	}
 
 	return result
-}
-
-// validateRequiredValueArgs validates that all required value arguments are present in the server's args.
-func (s *Server) validateRequiredValueArgs() error {
-	for _, requiredArg := range s.RequiredValueArgs {
-		found := false
-		for _, arg := range s.Args {
-			if strings.HasPrefix(arg, "--"+requiredArg+"=") {
-				found = true
-				break
-			}
-		}
-		if !found {
-			return fmt.Errorf("required value argument --%s not found", requiredArg)
-		}
-	}
-	return nil
-}
-
-// validateRequiredBoolArgs validates that all required boolean arguments are present in the server's args.
-func (s *Server) validateRequiredBoolArgs() error {
-	for _, requiredArg := range s.RequiredBoolArgs {
-		found := false
-		for _, arg := range s.Args {
-			if arg == "--"+requiredArg {
-				found = true
-				break
-			}
-		}
-		if !found {
-			return fmt.Errorf("required boolean argument --%s not found", requiredArg)
-		}
-	}
-	return nil
-}
-
-// Validate validates that all required arguments are present in the server configuration.
-func (s *Server) Validate() error {
-	if err := s.validateRequiredValueArgs(); err != nil {
-		return err
-	}
-	if err := s.validateRequiredBoolArgs(); err != nil {
-		return err
-	}
-	return nil
 }

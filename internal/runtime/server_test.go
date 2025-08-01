@@ -1080,8 +1080,10 @@ func TestServers_Export(t *testing.T) {
 				},
 			},
 			expectedContract: map[string]string{
-				"MCPD__TEST_SERVER__ARG__CONFIG": "${MCPD__TEST_SERVER__ARG__CONFIG}",
-				"MCPD__TEST_SERVER__ARG__HOST":   "${MCPD__TEST_SERVER__ARG__HOST}",
+				"MCPD__TEST_SERVER__API_KEY":     "${MCPD__TEST_SERVER__API_KEY}",     // From RequiredEnvVars
+				"MCPD__TEST_SERVER__DEBUG":       "${MCPD__TEST_SERVER__DEBUG}",       // From runtime Env
+				"MCPD__TEST_SERVER__ARG__CONFIG": "${MCPD__TEST_SERVER__ARG__CONFIG}", // From RequiredValueArgs
+				"MCPD__TEST_SERVER__ARG__HOST":   "${MCPD__TEST_SERVER__ARG__HOST}",   // From runtime Args
 			},
 		},
 		{
@@ -1109,8 +1111,10 @@ func TestServers_Export(t *testing.T) {
 				},
 			},
 			expectedContract: map[string]string{
-				"MCPD__SERVER_A__ARG__TOKEN": "${MCPD__SERVER_A__ARG__TOKEN}",
-				"MCPD__SERVER_A__ARG__PORT":  "${MCPD__SERVER_A__ARG__PORT}",
+				"MCPD__SERVER_A__ARG__TOKEN": "${MCPD__SERVER_A__ARG__TOKEN}", // From RequiredValueArgs
+				"MCPD__SERVER_A__ARG__PORT":  "${MCPD__SERVER_A__ARG__PORT}",  // From runtime Args
+				"MCPD__SERVER_B__SECRET":     "${MCPD__SERVER_B__SECRET}",     // From RequiredEnvVars
+				"MCPD__SERVER_B__DEBUG":      "${MCPD__SERVER_B__DEBUG}",      // From runtime Env
 			},
 		},
 	}
@@ -1144,6 +1148,100 @@ func TestServers_Export(t *testing.T) {
 				require.NotNil(t, loadedCfg)
 				require.Len(t, loadedCfg.List(), len(tc.servers))
 			}
+		})
+	}
+}
+
+func TestEnvVarsToContract(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name     string
+		envs     map[string]string
+		expected map[string]string
+	}{
+		{
+			name:     "empty input",
+			envs:     map[string]string{},
+			expected: map[string]string{},
+		},
+		{
+			name: "single env var",
+			envs: map[string]string{
+				"API_KEY": "${MCPD__SERVER__API_KEY}",
+			},
+			expected: map[string]string{
+				"MCPD__SERVER__API_KEY": "${MCPD__SERVER__API_KEY}",
+			},
+		},
+		{
+			name: "multiple env vars",
+			envs: map[string]string{
+				"API_KEY":    "${MCPD__SERVER__API_KEY}",
+				"DEBUG_MODE": "${MCPD__SERVER__DEBUG_MODE}",
+				"HOST":       "${MCPD__SERVER__HOST}",
+			},
+			expected: map[string]string{
+				"MCPD__SERVER__API_KEY":    "${MCPD__SERVER__API_KEY}",
+				"MCPD__SERVER__DEBUG_MODE": "${MCPD__SERVER__DEBUG_MODE}",
+				"MCPD__SERVER__HOST":       "${MCPD__SERVER__HOST}",
+			},
+		},
+		{
+			name: "server name with hyphens (underscores)",
+			envs: map[string]string{
+				"GITHUB_TOKEN": "${MCPD__GITHUB_SERVER__GITHUB_TOKEN}",
+				"API_BASE_URL": "${MCPD__GITHUB_SERVER__API_BASE_URL}",
+			},
+			expected: map[string]string{
+				"MCPD__GITHUB_SERVER__GITHUB_TOKEN": "${MCPD__GITHUB_SERVER__GITHUB_TOKEN}",
+				"MCPD__GITHUB_SERVER__API_BASE_URL": "${MCPD__GITHUB_SERVER__API_BASE_URL}",
+			},
+		},
+		{
+			name: "malformed placeholder references (no ${} wrapper)",
+			envs: map[string]string{
+				"API_KEY": "MCPD__SERVER__API_KEY", // Missing ${}
+				"HOST":    "localhost",             // Not a placeholder at all
+			},
+			expected: map[string]string{}, // Should be filtered out
+		},
+		{
+			name: "mixed valid and invalid placeholder references",
+			envs: map[string]string{
+				"API_KEY":    "${MCPD__SERVER__API_KEY}", // Valid
+				"DEBUG_MODE": "MCPD__SERVER__DEBUG_MODE", // Invalid - missing ${}
+				"HOST":       "${MCPD__SERVER__HOST}",    // Valid
+				"PORT":       "8080",                     // Invalid - not a placeholder
+			},
+			expected: map[string]string{
+				"MCPD__SERVER__API_KEY": "${MCPD__SERVER__API_KEY}",
+				"MCPD__SERVER__HOST":    "${MCPD__SERVER__HOST}",
+			},
+		},
+		{
+			name: "edge case - empty placeholder",
+			envs: map[string]string{
+				"EMPTY": "${}",
+			},
+			expected: map[string]string{}, // Should be filtered out
+		},
+		{
+			name: "edge case - whitespace-only placeholder",
+			envs: map[string]string{
+				"WHITESPACE": "${   }",
+			},
+			expected: map[string]string{}, // Should be filtered out
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			result := envVarsToContract(tc.envs)
+
+			require.Equal(t, tc.expected, result)
 		})
 	}
 }

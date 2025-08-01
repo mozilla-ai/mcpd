@@ -3,6 +3,7 @@ package export
 import (
 	"fmt"
 	"os"
+	"slices"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -124,7 +125,16 @@ func (c *Cmd) handleExport() error {
 func writeDotenvFile(path string, data map[string]string) error {
 	var b strings.Builder
 
-	for k, v := range data {
+	// Get keys and sort them lexicographically
+	keys := make([]string, 0, len(data))
+	for k := range data {
+		keys = append(keys, k)
+	}
+	slices.Sort(keys)
+
+	// Write entries in sorted order
+	for _, k := range keys {
+		v := data[k]
 		escaped := strings.ReplaceAll(v, "\n", "\\n")
 		if _, err := fmt.Fprintf(&b, "%s=%s\n", k, escaped); err != nil {
 			return err
