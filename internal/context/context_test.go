@@ -97,18 +97,16 @@ func TestSaveAndLoadExecutionContextConfig(t *testing.T) {
 	// Include extra, currently non-existing folder along the way.
 	path := filepath.Join(dir, ".config", "mcpd", "secrets.dev.toml")
 
-	original := &ExecutionContextConfig{
-		Servers: map[string]ServerExecutionContext{
-			"alpha": {
-				Name: "alpha",
-				Args: []string{"--debug"},
-				Env:  map[string]string{"KEY": "VALUE"},
-			},
+	original := NewExecutionContextConfig(path)
+	original.Servers = map[string]ServerExecutionContext{
+		"alpha": {
+			Name: "alpha",
+			Args: []string{"--debug"},
+			Env:  map[string]string{"KEY": "VALUE"},
 		},
-		filePath: path,
 	}
 
-	require.NoError(t, original.saveConfig())
+	require.NoError(t, original.SaveConfig())
 
 	loader := DefaultLoader{}
 	loaded, err := loader.Load(path)
@@ -309,180 +307,6 @@ func TestUpsert(t *testing.T) {
 			require.NoError(t, err)
 			require.Equal(t, tc.expectedResult, result)
 			tc.verify(t, cfg, path)
-		})
-	}
-}
-
-func TestExecutionContextConfig_Export(t *testing.T) {
-	t.Parallel()
-
-	tests := []struct {
-		name           string
-		existing       map[string]ServerExecutionContext
-		expectedResult []ServerExecutionContext
-		errorExpected  bool
-		expectedErr    string
-	}{
-		{
-			name:           "no servers",
-			existing:       map[string]ServerExecutionContext{},
-			expectedResult: []ServerExecutionContext{},
-			errorExpected:  true,
-			expectedErr:    "export error, no servers defined in execution context config",
-		},
-		{
-			name: "existing server - no env",
-			existing: map[string]ServerExecutionContext{
-				"foo": {
-					Name: "foo",
-					Args: []string{
-						"--bar",
-						"--baz=123",
-						"--test-flag=xyz",
-					},
-				},
-			},
-			expectedResult: []ServerExecutionContext{
-				{
-					Name: "foo",
-					Args: []string{
-						"--bar",
-						"--baz=${MCPD__FOO__ARG__BAZ}",
-						"--test-flag=${MCPD__FOO__ARG__TEST_FLAG}",
-					},
-				},
-			},
-		},
-		{
-			name: "existing server - no args",
-			existing: map[string]ServerExecutionContext{
-				"foo": {
-					Name: "foo",
-					Env: map[string]string{
-						"DEBUG":                        "1",
-						"GITHUB_PERSONAL_ACCESS_TOKEN": "secrets_secrets_everywhere",
-					},
-				},
-			},
-			expectedResult: []ServerExecutionContext{
-				{
-					Name: "foo",
-					Env: map[string]string{
-						"DEBUG":                        "${MCPD__FOO__DEBUG}",
-						"GITHUB_PERSONAL_ACCESS_TOKEN": "${MCPD__FOO__GITHUB_PERSONAL_ACCESS_TOKEN}",
-					},
-				},
-			},
-		},
-		{
-			name: "existing server - weird name",
-			existing: map[string]ServerExecutionContext{
-				"foo-bad": {
-					Name: "foo-bad",
-					Env: map[string]string{
-						"DEBUG":                        "1",
-						"GITHUB_PERSONAL_ACCESS_TOKEN": "secrets_secrets_everywhere",
-					},
-				},
-			},
-			expectedResult: []ServerExecutionContext{
-				{
-					Name: "foo-bad",
-					Env: map[string]string{
-						"DEBUG":                        "${MCPD__FOO_BAD__DEBUG}",
-						"GITHUB_PERSONAL_ACCESS_TOKEN": "${MCPD__FOO_BAD__GITHUB_PERSONAL_ACCESS_TOKEN}",
-					},
-				},
-			},
-		},
-		{
-			name: "existing servers",
-			existing: map[string]ServerExecutionContext{
-				"foo": {
-					Name: "foo",
-					Env: map[string]string{
-						"DEBUG":                        "1",
-						"GITHUB_PERSONAL_ACCESS_TOKEN": "secrets_secrets_everywhere",
-					},
-					Args: []string{
-						"--bar",
-						"--baz=123",
-						"--test-flag=xyz",
-					},
-				},
-				"bar": {
-					Name: "bar",
-					Env: map[string]string{
-						"OTHER":         "abc",
-						"DISCORD_TOKEN": "qwerty123",
-					},
-					Args: []string{
-						"--test1",
-						"--test2=123",
-						"--test-3=xyz",
-					},
-				},
-			},
-			expectedResult: []ServerExecutionContext{
-				// Sorted by name ascending.
-				{
-					Name: "bar",
-					Env: map[string]string{
-						"OTHER":         "${MCPD__BAR__OTHER}",
-						"DISCORD_TOKEN": "${MCPD__BAR__DISCORD_TOKEN}",
-					},
-					Args: []string{
-						"--test1",
-						"--test2=${MCPD__BAR__ARG__TEST2}",
-						"--test-3=${MCPD__BAR__ARG__TEST_3}",
-					},
-				},
-				{
-					Name: "foo",
-					Env: map[string]string{
-						"DEBUG":                        "${MCPD__FOO__DEBUG}",
-						"GITHUB_PERSONAL_ACCESS_TOKEN": "${MCPD__FOO__GITHUB_PERSONAL_ACCESS_TOKEN}",
-					},
-					Args: []string{
-						"--bar",
-						"--baz=${MCPD__FOO__ARG__BAZ}",
-						"--test-flag=${MCPD__FOO__ARG__TEST_FLAG}",
-					},
-				},
-			},
-		},
-	}
-	for _, tc := range tests {
-		t.Run(tc.name, func(t *testing.T) {
-			t.Parallel()
-
-			dir := t.TempDir()
-			path := filepath.Join(dir, ".config", "mcpd", "secrets.test.toml")
-
-			cfg := &ExecutionContextConfig{
-				Servers: maps.Clone(tc.existing),
-			}
-
-			err := cfg.Export(path)
-
-			if tc.errorExpected {
-				require.Error(t, err)
-				require.EqualError(t, err, tc.expectedErr)
-			} else {
-				require.NoError(t, err)
-
-				// Config should have been written.
-				fi, err := os.Stat(path)
-				require.NoError(t, err)
-				require.Greater(t, fi.Size(), int64(0))
-
-				// Load the saved config.
-				loader := DefaultLoader{}
-				newCfg, err := loader.Load(path)
-				require.NoError(t, err)
-
-				require.Equal(t, tc.expectedResult, newCfg.List())
-			}
 		})
 	}
 }
