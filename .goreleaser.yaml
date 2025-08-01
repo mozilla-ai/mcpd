@@ -46,7 +46,7 @@ homebrew_casks:
   - name: mcpd
     repository:
       owner: mozilla-ai
-      name: homebrew-mcpd
+      name: homebrew-tap
       branch: main
       token: "{{ .Env.HOMEBREW_TAP_GITHUB_TOKEN }}"
     license: Apache-2.0
