@@ -11,14 +11,11 @@ FROM ghcr.io/astral-sh/uv:0.7.20 AS uv-builder
 # ==============================================================================
 FROM node:current-alpine3.22
 
-ARG MCPD_VERSION=unknown
-
 # --- Metadata ---
-# The version label should be dynamically overridden in a CI/CD pipeline
-# (e.g., --label "org.opencontainers.image.version=${GIT_TAG}").
 LABEL org.opencontainers.image.authors="Mozilla AI <security@mozilla.ai>"
 LABEL org.opencontainers.image.description="A container for the mcpd application."
-LABEL org.opencontainers.image.version=$MCPD_VERSION
+# The version label should be dynamically overridden in a CI/CD pipeline
+LABEL org.opencontainers.image.version="dev"
 
 ARG MCPD_USER=mcpd
 ARG MCPD_HOME=/home/$MCPD_USER
@@ -26,6 +23,9 @@ ARG MCPD_HOME=/home/$MCPD_USER
 # Sensible defaults but can be easily overridden by the user with `docker run -e KEY=VALUE`.
 ENV MCPD_API_PORT=8090
 ENV MCPD_LOG_LEVEL=info
+ENV MCPD_LOG_PATH=/var/log/mcpd/mcpd.log
+ENV MCPD_CONFIG_FILE=/etc/mcpd/.mcpd.toml
+ENV MCPD_RUNTIME_FILE=/home/mcpd/.config/mcpd/secrets.prd.toml
 
 #  - Installs 'tini', a lightweight init system to properly manage processes.
 #  - Adds a dedicated non-root group and user for security (using the ARG).
@@ -61,6 +61,13 @@ ENTRYPOINT ["/sbin/tini", "--"]
 CMD mcpd daemon \
     --addr 0.0.0.0:$MCPD_API_PORT \
     --log-level $MCPD_LOG_LEVEL \
-    --log-path /var/log/mcpd/mcpd.log \
-    --config-file /etc/mcpd/.mcpd.toml \
-    --runtime-file /home/mcpd/.config/mcpd/secrets.prd.toml
+    --log-path $MCPD_LOG_PATH \
+    --config-file $MCPD_CONFIG_FILE \
+    --runtime-file $MCPD_RUNTIME_FILE
+
+# Example run:
+# docker run -p 8090:8090
+#            -v $PWD/.mcpd.toml:/etc/mcpd/.mcpd.toml \
+#            -v HOME/.config/mcpd/secrets.dev.toml:/home/mcpd/.config/mcpd/secrets.prd.toml \
+#            -e MCPD_LOG_LEVEL=debug \
+#            mzdotai/mcpd:v0.0.2
