@@ -50,3 +50,6 @@ docs/commands/
 .venv/
 # Added by goreleaser init:
 dist/
+
+# Image thumbnails
+.DS_Store

@@ -1,48 +1,49 @@
-# mcpd
+# <span class="logo-text">mcpd</span> ![mcpd](assets/mcpd-logo.png){: .logo-image}
 
 > *Run your agents, not your infrastructure.*
 
 ---
 
 `mcpd` is a toolchain and runtime developed by [Mozilla AI](https://mozilla.ai) that simplifies the configuration, 
-execution and integration of Model Context Protocol (MCP) servers with your agentic application.
-It is intended to provide the same experience across local development and production environments.
+execution and integration of [Model Context Protocol](https://modelcontextprotocol.io/overview) (MCP) servers with your agentic application.
+It is intended to provide the same experience across local, development and production environments.
 
 It removes the friction of cross-language server orchestration, secrets management, version pinning, and lifecycle control.
 
 ---
 
-## ✨ Why `mcpd`?
+## Why `mcpd`?
 
 Traditional agent frameworks often embed complex subprocess logic, brittle startup scripts, and ad-hoc 'desktop style' config. 
 
 `mcpd` replaces this with:
 
-🧪 **Zero-Config Tool Setup**  
+**Zero-Config Tool Setup**  
   No cloning repos or installing language-specific dependencies. `mcpd add` and `mcpd daemon` handle everything.
 
-🌍 **Language-Agnostic Tooling**  
+**Language-Agnostic Tooling**  
   Use MCP servers written in Python (`uvx`), JavaScript/TypeScript (`npx`) in your code via a HTTP REST API that supports routing to MCP Servers.
 
-🧭 **Declarative Tool Management**  
+**Declarative Tool Management**  
   Define version-pinned MCP servers and tools in `.mcpd.toml`. Reproducible, consistent, and CI-friendly.
 
-🔐 **Project config separated from runtime variables**  
-  Args and environment variables per server e.g. `~/.config/mcpd/secrets.dev.toml`. Never commit dev specific vars to Git again.
+**Project config separated from runtime variables**  
+  Exportable args and environment variables per server e.g. `~/.config/mcpd/secrets.dev.toml`. 
+Never commit dev specific vars to Git again.
 
-🛠️ **Unified Dev Experience**  
+**Unified Dev Experience**  
   One command: `mcpd daemon`. Starts and manages all servers behind the scenes.
 
-🧰 **Intuitive SDK Integration**  
+**Intuitive SDK Integration**  
   The Python `mcpd_sdk` makes calling tools feel like native function calls; no HTTP, STDIO, or SSE boilerplate.
   Even easier for users of [any-agent](https://github.com/mozilla-ai/any-agent) via `.agent_tools()`.
 
-🚀 **Seamless Local-to-Prod Transition**  
+**Seamless Local-to-Prod Transition**  
   The same `.mcpd.toml` and agent code work in dev, CI, and cloud environments without modification.
 
 ---
 
-## 🏗️ Built for Dev & Infra
+## Built for Dev & Infra
 
 | Feature                                                          | Dev Workflow                       | Production Benefit                          |
 |------------------------------------------------------------------|------------------------------------|---------------------------------------------|
@@ -55,19 +56,33 @@ Traditional agent frameworks often embed complex subprocess logic, brittle start
 
 ---
 
-## 🌐 Deploy Anywhere
+## Deploy Anywhere
 
 `mcpd` is runtime-flexible and infrastructure-agnostic:
 
-- ⚙️ Works in any container or host with `uv` and `npx` (NodeJS)
+- ⚙️ Works in any container or host with `uv` and `npx`
 - ☁️ Multi-cloud ready (AWS, GCP, Azure, on-prem)
 - ♻️ Low resource overhead via in-process server management
 
 ---
 
-## Install
+## 📦 Install
 
 ### Homebrew
+
+Add the [Mozilla.ai tap](https://github.com/mozilla-ai/homebrew-tap):
+
+```bash
+brew tap mozilla-ai/tap
+```
+
+Then install `mcpd`:
+
+```bash
+brew install mcpd
+```
+
+Or install directly from the cask in a single command:
 
 ```bash
 brew install --cask mozilla-ai/tap/mcpd
@@ -88,8 +103,8 @@ Use the sidebar to explore:
 
 ---
 
-## 🌐 About Mozilla AI
+## About Mozilla.ai
 
-This project is built and maintained by [Mozilla AI](https://mozilla.ai), a mission-driven organization reimagining AI for the public good.
+This project is built and maintained by [Mozilla.ai](https://mozilla.ai), a mission-driven organization reimagining AI for the public good.
 
 Have ideas or feedback? Contributions welcome via [GitHub](https://github.com/mozilla-ai/mcpd).

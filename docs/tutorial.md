@@ -30,7 +30,7 @@ Add the latest version of the `time` server:
 mcpd add time
 ```
 
-Or add a specific version and tool:
+Or add a specific version and restrict access to specific tools:
 ```bash
 mcpd add time --version 0.6.2 --tool get_current_time
 ```
