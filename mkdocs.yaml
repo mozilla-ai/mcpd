@@ -3,6 +3,8 @@ site_url: https://mozilla-ai.github.io/mcpd/
 repo_name: mozilla-ai/mcpd
 repo_url: https://github.com/mozilla-ai/mcpd
 docs_dir: docs
+extra_css:
+  - assets/custom.css
 theme:
   name: material
   palette:
@@ -27,10 +29,16 @@ theme:
     - navigation.instant
     - navigation.sections
     - toc.integrate
+  favicon: favicon.ico
 markdown_extensions:
   - admonition
   - pymdownx.details
   - pymdownx.superfences
+  - attr_list
+  - md_in_html
+  - pymdownx.blocks.caption
+  - toc:
+      permalink: true
 nav:
   - Home: index.md
   - Requirements: requirements.md
