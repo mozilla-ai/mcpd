@@ -1,11 +1,6 @@
 # syntax=docker/dockerfile:1
 
 # ==============================================================================
-# Builder Stage: Fetch uv binaries
-# ==============================================================================
-FROM ghcr.io/astral-sh/uv:0.7.20 AS uv-builder
-
-# ==============================================================================
 # Final Stage: Build the production image.
 # Includes NodeJS to give mcpd access to the npx binary.
 # ==============================================================================
@@ -28,6 +23,7 @@ ENV MCPD_CONFIG_FILE=/etc/mcpd/.mcpd.toml
 ENV MCPD_RUNTIME_FILE=/home/mcpd/.config/mcpd/secrets.prd.toml
 
 #  - Installs 'tini', a lightweight init system to properly manage processes.
+#  - Installs python and pip.
 #  - Adds a dedicated non-root group and user for security (using the ARG).
 #  - Creates necessary directories for configs, logs, and user data.
 #  - Sets correct ownership for the non-root user.
@@ -41,8 +37,8 @@ RUN apk add --no-cache python3 py3-pip tini && \
       /etc/mcpd && \
     chown -R $MCPD_USER:$MCPD_USER $MCPD_HOME /var/log/mcpd
 
-# Copy binaries from the dedicated 'uv-builder' stage.
-COPY --from=uv-builder /uv /uvx /usr/local/bin/
+# Copy uv/uvx binaries from image.
+COPY --from=ghcr.io/astral-sh/uv:0.8.4 /uv /uvx /usr/local/bin/
 
 # Copy application binary and set ownership to the non-root user.
 # IMPORTANT: Config/secrets are NOT copied. They should be mounted at runtime.
