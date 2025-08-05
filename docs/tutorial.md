@@ -4,12 +4,13 @@ This tutorial walks you through using `mcpd` from setup to making requests to a 
 
 ---
 
-## 1. Build and Install
+## 1. Install `mcpd` via Homebrew
 ```bash
-go version           # e.g. go version go1.24.4
-make build           # Builds the binary
-sudo make install    # Installs the binary to /usr/local/bin
+brew tap mozilla-ai/tap
+brew install mcpd
 ```
+
+Official releases can be downloaded from [mcpd's GitHub releases page](https://github.com/mozilla-ai/mcpd/releases).
 
 ---
 
