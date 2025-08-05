@@ -30,6 +30,7 @@ theme:
     - navigation.sections
     - toc.integrate
   favicon: favicon.ico
+  logo: assets/mcpd.png
 markdown_extensions:
   - admonition
   - pymdownx.details
