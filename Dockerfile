@@ -4,7 +4,7 @@
 # Final Stage: Build the production image.
 # Includes NodeJS to give mcpd access to the npx binary.
 # ==============================================================================
-FROM node:current-alpine3.22
+FROM node:24.5.0-alpine3.22
 
 # --- Metadata ---
 LABEL org.opencontainers.image.authors="Mozilla AI <security@mozilla.ai>"
@@ -22,14 +22,22 @@ ENV MCPD_LOG_PATH=/var/log/mcpd/mcpd.log
 ENV MCPD_CONFIG_FILE=/etc/mcpd/.mcpd.toml
 ENV MCPD_RUNTIME_FILE=/home/mcpd/.config/mcpd/secrets.prd.toml
 
-#  - Installs 'tini', a lightweight init system to properly manage processes.
-#  - Installs python and pip.
+USER root
+
+# Installs python, pip and tools
+RUN apk add --no-cache \
+    python3=3.12.11-r0 \
+    py3-pip=25.1.1-r0 \
+    py3-setuptools=80.9.0-r0 \
+    py3-wheel=0.46.1-r0
+
+# Installs 'tini', a lightweight init system to properly manage processes.
+RUN apk add --no-cache tini=0.19.0-r3
+
 #  - Adds a dedicated non-root group and user for security (using the ARG).
 #  - Creates necessary directories for configs, logs, and user data.
 #  - Sets correct ownership for the non-root user.
-USER root
-RUN apk add --no-cache python3 py3-pip tini && \
-    addgroup -S $MCPD_USER && \
+RUN addgroup -S $MCPD_USER && \
     adduser -D -S -h $MCPD_HOME -G $MCPD_USER $MCPD_USER && \
     mkdir -p \
       $MCPD_HOME/.config/mcpd \
