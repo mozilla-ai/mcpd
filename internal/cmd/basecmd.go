@@ -24,7 +24,7 @@ var (
 
 // Version is used by other packages to retrieve the build version of mcpd.
 func Version() string {
-	return fmt.Sprintf("mcpd %s (%s), built %s", version, commit, date)
+	return fmt.Sprintf("mcpd v%s (%s), built %s", version, commit, date)
 }
 
 // AppName returns the name of the mcpd application.
