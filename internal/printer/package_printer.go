@@ -145,12 +145,25 @@ func (p *PackagePrinter) Item(w io.Writer, pkg packages.Package) error {
 			}
 		}
 
-		args := pkg.Arguments.FilterBy(packages.Argument).Names()
-		if len(args) > 0 {
-			if _, err := fmt.Fprintln(w, "  📋 Args configurable via command line..."); err != nil {
+		// Positional arguments (in order)
+		positionalArgs := pkg.Arguments.FilterBy(packages.PositionalArgument).Ordered()
+		if len(positionalArgs) > 0 {
+			if _, err := fmt.Fprintln(w, "  📍 Positional arguments:"); err != nil {
 				return err
 			}
-			if _, err := fmt.Fprintf(w, "  🖥️ %s\n", strings.Join(args, ", ")); err != nil {
+
+			for _, arg := range positionalArgs {
+				_, _ = fmt.Fprintf(w, "\t(%d) %s\n", *arg.Position, arg.Name)
+			}
+		}
+
+		// Command-line flags (excluding positional arguments)
+		flagArgs := pkg.Arguments.FilterBy(packages.NonPositionalArgument).Names()
+		if len(flagArgs) > 0 {
+			if _, err := fmt.Fprintln(w, "  📋 Args configurable via command line flags..."); err != nil {
+				return err
+			}
+			if _, err := fmt.Fprintf(w, "  🖥️ %s\n", strings.Join(flagArgs, ", ")); err != nil {
 				return err
 			}
 		}

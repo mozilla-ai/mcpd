@@ -1,0 +1,103 @@
+{
+	"time": {
+		"name": "time",
+		"display_name": "Time Server",
+		"description": "A server for time and timezone conversions.",
+		"license": "MIT",
+		"arguments": {
+			"TZ": { "description": "Override timezone", "required": false, "example": "America/New_York" }
+		},
+		"installations": {
+			"uvx": {
+				"type": "uvx",
+				"command": "uvx",
+				"args": ["mcp-server-time", "--local-timezone=${TZ}"],
+				"description": "Install with uvx",
+				"recommended": true,
+				"transport": "stdio"
+			},
+			"python": {
+				"type": "python",
+				"command": "python",
+				"args": ["-m", "mcp_server_time", "--local-timezone=${TZ}", "${ANOTHER_VAR}"],
+				"description": "Run with Python module",
+				"transport": "stdio"
+			},
+			"docker": {
+				"type": "docker",
+				"command": "docker",
+				"args": ["run", "-i", "--rm", "mcp/time", "--local-timezone=${TZ}"],
+				"description": "Run with Docker",
+				"transport": "sse"
+			}
+		},
+		"tools": [
+			{ "name": "get_current_time", "description": "Get current time", "inputSchema": {"type": "object", "properties": {"timezone": {"type": "string"}}, "required": ["timezone"]} },
+			{ "name": "convert_time", "description": "Convert time", "inputSchema": {"type": "object", "properties": {"source_timezone": {"type": "string"}}, "required": ["source_timezone"]} }
+		],
+		"is_official": true
+	},
+	"github": {
+		"name": "github",
+		"display_name": "GitHub Server",
+		"description": "GitHub API interaction.",
+		"license": "MIT",
+		"arguments": {},
+		"installations": {
+			"docker": {
+				"type": "docker",
+				"command": "docker",
+				"args": ["run", "-i", "--rm", "-e", "GITHUB_PERSONAL_ACCESS_TOKEN", "ghcr.io/github/github-mcp-server"],
+				"env": {
+					"GITHUB_PERSONAL_ACCESS_TOKEN": "${GITHUB_PERSONAL_ACCESS_TOKEN}"
+				},
+				"description": "Run with Docker",
+				"transport": "sse"
+			}
+		},
+		"tools": [
+			{ "name": "issues_list", "description": "List GitHub issues", "inputSchema": {"type": "object", "properties": {"repo": {"type": "string"}}, "required": ["repo"]} }
+		],
+		"is_official": true
+	},
+	"math": {
+		"name": "math",
+		"display_name": "Math Server",
+		"description": "A server for mathematical operations.",
+		"license": "MIT",
+		"arguments": {},
+		"installations": {
+			"uvx": {
+				"type": "uvx",
+				"command": "uvx",
+				"args": ["mcp-math-server"],
+				"description": "Install with uvx",
+				"recommended": true,
+				"transport": "stdio"
+			}
+		},
+		"tools": [
+			{ "name": "add", "description": "Add numbers", "inputSchema": {"type": "object", "properties": {"a": {"type": "number"}, "b": {"type": "number"}}, "required": ["a", "b"]} }
+		],
+		"is_official": false
+	},
+	"no_env_or_args": {
+		"name": "no_env_or_args",
+		"display_name": "No Env or Args Server",
+		"description": "A server with no environment variables or arguments.",
+		"license": "MIT",
+		"arguments": {},
+		"installations": {
+			"npx": {
+				"type": "npx",
+				"command": "npx",
+				"args": ["simple-server"],
+				"description": "Install with npx",
+				"recommended": true,
+				"transport": "stdio"
+			}
+		},
+		"tools": [],
+		"is_official": false
+	}
+}

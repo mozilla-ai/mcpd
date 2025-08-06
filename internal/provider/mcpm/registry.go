@@ -271,11 +271,6 @@ func (r *Registry) buildPackageResult(pkgKey string) (packages.Package, bool) {
 	}, true
 }
 
-type RuntimeSpec struct {
-	ShouldIgnoreFlag   func(string) bool
-	ExtractPackageName func([]string) (string, error)
-}
-
 // isValid checks an installation, and it's name to ensure that the runtime,
 // name and type align with expected values.
 func (i *Installation) isValid(name string) bool {
@@ -297,6 +292,8 @@ func (i *Installation) isValid(name string) bool {
 	}
 }
 
+// extractArgumentMetadata extracts and consolidates argument metadata from server installations.
+// It processes both environment variables and CLI arguments, with environment variables taking precedence.
 func extractArgumentMetadata(
 	server MCPServer,
 	supported map[runtime.Runtime]struct{},
@@ -322,19 +319,23 @@ func extractArgumentMetadata(
 		}
 
 		// Extract CLI arguments metadata
-		cliMeta := extractCLIArgMetadata(inst.Args, schema, spec)
+		parser := NewCLIArgParser(schema, spec)
+		cliMeta := parser.Parse(inst.Args)
 		for k, v := range cliMeta {
-			out[k] = v
+			// Only add CLI metadata if not already present as an env var
+			// Environment variables take precedence over CLI arguments
+			if _, exists := out[k]; !exists {
+				out[k] = v
+			}
 		}
 	}
 
 	return out
 }
 
-func extractEnvMetadata(
-	env map[string]string,
-	schema map[string]Argument,
-) map[string]packages.ArgumentMetadata {
+// extractEnvMetadata extracts environment variable metadata from an installation's environment settings.
+// It maps environment variable names to their schema definitions.
+func extractEnvMetadata(env map[string]string, schema Arguments) map[string]packages.ArgumentMetadata {
 	out := make(map[string]packages.ArgumentMetadata)
 
 	for envName, envVal := range env {
@@ -346,6 +347,7 @@ func extractEnvMetadata(
 		}
 		m := schema[metaKey] // zero-value if missing
 		out[envName] = packages.ArgumentMetadata{
+			Name:         envName,
 			VariableType: packages.VariableTypeEnv,
 			Required:     m.Required,
 			Description:  m.Description,
@@ -355,71 +357,13 @@ func extractEnvMetadata(
 	return out
 }
 
-func extractCLIArgMetadata(
-	args []string,
-	schema map[string]Argument,
-	spec runtime.Spec,
-) map[string]packages.ArgumentMetadata {
-	out := make(map[string]packages.ArgumentMetadata)
-
-	for i := 0; i < len(args); i++ {
-		arg := args[i]
-		if !strings.HasPrefix(arg, "--") {
-			continue
-		}
-
-		flag := extractActualCommandLineFlag(arg)
-		if flag == "" || (spec.ShouldIgnoreFlag != nil && spec.ShouldIgnoreFlag(flag)) {
-			continue
-		}
-
-		metaKey := flag
-
-		// Check placeholder in current arg
-		if placeholder := extractPlaceholder(arg); placeholder != "" {
-			if _, ok := schema[placeholder]; ok {
-				metaKey = placeholder
-				m := schema[metaKey]
-				out[flag] = packages.ArgumentMetadata{
-					VariableType: packages.VariableTypeArg,
-					Required:     m.Required,
-					Description:  m.Description,
-				}
-				continue
-			}
-		}
-
-		// Determine if boolean flag (no value expected)
-		nextArgIndex := i + 1
-		isBoolFlag := nextArgIndex >= len(args) || strings.HasPrefix(args[nextArgIndex], "--")
-
-		// Check placeholder in next arg if not bool
-		if !isBoolFlag && nextArgIndex < len(args) {
-			if placeholder := extractPlaceholder(args[nextArgIndex]); placeholder != "" {
-				if _, ok := schema[placeholder]; ok {
-					metaKey = placeholder
-				}
-			}
-		}
-
-		m := schema[metaKey]
-		var vt packages.VariableType
-		if isBoolFlag {
-			vt = packages.VariableTypeArgBool
-		} else {
-			vt = packages.VariableTypeArg
-		}
-
-		out[flag] = packages.ArgumentMetadata{
-			VariableType: vt,
-			Required:     m.Required,
-			Description:  m.Description,
-		}
-	}
-
-	return out
+// isFlag checks if an argument is a flag (starts with --)
+func isFlag(arg string) bool {
+	return strings.HasPrefix(arg, "--")
 }
 
+// extractPlaceholder extracts a placeholder variable name from a string like ${VAR_NAME}.
+// Returns the variable name without the ${} wrapper, or empty string if no placeholder found.
 func extractPlaceholder(s string) string {
 	if matches := packages.EnvVarPlaceholderRegex.FindStringSubmatch(s); len(matches) > 1 {
 		return matches[1]
@@ -427,6 +371,8 @@ func extractPlaceholder(s string) string {
 	return ""
 }
 
+// shouldIgnoreFlag determines if a flag should be ignored for a given runtime.
+// Returns true for runtime-specific flags that shouldn't be exposed as user arguments.
 func shouldIgnoreFlag(rt runtime.Runtime, flag string) bool {
 	switch rt {
 	case runtime.Docker:
@@ -446,6 +392,8 @@ func shouldIgnoreFlag(rt runtime.Runtime, flag string) bool {
 	return false
 }
 
+// convertInstallations converts MCPM installation data to internal package format.
+// Only includes installations for supported runtimes with valid configurations.
 func convertInstallations(
 	src map[string]Installation,
 	supported map[runtime.Runtime]struct{},
@@ -461,6 +409,7 @@ func convertInstallations(
 		if !install.isValid(name) {
 			continue
 		}
+
 		rt := runtime.Runtime(install.Command)
 		if _, ok := supported[rt]; !ok {
 			continue
@@ -550,19 +499,22 @@ func (r *Registry) supportedRuntimePackageNames(
 	return result, nil
 }
 
-// extractActualCommandLineFlag extracts the actual flag name from a command line argument
-// e.g., "--local-timezone=${TZ}" returns "--local-timezone"
-// e.g., "--verbose" returns "--verbose"
-// NOTE: Only supports long flag style at present
-func extractActualCommandLineFlag(arg string) string {
-	if strings.Contains(arg, "=") {
-		parts := strings.SplitN(arg, "=", 2)
-		if len(parts) > 0 && strings.HasPrefix(parts[0], "--") {
-			return parts[0]
-		}
-	} else if strings.HasPrefix(arg, "--") {
-		// Simple flag without assignment
-		return arg
+// extractFlagName extracts the flag name from arguments like "--flag" or "--flag=value"
+func extractFlagName(arg string) string {
+	if !strings.HasPrefix(arg, "--") {
+		return ""
+	}
+
+	if idx := strings.Index(arg, "="); idx > 0 {
+		return arg[:idx]
+	}
+	return arg
+}
+
+// extractFlagValue extracts the value portion from "--flag=value" style arguments
+func extractFlagValue(arg string) string {
+	if idx := strings.Index(arg, "="); idx > 0 && idx < len(arg)-1 {
+		return arg[idx+1:]
 	}
 	return ""
 }

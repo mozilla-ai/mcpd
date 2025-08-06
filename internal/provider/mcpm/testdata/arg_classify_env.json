@@ -1,0 +1,52 @@
+{
+  "positional-placeholder": {
+    "name": "positional-placeholder",
+    "display_name": "Positional Placeholder Server",
+    "description": "Test server for positional placeholder argument classification",
+    "license": "MIT",
+    "arguments": {
+      "DATA_DIR": {
+        "description": "Directory for data storage",
+        "required": true,
+        "example": "/path/to/data"
+      }
+    },
+    "installations": {
+      "npx": {
+        "type": "npx",
+        "command": "npx",
+        "args": [
+          "test-server",
+          "${DATA_DIR}"
+        ]
+      }
+    },
+    "tools": [],
+    "is_official": false
+  },
+  "env-only": {
+    "name": "env-only",
+    "display_name": "Environment Only Server",
+    "description": "Test server with only environment variables",
+    "license": "MIT",
+    "arguments": {
+      "API_KEY": {
+        "description": "API key for authentication",
+        "required": true,
+        "example": "sk-1234567890"
+      }
+    },
+    "installations": {
+      "npx": {
+        "type": "npx",
+        "command": "npx",
+        "args": ["test-server"],
+        "env": {
+          "API_KEY": "${API_KEY}"
+        }
+      }
+    },
+    "tools": [],
+    "is_official": false
+  }
+}
