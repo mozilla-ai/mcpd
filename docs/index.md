@@ -103,7 +103,7 @@ Use the sidebar to explore:
 
 ---
 
-## About Mozilla.ai
+## <span><img class="heading-icon" src="assets/mozilla-ai-logo.png" alt="Mozilla.ai logo" /></span> About Mozilla.ai
 
 This project is built and maintained by [Mozilla.ai](https://mozilla.ai), a mission-driven organization reimagining AI for the public good.
 

@@ -72,9 +72,9 @@ curl -s http://localhost:8090/api/v1/servers | jq
 
 Make a request to a tool on a specific MCP server:
 ```bash
-curl -s -X POST -H "Content-Type: application/json" \\
-  -d '{"timezone": "America/New_York"}' \\
-  http://localhost:8090/api/v1/servers/time/tools/get_current_time | jq
+curl -s -X POST -H "Content-Type: application/json" \
+     -d '{"timezone": "America/New_York"}' \
+     http://localhost:8090/api/v1/servers/time/tools/get_current_time | jq
 ```
 
 
