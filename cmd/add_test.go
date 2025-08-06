@@ -81,11 +81,11 @@ func TestAddCmd_Success(t *testing.T) {
 			{Name: "toolA"},
 			{Name: "toolB"},
 		},
-		Version: "1.2.3",
 		Installations: map[runtime.Runtime]packages.Installation{
 			runtime.UVX: {
 				Command:     "uvx",
 				Package:     "mcp-server-1",
+				Version:     "1.2.3",
 				Recommended: true,
 			},
 		},
@@ -142,9 +142,8 @@ func TestAddCmd_BasicServerAdd(t *testing.T) {
 	o := &bytes.Buffer{}
 
 	pkg := packages.Package{
-		ID:      "testserver",
-		Name:    "testserver",
-		Version: "latest",
+		ID:   "testserver",
+		Name: "testserver",
 		Tools: []packages.Tool{
 			{Name: "tool1"},
 			{Name: "tool2"},
@@ -154,6 +153,7 @@ func TestAddCmd_BasicServerAdd(t *testing.T) {
 			"uvx": {
 				Command:     "uvx",
 				Package:     "mcp-server-testserver",
+				Version:     "latest",
 				Recommended: true,
 			},
 		},
@@ -200,9 +200,8 @@ func TestAddCmd_ServerWithArguments(t *testing.T) {
 		{
 			name: "server with all argument types",
 			pkg: packages.Package{
-				ID:      "github-server",
-				Name:    "GitHub Server",
-				Version: "1.0.0",
+				ID:   "github-server",
+				Name: "GitHub Server",
 				Tools: []packages.Tool{
 					{Name: "create_repo"},
 					{Name: "list_repos"},
@@ -211,6 +210,7 @@ func TestAddCmd_ServerWithArguments(t *testing.T) {
 					runtime.UVX: {
 						Command:     "uvx",
 						Package:     "mcp-server-github",
+						Version:     "1.0.0",
 						Recommended: true,
 					},
 				},
@@ -230,9 +230,8 @@ func TestAddCmd_ServerWithArguments(t *testing.T) {
 		{
 			name: "server with only env vars",
 			pkg: packages.Package{
-				ID:      "db-server",
-				Name:    "Database Server",
-				Version: "2.0.0",
+				ID:   "db-server",
+				Name: "Database Server",
 				Tools: []packages.Tool{
 					{Name: "query"},
 				},
@@ -240,6 +239,7 @@ func TestAddCmd_ServerWithArguments(t *testing.T) {
 					runtime.UVX: {
 						Command:     "uvx",
 						Package:     "mcp-server-db",
+						Version:     "2.0.0",
 						Recommended: true,
 					},
 				},
@@ -255,9 +255,8 @@ func TestAddCmd_ServerWithArguments(t *testing.T) {
 		{
 			name: "server with mixed value and bool args",
 			pkg: packages.Package{
-				ID:      "api-server",
-				Name:    "API Server",
-				Version: "3.0.0",
+				ID:   "api-server",
+				Name: "API Server",
 				Tools: []packages.Tool{
 					{Name: "call_api"},
 				},
@@ -265,6 +264,7 @@ func TestAddCmd_ServerWithArguments(t *testing.T) {
 					runtime.UVX: {
 						Command:     "uvx",
 						Package:     "mcp-server-api",
+						Version:     "3.0.0",
 						Recommended: true,
 					},
 				},
@@ -282,9 +282,8 @@ func TestAddCmd_ServerWithArguments(t *testing.T) {
 		{
 			name: "server with no required arguments",
 			pkg: packages.Package{
-				ID:      "simple-server",
-				Name:    "Simple Server",
-				Version: "1.0.0",
+				ID:   "simple-server",
+				Name: "Simple Server",
 				Tools: []packages.Tool{
 					{Name: "hello"},
 				},
@@ -292,6 +291,7 @@ func TestAddCmd_ServerWithArguments(t *testing.T) {
 					runtime.UVX: {
 						Command:     "uvx",
 						Package:     "mcp-server-simple",
+						Version:     "1.0.0",
 						Recommended: true,
 					},
 				},

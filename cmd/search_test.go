@@ -144,7 +144,11 @@ func TestSearchCmd_DefaultFormat(t *testing.T) {
 		Tools: []packages.Tool{
 			{Name: "test_tool"},
 		},
-		Runtimes: []runtime.Runtime{runtime.UVX},
+		Installations: packages.Installations{
+			runtime.UVX: packages.Installation{
+				Command: "test-server",
+			},
+		},
 	}
 
 	o := new(bytes.Buffer)
@@ -176,7 +180,11 @@ func TestSearchCmd_TextFormat(t *testing.T) {
 		Tools: []packages.Tool{
 			{Name: "test_tool"},
 		},
-		Runtimes: []runtime.Runtime{runtime.UVX},
+		Installations: packages.Installations{
+			runtime.UVX: packages.Installation{
+				Command: "test-server",
+			},
+		},
 	}
 
 	o := new(bytes.Buffer)
@@ -208,7 +216,11 @@ func TestSearchCmd_JSONFormat(t *testing.T) {
 		Tools: []packages.Tool{
 			{Name: "test_tool"},
 		},
-		Runtimes: []runtime.Runtime{runtime.UVX},
+		Installations: packages.Installations{
+			runtime.UVX: packages.Installation{
+				Command: "test-server",
+			},
+		},
 	}
 
 	o := new(bytes.Buffer)
@@ -272,7 +284,11 @@ func TestSearchCmd_JSONFormat_MultipleResults(t *testing.T) {
 		Tools: []packages.Tool{
 			{Name: "tool1"},
 		},
-		Runtimes: []runtime.Runtime{runtime.UVX},
+		Installations: packages.Installations{
+			runtime.UVX: packages.Installation{
+				Command: "test-server",
+			},
+		},
 	}
 
 	pkg2 := packages.Package{
@@ -284,7 +300,11 @@ func TestSearchCmd_JSONFormat_MultipleResults(t *testing.T) {
 		Tools: []packages.Tool{
 			{Name: "tool2"},
 		},
-		Runtimes: []runtime.Runtime{runtime.Docker},
+		Installations: packages.Installations{
+			runtime.Docker: packages.Installation{
+				Command: "test-server",
+			},
+		},
 	}
 
 	fakeReg := &fakeRegistryMultiple{packages: []packages.Package{pkg1, pkg2}}
@@ -340,7 +360,11 @@ func TestSearchCmd_CaseInsensitiveFormat(t *testing.T) {
 		Tools: []packages.Tool{
 			{Name: "test_tool"},
 		},
-		Runtimes: []runtime.Runtime{runtime.UVX},
+		Installations: packages.Installations{
+			runtime.UVX: packages.Installation{
+				Command: "test-server",
+			},
+		},
 	}
 
 	testCases := []struct {
@@ -474,7 +498,11 @@ func TestSearchCmd_FlagsWithJSONFormat(t *testing.T) {
 		Tools: []packages.Tool{
 			{Name: "test_tool"},
 		},
-		Runtimes: []runtime.Runtime{runtime.UVX},
+		Installations: packages.Installations{
+			runtime.UVX: packages.Installation{
+				Command: "test-server",
+			},
+		},
 	}
 
 	o := new(bytes.Buffer)
@@ -510,7 +538,11 @@ func TestSearchCmd_WildcardSearch(t *testing.T) {
 		Tools: []packages.Tool{
 			{Name: "test_tool"},
 		},
-		Runtimes: []runtime.Runtime{runtime.UVX},
+		Installations: packages.Installations{
+			runtime.UVX: packages.Installation{
+				Command: "test-server",
+			},
+		},
 	}
 
 	o := new(bytes.Buffer)

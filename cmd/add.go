@@ -225,8 +225,8 @@ func parseServerEntry(
 	}
 
 	v := "latest"
-	if pkg.Version != "" {
-		v = pkg.Version
+	if installation, ok := pkg.Installations[selectedRuntime]; ok && installation.Version != "" {
+		v = installation.Version
 	}
 
 	runtimeSpecificName := pkg.Installations[selectedRuntime].Package
