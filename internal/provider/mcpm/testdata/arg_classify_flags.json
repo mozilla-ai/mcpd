@@ -1,0 +1,53 @@
+{
+  "flag-with-placeholder": {
+    "name": "flag-with-placeholder",
+    "display_name": "Flag with Placeholder Server",
+    "description": "Test server for flag with placeholder argument classification",
+    "license": "MIT",
+    "arguments": {
+      "TIMEZONE": {
+        "description": "Timezone setting for the server",
+        "required": false,
+        "example": "America/New_York"
+      }
+    },
+    "installations": {
+      "npx": {
+        "type": "npx",
+        "command": "npx",
+        "args": [
+          "test-server",
+          "--timezone=${TIMEZONE}"
+        ]
+      }
+    },
+    "tools": [],
+    "is_official": false
+  },
+  "flag-looking-ahead": {
+    "name": "flag-looking-ahead",
+    "display_name": "Flag Looking Ahead Server",
+    "description": "Test server for flag that looks ahead to next argument for placeholder",
+    "license": "MIT",
+    "arguments": {
+      "CONFIG_PATH": {
+        "description": "Path to configuration file",
+        "required": true,
+        "example": "/path/to/config.json"
+      }
+    },
+    "installations": {
+      "npx": {
+        "type": "npx",
+        "command": "npx",
+        "args": [
+          "test-server",
+          "--config",
+          "${CONFIG_PATH}"
+        ]
+      }
+    },
+    "tools": [],
+    "is_official": false
+  }
+}

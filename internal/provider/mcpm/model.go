@@ -7,24 +7,26 @@ type MCPServers map[string]MCPServer
 // This allows for receivers to be declared that operate on the collection.
 type Tools []Tool
 
-// MCPServer represents the detailed information for a MCP single server.
+// MCPServer represents the detailed information for an MCP single server.
 // NOTE: Based on mcpm server schema: https://github.com/pathintegral-institute/mcpm.sh/blob/8edbd723cf3c35433739afb27a723fdcdf763c23/mcp-registry/schema/server-schema.json
 type MCPServer struct {
-	Name          string                  `json:"name"`
-	DisplayName   string                  `json:"display_name"`
-	Description   string                  `json:"description,omitempty"`
-	License       string                  `json:"license"`
-	Arguments     map[string]Argument     `json:"arguments"`
-	Installations map[string]Installation `json:"installations"`
-	Tools         Tools                   `json:"tools,omitempty"`
-	IsOfficial    bool                    `json:"is_official"`
-	Repository    Repository              `json:"repository,omitempty"`
-	Homepage      string                  `json:"homepage,omitempty"`
-	Author        Author                  `json:"author,omitempty"`
-	Tags          []string                `json:"tags,omitempty"`
-	Categories    []string                `json:"categories,omitempty"`
-	Examples      []Example               `json:"examples,omitempty"`
+	Name          string        `json:"name"`
+	DisplayName   string        `json:"display_name"`
+	Description   string        `json:"description,omitempty"`
+	License       string        `json:"license"`
+	Arguments     Arguments     `json:"arguments"`
+	Installations Installations `json:"installations"`
+	Tools         Tools         `json:"tools,omitempty"`
+	IsOfficial    bool          `json:"is_official"`
+	Repository    Repository    `json:"repository,omitempty"`
+	Homepage      string        `json:"homepage,omitempty"`
+	Author        Author        `json:"author,omitempty"`
+	Tags          []string      `json:"tags,omitempty"`
+	Categories    []string      `json:"categories,omitempty"`
+	Examples      []Example     `json:"examples,omitempty"`
 }
+
+type Arguments map[string]Argument
 
 // Argument defines a command-line argument for the server.
 type Argument struct {
@@ -32,6 +34,8 @@ type Argument struct {
 	Required    bool   `json:"required"`
 	Example     string `json:"example,omitempty"`
 }
+
+type Installations map[string]Installation
 
 // Installation defines a method for installing and running the server.
 type Installation struct {

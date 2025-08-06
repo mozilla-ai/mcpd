@@ -56,7 +56,7 @@ func (c *SetCmd) run(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("server-name is required")
 	}
 
-	normalizedArgs := config.NormalizeArgs(args[1:])
+	normalizedArgs := config.ProcessAllArgs(args[1:])
 	cfg, err := c.ctxLoader.Load(flags.RuntimeFile)
 	if err != nil {
 		return fmt.Errorf("failed to load execution context config: %w", err)

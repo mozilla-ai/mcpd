@@ -7,12 +7,6 @@ import (
 )
 
 const (
-	// OptionTerminator represents the character sequence generally understood to indicate the termination of options
-	// to be parsed that are supplied to a command line interface.
-	// e.g. in the command: kubectl exec random_pod -- ls
-	// 'ls' is not parsed by kubectl and instead passed verbatim to the random_pod.
-	OptionTerminator = "--"
-
 	// FlagPrefixLong represents the expected prefix for a long format flag (e.g. --flag).
 	FlagPrefixLong = "--"
 
@@ -32,7 +26,7 @@ const (
 //	--flag=value     -> preserved as-is
 //	-xyz             -> -x, -y, -z (expanded short flags)
 //
-// Parsing stops at OptionTerminator ("--"). Positional arguments and arguments after OptionTerminator are excluded.
+// Positional arguments are excluded.
 //
 // This function is intended for internal normalization of flag arguments only.
 func NormalizeArgs(rawArgs []string) []string {
@@ -41,10 +35,6 @@ func NormalizeArgs(rawArgs []string) []string {
 
 	for i := 0; i < numArgs; i++ {
 		arg := strings.TrimSpace(rawArgs[i])
-
-		if arg == OptionTerminator {
-			break // stop parsing flags (exclude "--" and everything after).
-		}
 
 		nextIndex := i + 1
 		hasNext := nextIndex < numArgs
@@ -145,6 +135,60 @@ func MergeArgs(a, b []string) []string {
 	for _, arg := range b {
 		entry := parseArg(arg)
 		if _, seen := processed[entry.key]; !seen {
+			result = append(result, arg)
+		}
+	}
+
+	return result
+}
+
+// ProcessAllArgs processes a slice of arguments, normalizing flags while preserving positional arguments.
+// It processes arguments sequentially, normalizing flag groups as it encounters them,
+// and returns them in their original relative order.
+//
+// Examples:
+//   - ["--flag", "value", "pos1", "pos2"] -> ["--flag=value", "pos1", "pos2"]
+//   - ["pos1", "--flag=value", "pos2"] -> ["pos1", "--flag=value", "pos2"]
+//   - ["/path/to/dir", "--verbose"] -> ["/path/to/dir", "--verbose"]
+func ProcessAllArgs(rawArgs []string) []string {
+	if len(rawArgs) == 0 {
+		return []string{}
+	}
+
+	var result []string
+
+	// Process arguments sequentially
+	for i := 0; i < len(rawArgs); i++ {
+		arg := strings.TrimSpace(rawArgs[i])
+
+		isFlag := strings.HasPrefix(arg, FlagPrefixShort) || strings.HasPrefix(arg, FlagPrefixLong)
+		if isFlag {
+			// Check for combined short flags (like -xyz) which should not consume next arg as value
+			isCombinedShortFlag := strings.HasPrefix(arg, FlagPrefixShort) &&
+				!strings.HasPrefix(arg, FlagPrefixLong) &&
+				len(arg) > 2 &&
+				!strings.Contains(arg, FlagValueSeparator)
+
+			// Collect this flag and potentially its value for normalization
+			flagGroup := []string{arg}
+
+			// Check if next argument is a value for this flag (not embedded with =)
+			// Don't consume next arg for combined short flags
+			if !isCombinedShortFlag && !strings.Contains(arg, FlagValueSeparator) && i+1 < len(rawArgs) {
+				nextArg := strings.TrimSpace(rawArgs[i+1])
+				nextIsFlag := strings.HasPrefix(nextArg, FlagPrefixShort) || strings.HasPrefix(nextArg, FlagPrefixLong)
+				if !nextIsFlag {
+					// Include the value
+					flagGroup = append(flagGroup, nextArg)
+					i++ // Skip the next argument since we processed it
+				}
+			}
+
+			// Normalize this flag group and add to result
+			normalizedFlags := NormalizeArgs(flagGroup)
+			result = append(result, normalizedFlags...)
+		} else {
+			// Positional argument - add as-is
 			result = append(result, arg)
 		}
 	}

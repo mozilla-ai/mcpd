@@ -41,11 +41,6 @@ func TestNormalizeArgs(t *testing.T) {
 			expected: []string{"-x", "-z", "-v"},
 		},
 		{
-			name:     "terminator excludes all after",
-			input:    []string{"--foo", "bar", "--", "--ignored", "positional"},
-			expected: []string{"--foo=bar"},
-		},
-		{
 			name:     "positional args are skipped",
 			input:    []string{"--foo", "bar", "main.go", "--baz", "qux"},
 			expected: []string{"--foo=bar", "--baz=qux"},
@@ -487,6 +482,91 @@ func TestArgEntry_String(t *testing.T) {
 			t.Parallel()
 
 			require.Equal(t, tc.expected, tc.entry.String())
+		})
+	}
+}
+
+func TestProcessAllArgs(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name     string
+		input    []string
+		expected []string
+	}{
+		{
+			name:     "empty input",
+			input:    []string{},
+			expected: []string{},
+		},
+		{
+			name:     "only positional args",
+			input:    []string{"pos1", "pos2", "pos3"},
+			expected: []string{"pos1", "pos2", "pos3"},
+		},
+		{
+			name:     "only flags with embedded values",
+			input:    []string{"--flag=value", "--other=val"},
+			expected: []string{"--flag=value", "--other=val"},
+		},
+		{
+			name:     "only boolean flags",
+			input:    []string{"--verbose", "--debug"},
+			expected: []string{"--verbose", "--debug"},
+		},
+		{
+			name:     "flags with separate values (regression test)",
+			input:    []string{"--config", "dev.toml", "--output", "result.txt"},
+			expected: []string{"--config=dev.toml", "--output=result.txt"},
+		},
+		{
+			name:     "mixed flags and positional args maintaining order",
+			input:    []string{"pos1", "--flag=value", "pos2", "--verbose", "pos3"},
+			expected: []string{"pos1", "--flag=value", "pos2", "--verbose=pos3"},
+		},
+		{
+			name:     "flag with separate value followed by positional",
+			input:    []string{"--config", "dev.toml", "positional"},
+			expected: []string{"--config=dev.toml", "positional"},
+		},
+		{
+			name:     "positional followed by flag with separate value",
+			input:    []string{"positional", "--config", "dev.toml"},
+			expected: []string{"positional", "--config=dev.toml"},
+		},
+		{
+			name:     "complex mix with various flag formats",
+			input:    []string{"pos1", "--flag=embedded", "--other", "separate", "--bool", "pos2"},
+			expected: []string{"pos1", "--flag=embedded", "--other=separate", "--bool=pos2"},
+		},
+		{
+			name:     "short flags with separate values",
+			input:    []string{"-f", "value", "-x", "other"},
+			expected: []string{"-f=value", "-x=other"},
+		},
+		{
+			name:     "combined short flags",
+			input:    []string{"-xyz", "pos1"},
+			expected: []string{"-x", "-y", "-z", "pos1"},
+		},
+		{
+			name:     "flag followed by another flag (no value consumption)",
+			input:    []string{"--verbose", "--debug", "pos1"},
+			expected: []string{"--verbose", "--debug=pos1"},
+		},
+		{
+			name:     "multiple consecutive flags with separate values",
+			input:    []string{"--first", "val1", "--second", "val2", "--third", "val3"},
+			expected: []string{"--first=val1", "--second=val2", "--third=val3"},
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			actual := ProcessAllArgs(tc.input)
+			require.Equal(t, tc.expected, actual, "ProcessAllArgs should preserve order and normalize flags correctly")
 		})
 	}
 }
