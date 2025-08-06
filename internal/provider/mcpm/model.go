@@ -30,6 +30,7 @@ type Arguments map[string]Argument
 
 // Argument defines a command-line argument for the server.
 type Argument struct {
+	Name        string `json:"name"`
 	Description string `json:"description"`
 	Required    bool   `json:"required"`
 	Example     string `json:"example,omitempty"`

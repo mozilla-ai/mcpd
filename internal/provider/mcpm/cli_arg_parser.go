@@ -119,6 +119,7 @@ func (p *CLIArgParser) storeResult(key string, varType packages.VariableType, me
 		VariableType: varType,
 		Required:     metadata.Required,
 		Description:  metadata.Description,
+		Example:      metadata.Example,
 	}
 }
 
@@ -134,6 +135,7 @@ func (p *CLIArgParser) storeResultWithPosition(
 		VariableType: varType,
 		Required:     metadata.Required,
 		Description:  metadata.Description,
+		Example:      metadata.Example,
 		Position:     &position,
 	}
 }

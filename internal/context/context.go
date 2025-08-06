@@ -96,7 +96,7 @@ func (c *ExecutionContextConfig) List() []ServerExecutionContext {
 	servers := slices.Collect(maps.Values(c.Servers))
 
 	slices.SortFunc(servers, func(a, b ServerExecutionContext) int {
-		return cmp.Compare(a.Name, b.Name)
+		return cmp.Compare(strings.ToLower(a.Name), strings.ToLower(b.Name))
 	})
 
 	return servers

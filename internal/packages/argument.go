@@ -1,9 +1,11 @@
 package packages
 
 import (
+	"cmp"
 	"maps"
 	"regexp"
 	"slices"
+	"strings"
 )
 
 const (
@@ -33,6 +35,7 @@ type ArgumentMetadata struct {
 	Name         string       `json:"name"`
 	Description  string       `json:"description"`
 	Required     bool         `json:"required"`
+	Example      string       `json:"example"`
 	VariableType VariableType `json:"type"`
 	Position     *int         `json:"position,omitempty"` // Position in args array for positional arguments
 }
@@ -72,12 +75,7 @@ func (a Arguments) Ordered() []ArgumentMetadata {
 
 	// Sort others alphabetically by name
 	slices.SortFunc(others, func(a, b ArgumentMetadata) int {
-		if a.Name < b.Name {
-			return -1
-		} else if a.Name > b.Name {
-			return 1
-		}
-		return 0
+		return cmp.Compare(strings.ToLower(a.Name), strings.ToLower(b.Name))
 	})
 
 	// Combine: positional first, then others
