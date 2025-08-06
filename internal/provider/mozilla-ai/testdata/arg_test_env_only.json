@@ -1,0 +1,52 @@
+{
+  "env-only-server": {
+    "id": "env-only-server",
+    "name": "env-only-server",
+    "displayName": "Environment Only Server",
+    "description": "Server that uses environment variables only",
+    "license": "MIT",
+    "arguments": {
+      "API_KEY": {
+        "description": "API key for authentication",
+        "required": true,
+        "type": "environment",
+        "example": "sk-1234567890"
+      },
+      "DEBUG_MODE": {
+        "description": "Enable debug logging",
+        "required": false,
+        "type": "environment",
+        "example": "true"
+      }
+    },
+    "installations": {
+      "npx": {
+        "type": "npx",
+        "command": "npx",
+        "args": ["env-server"],
+        "env": {
+          "API_KEY": "${API_KEY}",
+          "DEBUG_MODE": "${DEBUG_MODE}"
+        },
+        "version": "1.0.0",
+        "description": "Run with npx",
+        "recommended": true
+      }
+    },
+    "tools": [
+      {
+        "name": "test_tool",
+        "description": "Test tool",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "input": {"type": "string"}
+          },
+          "required": ["input"]
+        }
+      }
+    ],
+    "transports": ["stdio"],
+    "isOfficial": false
+  }
+}

@@ -1,0 +1,57 @@
+{
+  "mixed-args-server": {
+    "id": "mixed-args-server",
+    "name": "mixed-args-server",
+    "displayName": "Mixed Arguments Server",
+    "description": "Server with both environment variables and command-line arguments",
+    "license": "MIT",
+    "arguments": {
+      "CONFIG_PATH": {
+        "description": "Path to configuration file",
+        "required": true,
+        "type": "argument",
+        "example": "/path/to/config.json"
+      },
+      "DATABASE_URL": {
+        "description": "Database connection URL",
+        "required": true,
+        "type": "environment",
+        "example": "postgresql://user:pass@localhost:5432/db"
+      },
+      "VERBOSE": {
+        "description": "Enable verbose logging",
+        "required": false,
+        "type": "argument_bool",
+        "example": "true"
+      }
+    },
+    "installations": {
+      "uvx": {
+        "type": "uvx",
+        "command": "uvx",
+        "args": ["mixed-server", "--config", "${CONFIG_PATH}", "--verbose"],
+        "env": {
+          "DATABASE_URL": "${DATABASE_URL}"
+        },
+        "version": "2.1.0",
+        "description": "Run with uvx",
+        "recommended": true
+      }
+    },
+    "tools": [
+      {
+        "name": "query_db",
+        "description": "Query database",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "query": {"type": "string"}
+          },
+          "required": ["query"]
+        }
+      }
+    ],
+    "transports": ["stdio"],
+    "isOfficial": true
+  }
+}

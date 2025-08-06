@@ -1,0 +1,99 @@
+{
+  "test-filesystem": {
+    "id": "test-filesystem",
+    "name": "test-filesystem",
+    "displayName": "Test Filesystem Server",
+    "description": "Test filesystem server for unit testing",
+    "license": "MIT",
+    "categories": ["tools", "filesystem"],
+    "tags": ["server", "filesystem", "operations"],
+    "arguments": {
+      "BASE_PATH": {
+        "description": "Base directory for filesystem access",
+        "required": true,
+        "type": "environment",
+        "example": "/Users/username/Documents"
+      },
+      "READ_ONLY": {
+        "description": "Enable read-only mode",
+        "required": false,
+        "type": "argument_bool"
+      }
+    },
+    "installations": {
+      "npx": {
+        "type": "npx",
+        "command": "npx",
+        "args": ["test-filesystem-server", "--readonly"],
+        "env": {
+          "BASE_PATH": "${BASE_PATH}"
+        },
+        "version": "1.0.0",
+        "description": "Run with npx",
+        "recommended": true
+      }
+    },
+    "tools": [
+      {
+        "name": "read_file",
+        "description": "Read file contents",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "path": {"type": "string"}
+          },
+          "required": ["path"]
+        }
+      },
+      {
+        "name": "list_directory",
+        "description": "List directory contents",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "path": {"type": "string"}
+          },
+          "required": ["path"]
+        }
+      }
+    ],
+    "transports": ["stdio"],
+    "isOfficial": true
+  },
+  "test-memory": {
+    "id": "test-memory",
+    "name": "test-memory", 
+    "displayName": "Test Memory Server",
+    "description": "Test memory server for unit testing",
+    "license": "MIT",
+    "categories": ["tools", "memory"],
+    "tags": ["server", "memory", "storage"],
+    "arguments": {},
+    "installations": {
+      "uvx": {
+        "type": "uvx",
+        "command": "uvx",
+        "args": ["test-memory-server"],
+        "version": "2.0.0",
+        "description": "Run with uvx",
+        "recommended": true
+      }
+    },
+    "tools": [
+      {
+        "name": "store_memory",
+        "description": "Store data in memory",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "key": {"type": "string"},
+            "value": {"type": "string"}
+          },
+          "required": ["key", "value"]
+        }
+      }
+    ],
+    "transports": ["stdio"],
+    "isOfficial": false
+  }
+}

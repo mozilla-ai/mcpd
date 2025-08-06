@@ -1,0 +1,62 @@
+{
+  "cli-only-server": {
+    "id": "cli-only-server",
+    "name": "cli-only-server",
+    "displayName": "CLI Arguments Only Server",
+    "description": "Server that uses command-line arguments only",
+    "license": "Apache-2.0",
+    "arguments": {
+      "OUTPUT_FORMAT": {
+        "description": "Output format for results",
+        "required": true,
+        "type": "argument",
+        "example": "json"
+      },
+      "PORT": {
+        "description": "Port number to listen on",
+        "required": false,
+        "type": "argument",
+        "example": "3000"
+      },
+      "ENABLE_CORS": {
+        "description": "Enable CORS headers",
+        "required": false,
+        "type": "argument_bool"
+      }
+    },
+    "installations": {
+      "npx": {
+        "type": "npx",
+        "command": "npx",
+        "args": ["cli-server", "--format", "${OUTPUT_FORMAT}", "--port", "${PORT}", "--cors"],
+        "version": "1.5.2",
+        "description": "Run with npx",
+        "recommended": false
+      },
+      "uvx": {
+        "type": "uvx", 
+        "command": "uvx",
+        "args": ["cli-server", "--format", "${OUTPUT_FORMAT}", "--enable-cors"],
+        "version": "1.5.2",
+        "description": "Run with uvx",
+        "recommended": true
+      }
+    },
+    "tools": [
+      {
+        "name": "format_output",
+        "description": "Format output data",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "data": {"type": "object"},
+            "format": {"type": "string"}
+          },
+          "required": ["data"]
+        }
+      }
+    ],
+    "transports": ["stdio", "http"],
+    "isOfficial": false
+  }
+}
