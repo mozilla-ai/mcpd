@@ -8,10 +8,12 @@ type Installation struct {
 	Command     string            `json:"command"`
 	Args        []string          `json:"args"`
 	Package     string            `json:"package,omitempty"`
+	Version     string            `json:"version,omitempty"`
 	Env         map[string]string `json:"env,omitempty"`
 	Description string            `json:"description,omitempty"`
 	Recommended bool              `json:"recommended,omitempty"`
 	Deprecated  bool              `json:"deprecated,omitempty"`
+	Transports  []Transport       `json:"transports,omitempty"`
 }
 
 // AnyDeprecated can be used to determine if any of the installations are deprecated.

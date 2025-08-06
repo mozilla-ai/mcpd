@@ -191,7 +191,7 @@ func DefaultMatchers() map[string]Predicate {
 		FilterKeyTools:      filter.HasAll(ToolsProvider),
 		FilterKeyTags:       filter.PartialAll(TagsProvider),
 		FilterKeyCategories: filter.PartialAll(CategoriesProvider),
-		FilterKeyVersion:    filter.Equals(VersionProvider),
+		FilterKeyVersion:    filter.HasAny(VersionsProvider),
 		FilterKeyLicense:    filter.Partial(LicenseProvider),
 		FilterKeySource:     filter.Equals(SourceProvider),
 		FilterKeyIsOfficial: filter.EqualsBool(IsOfficialProvider),
@@ -215,9 +215,9 @@ func NameProvider(pkg packages.Package) string {
 }
 
 func RuntimesProvider(pkg packages.Package) []string {
-	rts := make([]string, len(pkg.Runtimes))
-	for i, rt := range pkg.Runtimes {
-		rts[i] = string(rt)
+	rts := make([]string, 0, len(pkg.Installations))
+	for rt := range pkg.Installations {
+		rts = append(rts, string(rt))
 	}
 	return rts
 }
@@ -238,8 +238,12 @@ func ToolsProvider(pkg packages.Package) []string {
 	return pkg.Tools.Names()
 }
 
-func VersionProvider(pkg packages.Package) string {
-	return pkg.Version
+func VersionsProvider(pkg packages.Package) []string {
+	versions := make([]string, 0, len(pkg.Installations))
+	for _, inst := range pkg.Installations {
+		versions = append(versions, inst.Version)
+	}
+	return versions
 }
 
 func IsOfficialProvider(pkg packages.Package) bool {

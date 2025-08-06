@@ -96,10 +96,10 @@ func (p *PackagePrinter) Item(w io.Writer, pkg packages.Package) error {
 		_, _ = fmt.Fprintf(w, "  Tags: %s\n", strings.Join(pkg.Tags, ", "))
 	}
 
-	if len(pkg.Runtimes) > 0 {
-		runtimes := make([]string, len(pkg.Runtimes))
-		for i, r := range pkg.Runtimes {
-			runtimes[i] = string(r)
+	if len(pkg.Installations) > 0 {
+		runtimes := make([]string, 0, len(pkg.Installations))
+		for rt := range pkg.Installations {
+			runtimes = append(runtimes, string(rt))
 		}
 		_, _ = fmt.Fprintf(w, "  Runtimes: %s\n", strings.Join(runtimes, ", "))
 	} else {

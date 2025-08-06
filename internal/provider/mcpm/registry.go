@@ -235,12 +235,6 @@ func (r *Registry) buildPackageResult(pkgKey string) (packages.Package, bool) {
 		return packages.Package{}, false
 	}
 
-	var runtimes []runtime.Runtime
-	for rt := range runtimesAndPackages {
-		runtimes = append(runtimes, rt)
-	}
-	slices.Sort(runtimes)
-
 	tools, err := sd.Tools.ToDomainType()
 	if err != nil {
 		r.logger.Error(
@@ -254,6 +248,9 @@ func (r *Registry) buildPackageResult(pkgKey string) (packages.Package, bool) {
 	// Analyze actual runtime variables and convert to ArgumentMetadata format
 	arguments := extractArgumentMetadata(sd, r.supportedRuntimes)
 
+	// Determine transports - default to stdio for mcpm
+	transports := packages.DefaultTransports()
+
 	return packages.Package{
 		Source:        RegistryName,
 		ID:            pkgKey,
@@ -264,10 +261,11 @@ func (r *Registry) buildPackageResult(pkgKey string) (packages.Package, bool) {
 		Tools:         tools,
 		Tags:          sd.Tags,
 		Categories:    sd.Categories,
-		Runtimes:      runtimes,
 		Installations: convertInstallations(sd.Installations, r.supportedRuntimes),
 		Arguments:     arguments,
+		Transports:    transports,
 		IsOfficial:    sd.IsOfficial,
+		Deprecated:    false, // MCPM doesn't support deprecated packages
 	}, true
 }
 
@@ -427,9 +425,12 @@ func convertInstallations(
 			Command:     install.Command,
 			Args:        slices.Clone(install.Args),
 			Package:     pkg,
+			Version:     "latest", // MCPM doesn't support versions, so everything is 'latest'
 			Env:         maps.Clone(install.Env),
 			Description: install.Description,
 			Recommended: install.Recommended,
+			Deprecated:  false,                        // MCPM doesn't support deprecated installations
+			Transports:  packages.DefaultTransports(), // MCPM defaults to stdio transport
 		}
 	}
 
