@@ -27,6 +27,7 @@ builds:
       - -X 'github.com/mozilla-ai/mcpd/v2/internal/cmd.date={{.Date}}'        # Bake in build date
     flags:
       - -trimpath  # Remove file system paths from binary
+
 archives:
   - formats: [tar.gz]
     # name template makes the OS and Arch compatible with the results of `uname`.
@@ -102,8 +103,9 @@ changelog:
   disable: true
 
 release:
-  replace_existing_draft: true
   draft: true
+  replace_existing_draft: true
+  replace_existing_artifacts: false
   prerelease: auto
   footer: >-
 
