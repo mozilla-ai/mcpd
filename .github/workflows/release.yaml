@@ -46,7 +46,7 @@ jobs:
             exit 1
           fi
           echo "Checking out tag $TAG"
-          git checkout -- "refs/tags/$TAG"
+          git checkout "$TAG"
 
       - name: Set up Go (from go.mod)
         uses: actions/setup-go@d35c59abb061a4a6fb18e82ac0862c26744d6ab5 # v5.5.0
