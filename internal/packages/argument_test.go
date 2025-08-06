@@ -13,38 +13,52 @@ func testArguments(t *testing.T) Arguments {
 
 	return Arguments{
 		"DATABASE_URL": {
+			Name:         "DATABASE_URL",
 			Description:  "Database connection URL",
 			Required:     true,
+			Example:      "postgresql://localhost:5432/mydb",
 			VariableType: VariableTypeEnv,
 		},
 		"API_KEY": {
+			Name:         "API_KEY",
 			Description:  "API key for external service",
 			Required:     true,
+			Example:      "sk-1234567890abcdef",
 			VariableType: VariableTypeEnv,
 		},
 		"DEBUG_MODE": {
+			Name:         "DEBUG_MODE",
 			Description:  "Enable debug mode",
 			Required:     false,
+			Example:      "true",
 			VariableType: VariableTypeEnv,
 		},
 		"OPTIONAL_CONFIG": {
+			Name:         "OPTIONAL_CONFIG",
 			Description:  "",
 			Required:     false,
+			Example:      "",
 			VariableType: VariableTypeEnv,
 		},
 		"--port": {
+			Name:         "--port",
 			Description:  "Port to listen on",
 			Required:     true,
+			Example:      "8080",
 			VariableType: VariableTypeArg,
 		},
 		"--verbose": {
+			Name:         "--verbose",
 			Description:  "Enable verbose output",
 			Required:     false,
+			Example:      "true",
 			VariableType: VariableTypeArg,
 		},
 		"--config": {
+			Name:         "--config",
 			Description:  "",
 			Required:     true,
+			Example:      "/path/to/config.json",
 			VariableType: VariableTypeArg,
 		},
 	}
@@ -456,4 +470,150 @@ func TestFilterArguments_EdgeEases(t *testing.T) {
 			require.Len(t, result, tc.expected)
 		})
 	}
+}
+
+func TestArgumentMetadata_NameAndExample(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name     string
+		metadata ArgumentMetadata
+		expected ArgumentMetadata
+	}{
+		{
+			name: "all fields set",
+			metadata: ArgumentMetadata{
+				Name:         "TEST_VAR",
+				Description:  "Test variable",
+				Required:     true,
+				Example:      "example_value",
+				VariableType: VariableTypeEnv,
+			},
+			expected: ArgumentMetadata{
+				Name:         "TEST_VAR",
+				Description:  "Test variable",
+				Required:     true,
+				Example:      "example_value",
+				VariableType: VariableTypeEnv,
+			},
+		},
+		{
+			name: "empty name and example",
+			metadata: ArgumentMetadata{
+				Name:         "",
+				Description:  "Test variable",
+				Required:     false,
+				Example:      "",
+				VariableType: VariableTypeArg,
+			},
+			expected: ArgumentMetadata{
+				Name:         "",
+				Description:  "Test variable",
+				Required:     false,
+				Example:      "",
+				VariableType: VariableTypeArg,
+			},
+		},
+		{
+			name: "positional argument with position",
+			metadata: ArgumentMetadata{
+				Name:         "POS_ARG",
+				Description:  "Positional argument",
+				Required:     true,
+				Example:      "/path/to/file",
+				VariableType: VariableTypePositionalArg,
+				Position:     &[]int{1}[0],
+			},
+			expected: ArgumentMetadata{
+				Name:         "POS_ARG",
+				Description:  "Positional argument",
+				Required:     true,
+				Example:      "/path/to/file",
+				VariableType: VariableTypePositionalArg,
+				Position:     &[]int{1}[0],
+			},
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			require.Equal(t, tc.expected.Name, tc.metadata.Name)
+			require.Equal(t, tc.expected.Example, tc.metadata.Example)
+			require.Equal(t, tc.expected.Description, tc.metadata.Description)
+			require.Equal(t, tc.expected.Required, tc.metadata.Required)
+			require.Equal(t, tc.expected.VariableType, tc.metadata.VariableType)
+			if tc.expected.Position != nil {
+				require.NotNil(t, tc.metadata.Position)
+				require.Equal(t, *tc.expected.Position, *tc.metadata.Position)
+			} else {
+				require.Nil(t, tc.metadata.Position)
+			}
+		})
+	}
+}
+
+func TestArguments_Ordered_NameSetting(t *testing.T) {
+	t.Parallel()
+
+	args := Arguments{
+		"ENV_VAR": {
+			Description:  "Environment variable",
+			Required:     true,
+			Example:      "env_example",
+			VariableType: VariableTypeEnv,
+		},
+		"POS_ARG": {
+			Description:  "Positional argument",
+			Required:     true,
+			Example:      "pos_example",
+			VariableType: VariableTypePositionalArg,
+			Position:     &[]int{1}[0],
+		},
+		"--flag": {
+			Description:  "Command flag",
+			Required:     false,
+			Example:      "flag_example",
+			VariableType: VariableTypeArg,
+		},
+	}
+
+	ordered := args.Ordered()
+	require.Len(t, ordered, 3)
+
+	for _, arg := range ordered {
+		require.NotEmpty(t, arg.Name, "Name should be set on ordered arguments")
+
+		switch arg.Name {
+		case "POS_ARG":
+			require.Equal(t, "pos_example", arg.Example)
+			require.Equal(t, VariableTypePositionalArg, arg.VariableType)
+			require.NotNil(t, arg.Position)
+			require.Equal(t, 1, *arg.Position)
+		case "ENV_VAR":
+			require.Equal(t, "env_example", arg.Example)
+			require.Equal(t, VariableTypeEnv, arg.VariableType)
+		case "--flag":
+			require.Equal(t, "flag_example", arg.Example)
+			require.Equal(t, VariableTypeArg, arg.VariableType)
+		default:
+			t.Errorf("Unexpected argument name: %s", arg.Name)
+		}
+	}
+
+	require.Equal(t, "POS_ARG", ordered[0].Name, "Positional argument should be first")
+
+	require.Contains(
+		t,
+		[]string{"--flag", "ENV_VAR"},
+		ordered[1].Name,
+		"Non-positional should be in alphabetical order",
+	)
+	require.Contains(
+		t,
+		[]string{"--flag", "ENV_VAR"},
+		ordered[2].Name,
+		"Non-positional should be in alphabetical order",
+	)
 }

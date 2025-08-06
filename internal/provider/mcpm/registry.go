@@ -255,19 +255,19 @@ func (r *Registry) buildPackageResult(pkgKey string) (packages.Package, bool) {
 	arguments := extractArgumentMetadata(sd, r.supportedRuntimes)
 
 	return packages.Package{
-		Source:              RegistryName,
-		ID:                  pkgKey,
-		Name:                pkgKey,
-		DisplayName:         sd.DisplayName,
-		Description:         sd.Description,
-		License:             sd.License,
-		Tools:               tools,
-		Tags:                sd.Tags,
-		Categories:          sd.Categories,
-		Runtimes:            runtimes,
-		InstallationDetails: convertInstallations(sd.Installations, r.supportedRuntimes),
-		Arguments:           arguments,
-		IsOfficial:          sd.IsOfficial,
+		Source:        RegistryName,
+		ID:            pkgKey,
+		Name:          pkgKey,
+		DisplayName:   sd.DisplayName,
+		Description:   sd.Description,
+		License:       sd.License,
+		Tools:         tools,
+		Tags:          sd.Tags,
+		Categories:    sd.Categories,
+		Runtimes:      runtimes,
+		Installations: convertInstallations(sd.Installations, r.supportedRuntimes),
+		Arguments:     arguments,
+		IsOfficial:    sd.IsOfficial,
 	}, true
 }
 
@@ -351,6 +351,7 @@ func extractEnvMetadata(env map[string]string, schema Arguments) map[string]pack
 			VariableType: packages.VariableTypeEnv,
 			Required:     m.Required,
 			Description:  m.Description,
+			Example:      m.Example,
 		}
 	}
 

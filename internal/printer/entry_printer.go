@@ -3,6 +3,7 @@ package printer
 import (
 	"fmt"
 	"io"
+	"slices"
 	"strings"
 
 	"github.com/mozilla-ai/mcpd/v2/internal/cmd/output"
@@ -29,9 +30,15 @@ func (p *ServerEntryPrinter) SetHeader(fn output.WriteFunc[config.ServerEntry]) 
 func (p *ServerEntryPrinter) Item(w io.Writer, elem config.ServerEntry) error {
 	_, _ = fmt.Fprintf(
 		w,
-		"✓ Added server '%s' (version: %s)\n  tools: %s\n",
+		"✓ Added server '%s' (version: %s)\n",
 		elem.Name,
 		elem.PackageVersion(),
+	)
+
+	slices.Sort(elem.Tools)
+	_, _ = fmt.Fprintf(
+		w,
+		"  tools: %s\n",
 		strings.Join(elem.Tools, ", "),
 	)
 

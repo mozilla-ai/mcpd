@@ -51,23 +51,27 @@ type Builder interface {
 // and retrieving packages across all configured sources. This is intended to be
 // the main entry point for package discovery in the application.
 type Registry struct {
-	logger     hclog.Logger
-	registries map[string]PackageProvider
+	logger           hclog.Logger
+	registries       map[string]PackageProvider
+	registryPriority []string
 }
 
 // NewRegistry creates a new Registry instance which will aggregate operations across the supplied package providers.
 func NewRegistry(logger hclog.Logger, regs ...PackageProvider) (*Registry, error) {
 	m := make(map[string]PackageProvider, len(regs))
+	p := make([]string, 0, len(regs))
 	for _, r := range regs {
 		id := r.ID()
 		if _, exists := m[id]; exists {
 			return nil, fmt.Errorf("duplicate registry ID detected: %s", id)
 		}
 		m[id] = r
+		p = append(p, id)
 	}
 	return &Registry{
-		registries: m,
-		logger:     logger.Named(registryName),
+		registries:       m,
+		registryPriority: p,
+		logger:           logger.Named(registryName),
 	}, nil
 }
 
@@ -121,11 +125,17 @@ func (r *Registry) Resolve(name string, opt ...options.ResolveOption) (packages.
 			)
 		}
 
+		r.logger.Debug(fmt.Sprintf("%#v", result))
 		return result, nil
 	}
 
 	// Search over registries, returning the first resolved package.
-	for regName, reg := range r.registries {
+	for _, regName := range r.registryPriority {
+		reg, ok := r.registries[regName]
+		if !ok {
+			r.logger.Error("Registry not found in aggregator registry", "registry", regName)
+			continue
+		}
 		result, err := reg.Resolve(name, opt...)
 		if err != nil {
 			r.logger.Warn(

@@ -219,7 +219,7 @@ func parseServerEntry(
 		return config.ServerEntry{}, fmt.Errorf("error matching requested tools: %w", err)
 	}
 
-	selectedRuntime, runtimeErr := selectRuntime(pkg.InstallationDetails, requestedRuntime, supportedRuntimes)
+	selectedRuntime, runtimeErr := selectRuntime(pkg.Installations, requestedRuntime, supportedRuntimes)
 	if runtimeErr != nil {
 		return config.ServerEntry{}, fmt.Errorf("error selecting runtime from available installations: %w", runtimeErr)
 	}
@@ -229,7 +229,7 @@ func parseServerEntry(
 		v = pkg.Version
 	}
 
-	runtimeSpecificName := pkg.InstallationDetails[selectedRuntime].Package
+	runtimeSpecificName := pkg.Installations[selectedRuntime].Package
 	if runtimeSpecificName == "" {
 		return config.ServerEntry{}, fmt.Errorf(
 			"installation package name is missing for runtime '%s'",
@@ -255,7 +255,7 @@ func parseServerEntry(
 func (c *AddCmd) options() []regopts.ResolveOption {
 	var o []regopts.ResolveOption
 
-	if c.Version != "" {
+	if c.Version != "" && c.Version != "latest" {
 		o = append(o, regopts.WithResolveVersion(c.Version))
 	}
 	if c.Runtime != "" {

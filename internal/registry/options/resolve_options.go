@@ -14,9 +14,7 @@ type ResolveOptions struct {
 }
 
 func defaultResolveOptions() ResolveOptions {
-	return ResolveOptions{
-		Version: "latest",
-	}
+	return ResolveOptions{}
 }
 
 func NewResolveOptions(opt ...ResolveOption) (ResolveOptions, error) {

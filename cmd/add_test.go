@@ -82,7 +82,7 @@ func TestAddCmd_Success(t *testing.T) {
 			{Name: "toolB"},
 		},
 		Version: "1.2.3",
-		InstallationDetails: map[runtime.Runtime]packages.Installation{
+		Installations: map[runtime.Runtime]packages.Installation{
 			runtime.UVX: {
 				Command:     "uvx",
 				Package:     "mcp-server-1",
@@ -150,7 +150,7 @@ func TestAddCmd_BasicServerAdd(t *testing.T) {
 			{Name: "tool2"},
 			{Name: "tool3"},
 		},
-		InstallationDetails: map[runtime.Runtime]packages.Installation{
+		Installations: map[runtime.Runtime]packages.Installation{
 			"uvx": {
 				Command:     "uvx",
 				Package:     "mcp-server-testserver",
@@ -207,7 +207,7 @@ func TestAddCmd_ServerWithArguments(t *testing.T) {
 					{Name: "create_repo"},
 					{Name: "list_repos"},
 				},
-				InstallationDetails: map[runtime.Runtime]packages.Installation{
+				Installations: map[runtime.Runtime]packages.Installation{
 					runtime.UVX: {
 						Command:     "uvx",
 						Package:     "mcp-server-github",
@@ -236,7 +236,7 @@ func TestAddCmd_ServerWithArguments(t *testing.T) {
 				Tools: []packages.Tool{
 					{Name: "query"},
 				},
-				InstallationDetails: map[runtime.Runtime]packages.Installation{
+				Installations: map[runtime.Runtime]packages.Installation{
 					runtime.UVX: {
 						Command:     "uvx",
 						Package:     "mcp-server-db",
@@ -261,7 +261,7 @@ func TestAddCmd_ServerWithArguments(t *testing.T) {
 				Tools: []packages.Tool{
 					{Name: "call_api"},
 				},
-				InstallationDetails: map[runtime.Runtime]packages.Installation{
+				Installations: map[runtime.Runtime]packages.Installation{
 					runtime.UVX: {
 						Command:     "uvx",
 						Package:     "mcp-server-api",
@@ -288,7 +288,7 @@ func TestAddCmd_ServerWithArguments(t *testing.T) {
 				Tools: []packages.Tool{
 					{Name: "hello"},
 				},
-				InstallationDetails: map[runtime.Runtime]packages.Installation{
+				Installations: map[runtime.Runtime]packages.Installation{
 					runtime.UVX: {
 						Command:     "uvx",
 						Package:     "mcp-server-simple",
@@ -619,11 +619,11 @@ func TestParseServerEntry(t *testing.T) {
 			}
 
 			pkg := packages.Package{
-				ID:                  tc.pkgID,
-				Name:                tc.pkgName,
-				Tools:               tools,
-				InstallationDetails: tc.installations,
-				Arguments:           tc.arguments,
+				ID:            tc.pkgID,
+				Name:          tc.pkgName,
+				Tools:         tools,
+				Installations: tc.installations,
+				Arguments:     tc.arguments,
 			}
 
 			entry, err := parseServerEntry(pkg, tc.requestedRuntime, tc.requestedTools, tc.supportedRuntimes)

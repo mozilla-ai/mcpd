@@ -1,6 +1,7 @@
 package printer
 
 import (
+	"cmp"
 	"fmt"
 	"io"
 	"slices"
@@ -58,28 +59,41 @@ func (p *PackagePrinter) SetFooter(fn output.WriteFunc[packages.Package]) {
 
 // Item outputs a single package entry.
 func (p *PackagePrinter) Item(w io.Writer, pkg packages.Package) error {
-	if _, err := fmt.Fprintf(w, "  🆔 %s\n", pkg.ID); err != nil {
-		return err
+	parts := []string{
+		fmt.Sprintf("  🆔 %s", pkg.ID),
 	}
 
-	if _, err := fmt.Fprintf(w, "  🔒 Official: %s\n", map[bool]string{true: "✅", false: "❌"}[pkg.IsOfficial]); err != nil {
-		return err
+	if pkg.IsOfficial {
+		parts = append(parts, "✓ (Official)")
 	}
 
-	if _, err := fmt.Fprintf(w, "  📁 Registry: %s\n", pkg.Source); err != nil {
-		return err
+	if pkg.Installations.AnyDeprecated() {
+		parts = append(parts, "⚠️ (Deprecated)")
 	}
+
+	_, _ = fmt.Fprintf(w, "%s\n", strings.Join(parts, " "))
+	_, _ = fmt.Fprintf(w, "  Source: %s\n", pkg.Source)
 
 	if strings.TrimSpace(pkg.Description) != "" {
-		if _, err := fmt.Fprintf(w, "  ℹ️ Description: %s\n", pkg.Description); err != nil {
-			return err
-		}
+		_, _ = fmt.Fprintf(w, "  Description: %s\n", pkg.Description)
 	}
 
 	if strings.TrimSpace(pkg.License) != "" {
-		if _, err := fmt.Fprintf(w, "  📄 License: %s\n", pkg.License); err != nil {
-			return err
-		}
+		_, _ = fmt.Fprintf(w, "  License: %s\n", pkg.License)
+	}
+
+	if len(pkg.Categories) > 0 {
+		slices.SortFunc(pkg.Categories, func(a, b string) int {
+			return strings.Compare(strings.ToLower(a), strings.ToLower(b))
+		})
+		_, _ = fmt.Fprintf(w, "  Categories: %s\n", strings.Join(pkg.Categories, ", "))
+	}
+
+	if len(pkg.Tags) > 0 {
+		slices.SortFunc(pkg.Tags, func(a, b string) int {
+			return strings.Compare(strings.ToLower(a), strings.ToLower(b))
+		})
+		_, _ = fmt.Fprintf(w, "  Tags: %s\n", strings.Join(pkg.Tags, ", "))
 	}
 
 	if len(pkg.Runtimes) > 0 {
@@ -87,98 +101,118 @@ func (p *PackagePrinter) Item(w io.Writer, pkg packages.Package) error {
 		for i, r := range pkg.Runtimes {
 			runtimes[i] = string(r)
 		}
-		if _, err := fmt.Fprintf(w, "  🏗️ Runtimes: %s\n", strings.Join(runtimes, ", ")); err != nil {
-			return err
-		}
+		_, _ = fmt.Fprintf(w, "  Runtimes: %s\n", strings.Join(runtimes, ", "))
 	} else {
-		if _, err := fmt.Fprintf(w, "  ⚠️ Warning: No supported runtimes found in package description\n"); err != nil {
-			return err
-		}
+		_, _ = fmt.Fprintf(w, "  ⚠️ Warning: No supported runtimes found in package description\n")
 	}
 
 	if len(pkg.Tools) > 0 {
-		if _, err := fmt.Fprintf(w, "  🔨 Tools: %s\n", strings.Join(pkg.Tools.Names(), ", ")); err != nil {
-			return err
-		}
+		p.printTools(w, pkg)
 	} else {
-		if _, err := fmt.Fprintf(w, "  ⚠️ Warning: No tools found in package description\n"); err != nil {
-			return err
-		}
-	}
-
-	if len(pkg.Tags) > 0 {
-		if _, err := fmt.Fprintf(w, "  🏷️ Tags: %s\n", strings.Join(pkg.Tags, ", ")); err != nil {
-			return err
-		}
-	}
-
-	if len(pkg.Categories) > 0 {
-		if _, err := fmt.Fprintf(w, "  📂 Categories: %s\n", strings.Join(pkg.Categories, ", ")); err != nil {
-			return err
-		}
+		_, _ = fmt.Fprintf(w, "  ⚠️ Warning: No tools found in package description\n")
 	}
 
 	if len(pkg.Arguments) > 0 {
-		if _, err := fmt.Fprintln(w, "  ⚙️ Found startup args..."); err != nil {
-			return err
-		}
-		requiredArgs := getArgs(pkg.Arguments, true)
-		if len(requiredArgs) > 0 {
-			if _, err := fmt.Fprintf(w, "  ❗ Required: %s\n", strings.Join(requiredArgs, ", ")); err != nil {
-				return err
-			}
-		}
-		optionalArgs := getArgs(pkg.Arguments, false)
-		if len(optionalArgs) > 0 {
-			if _, err := fmt.Fprintf(w, "  🔹️ Optional: %s\n", strings.Join(optionalArgs, ", ")); err != nil {
-				return err
-			}
-		}
-
-		envs := pkg.Arguments.FilterBy(packages.EnvVar).Names()
-		if len(envs) > 0 {
-			if _, err := fmt.Fprintln(w, "  📋 Args configurable via environment variables..."); err != nil {
-				return err
-			}
-			if _, err := fmt.Fprintf(w, "  🌍 %s\n", strings.Join(envs, ", ")); err != nil {
-				return err
-			}
-		}
-
-		// Positional arguments (in order)
-		positionalArgs := pkg.Arguments.FilterBy(packages.PositionalArgument).Ordered()
-		if len(positionalArgs) > 0 {
-			if _, err := fmt.Fprintln(w, "  📍 Positional arguments:"); err != nil {
-				return err
-			}
-
-			for _, arg := range positionalArgs {
-				_, _ = fmt.Fprintf(w, "\t(%d) %s\n", *arg.Position, arg.Name)
-			}
-		}
-
-		// Command-line flags (excluding positional arguments)
-		flagArgs := pkg.Arguments.FilterBy(packages.NonPositionalArgument).Names()
-		if len(flagArgs) > 0 {
-			if _, err := fmt.Fprintln(w, "  📋 Args configurable via command line flags..."); err != nil {
-				return err
-			}
-			if _, err := fmt.Fprintf(w, "  🖥️ %s\n", strings.Join(flagArgs, ", ")); err != nil {
-				return err
-			}
-		}
+		p.printEnvVars(w, pkg)
+		p.printPositionalArgs(w, pkg)
+		p.printValueFlags(w, pkg)
+		p.printBoolFlags(w, pkg)
+		// Required.
+		p.printRequiredEnvs(w, pkg)
+		p.printRequiredArgs(w, pkg)
 	}
 
 	return nil
 }
 
-func getArgs(args map[string]packages.ArgumentMetadata, required bool) []string {
-	res := make([]string, 0, len(args))
-	for name, meta := range args {
-		if meta.Required == required {
-			res = append(res, name)
-		}
+func pad(s string, width int) string {
+	if len(s) >= width {
+		return s
 	}
-	slices.Sort(res)
-	return res
+	return s + strings.Repeat(" ", width-len(s))
+}
+
+func (p *PackagePrinter) printTools(w io.Writer, pkg packages.Package) {
+	slices.SortFunc(pkg.Tools, func(a, b packages.Tool) int {
+		return cmp.Compare(strings.ToLower(a.Name), strings.ToLower(b.Name))
+	})
+
+	_, _ = fmt.Fprintln(w, "  🔨 Tools:")
+	for _, t := range pkg.Tools {
+		_, _ = fmt.Fprintf(w, "\t- %s\n", t.Name)
+	}
+}
+
+func (p *PackagePrinter) printEnvVars(w io.Writer, pkg packages.Package) {
+	envs := pkg.Arguments.FilterBy(packages.EnvVar).Ordered()
+	if len(envs) == 0 {
+		return
+	}
+
+	_, _ = fmt.Fprintln(w, "  🌍 Environment variables:")
+	for _, env := range envs {
+		_, _ = fmt.Fprintf(w, "\t%s\t%s\n", pad(env.Name, 24), env.Description)
+	}
+}
+
+func (p *PackagePrinter) printRequiredEnvs(w io.Writer, pkg packages.Package) {
+	envs := pkg.Arguments.FilterBy(packages.EnvVar, packages.Required).Names()
+	if len(envs) == 0 {
+		return
+	}
+
+	slices.Sort(envs)
+
+	_, _ = fmt.Fprintln(w, "  ❗ Required env vars:")
+	for _, env := range envs {
+		_, _ = fmt.Fprintf(w, "\t- %s\n", env)
+	}
+}
+
+func (p *PackagePrinter) printPositionalArgs(w io.Writer, pkg packages.Package) {
+	args := pkg.Arguments.FilterBy(packages.PositionalArgument).Ordered()
+	if len(args) == 0 {
+		return
+	}
+
+	_, _ = fmt.Fprintln(w, "  📍 Positional arguments:")
+	for _, arg := range args {
+		_, _ = fmt.Fprintf(w, "\t(%d) %s\t%s\n", *arg.Position, pad(arg.Name, 24), arg.Description)
+	}
+}
+
+func (p *PackagePrinter) printValueFlags(w io.Writer, pkg packages.Package) {
+	args := pkg.Arguments.FilterBy(packages.ValueArgument).Ordered()
+	if len(args) == 0 {
+		return
+	}
+
+	_, _ = fmt.Fprintln(w, "  🚩 Value flags:")
+	for _, arg := range args {
+		_, _ = fmt.Fprintf(w, "\t%s\t%s\n", pad(arg.Name, 24), arg.Description)
+	}
+}
+
+func (p *PackagePrinter) printBoolFlags(w io.Writer, pkg packages.Package) {
+	args := pkg.Arguments.FilterBy(packages.BoolArgument).Ordered()
+	if len(args) == 0 {
+		return
+	}
+
+	_, _ = fmt.Fprintln(w, "  ✅ Boolean flags:")
+	for _, arg := range args {
+		_, _ = fmt.Fprintf(w, "\t%s\t%s\n", pad(arg.Name, 24), arg.Description)
+	}
+}
+
+func (p *PackagePrinter) printRequiredArgs(w io.Writer, pkg packages.Package) {
+	args := pkg.Arguments.FilterBy(packages.Argument, packages.Required).Ordered()
+	if len(args) == 0 {
+		return
+	}
+
+	_, _ = fmt.Fprintln(w, "  ❗ Required args:")
+	for _, arg := range args {
+		_, _ = fmt.Fprintf(w, "\t%s\n", arg.Name)
+	}
 }
