@@ -72,6 +72,12 @@ func (f *fakeBuilder) Build() (registry.PackageProvider, error) {
 	return f.reg, f.err
 }
 
+// testIntPtr returns a pointer to an int
+func testIntPtr(t *testing.T, i int) *int {
+	t.Helper()
+	return &i
+}
+
 func TestAddCmd_Success(t *testing.T) {
 	cfg := &fakeConfig{}
 	pkg := packages.Server{
@@ -411,10 +417,6 @@ func TestSelectRuntime(t *testing.T) {
 	}
 }
 
-func intPtr(i int) *int {
-	return &i
-}
-
 func TestParseServerEntry(t *testing.T) {
 	t.Parallel()
 
@@ -533,8 +535,16 @@ func TestParseServerEntry(t *testing.T) {
 			availableTools:    []string{"read", "write"},
 			requestedTools:    []string{"read"},
 			arguments: packages.Arguments{
-				"path":       {VariableType: packages.VariableTypeArgPositional, Position: intPtr(1), Required: true},
-				"mode":       {VariableType: packages.VariableTypeArgPositional, Position: intPtr(2), Required: true},
+				"path": {
+					VariableType: packages.VariableTypeArgPositional,
+					Position:     testIntPtr(t, 1),
+					Required:     true,
+				},
+				"mode": {
+					VariableType: packages.VariableTypeArgPositional,
+					Position:     testIntPtr(t, 2),
+					Required:     true,
+				},
 				"--format":   {VariableType: packages.VariableTypeArg, Required: true},
 				"--encoding": {VariableType: packages.VariableTypeArg, Required: false},
 			},
