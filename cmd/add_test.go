@@ -411,6 +411,10 @@ func TestSelectRuntime(t *testing.T) {
 	}
 }
 
+func intPtr(i int) *int {
+	return &i
+}
+
 func TestParseServerEntry(t *testing.T) {
 	t.Parallel()
 
@@ -514,6 +518,28 @@ func TestParseServerEntry(t *testing.T) {
 			},
 			expectedPackageValue:   "uvx::mcp-server-api@latest",
 			expectedRequiredValues: []string{"--endpoint", "--api-key"},
+		},
+		{
+			name: "server with positional and value args",
+			installations: map[runtime.Runtime]packages.Installation{
+				runtime.UVX: {
+					Package:     "mcp-server-files",
+					Recommended: true,
+				},
+			},
+			supportedRuntimes: []runtime.Runtime{runtime.UVX},
+			pkgName:           "files",
+			pkgID:             "files",
+			availableTools:    []string{"read", "write"},
+			requestedTools:    []string{"read"},
+			arguments: packages.Arguments{
+				"path":       {VariableType: packages.VariableTypeArgPositional, Position: intPtr(1), Required: true},
+				"mode":       {VariableType: packages.VariableTypeArgPositional, Position: intPtr(2), Required: true},
+				"--format":   {VariableType: packages.VariableTypeArg, Required: true},
+				"--encoding": {VariableType: packages.VariableTypeArg, Required: false},
+			},
+			expectedPackageValue:   "uvx::mcp-server-files@latest",
+			expectedRequiredValues: []string{"path", "mode", "--format"},
 		},
 		{
 			name: "server with only required bool args",
@@ -626,7 +652,13 @@ func TestParseServerEntry(t *testing.T) {
 				Arguments:     tc.arguments,
 			}
 
-			entry, err := parseServerEntry(pkg, tc.requestedRuntime, tc.requestedTools, tc.supportedRuntimes)
+			opts := serverEntryOptions{
+				Runtime:           tc.requestedRuntime,
+				Tools:             tc.requestedTools,
+				SupportedRuntimes: tc.supportedRuntimes,
+				AllowDeprecated:   false,
+			}
+			entry, err := parseServerEntry(pkg, opts)
 
 			if tc.isErrorExpected {
 				require.Error(t, err)

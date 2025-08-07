@@ -28,6 +28,7 @@ type AddCmd struct {
 	Runtime         string
 	Source          string
 	Format          internalcmd.OutputFormat
+	AllowDeprecated bool
 	cfgLoader       config.Loader
 	packagePrinter  output.Printer[config.ServerEntry]
 	registryBuilder registry.Builder
@@ -92,7 +93,22 @@ func NewAddCmd(baseCmd *internalcmd.BaseCmd, opt ...cmdopts.CmdOption) (*cobra.C
 		fmt.Sprintf("Specify the output format (one of: %s)", allowed.String()),
 	)
 
+	cobraCommand.Flags().BoolVar(
+		&c.AllowDeprecated,
+		"allow-deprecated",
+		false,
+		"Optional, allows server installations marked as deprecated to be added",
+	)
+
 	return cobraCommand, nil
+}
+
+// serverEntryOptions contains configuration for parsing a server entry
+type serverEntryOptions struct {
+	Runtime           runtime.Runtime
+	Tools             []string
+	SupportedRuntimes []runtime.Runtime
+	AllowDeprecated   bool
 }
 
 // run is configured (via NewAddCmd) to be called by the Cobra framework when the command is executed.
@@ -138,9 +154,15 @@ func (c *AddCmd) run(cmd *cobra.Command, args []string) error {
 		)
 	}
 
-	entry, err := parseServerEntry(pkg, runtime.Runtime(c.Runtime), c.Tools, c.MCPDSupportedRuntimes())
+	opts := serverEntryOptions{
+		Runtime:           runtime.Runtime(c.Runtime),
+		Tools:             c.Tools,
+		SupportedRuntimes: c.MCPDSupportedRuntimes(),
+		AllowDeprecated:   c.AllowDeprecated,
+	}
+	entry, err := parseServerEntry(pkg, opts)
 	if err != nil {
-		return handler.HandleError(fmt.Errorf("error parsing server entry: %w", err))
+		return handler.HandleError(err)
 	}
 
 	cfg, err := c.cfgLoader.Load(flags.ConfigFile)
@@ -208,39 +230,49 @@ func selectRuntime(
 	return "", fmt.Errorf("no supported runtimes found")
 }
 
-func parseServerEntry(
-	pkg packages.Server,
-	requestedRuntime runtime.Runtime,
-	requestedTools []string,
-	supportedRuntimes []runtime.Runtime,
-) (config.ServerEntry, error) {
-	requestedTools, err := filter.MatchRequestedSlice(requestedTools, pkg.Tools.Names())
+func parseServerEntry(pkg packages.Server, opts serverEntryOptions) (config.ServerEntry, error) {
+	requestedTools, err := filter.MatchRequestedSlice(opts.Tools, pkg.Tools.Names())
 	if err != nil {
 		return config.ServerEntry{}, fmt.Errorf("error matching requested tools: %w", err)
 	}
 
-	selectedRuntime, runtimeErr := selectRuntime(pkg.Installations, requestedRuntime, supportedRuntimes)
-	if runtimeErr != nil {
-		return config.ServerEntry{}, fmt.Errorf("error selecting runtime from available installations: %w", runtimeErr)
+	selectedRuntime, err := selectRuntime(pkg.Installations, opts.Runtime, opts.SupportedRuntimes)
+	if err != nil {
+		return config.ServerEntry{}, fmt.Errorf("error selecting runtime from available installations: %w", err)
 	}
 
-	v := "latest"
-	if installation, ok := pkg.Installations[selectedRuntime]; ok && installation.Version != "" {
-		v = installation.Version
+	installation, ok := pkg.Installations[selectedRuntime]
+	if !ok {
+		return config.ServerEntry{}, fmt.Errorf(
+			"installation not found for runtime '%s'",
+			selectedRuntime,
+		)
 	}
 
-	runtimeSpecificName := pkg.Installations[selectedRuntime].Package
-	if runtimeSpecificName == "" {
+	if installation.Deprecated && !opts.AllowDeprecated {
+		return config.ServerEntry{}, fmt.Errorf(
+			"server '%s' with runtime '%s' is deprecated, use --allow-deprecated flag to proceed",
+			pkg.ID,
+			selectedRuntime,
+		)
+	}
+
+	if installation.Package == "" {
 		return config.ServerEntry{}, fmt.Errorf(
 			"installation package name is missing for runtime '%s'",
 			selectedRuntime,
 		)
 	}
-	runtimePackageVersion := fmt.Sprintf("%s::%s@%s", selectedRuntime, runtimeSpecificName, v)
 
-	envs := packages.FilterArguments(pkg.Arguments, packages.EnvVar, packages.Required)
-	args := packages.FilterArguments(pkg.Arguments, packages.ValueArgument, packages.Required)
-	boolArgs := packages.FilterArguments(pkg.Arguments, packages.BoolArgument, packages.Required)
+	version := "latest"
+	if installation.Version != "" {
+		version = installation.Version
+	}
+
+	runtimePackageVersion := fmt.Sprintf("%s::%s@%s", selectedRuntime, installation.Package, version)
+	envs := pkg.Arguments.FilterBy(packages.Required, packages.EnvVar)
+	args := pkg.Arguments.FilterBy(packages.Required, packages.ValueAcceptingArgument)
+	boolArgs := pkg.Arguments.FilterBy(packages.Required, packages.BoolArgument)
 
 	return config.ServerEntry{
 		Name:              pkg.ID,
