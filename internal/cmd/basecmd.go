@@ -10,6 +10,7 @@ import (
 	"github.com/mozilla-ai/mcpd/v2/internal/cmd/output"
 	"github.com/mozilla-ai/mcpd/v2/internal/flags"
 	"github.com/mozilla-ai/mcpd/v2/internal/provider/mcpm"
+	"github.com/mozilla-ai/mcpd/v2/internal/provider/mozilla_ai"
 	"github.com/mozilla-ai/mcpd/v2/internal/registry"
 	"github.com/mozilla-ai/mcpd/v2/internal/runtime"
 )
@@ -82,14 +83,20 @@ func (c *BaseCmd) Build() (registry.PackageProvider, error) {
 	opts := runtime.WithSupportedRuntimes(supportedRuntimes...)
 	l := logger.Named("registry")
 
-	mcpmRegistry, err := mcpm.NewRegistry(l, mcpm.ManifestURL, opts)
+	mozillaRegistry, err := mozilla_ai.NewRegistry(l, "", opts)
 	if err != nil {
 		// TODO: Handle tolerating some failed registries, as long as we can meet a minimum requirement.
 		return nil, err
 	}
 
+	mcpmRegistry, err := mcpm.NewRegistry(l, mcpm.ManifestURL, opts)
+	if err != nil {
+		return nil, err
+	}
+
 	// NOTE: The order the registries are added here determines their precedence when searching and resolving packages.
 	registries := []registry.PackageProvider{
+		mozillaRegistry,
 		mcpmRegistry,
 	}
 

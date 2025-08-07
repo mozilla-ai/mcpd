@@ -1,0 +1,956 @@
+{
+  "airtable": {
+    "arguments": {
+      "AIRTABLE_API_KEY": {
+        "description": "Airtable API key for database access",
+        "example": "keyXXXXXXXXXXXXXX",
+        "name": "AIRTABLE_API_KEY",
+        "required": true,
+        "type": "environment"
+      }
+    },
+    "categories": ["Databases"],
+    "description": "Airtable database and spreadsheet operations for managing bases, tables, and records",
+    "displayName": "Airtable",
+    "homepage": "https://github.com/felores/airtable-mcp",
+    "id": "airtable",
+    "installations": {
+      "npx": {
+        "description": "Run with npx",
+        "package": "@felores/airtable-mcp-server",
+        "recommended": true,
+        "runtime": "npx",
+        "version": "0.3.0"
+      }
+    },
+    "isOfficial": false,
+    "license": "MIT",
+    "name": "airtable",
+    "publisher": {
+      "name": "Felipe Restrepo"
+    },
+    "tags": [
+      "airtable",
+      "data management",
+      "database",
+      "records",
+      "spreadsheet"
+    ],
+    "tools": [
+      {
+        "description": "Create a new record in an Airtable table",
+        "name": "create_record"
+      },
+      {
+        "description": "Retrieve records from an Airtable table",
+        "name": "get_records"
+      },
+      {
+        "description": "List all accessible Airtable bases",
+        "name": "list_bases"
+      },
+      {
+        "description": "List tables in an Airtable base",
+        "name": "list_tables"
+      }
+    ],
+    "transports": ["stdio"]
+  },
+  "duckduckgo-mcp": {
+    "arguments": {},
+    "categories": ["Web Services"],
+    "description": "Web search capabilities using DuckDuckGo with additional features for content fetching and parsing",
+    "displayName": "DuckDuckGo Search",
+    "homepage": "https://github.com/nickclyde/duckduckgo-mcp-server",
+    "id": "duckduckgo-mcp",
+    "installations": {
+      "uvx": {
+        "description": "Run with Python uvx",
+        "package": "duckduckgo-mcp-server",
+        "recommended": true,
+        "runtime": "uvx",
+        "version": "0.1.1"
+      }
+    },
+    "isOfficial": false,
+    "license": "MIT",
+    "name": "duckduckgo-mcp",
+    "publisher": {
+      "name": "Nick Clyde",
+      "url": "https://clyde.tech"
+    },
+    "tags": ["content fetching", "duckduckgo", "search engine", "web search"],
+    "tools": [
+      {
+        "description": "Fetch and parse content from a webpage URL",
+        "name": "fetch_content"
+      },
+      {
+        "description": "Search DuckDuckGo and return formatted results",
+        "name": "search"
+      }
+    ],
+    "transports": ["stdio"]
+  },
+  "elasticsearch": {
+    "arguments": {
+      "ELASTIC_HOST": {
+        "description": "Elasticsearch server host URL",
+        "example": "https://localhost:9200",
+        "name": "ELASTIC_HOST",
+        "required": true,
+        "type": "environment"
+      },
+      "ELASTIC_PASSWORD": {
+        "description": "Password for Elasticsearch authentication",
+        "example": "changeme",
+        "name": "ELASTIC_PASSWORD",
+        "required": true,
+        "type": "environment"
+      },
+      "ELASTIC_USERNAME": {
+        "description": "Username for Elasticsearch authentication",
+        "example": "elastic",
+        "name": "ELASTIC_USERNAME",
+        "required": true,
+        "type": "environment"
+      }
+    },
+    "categories": ["Databases"],
+    "description": "Elasticsearch and OpenSearch integration for searching documents, analyzing indices, and managing clusters",
+    "displayName": "Elasticsearch",
+    "homepage": "https://github.com/cr7258/elasticsearch-mcp-server",
+    "id": "elasticsearch",
+    "installations": {
+      "uvx": {
+        "description": "Run with Python uvx",
+        "package": "elasticsearch-mcp-server",
+        "recommended": true,
+        "runtime": "uvx",
+        "version": "2.0.10"
+      }
+    },
+    "isOfficial": false,
+    "license": "Apache-2.0",
+    "name": "elasticsearch",
+    "publisher": {
+      "name": "cr7258"
+    },
+    "tags": [
+      "analytics",
+      "cluster management",
+      "elasticsearch",
+      "opensearch",
+      "search"
+    ],
+    "tools": [
+      {
+        "description": "Create a new index",
+        "name": "create_index"
+      },
+      {
+        "description": "Delete an alias",
+        "name": "delete_alias"
+      },
+      {
+        "description": "Delete documents matching a query",
+        "name": "delete_by_query"
+      },
+      {
+        "description": "Delete a document by ID",
+        "name": "delete_document"
+      },
+      {
+        "description": "Delete an index",
+        "name": "delete_index"
+      },
+      {
+        "description": "Perform a general HTTP API request",
+        "name": "general_api_request"
+      },
+      {
+        "description": "Get alias information",
+        "name": "get_alias"
+      },
+      {
+        "description": "Get cluster health status",
+        "name": "get_cluster_health"
+      },
+      {
+        "description": "Get cluster statistics",
+        "name": "get_cluster_stats"
+      },
+      {
+        "description": "Get a document by ID",
+        "name": "get_document"
+      },
+      {
+        "description": "Get index information",
+        "name": "get_index"
+      },
+      {
+        "description": "Create or update a document",
+        "name": "index_document"
+      },
+      {
+        "description": "List all aliases",
+        "name": "list_aliases"
+      },
+      {
+        "description": "List all indices in the Elasticsearch cluster",
+        "name": "list_indices"
+      },
+      {
+        "description": "Create or update an alias",
+        "name": "put_alias"
+      },
+      {
+        "description": "Search documents in an index with a custom query",
+        "name": "search_documents"
+      }
+    ],
+    "transports": ["stdio"]
+  },
+  "filesystem": {
+    "arguments": {
+      "ALLOWED_DIRS": {
+        "description": "Additional allowed directories for file operations",
+        "example": "/path/to/another/allowed/directory",
+        "name": "ALLOWED_DIRS",
+        "position": 2,
+        "required": false,
+        "type": "argument_positional"
+      },
+      "DIRECTORY_PATH": {
+        "description": "The directory path where the server can operate",
+        "example": "/path/to/working/directory",
+        "name": "DIRECTORY_PATH",
+        "position": 1,
+        "required": true,
+        "type": "argument_positional"
+      }
+    },
+    "categories": ["System Tools"],
+    "description": "Secure file operations with configurable access controls for reading, writing, and managing files and directories",
+    "displayName": "Filesystem",
+    "homepage": "https://github.com/modelcontextprotocol/servers/tree/main/src/filesystem",
+    "id": "filesystem",
+    "installations": {
+      "npm": {
+        "description": "Run with npm",
+        "package": "@modelcontextprotocol/server-filesystem",
+        "recommended": true,
+        "runtime": "npx",
+        "version": "2025.7.29"
+      }
+    },
+    "isOfficial": true,
+    "license": "MIT",
+    "name": "filesystem",
+    "publisher": {
+      "name": "Anthropic, PBC",
+      "url": "https://anthropic.com"
+    },
+    "tags": [
+      "directory management",
+      "file operations",
+      "filesystem",
+      "secure access"
+    ],
+    "tools": [
+      {
+        "description": "Create a new directory or ensure a directory exists",
+        "name": "create_directory"
+      },
+      {
+        "description": "Get a detailed listing of all files and directories in a specified path",
+        "name": "list_directory"
+      },
+      {
+        "description": "Read the complete contents of a file from the file system",
+        "name": "read_file"
+      },
+      {
+        "description": "Recursively search for files and directories matching a pattern",
+        "name": "search_files"
+      },
+      {
+        "description": "Create a new file or completely overwrite an existing file with new content",
+        "name": "write_file"
+      }
+    ],
+    "transports": ["stdio"]
+  },
+  "gitlab": {
+    "arguments": {
+      "GITLAB_API_URL": {
+        "description": "GitLab API URL (for self-hosted instances)",
+        "example": "https://gitlab.example.com/api/v4",
+        "name": "GITLAB_API_URL",
+        "required": false,
+        "type": "environment"
+      },
+      "GITLAB_PERSONAL_ACCESS_TOKEN": {
+        "description": "GitLab personal access token for API authentication",
+        "example": "glpat-xxxxxxxxxxxxxxxxxxxx",
+        "name": "GITLAB_PERSONAL_ACCESS_TOKEN",
+        "required": true,
+        "type": "environment"
+      }
+    },
+    "categories": ["Development"],
+    "description": "GitLab API integration for project management and repository operations",
+    "displayName": "GitLab",
+    "homepage": "https://github.com/modelcontextprotocol/servers/tree/main/src/gitlab",
+    "id": "gitlab",
+    "installations": {
+      "npm": {
+        "description": "Run with npm",
+        "package": "@modelcontextprotocol/server-gitlab",
+        "recommended": true,
+        "runtime": "npx",
+        "version": "2025.4.25"
+      }
+    },
+    "isOfficial": true,
+    "license": "MIT",
+    "name": "gitlab",
+    "publisher": {
+      "name": "GitLab, PBC",
+      "url": "https://gitlab.com"
+    },
+    "tags": [
+      "git",
+      "gitlab",
+      "project management",
+      "repository",
+      "version control"
+    ],
+    "tools": [
+      {
+        "description": "Create a new issue in a GitLab project",
+        "name": "create_issue"
+      },
+      {
+        "description": "Get details of a specific GitLab project",
+        "name": "get_project"
+      },
+      {
+        "description": "List issues for a GitLab project",
+        "name": "list_issues"
+      },
+      {
+        "description": "List GitLab projects accessible to the user",
+        "name": "list_projects"
+      }
+    ],
+    "transports": ["stdio"]
+  },
+  "google-maps": {
+    "arguments": {
+      "GOOGLE_MAPS_API_KEY": {
+        "description": "Google Maps API key from Google Developers Console",
+        "example": "AIzaSyXXXXXXXXXXXXXXXXXXXXXXXXXXXXX",
+        "name": "GOOGLE_MAPS_API_KEY",
+        "required": true,
+        "type": "environment"
+      }
+    },
+    "categories": ["Web Services"],
+    "description": "Location services, directions, and place details using Google Maps API",
+    "displayName": "Google Maps",
+    "homepage": "https://github.com/modelcontextprotocol/servers/tree/main/src/google-maps",
+    "id": "google-maps",
+    "installations": {
+      "npm": {
+        "description": "Run with npm",
+        "package": "@modelcontextprotocol/server-google-maps",
+        "recommended": true,
+        "runtime": "npx",
+        "version": "0.6.2"
+      }
+    },
+    "isOfficial": true,
+    "license": "MIT",
+    "name": "google-maps",
+    "publisher": {
+      "name": "Anthropic, PBC",
+      "url": "https://anthropic.com"
+    },
+    "tags": ["directions", "geocoding", "google maps", "location", "places"],
+    "tools": [
+      {
+        "description": "Get directions between two points",
+        "name": "maps_directions"
+      },
+      {
+        "description": "Convert an address into geographic coordinates",
+        "name": "maps_geocode"
+      },
+      {
+        "description": "Convert coordinates into an address",
+        "name": "maps_reverse_geocode"
+      },
+      {
+        "description": "Search for places using Google Places API",
+        "name": "maps_search_places"
+      }
+    ],
+    "transports": ["stdio"]
+  },
+  "jira": {
+    "arguments": {
+      "--confluence-token": {
+        "description": "Confluence API token",
+        "example": "ATATT3xFfGF0...",
+        "name": "--confluence-token",
+        "required": true,
+        "type": "argument"
+      },
+      "--confluence-url": {
+        "description": "Confluence server URL",
+        "example": "https://your-domain.atlassian.net",
+        "name": "--confluence-url",
+        "required": true,
+        "type": "argument"
+      },
+      "--confluence-username": {
+        "description": "Confluence username or email",
+        "example": "user@example.com",
+        "name": "--confluence-username",
+        "required": true,
+        "type": "argument"
+      },
+      "--jira-token": {
+        "description": "Jira API token",
+        "example": "ATATT3xFfGF0...",
+        "name": "--jira-token",
+        "required": true,
+        "type": "argument"
+      },
+      "--jira-url": {
+        "description": "Jira server URL",
+        "example": "https://your-domain.atlassian.net",
+        "name": "--jira-url",
+        "required": true,
+        "type": "argument"
+      },
+      "--jira-username": {
+        "description": "Jira username or email",
+        "example": "user@example.com",
+        "name": "--jira-username",
+        "required": true,
+        "type": "argument"
+      }
+    },
+    "categories": ["Productivity"],
+    "description": "Atlassian integration for Jira project management and Confluence documentation with comprehensive API access",
+    "displayName": "Atlassian Jira & Confluence",
+    "homepage": "https://github.com/sooperset/mcp-atlassian",
+    "id": "jira",
+    "installations": {
+      "uvx": {
+        "description": "Run with Python uvx",
+        "package": "mcp-atlassian",
+        "recommended": true,
+        "runtime": "uvx",
+        "version": "0.11.9"
+      }
+    },
+    "isOfficial": false,
+    "license": "MIT",
+    "name": "jira",
+    "publisher": {
+      "name": "sooperset"
+    },
+    "tags": [
+      "atlassian",
+      "confluence",
+      "documentation",
+      "jira",
+      "project management"
+    ],
+    "tools": [
+      {
+        "description": "Create a new Confluence page",
+        "name": "create_confluence_page"
+      },
+      {
+        "description": "Create a new Jira issue",
+        "name": "create_jira_issue"
+      },
+      {
+        "description": "Search Confluence pages",
+        "name": "search_confluence_pages"
+      },
+      {
+        "description": "Search for Jira issues using JQL",
+        "name": "search_jira_issues"
+      }
+    ],
+    "transports": ["stdio"]
+  },
+  "mcp-discord": {
+    "arguments": {
+      "DISCORD_TOKEN": {
+        "description": "Discord bot token for authentication",
+        "example": "YOUR_DISCORD_BOT_TOKEN_HERE",
+        "name": "DISCORD_TOKEN",
+        "required": true,
+        "type": "environment"
+      }
+    },
+    "categories": ["Messaging"],
+    "description": "Discord messaging and server management with comprehensive channel, message, and webhook capabilities",
+    "displayName": "Discord Integration",
+    "homepage": "https://github.com/barryyip0625/mcp-discord",
+    "id": "mcp-discord",
+    "installations": {
+      "npm": {
+        "description": "Run with npm",
+        "package": "mcp-discord",
+        "recommended": true,
+        "runtime": "npx",
+        "version": "1.3.4"
+      }
+    },
+    "isOfficial": false,
+    "license": "MIT",
+    "name": "mcp-discord",
+    "publisher": {
+      "name": "Barry Yip"
+    },
+    "tags": ["bot", "channel management", "discord", "messaging", "webhook"],
+    "tools": [
+      {
+        "description": "Add an emoji reaction to a Discord message",
+        "name": "discord_add_reaction"
+      },
+      {
+        "description": "Create a new text channel in a Discord server",
+        "name": "discord_create_text_channel"
+      },
+      {
+        "description": "Retrieve messages from a Discord text channel",
+        "name": "discord_read_messages"
+      },
+      {
+        "description": "Send a message to a specified Discord text channel",
+        "name": "discord_send"
+      }
+    ],
+    "transports": ["stdio"]
+  },
+  "memory": {
+    "arguments": {
+      "MEMORY_FILE_PATH": {
+        "description": "Path to the memory storage JSON file",
+        "example": "/path/to/memory.json",
+        "name": "MEMORY_FILE_PATH",
+        "required": false,
+        "type": "environment"
+      }
+    },
+    "categories": ["Knowledge Base"],
+    "description": "Knowledge graph-based persistent memory system for storing and retrieving contextual information",
+    "displayName": "Knowledge Graph Memory",
+    "homepage": "https://github.com/modelcontextprotocol/servers/tree/main/src/memory",
+    "id": "memory",
+    "installations": {
+      "npm": {
+        "description": "Run with npm",
+        "package": "@modelcontextprotocol/server-memory",
+        "recommended": true,
+        "runtime": "npx",
+        "version": "2025.8.4"
+      }
+    },
+    "isOfficial": true,
+    "license": "MIT",
+    "name": "memory",
+    "publisher": {
+      "name": "Anthropic, PBC",
+      "url": "https://anthropic.com"
+    },
+    "tags": ["context", "knowledge graph", "memory", "persistent storage"],
+    "tools": [
+      {
+        "description": "Create multiple new entities in the knowledge graph",
+        "name": "create_entities"
+      },
+      {
+        "description": "Create relations between entities in the knowledge graph",
+        "name": "create_relations"
+      },
+      {
+        "description": "Search for nodes in the knowledge graph",
+        "name": "search_nodes"
+      }
+    ],
+    "transports": ["stdio"]
+  },
+  "monday-com": {
+    "arguments": {
+      "MONDAY_API_KEY": {
+        "description": "API key for authenticating with the Monday.com API.",
+        "example": "your-monday-api-key",
+        "name": "MONDAY_API_KEY",
+        "required": true,
+        "type": "environment"
+      },
+      "MONDAY_WORKSPACE_NAME": {
+        "description": "The name of the Monday.com workspace you are working with.",
+        "name": "MONDAY_WORKSPACE_NAME",
+        "required": true,
+        "type": "environment"
+      }
+    },
+    "categories": ["Productivity"],
+    "description": "MCP Server to interact with Monday.com boards and items.",
+    "displayName": "Monday.com API",
+    "homepage": "https://github.com/mondaycom/monday-ai/tree/master/packages/monday-api-mcp",
+    "id": "monday-api-mcp",
+    "installations": {
+      "uvx": {
+        "description": "Run with npm and dynamic API tools",
+        "package": "mcp-server-monday",
+        "recommended": true,
+        "runtime": "uvx",
+        "version": "0.2.9",
+        "repository": {
+          "type": "git",
+          "url": "https://github.com/sakce/mcp-server-monday"
+        }
+      }
+    },
+    "isOfficial": false,
+    "license": "MIT",
+    "name": "monday-api-mcp",
+    "publisher": {
+      "name": "Monday.com",
+      "url": "https://monday.com"
+    },
+    "tags": [
+      "monday.com",
+      "API"
+    ],
+    "tools": [
+      {
+        "name": "monday-create-item",
+        "description": "Create a new item in a Monday.com Board. Optionally, specify the parent Item ID to create a Sub-item."
+      },
+      {
+        "name": "monday-get-items-by-id",
+        "description": "Fetch specific Monday.com item by its ID"
+      },
+      {
+        "name": "monday-update-item",
+        "description": "Update a Monday.com item's or sub-item's column values."
+      },
+      {
+        "name": "monday-get-board-columns",
+        "description": "Get the Columns of a Monday.com Board."
+      },
+      {
+        "name": "monday-get-board-groups",
+        "description": "Get the Groups of a Monday.com Board."
+      },
+      {
+        "name": "monday-create-update",
+        "description": "Create an update (comment) on a Monday.com Item or Sub-item."
+      },
+      {
+        "name": "monday-list-boards",
+        "description": "Get all Boards from Monday.com"
+      },
+      {
+        "name": "monday-list-items-in-groups",
+        "description": "List all items in the specified groups of a Monday.com board"
+      },
+      {
+        "name": "monday-list-subitems-in-items",
+        "description": "List all Sub-items of a list of Monday.com Items"
+      },
+      {
+        "name": "monday-create-board",
+        "description": "Create a new Monday.com board"
+      },
+      {
+        "name": "monday-create-board-group",
+        "description": "Create a new group in a Monday.com board"
+      },
+      {
+        "name": "monday-move-item-to-group",
+        "description": "Move an item to a group in a Monday.com board"
+      },
+      {
+        "name": "monday-delete-item",
+        "description": "Delete an item from a Monday.com board"
+      },
+      {
+        "name": "monday-archive-item",
+        "description": "Archive an item from a Monday.com board"
+      },
+      {
+        "name": "monday-get-item-updates",
+        "description": "Get updates for a specific item in Monday.com"
+      },
+      {
+        "name": "monday-get-docs",
+        "description": "Get a list of documents from Monday.com, optionally filtered by folder"
+      },
+      {
+        "name": "monday-get-doc-content",
+        "description": "Get the content of a specific document by ID"
+      },
+      {
+        "name": "monday-create-doc",
+        "description": "Create a new document in Monday.com"
+      },
+      {
+        "name": "monday-add-doc-block",
+        "description": "Add a block to a document"
+      },
+      {
+        "name": "monday-get-item-files",
+        "description": "Get files (PDFs, documents, images, etc.) attached to a Monday.com item"
+      },
+      {
+        "name": "monday-get-update-files",
+        "description": "Get files (PDFs, documents, images, etc.) attached to a specific update in Monday.com"
+      }
+    ],
+    "transports": ["stdio"]
+  },
+  "notion": {
+    "arguments": {
+      "NOTION_API_KEY": {
+        "description": "Notion API key for workspace access",
+        "example": "secret_XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX",
+        "name": "NOTION_API_KEY",
+        "required": true,
+        "type": "environment"
+      }
+    },
+    "categories": ["Productivity"],
+    "description": "Official Notion integration for page management, database operations, and content creation",
+    "displayName": "Notion Workspace",
+    "homepage": "https://github.com/makenotion/notion-mcp-server",
+    "id": "notion",
+    "installations": {
+      "npm": {
+        "description": "Run with npm",
+        "package": "@notionhq/notion-mcp-server",
+        "recommended": true,
+        "runtime": "npx",
+        "version": "1.8.1"
+      }
+    },
+    "isOfficial": false,
+    "license": "MIT",
+    "name": "notion",
+    "publisher": {
+      "name": "Notion Labs, Inc.",
+      "url": "https://notion.so"
+    },
+    "tags": ["content management", "database", "notion", "pages", "workspace"],
+    "tools": [
+      {
+        "description": "Create a new page in Notion",
+        "name": "create_page"
+      },
+      {
+        "description": "Retrieve a specific page by ID",
+        "name": "get_page"
+      },
+      {
+        "description": "Search for pages in the Notion workspace",
+        "name": "search_pages"
+      },
+      {
+        "description": "Update an existing Notion page",
+        "name": "update_page"
+      }
+    ],
+    "transports": ["stdio"]
+  },
+  "perplexity": {
+    "arguments": {
+      "PERPLEXITY_API_KEY": {
+        "description": "API key for Perplexity Sonar API",
+        "example": "pplx-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+        "name": "PERPLEXITY_API_KEY",
+        "required": true,
+        "type": "environment"
+      }
+    },
+    "categories": ["Web Services"],
+    "description": "AI-powered search and information retrieval using Perplexity's Sonar API for real-time web research",
+    "displayName": "Perplexity AI Search",
+    "homepage": "https://github.com/ppl-ai/modelcontextprotocol",
+    "id": "perplexity",
+    "installations": {
+      "npm": {
+        "description": "Run with npm",
+        "package": "server-perplexity-ask",
+        "recommended": true,
+        "runtime": "npx",
+        "version": "0.1.3"
+      }
+    },
+    "isOfficial": false,
+    "license": "MIT",
+    "name": "perplexity",
+    "publisher": {
+      "name": "Perplexity AI",
+      "url": "https://perplexity.ai"
+    },
+    "tags": [
+      "ai search",
+      "information retrieval",
+      "perplexity",
+      "sonar api",
+      "web research"
+    ],
+    "tools": [
+      {
+        "description": "Engage in a conversation using the Sonar API for AI-powered search",
+        "name": "perplexity_ask"
+      }
+    ],
+    "transports": ["stdio"]
+  },
+  "slack-mcp": {
+    "arguments": {
+      "SLACK_BOT_TOKEN": {
+        "description": "Slack bot token for authentication",
+        "example": "xoxb-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+        "name": "SLACK_BOT_TOKEN",
+        "required": true,
+        "type": "environment"
+      },
+      "SLACK_CHANNEL_IDS": {
+        "description": "Comma-separated list of channel IDs to monitor",
+        "example": "general,random,development",
+        "name": "SLACK_CHANNEL_IDS",
+        "required": false,
+        "type": "environment"
+      },
+      "SLACK_TEAM_ID": {
+        "description": "Slack team/workspace ID",
+        "example": "T0123456789",
+        "name": "SLACK_TEAM_ID",
+        "required": true,
+        "type": "environment"
+      }
+    },
+    "categories": ["Messaging"],
+    "description": "Slack workspace integration for comprehensive channel, message, reaction and user management",
+    "displayName": "Slack Workspace",
+    "homepage": "https://github.com/zencoderai/slack-mcp-server",
+    "id": "slack-mcp",
+    "installations": {
+      "npm": {
+        "description": "Run with npm",
+        "package": "@zencoderai/slack-mcp-server",
+        "recommended": true,
+        "runtime": "npx",
+        "version": "0.0.1"
+      }
+    },
+    "isOfficial": false,
+    "license": "MIT",
+    "name": "slack-mcp",
+    "publisher": {
+      "name": "Zencoder AI",
+      "url": "https://zencoder.ai"
+    },
+    "tags": ["channels", "collaboration", "messaging", "slack", "workspace"],
+    "tools": [
+      {
+        "description": "Add an emoji reaction to a message",
+        "name": "add_reaction"
+      },
+      {
+        "description": "Retrieve message history from a channel",
+        "name": "get_channel_history"
+      },
+      {
+        "description": "List all channels in the Slack workspace",
+        "name": "list_channels"
+      },
+      {
+        "description": "Post a message to a Slack channel",
+        "name": "post_message"
+      }
+    ],
+    "transports": ["stdio"]
+  },
+  "sqlite": {
+    "arguments": {
+      "--db-path": {
+        "description": "Path to the SQLite database file",
+        "example": "~/test.db",
+        "name": "--db-path",
+        "required": true,
+        "type": "argument"
+      }
+    },
+    "categories": ["Databases"],
+    "description": "SQLite database operations with business intelligence capabilities for querying, analyzing, and generating automated insights",
+    "displayName": "SQLite Database",
+    "homepage": "https://github.com/modelcontextprotocol/servers-archived/tree/main/src/sqlite",
+    "id": "sqlite",
+    "installations": {
+      "uvx": {
+        "description": "Run with Python uvx",
+        "package": "mcp-server-sqlite",
+        "recommended": true,
+        "runtime": "uvx",
+        "version": "2025.4.25"
+      }
+    },
+    "isOfficial": true,
+    "license": "MIT",
+    "name": "sqlite",
+    "publisher": {
+      "name": "Model Context Protocol",
+      "url": "https://modelcontextprotocol.io"
+    },
+    "tags": [
+      "business intelligence",
+      "database",
+      "queries",
+      "schema management",
+      "sql",
+      "sqlite"
+    ],
+    "tools": [
+      {
+        "description": "Add business insights to the memo resource",
+        "name": "append_insight"
+      },
+      {
+        "description": "Create new database tables",
+        "name": "create_table"
+      },
+      {
+        "description": "View detailed table schema information",
+        "name": "describe_table"
+      },
+      {
+        "description": "Get all table names in the database",
+        "name": "list_tables"
+      },
+      {
+        "description": "Execute SELECT queries on the database",
+        "name": "read_query"
+      },
+      {
+        "description": "Perform INSERT, UPDATE, DELETE operations",
+        "name": "write_query"
+      }
+    ],
+    "transports": ["stdio"]
+  }
+}

@@ -443,7 +443,7 @@ func TestRegistry_ExtractArgumentMetadata_EdgeCases(t *testing.T) {
 			expected: map[string]packages.ArgumentMetadata{
 				"API_KEY": {
 					Name:         "API_KEY",
-					VariableType: packages.VariableTypePositionalArg,
+					VariableType: packages.VariableTypeArgPositional,
 					Required:     true,
 					Description:  "API key",
 					Example:      "key123",
@@ -573,7 +573,7 @@ func TestRegistry_ExtractArgumentMetadata_WithTestdata(t *testing.T) {
 			expected: map[string]packages.ArgumentMetadata{
 				"USER_FILESYSTEM_DIRECTORY": {
 					Name:         "USER_FILESYSTEM_DIRECTORY",
-					VariableType: packages.VariableTypePositionalArg,
+					VariableType: packages.VariableTypeArgPositional,
 					Required:     true,
 					Description:  "The base directory that the server will have access to",
 					Example:      "/Users/username/Documents",
@@ -581,7 +581,7 @@ func TestRegistry_ExtractArgumentMetadata_WithTestdata(t *testing.T) {
 				},
 				"USER_FILESYSTEM_ALLOWED_DIR": {
 					Name:         "USER_FILESYSTEM_ALLOWED_DIR",
-					VariableType: packages.VariableTypePositionalArg,
+					VariableType: packages.VariableTypeArgPositional,
 					Required:     false,
 					Description:  "Additional allowed directory for file access",
 					Example:      "/Users/username/Projects",
@@ -627,7 +627,7 @@ func TestRegistry_ExtractArgumentMetadata_WithTestdata(t *testing.T) {
 			expected: map[string]packages.ArgumentMetadata{
 				"DATA_DIR": {
 					Name:         "DATA_DIR",
-					VariableType: packages.VariableTypePositionalArg,
+					VariableType: packages.VariableTypeArgPositional,
 					Required:     true,
 					Description:  "Directory for data storage",
 					Example:      "/path/to/data",
@@ -748,7 +748,7 @@ func TestRegistry_ExtractArgumentMetadata_SyntheticCases(t *testing.T) {
 			expected: map[string]packages.ArgumentMetadata{
 				"BASE_DIR": {
 					Name:         "BASE_DIR",
-					VariableType: packages.VariableTypePositionalArg,
+					VariableType: packages.VariableTypeArgPositional,
 					Required:     true,
 					Description:  "Base directory",
 					Example:      "/path/to/files",
@@ -951,13 +951,6 @@ func TestRegistry_Tool_ToDomainType(t *testing.T) {
 				Name:        "t1",
 				Title:       "Tool One",
 				Description: "Test tool",
-				InputSchema: packages.JSONSchema{
-					Type: "object",
-					Properties: map[string]any{
-						"foo": map[string]any{"type": "string"},
-					},
-					Required: []string{"foo"},
-				},
 			},
 		},
 	}
@@ -1083,7 +1076,7 @@ func TestRegistry_ExtractArgumentMetadata_ComprehensiveScenarios(t *testing.T) {
 		// Positional arguments
 		"BASE_DIR": {
 			Name:         "BASE_DIR",
-			VariableType: packages.VariableTypePositionalArg,
+			VariableType: packages.VariableTypeArgPositional,
 			Required:     true,
 			Description:  "Base directory for files",
 			Example:      "/path/to/files",
@@ -1091,7 +1084,7 @@ func TestRegistry_ExtractArgumentMetadata_ComprehensiveScenarios(t *testing.T) {
 		},
 		"OPTIONAL_DIR": {
 			Name:         "OPTIONAL_DIR",
-			VariableType: packages.VariableTypePositionalArg,
+			VariableType: packages.VariableTypeArgPositional,
 			Required:     false,
 			Description:  "Optional directory",
 			Example:      "/path/to/optional",
@@ -1128,9 +1121,9 @@ func TestRegistry_ExtractArgumentMetadata_ComprehensiveScenarios(t *testing.T) {
 
 	// First two should be positional arguments in position order
 	require.Equal(t, "BASE_DIR", allOrdered[0].Name)
-	require.Equal(t, packages.VariableTypePositionalArg, allOrdered[0].VariableType)
+	require.Equal(t, packages.VariableTypeArgPositional, allOrdered[0].VariableType)
 	require.Equal(t, "OPTIONAL_DIR", allOrdered[1].Name)
-	require.Equal(t, packages.VariableTypePositionalArg, allOrdered[1].VariableType)
+	require.Equal(t, packages.VariableTypeArgPositional, allOrdered[1].VariableType)
 
 	// Rest should be non-positional in alphabetical order by name
 	expectedOrder := []string{"--db-url", "--debug", "--log-level", "API_SECRET", "DB_URL"}
@@ -1158,7 +1151,7 @@ func extractTestCLIArgNames(t *testing.T, args packages.Arguments) []string {
 	var cliArgs []string
 	for key, arg := range args {
 		if arg.VariableType == packages.VariableTypeArg || arg.VariableType == packages.VariableTypeArgBool ||
-			arg.VariableType == packages.VariableTypePositionalArg {
+			arg.VariableType == packages.VariableTypeArgPositional {
 			cliArgs = append(cliArgs, key)
 		}
 	}

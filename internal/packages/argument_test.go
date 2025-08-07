@@ -521,7 +521,7 @@ func TestArgumentMetadata_NameAndExample(t *testing.T) {
 				Description:  "Positional argument",
 				Required:     true,
 				Example:      "/path/to/file",
-				VariableType: VariableTypePositionalArg,
+				VariableType: VariableTypeArgPositional,
 				Position:     &[]int{1}[0],
 			},
 			expected: ArgumentMetadata{
@@ -529,7 +529,7 @@ func TestArgumentMetadata_NameAndExample(t *testing.T) {
 				Description:  "Positional argument",
 				Required:     true,
 				Example:      "/path/to/file",
-				VariableType: VariableTypePositionalArg,
+				VariableType: VariableTypeArgPositional,
 				Position:     &[]int{1}[0],
 			},
 		},
@@ -568,7 +568,7 @@ func TestArguments_Ordered_NameSetting(t *testing.T) {
 			Description:  "Positional argument",
 			Required:     true,
 			Example:      "pos_example",
-			VariableType: VariableTypePositionalArg,
+			VariableType: VariableTypeArgPositional,
 			Position:     &[]int{1}[0],
 		},
 		"--flag": {
@@ -588,7 +588,7 @@ func TestArguments_Ordered_NameSetting(t *testing.T) {
 		switch arg.Name {
 		case "POS_ARG":
 			require.Equal(t, "pos_example", arg.Example)
-			require.Equal(t, VariableTypePositionalArg, arg.VariableType)
+			require.Equal(t, VariableTypeArgPositional, arg.VariableType)
 			require.NotNil(t, arg.Position)
 			require.Equal(t, 1, *arg.Position)
 		case "ENV_VAR":

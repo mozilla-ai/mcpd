@@ -18,8 +18,8 @@ const (
 	// VariableTypeArgBool represents a command line argument that is a boolean flag (doesn't have a value).
 	VariableTypeArgBool VariableType = "argument_bool"
 
-	// VariableTypePositionalArg represents a positional command line argument.
-	VariableTypePositionalArg VariableType = "positional_argument"
+	// VariableTypeArgPositional represents a positional command line argument.
+	VariableTypeArgPositional VariableType = "argument_positional"
 )
 
 // EnvVarPlaceholderRegex is used to find environment variable placeholders like ${VAR_NAME}.
@@ -61,7 +61,7 @@ func (a Arguments) Ordered() []ArgumentMetadata {
 		// Ensure name is set in the metadata
 		meta.Name = name
 
-		if meta.VariableType == VariableTypePositionalArg && meta.Position != nil {
+		if meta.VariableType == VariableTypeArgPositional && meta.Position != nil {
 			positional = append(positional, meta)
 		} else {
 			others = append(others, meta)
@@ -129,7 +129,7 @@ func BoolArgument(_ string, data ArgumentMetadata) bool {
 
 // PositionalArgument is a predicate that requires the argument is a positional command line argument.
 func PositionalArgument(_ string, data ArgumentMetadata) bool {
-	return data.VariableType == VariableTypePositionalArg
+	return data.VariableType == VariableTypeArgPositional
 }
 
 // NonPositionalArgument is a predicate that requires the argument is not a positional command line argument.

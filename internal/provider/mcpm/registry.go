@@ -423,10 +423,7 @@ func convertInstallations(
 
 		details[rt] = packages.Installation{
 			Command:     install.Command,
-			Args:        slices.Clone(install.Args),
 			Package:     pkg,
-			Version:     "latest", // MCPM doesn't support versions, so everything is 'latest'
-			Env:         maps.Clone(install.Env),
 			Description: install.Description,
 			Recommended: install.Recommended,
 			Deprecated:  false,                        // MCPM doesn't support deprecated installations
@@ -443,11 +440,6 @@ func (t Tool) ToDomainType() (packages.Tool, error) {
 		Name:        t.Name,
 		Title:       t.Title,
 		Description: t.Description,
-		InputSchema: packages.JSONSchema{
-			Type:       t.InputSchema.Type,
-			Properties: t.InputSchema.Properties,
-			Required:   t.InputSchema.Required,
-		},
 	}, nil
 }
 

@@ -1,0 +1,318 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.mozilla.ai/mcpd/registry.json",
+  "title": "Mozilla AI MCP Registry",
+  "description": "Schema for Mozilla AI Model Context Protocol server registry",
+  "type": "object",
+  "patternProperties": {
+    "^[a-zA-Z0-9_-]+$": {
+      "$ref": "#/$defs/Server"
+    }
+  },
+  "additionalProperties": false,
+  "$defs": {
+    "Server": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the server"
+        },
+        "name": {
+          "type": "string",
+          "description": "Canonical name of the server"
+        },
+        "displayName": {
+          "type": "string",
+          "description": "Human-readable display name for the server"
+        },
+        "description": {
+          "type": "string",
+          "description": "Detailed description of the server's capabilities"
+        },
+        "license": {
+          "type": "string",
+          "description": "SPDX license identifier for the server"
+        },
+        "categories": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Functional categories this server belongs to"
+        },
+        "tags": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Searchable keywords for the server"
+        },
+        "homepage": {
+          "type": "string",
+          "format": "uri",
+          "description": "URL to the server's homepage or documentation"
+        },
+        "publisher": {
+          "$ref": "#/$defs/Publisher",
+          "description": "Organization or individual that published the server"
+        },
+        "tools": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Tool"
+          },
+          "description": "All tools provided by this server"
+        },
+        "transports": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": [
+              "stdio",
+              "sse",
+              "streamable-http"
+            ]
+          },
+          "description": "Supported transport mechanisms for this server",
+          "default": [
+            "stdio"
+          ]
+        },
+        "installations": {
+          "type": "object",
+          "patternProperties": {
+            "^[a-zA-Z0-9_-]+$": {
+              "$ref": "#/$defs/Installation"
+            }
+          },
+          "additionalProperties": false,
+          "description": "Available methods for installing and running the server"
+        },
+        "arguments": {
+          "type": "object",
+          "patternProperties": {
+            "^[a-zA-Z0-9_-]+$": {
+              "$ref": "#/$defs/Argument"
+            }
+          },
+          "additionalProperties": false,
+          "description": "Configurable arguments for the server"
+        },
+        "isOfficial": {
+          "type": "boolean",
+          "description": "Whether this is an officially supported server",
+          "default": false
+        },
+        "deprecated": {
+          "type": "boolean",
+          "description": "Whether this server is deprecated",
+          "default": false
+        },
+        "_meta": {
+          "type": "object",
+          "description": "Reserved by MCP for additional metadata"
+        }
+      },
+      "required": [
+        "id",
+        "name",
+        "description",
+        "license",
+        "tools",
+        "installations"
+      ],
+      "additionalProperties": false
+    },
+    "Installation": {
+      "type": "object",
+      "properties": {
+        "runtime": {
+          "type": "string",
+          "enum": [
+            "npx",
+            "uvx"
+          ],
+          "description": "Runtime type for this installation method"
+        },
+        "package": {
+          "type": "string",
+          "description": "Package name for package manager installations"
+        },
+        "version": {
+          "type": "string",
+          "description": "Version for this installation method"
+        },
+        "description": {
+          "type": "string",
+          "description": "Additional details about this installation method"
+        },
+        "recommended": {
+          "type": "boolean",
+          "description": "Whether this is the preferred installation method",
+          "default": false
+        },
+        "deprecated": {
+          "type": "boolean",
+          "description": "Whether this installation method is deprecated",
+          "default": false
+        },
+        "repository": {
+          "$ref": "#/$defs/Repository",
+          "description": "Optional different source repository for this installation"
+        }
+      },
+      "required": [
+        "package",
+        "runtime",
+        "version"
+      ],
+      "additionalProperties": false
+    },
+    "Tool": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "Name of the tool"
+        },
+        "title": {
+          "type": "string",
+          "description": "Human-readable title for the tool"
+        },
+        "description": {
+          "type": "string",
+          "description": "Human-readable description of the tool"
+        },
+        "annotations": {
+          "$ref": "#/$defs/ToolAnnotations",
+          "description": "Optional additional tool information"
+        },
+        "_meta": {
+          "type": "object",
+          "description": "Reserved by MCP for additional metadata"
+        }
+      },
+      "required": [
+        "name",
+        "description"
+      ],
+      "additionalProperties": false
+    },
+    "Argument": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "Reference for the argument"
+        },
+        "description": {
+          "type": "string",
+          "description": "Human-readable explanation of the argument's purpose"
+        },
+        "required": {
+          "type": "boolean",
+          "description": "Whether this argument is mandatory for server operation",
+          "default": false
+        },
+        "type": {
+          "type": "string",
+          "enum": [
+            "environment",
+            "argument",
+            "argument_bool",
+            "argument_positional"
+          ],
+          "description": "Argument type (environment variable, command-line argument, boolean flag, or positional argument)"
+        },
+        "example": {
+          "type": "string",
+          "description": "Example value for the argument"
+        },
+        "position": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Position for positional arguments (1-based index), only relevant when type is 'argument_positional'"
+        }
+      },
+      "required": [
+        "name",
+        "description",
+        "type"
+      ],
+      "additionalProperties": false
+    },
+    "Repository": {
+      "type": "object",
+      "properties": {
+        "type": {
+          "type": "string",
+          "enum": [
+            "git",
+            "github"
+          ],
+          "description": "Repository type"
+        },
+        "url": {
+          "type": "string",
+          "format": "uri",
+          "description": "Repository URL where the source code is hosted"
+        },
+        "commit": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{40}$",
+          "description": "Specific commit hash corresponding to the version tag"
+        }
+      },
+      "required": [
+        "type",
+        "url"
+      ],
+      "additionalProperties": false
+    },
+    "Publisher": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "Name of the publisher (organization or individual)"
+        },
+        "url": {
+          "type": "string",
+          "format": "uri",
+          "description": "Optional link to the publisher's website or profile"
+        }
+      },
+      "required": [
+        "name"
+      ],
+      "additionalProperties": false
+    },
+    "ToolAnnotations": {
+      "type": "object",
+      "properties": {
+        "title": {
+          "type": "string",
+          "description": "Human-readable title for the tool"
+        },
+        "readOnlyHint": {
+          "type": "boolean",
+          "description": "Hint that the tool should not modify its environment"
+        },
+        "destructiveHint": {
+          "type": "boolean",
+          "description": "Hint that the tool may perform destructive updates"
+        },
+        "idempotentHint": {
+          "type": "boolean",
+          "description": "Hint that calling the tool repeatedly has no additional effect"
+        },
+        "openWorldHint": {
+          "type": "boolean",
+          "description": "Hint that the tool may interact with external entities"
+        }
+      },
+      "additionalProperties": false
+    }
+  }
+}
