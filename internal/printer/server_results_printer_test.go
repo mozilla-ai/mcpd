@@ -14,15 +14,15 @@ import (
 
 // testPrinterInner records PrintPackage calls and optionally errors
 type testPrinterInner struct {
-	calledPackages []packages.Package
+	calledPackages []packages.Server
 	errOnPackage   string
 }
 
 func (f *testPrinterInner) Header(_ io.Writer, _ int) {}
 
-func (f *testPrinterInner) SetHeader(_ output.WriteFunc[packages.Package]) {}
+func (f *testPrinterInner) SetHeader(_ output.WriteFunc[packages.Server]) {}
 
-func (f *testPrinterInner) Item(_ io.Writer, pkg packages.Package) error {
+func (f *testPrinterInner) Item(_ io.Writer, pkg packages.Server) error {
 	f.calledPackages = append(f.calledPackages, pkg)
 	if pkg.Name == f.errOnPackage {
 		return errors.New("print error")
@@ -32,18 +32,18 @@ func (f *testPrinterInner) Item(_ io.Writer, pkg packages.Package) error {
 
 func (f *testPrinterInner) Footer(_ io.Writer, _ int) {}
 
-func (f *testPrinterInner) SetFooter(_ output.WriteFunc[packages.Package]) {}
+func (f *testPrinterInner) SetFooter(_ output.WriteFunc[packages.Server]) {}
 
 // dummy package for testing
-func newPkg(name string) packages.Package {
-	return packages.Package{Name: name}
+func newPkg(name string) packages.Server {
+	return packages.Server{Name: name}
 }
 
 func TestPackageListPrinter_Header(t *testing.T) {
 	t.Parallel()
 
 	buf := &bytes.Buffer{}
-	printer := NewPackageResultsPrinter(&testPrinterInner{})
+	printer := NewServerResultsPrinter(&testPrinterInner{})
 	printer.Header(buf, 5)
 
 	out := buf.String()
@@ -56,16 +56,16 @@ func TestPackageListPrinter_Item(t *testing.T) {
 	t.Parallel()
 
 	inner := &testPrinterInner{}
-	printer := NewPackageResultsPrinter(inner)
+	printer := NewServerResultsPrinter(inner)
 
 	pkg := newPkg("testpkg")
 	err := printer.Item(nil, pkg)
 	require.NoError(t, err)
-	require.Equal(t, []packages.Package{pkg}, inner.calledPackages)
+	require.Equal(t, []packages.Server{pkg}, inner.calledPackages)
 
 	// error case
 	inner = &testPrinterInner{errOnPackage: "badpkg"}
-	printer = NewPackageResultsPrinter(inner)
+	printer = NewServerResultsPrinter(inner)
 	bad := newPkg("badpkg")
 	err = printer.Item(nil, bad)
 	require.EqualError(t, err, "print error")
@@ -75,14 +75,14 @@ func TestPackageListPrinter_Footer(t *testing.T) {
 	t.Parallel()
 
 	buf := &bytes.Buffer{}
-	printer := NewPackageResultsPrinter(&testPrinterInner{})
+	printer := NewServerResultsPrinter(&testPrinterInner{})
 
 	// singular
 	printer.Footer(buf, 1)
-	require.Contains(t, buf.String(), "📦 Found 1 package")
+	require.Contains(t, buf.String(), "📦 Found 1 server")
 
 	buf.Reset()
 	// plural
 	printer.Footer(buf, 3)
-	require.Contains(t, buf.String(), "📦 Found 3 packages")
+	require.Contains(t, buf.String(), "📦 Found 3 servers")
 }

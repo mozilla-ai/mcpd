@@ -47,16 +47,16 @@ func (f *fakeLoader) Load(_ string) (config.Modifier, error) {
 }
 
 type fakeRegistry struct {
-	pkg packages.Package
+	pkg packages.Server
 	err error
 }
 
-func (f *fakeRegistry) Resolve(_ string, _ ...options.ResolveOption) (packages.Package, error) {
+func (f *fakeRegistry) Resolve(_ string, _ ...options.ResolveOption) (packages.Server, error) {
 	return f.pkg, f.err
 }
 
-func (f *fakeRegistry) Search(_ string, _ map[string]string, _ ...options.SearchOption) ([]packages.Package, error) {
-	return []packages.Package{f.pkg}, f.err
+func (f *fakeRegistry) Search(_ string, _ map[string]string, _ ...options.SearchOption) ([]packages.Server, error) {
+	return []packages.Server{f.pkg}, f.err
 }
 
 func (f *fakeRegistry) ID() string {
@@ -74,7 +74,7 @@ func (f *fakeBuilder) Build() (registry.PackageProvider, error) {
 
 func TestAddCmd_Success(t *testing.T) {
 	cfg := &fakeConfig{}
-	pkg := packages.Package{
+	pkg := packages.Server{
 		ID:   "server1",
 		Name: "Server1",
 		Tools: []packages.Tool{
@@ -83,7 +83,7 @@ func TestAddCmd_Success(t *testing.T) {
 		},
 		Installations: map[runtime.Runtime]packages.Installation{
 			runtime.UVX: {
-				Command:     "uvx",
+				Runtime:     "uvx",
 				Package:     "mcp-server-1",
 				Version:     "1.2.3",
 				Recommended: true,
@@ -141,7 +141,7 @@ func TestAddCmd_RegistryFails(t *testing.T) {
 func TestAddCmd_BasicServerAdd(t *testing.T) {
 	o := &bytes.Buffer{}
 
-	pkg := packages.Package{
+	pkg := packages.Server{
 		ID:   "testserver",
 		Name: "testserver",
 		Tools: []packages.Tool{
@@ -151,7 +151,7 @@ func TestAddCmd_BasicServerAdd(t *testing.T) {
 		},
 		Installations: map[runtime.Runtime]packages.Installation{
 			"uvx": {
-				Command:     "uvx",
+				Runtime:     "uvx",
 				Package:     "mcp-server-testserver",
 				Version:     "latest",
 				Recommended: true,
@@ -192,14 +192,14 @@ func TestAddCmd_ServerWithArguments(t *testing.T) {
 
 	tests := []struct {
 		name                   string
-		pkg                    packages.Package
+		pkg                    packages.Server
 		expectedRequiredEnvs   []string
 		expectedRequiredValues []string
 		expectedRequiredBools  []string
 	}{
 		{
 			name: "server with all argument types",
-			pkg: packages.Package{
+			pkg: packages.Server{
 				ID:   "github-server",
 				Name: "GitHub Server",
 				Tools: []packages.Tool{
@@ -208,7 +208,7 @@ func TestAddCmd_ServerWithArguments(t *testing.T) {
 				},
 				Installations: map[runtime.Runtime]packages.Installation{
 					runtime.UVX: {
-						Command:     "uvx",
+						Runtime:     "uvx",
 						Package:     "mcp-server-github",
 						Version:     "1.0.0",
 						Recommended: true,
@@ -229,7 +229,7 @@ func TestAddCmd_ServerWithArguments(t *testing.T) {
 		},
 		{
 			name: "server with only env vars",
-			pkg: packages.Package{
+			pkg: packages.Server{
 				ID:   "db-server",
 				Name: "Database Server",
 				Tools: []packages.Tool{
@@ -237,7 +237,7 @@ func TestAddCmd_ServerWithArguments(t *testing.T) {
 				},
 				Installations: map[runtime.Runtime]packages.Installation{
 					runtime.UVX: {
-						Command:     "uvx",
+						Runtime:     "uvx",
 						Package:     "mcp-server-db",
 						Version:     "2.0.0",
 						Recommended: true,
@@ -254,7 +254,7 @@ func TestAddCmd_ServerWithArguments(t *testing.T) {
 		},
 		{
 			name: "server with mixed value and bool args",
-			pkg: packages.Package{
+			pkg: packages.Server{
 				ID:   "api-server",
 				Name: "API Server",
 				Tools: []packages.Tool{
@@ -262,7 +262,7 @@ func TestAddCmd_ServerWithArguments(t *testing.T) {
 				},
 				Installations: map[runtime.Runtime]packages.Installation{
 					runtime.UVX: {
-						Command:     "uvx",
+						Runtime:     "uvx",
 						Package:     "mcp-server-api",
 						Version:     "3.0.0",
 						Recommended: true,
@@ -281,7 +281,7 @@ func TestAddCmd_ServerWithArguments(t *testing.T) {
 		},
 		{
 			name: "server with no required arguments",
-			pkg: packages.Package{
+			pkg: packages.Server{
 				ID:   "simple-server",
 				Name: "Simple Server",
 				Tools: []packages.Tool{
@@ -289,7 +289,7 @@ func TestAddCmd_ServerWithArguments(t *testing.T) {
 				},
 				Installations: map[runtime.Runtime]packages.Installation{
 					runtime.UVX: {
-						Command:     "uvx",
+						Runtime:     "uvx",
 						Package:     "mcp-server-simple",
 						Version:     "1.0.0",
 						Recommended: true,
@@ -618,7 +618,7 @@ func TestParseServerEntry(t *testing.T) {
 				tools[i] = packages.Tool{Name: tool}
 			}
 
-			pkg := packages.Package{
+			pkg := packages.Server{
 				ID:            tc.pkgID,
 				Name:          tc.pkgName,
 				Tools:         tools,

@@ -22,7 +22,7 @@ type PackageSearcher interface {
 	// Search finds packages based on a query string and optional filters.
 	// The name query should ideally be the name or package name (e.g., "time" or "mcp-server-time")
 	// Filters can include "runtime", "tools", "license", "version", etc. (case-insensitive values).
-	Search(name string, filters map[string]string, opt ...options.SearchOption) ([]packages.Package, error)
+	Search(name string, filters map[string]string, opt ...options.SearchOption) ([]packages.Server, error)
 }
 
 // PackageResolver defines the interface for retrieving a specific version of a package from a registry.
@@ -30,7 +30,7 @@ type PackageResolver interface {
 	// Resolve retrieves a specific version of a package by its unique ID.
 	// If version is not supplied as an option, it should use 'latest'.
 	// This may be ignored if version filtering is not supported.
-	Resolve(name string, opt ...options.ResolveOption) (packages.Package, error)
+	Resolve(name string, opt ...options.ResolveOption) (packages.Server, error)
 }
 
 // PackageProvider defines the common interface for any type that can provide
@@ -82,17 +82,17 @@ func (r *Registry) ID() string {
 // Resolve implements the PackageGetter interface for Registry.
 // It attempts to retrieve a package by name from each contained registry in order,
 // returning the first one that matches any optional supplied resolution criteria.
-func (r *Registry) Resolve(name string, opt ...options.ResolveOption) (packages.Package, error) {
+func (r *Registry) Resolve(name string, opt ...options.ResolveOption) (packages.Server, error) {
 	// Handle name.
 	name = filter.NormalizeString(name)
 	if name == "" {
-		return packages.Package{}, fmt.Errorf("name is required")
+		return packages.Server{}, fmt.Errorf("name is required")
 	}
 
 	// Handle options.
 	opts, err := options.NewResolveOptions(opt...)
 	if err != nil {
-		return packages.Package{}, err
+		return packages.Server{}, err
 	}
 
 	r.logger.Debug(
@@ -106,7 +106,7 @@ func (r *Registry) Resolve(name string, opt ...options.ResolveOption) (packages.
 	if opts.Source != "" {
 		reg, ok := r.registries[opts.Source]
 		if !ok {
-			return packages.Package{}, fmt.Errorf("required source registry not found: %s", opts.Source)
+			return packages.Server{}, fmt.Errorf("required source registry not found: %s", opts.Source)
 		}
 
 		result, err := reg.Resolve(name, opt...)
@@ -117,7 +117,7 @@ func (r *Registry) Resolve(name string, opt ...options.ResolveOption) (packages.
 				"package", name,
 				"error", err,
 			)
-			return packages.Package{}, fmt.Errorf(
+			return packages.Server{}, fmt.Errorf(
 				"error resolving package '%s' from registry '%s': %w",
 				name,
 				reg.ID(),
@@ -155,7 +155,7 @@ func (r *Registry) Resolve(name string, opt ...options.ResolveOption) (packages.
 		opts.Version,
 		opts.Runtime,
 	)
-	return packages.Package{}, err
+	return packages.Server{}, err
 }
 
 // Search implements the PackageSearcher interface for Registry.
@@ -165,18 +165,18 @@ func (r *Registry) Search(
 	name string,
 	filters map[string]string,
 	opt ...options.SearchOption,
-) ([]packages.Package, error) {
+) ([]packages.Server, error) {
 	// Handle name
 	name = filter.NormalizeString(name)
 	if name == "" {
-		return []packages.Package{}, fmt.Errorf("name is required")
+		return []packages.Server{}, fmt.Errorf("name is required")
 	}
 
 	// Handle filters.
 	fs, err := options.PrepareFilters(filters, name, nil)
 	if err != nil {
 		// Since the registry doesn't attempt to mutate the returned filters, we don't expect any errors.
-		return []packages.Package{}, fmt.Errorf("unexpected error preparing filters for %s: %w", r.ID(), err)
+		return []packages.Server{}, fmt.Errorf("unexpected error preparing filters for %s: %w", r.ID(), err)
 	}
 
 	// Handle options.
@@ -185,7 +185,7 @@ func (r *Registry) Search(
 		return nil, err
 	}
 
-	var allResults []packages.Package
+	var allResults []packages.Server
 
 	// If a specific source registry was requested, only check that one for packages.
 	if opts.Source != "" {

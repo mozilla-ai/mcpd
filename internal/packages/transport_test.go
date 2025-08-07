@@ -27,8 +27,8 @@ func TestDefaultTransports(t *testing.T) {
 }
 
 func TestToStrings(t *testing.T) {
-	transports := []Transport{TransportStdio, TransportSSE}
-	strings := ToStrings(transports)
+	transports := Transports{TransportStdio, TransportSSE}
+	strings := transports.ToStrings()
 	require.Equal(t, []string{"stdio", "sse"}, strings)
 }
 
@@ -45,7 +45,7 @@ func TestFromStrings(t *testing.T) {
 	t.Run("invalid transports default to stdio", func(t *testing.T) {
 		strings := []string{"invalid", "unknown"}
 		transports := FromStrings(strings)
-		require.Equal(t, []Transport{TransportStdio}, transports)
+		require.Equal(t, Transports{TransportStdio}, transports)
 	})
 
 	t.Run("mix of valid and invalid", func(t *testing.T) {
@@ -58,7 +58,7 @@ func TestFromStrings(t *testing.T) {
 
 	t.Run("empty input defaults to stdio", func(t *testing.T) {
 		transports := FromStrings([]string{})
-		require.Equal(t, []Transport{TransportStdio}, transports)
+		require.Equal(t, Transports{TransportStdio}, transports)
 	})
 }
 

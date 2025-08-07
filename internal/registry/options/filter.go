@@ -41,24 +41,24 @@ const (
 	FilterKeyIsOfficial = "isOfficial"
 )
 
-// Predicate for matching a packages.Package.
-type Predicate = filter.Predicate[packages.Package]
+// Predicate for matching a packages.Server.
+type Predicate = filter.Predicate[packages.Server]
 
-// Option for providing a packages.Package.
-type Option = filter.Option[packages.Package]
+// Option for providing a packages.Server.
+type Option = filter.Option[packages.Server]
 
-// BoolValueProvider is used to provide a specific boolean value from a packages.Package.
-type BoolValueProvider = filter.BoolValueProvider[packages.Package]
+// BoolValueProvider is used to provide a specific boolean value from a packages.Server.
+type BoolValueProvider = filter.BoolValueProvider[packages.Server]
 
-// StringValueProvider is used to provide a specific string value from a packages.Package.
-type StringValueProvider = filter.StringValueProvider[packages.Package]
+// StringValueProvider is used to provide a specific string value from a packages.Server.
+type StringValueProvider = filter.StringValueProvider[packages.Server]
 
-// StringValuesProvider is used to provide a specific string slice value from a packages.Package.
-type StringValuesProvider = filter.StringValuesProvider[packages.Package]
+// StringValuesProvider is used to provide a specific string slice value from a packages.Server.
+type StringValuesProvider = filter.StringValuesProvider[packages.Server]
 
-// Match filters a packages.Package using optional predicate matchers defined by the supplied filter keys.
-// Each filter key corresponds to a predicate that (if supplied) evaluates a specific field in the packages.Package.
-func Match(pkg packages.Package, filters map[string]string, opts ...Option) (bool, error) {
+// Match filters a packages.Server using optional predicate matchers defined by the supplied filter keys.
+// Each filter key corresponds to a predicate that (if supplied) evaluates a specific field in the packages.Server.
+func Match(pkg packages.Server, filters map[string]string, opts ...Option) (bool, error) {
 	return filter.Match(pkg, filters, opts...)
 }
 
@@ -93,12 +93,12 @@ func PrepareFilters(
 
 // WithLogFunc sets a log function which will be used to log info if unsupported keys are encountered.
 func WithLogFunc(fn func(key, val string)) Option {
-	return filter.WithLogFunc[packages.Package](fn)
+	return filter.WithLogFunc[packages.Server](fn)
 }
 
 // WithUnsupportedKeys marks specific keys as unsupported when used for filtering.
 func WithUnsupportedKeys(keys ...string) Option {
-	return filter.WithUnsupportedKeys[packages.Package](keys...)
+	return filter.WithUnsupportedKeys[packages.Server](keys...)
 }
 
 // WithNameMatcher returns a filter.Option with a matcher configured for the "name" filter key.
@@ -175,7 +175,7 @@ func WithDefaultMatchers() Option {
 // withWildcardMatcher returns a Predicate that checks if any of the provided
 // value providers contain the input string, or matches the WildcardCharacter.
 func withWildcardMatcher(providers ...StringValueProvider) Predicate {
-	return func(pkg packages.Package, val string) bool {
+	return func(pkg packages.Server, val string) bool {
 		q := filter.NormalizeString(val)
 		if q == WildcardCharacter {
 			return true
@@ -198,23 +198,23 @@ func DefaultMatchers() map[string]Predicate {
 	}
 }
 
-func DisplayNameProvider(pkg packages.Package) string {
+func DisplayNameProvider(pkg packages.Server) string {
 	return pkg.DisplayName
 }
 
-func IDProvider(pkg packages.Package) string {
+func IDProvider(pkg packages.Server) string {
 	return pkg.ID
 }
 
-func LicenseProvider(pkg packages.Package) string {
+func LicenseProvider(pkg packages.Server) string {
 	return pkg.License
 }
 
-func NameProvider(pkg packages.Package) string {
+func NameProvider(pkg packages.Server) string {
 	return pkg.Name
 }
 
-func RuntimesProvider(pkg packages.Package) []string {
+func RuntimesProvider(pkg packages.Server) []string {
 	rts := make([]string, 0, len(pkg.Installations))
 	for rt := range pkg.Installations {
 		rts = append(rts, string(rt))
@@ -222,23 +222,23 @@ func RuntimesProvider(pkg packages.Package) []string {
 	return rts
 }
 
-func SourceProvider(pkg packages.Package) string {
+func SourceProvider(pkg packages.Server) string {
 	return pkg.Source
 }
 
-func TagsProvider(pkg packages.Package) []string {
+func TagsProvider(pkg packages.Server) []string {
 	return pkg.Tags
 }
 
-func CategoriesProvider(pkg packages.Package) []string {
+func CategoriesProvider(pkg packages.Server) []string {
 	return pkg.Categories
 }
 
-func ToolsProvider(pkg packages.Package) []string {
+func ToolsProvider(pkg packages.Server) []string {
 	return pkg.Tools.Names()
 }
 
-func VersionsProvider(pkg packages.Package) []string {
+func VersionsProvider(pkg packages.Server) []string {
 	versions := make([]string, 0, len(pkg.Installations))
 	for _, inst := range pkg.Installations {
 		versions = append(versions, inst.Version)
@@ -246,6 +246,6 @@ func VersionsProvider(pkg packages.Package) []string {
 	return versions
 }
 
-func IsOfficialProvider(pkg packages.Package) bool {
+func IsOfficialProvider(pkg packages.Server) bool {
 	return pkg.IsOfficial
 }

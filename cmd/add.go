@@ -209,7 +209,7 @@ func selectRuntime(
 }
 
 func parseServerEntry(
-	pkg packages.Package,
+	pkg packages.Server,
 	requestedRuntime runtime.Runtime,
 	requestedTools []string,
 	supportedRuntimes []runtime.Runtime,

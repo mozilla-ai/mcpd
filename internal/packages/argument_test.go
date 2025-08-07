@@ -572,7 +572,7 @@ func TestArguments_Ordered_NameSetting(t *testing.T) {
 			Position:     &[]int{1}[0],
 		},
 		"--flag": {
-			Description:  "Command flag",
+			Description:  "Value flag",
 			Required:     false,
 			Example:      "flag_example",
 			VariableType: VariableTypeArg,

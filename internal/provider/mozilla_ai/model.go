@@ -55,11 +55,6 @@ type Server struct {
 	// Tools lists all tools provided by this server.
 	Tools Tools `json:"tools"`
 
-	// Transports lists the supported transport mechanisms for this server.
-	// Common transports include Stdio, SSE and Streamable HTTP.
-	// If not specified, defaults to ["stdio"].
-	Transports []string `json:"transports,omitempty"`
-
 	// Installations defines the available methods for installing and running the server.
 	Installations map[string]Installation `json:"installations"`
 
@@ -70,7 +65,7 @@ type Server struct {
 	IsOfficial bool `json:"isOfficial,omitempty"`
 
 	// Deprecated indicates whether this server is deprecated and should not be used for new installations.
-	Deprecated bool `json:"deprecated,omitempty"` // TODO: This is probably a 'per install' thing...
+	Deprecated bool `json:"deprecated,omitempty"`
 
 	// Meta is reserved by MCP to allow clients and servers to attach additional metadata.
 	Meta map[string]any `json:"_meta,omitempty"` //nolint:tagliatelle
@@ -95,6 +90,11 @@ type Installation struct {
 
 	// Deprecated indicates whether this installation method is deprecated.
 	Deprecated bool `json:"deprecated,omitempty"`
+
+	// Transports lists the supported transport mechanisms for this server.
+	// Common transports include Stdio, SSE and Streamable HTTP.
+	// If not specified, defaults to ["stdio"].
+	Transports []string `json:"transports,omitempty"`
 
 	// Repository optionally specifies a different source repository for this installation.
 	Repository *Repository `json:"repository,omitempty"`

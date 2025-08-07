@@ -4,20 +4,22 @@ import (
 	"cmp"
 	"fmt"
 	"io"
+	"maps"
 	"slices"
 	"strings"
 
 	"github.com/mozilla-ai/mcpd/v2/internal/cmd/output"
 	"github.com/mozilla-ai/mcpd/v2/internal/packages"
+	"github.com/mozilla-ai/mcpd/v2/internal/runtime"
 )
 
-var _ output.Printer[packages.Package] = (*PackagePrinter)(nil)
+var _ output.Printer[packages.Server] = (*ServerPrinter)(nil)
 
-func DefaultPackageHeader() output.WriteFunc[packages.Package] {
+func DefaultServerHeader() output.WriteFunc[packages.Server] {
 	return nil
 }
 
-func DefaultPackageFooter() output.WriteFunc[packages.Package] {
+func DefaultServerFooter() output.WriteFunc[packages.Server] {
 	return func(w io.Writer, _ int) {
 		_, _ = fmt.Fprintln(w, "")
 		_, _ = fmt.Fprintln(w, "────────────────────────────────────────────")
@@ -25,40 +27,40 @@ func DefaultPackageFooter() output.WriteFunc[packages.Package] {
 	}
 }
 
-type PackagePrinter struct {
-	headerFunc output.WriteFunc[packages.Package]
-	footerFunc output.WriteFunc[packages.Package]
+type ServerPrinter struct {
+	headerFunc output.WriteFunc[packages.Server]
+	footerFunc output.WriteFunc[packages.Server]
 }
 
-func NewPackagePrinter() *PackagePrinter {
-	return &PackagePrinter{
-		headerFunc: DefaultPackageHeader(),
-		footerFunc: DefaultPackageFooter(),
+func NewServerPrinter() *ServerPrinter {
+	return &ServerPrinter{
+		headerFunc: DefaultServerHeader(),
+		footerFunc: DefaultServerFooter(),
 	}
 }
 
-func (p *PackagePrinter) Header(w io.Writer, count int) {
+func (p *ServerPrinter) Header(w io.Writer, count int) {
 	if p.headerFunc != nil {
 		p.headerFunc(w, count)
 	}
 }
 
-func (p *PackagePrinter) SetHeader(fn output.WriteFunc[packages.Package]) {
+func (p *ServerPrinter) SetHeader(fn output.WriteFunc[packages.Server]) {
 	p.headerFunc = fn
 }
 
-func (p *PackagePrinter) Footer(w io.Writer, count int) {
+func (p *ServerPrinter) Footer(w io.Writer, count int) {
 	if p.footerFunc != nil {
 		p.footerFunc(w, count)
 	}
 }
 
-func (p *PackagePrinter) SetFooter(fn output.WriteFunc[packages.Package]) {
+func (p *ServerPrinter) SetFooter(fn output.WriteFunc[packages.Server]) {
 	p.footerFunc = fn
 }
 
-// Item outputs a single package entry.
-func (p *PackagePrinter) Item(w io.Writer, pkg packages.Package) error {
+// Item outputs a single server entry.
+func (p *ServerPrinter) Item(w io.Writer, pkg packages.Server) error {
 	parts := []string{
 		fmt.Sprintf("  🆔 %s", pkg.ID),
 	}
@@ -97,19 +99,15 @@ func (p *PackagePrinter) Item(w io.Writer, pkg packages.Package) error {
 	}
 
 	if len(pkg.Installations) > 0 {
-		runtimes := make([]string, 0, len(pkg.Installations))
-		for rt := range pkg.Installations {
-			runtimes = append(runtimes, string(rt))
-		}
-		_, _ = fmt.Fprintf(w, "  Runtimes: %s\n", strings.Join(runtimes, ", "))
+		p.printRuntimes(w, pkg)
 	} else {
-		_, _ = fmt.Fprintf(w, "  ⚠️ Warning: No supported runtimes found in package description\n")
+		_, _ = fmt.Fprintf(w, "  ⚠️ Warning: No supported runtimes found\n")
 	}
 
 	if len(pkg.Tools) > 0 {
 		p.printTools(w, pkg)
 	} else {
-		_, _ = fmt.Fprintf(w, "  ⚠️ Warning: No tools found in package description\n")
+		_, _ = fmt.Fprintf(w, "  ⚠️ Warning: No tools found\n")
 	}
 
 	if len(pkg.Arguments) > 0 {
@@ -125,14 +123,51 @@ func (p *PackagePrinter) Item(w io.Writer, pkg packages.Package) error {
 	return nil
 }
 
-func pad(s string, width int) string {
+func padRight(s string, width int) string {
 	if len(s) >= width {
 		return s
 	}
 	return s + strings.Repeat(" ", width-len(s))
 }
 
-func (p *PackagePrinter) printTools(w io.Writer, pkg packages.Package) {
+func (p *ServerPrinter) printRuntimes(w io.Writer, pkg packages.Server) {
+	if len(pkg.Installations) == 0 {
+		return
+	}
+
+	keys := slices.Collect(maps.Keys(pkg.Installations))
+	slices.SortFunc(keys, func(a, b runtime.Runtime) int {
+		return cmp.Compare(string(a), string(b))
+	})
+
+	// Use the same width as other sections (24 characters)
+	const alignWidth = 24
+
+	format := func(inst packages.Installation) string {
+		var b strings.Builder
+		b.WriteString(string(inst.Runtime))
+		if inst.Version != "" {
+			b.WriteString(fmt.Sprintf(" (version: %s)", inst.Version))
+		}
+
+		// Pad to align with other sections
+		currentStr := b.String()
+		paddedStr := padRight(currentStr, alignWidth)
+
+		if inst.Deprecated {
+			return paddedStr + "\t⚠️ (Deprecated)"
+		}
+		return paddedStr
+	}
+
+	_, _ = fmt.Fprintln(w, "  Runtimes:")
+	for _, rt := range keys {
+		inst := pkg.Installations[rt]
+		_, _ = fmt.Fprintf(w, "\t%s\n", format(inst))
+	}
+}
+
+func (p *ServerPrinter) printTools(w io.Writer, pkg packages.Server) {
 	slices.SortFunc(pkg.Tools, func(a, b packages.Tool) int {
 		return cmp.Compare(strings.ToLower(a.Name), strings.ToLower(b.Name))
 	})
@@ -143,7 +178,7 @@ func (p *PackagePrinter) printTools(w io.Writer, pkg packages.Package) {
 	}
 }
 
-func (p *PackagePrinter) printEnvVars(w io.Writer, pkg packages.Package) {
+func (p *ServerPrinter) printEnvVars(w io.Writer, pkg packages.Server) {
 	envs := pkg.Arguments.FilterBy(packages.EnvVar).Ordered()
 	if len(envs) == 0 {
 		return
@@ -151,11 +186,11 @@ func (p *PackagePrinter) printEnvVars(w io.Writer, pkg packages.Package) {
 
 	_, _ = fmt.Fprintln(w, "  🌍 Environment variables:")
 	for _, env := range envs {
-		_, _ = fmt.Fprintf(w, "\t%s\t%s\n", pad(env.Name, 24), env.Description)
+		_, _ = fmt.Fprintf(w, "\t%s\t%s\n", padRight(env.Name, 24), env.Description)
 	}
 }
 
-func (p *PackagePrinter) printRequiredEnvs(w io.Writer, pkg packages.Package) {
+func (p *ServerPrinter) printRequiredEnvs(w io.Writer, pkg packages.Server) {
 	envs := pkg.Arguments.FilterBy(packages.EnvVar, packages.Required).Names()
 	if len(envs) == 0 {
 		return
@@ -169,7 +204,7 @@ func (p *PackagePrinter) printRequiredEnvs(w io.Writer, pkg packages.Package) {
 	}
 }
 
-func (p *PackagePrinter) printPositionalArgs(w io.Writer, pkg packages.Package) {
+func (p *ServerPrinter) printPositionalArgs(w io.Writer, pkg packages.Server) {
 	args := pkg.Arguments.FilterBy(packages.PositionalArgument).Ordered()
 	if len(args) == 0 {
 		return
@@ -177,11 +212,11 @@ func (p *PackagePrinter) printPositionalArgs(w io.Writer, pkg packages.Package) 
 
 	_, _ = fmt.Fprintln(w, "  📍 Positional arguments:")
 	for _, arg := range args {
-		_, _ = fmt.Fprintf(w, "\t(%d) %s\t%s\n", *arg.Position, pad(arg.Name, 24), arg.Description)
+		_, _ = fmt.Fprintf(w, "\t(%d) %s\t%s\n", *arg.Position, padRight(arg.Name, 24), arg.Description)
 	}
 }
 
-func (p *PackagePrinter) printValueFlags(w io.Writer, pkg packages.Package) {
+func (p *ServerPrinter) printValueFlags(w io.Writer, pkg packages.Server) {
 	args := pkg.Arguments.FilterBy(packages.ValueArgument).Ordered()
 	if len(args) == 0 {
 		return
@@ -189,11 +224,11 @@ func (p *PackagePrinter) printValueFlags(w io.Writer, pkg packages.Package) {
 
 	_, _ = fmt.Fprintln(w, "  🚩 Value flags:")
 	for _, arg := range args {
-		_, _ = fmt.Fprintf(w, "\t%s\t%s\n", pad(arg.Name, 24), arg.Description)
+		_, _ = fmt.Fprintf(w, "\t%s\t%s\n", padRight(arg.Name, 24), arg.Description)
 	}
 }
 
-func (p *PackagePrinter) printBoolFlags(w io.Writer, pkg packages.Package) {
+func (p *ServerPrinter) printBoolFlags(w io.Writer, pkg packages.Server) {
 	args := pkg.Arguments.FilterBy(packages.BoolArgument).Ordered()
 	if len(args) == 0 {
 		return
@@ -201,11 +236,11 @@ func (p *PackagePrinter) printBoolFlags(w io.Writer, pkg packages.Package) {
 
 	_, _ = fmt.Fprintln(w, "  ✅ Boolean flags:")
 	for _, arg := range args {
-		_, _ = fmt.Fprintf(w, "\t%s\t%s\n", pad(arg.Name, 24), arg.Description)
+		_, _ = fmt.Fprintf(w, "\t%s\t%s\n", padRight(arg.Name, 24), arg.Description)
 	}
 }
 
-func (p *PackagePrinter) printRequiredArgs(w io.Writer, pkg packages.Package) {
+func (p *ServerPrinter) printRequiredArgs(w io.Writer, pkg packages.Server) {
 	args := pkg.Arguments.FilterBy(packages.Argument, packages.Required).Ordered()
 	if len(args) == 0 {
 		return
