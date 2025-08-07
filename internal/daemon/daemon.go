@@ -77,7 +77,11 @@ func NewDaemon(apiAddr string, opts *Opts) (*Daemon, error) {
 		serverNames = append(serverNames, srv.Name())
 		// Validate the config since the daemon will be required to start MCP servers using it.
 		if err := srv.Validate(); err != nil {
-			validateErrs = errors.Join(validateErrs, err)
+			validateErrs = errors.Join(
+				validateErrs,
+				fmt.Errorf("invalid server configuration '%s':", srv.Name()),
+				err,
+			)
 		}
 	}
 	if validateErrs != nil {
@@ -110,6 +114,7 @@ func (d *Daemon) StartAndManage(ctx context.Context) error {
 		d.logger.Info("Shutting down MCP servers and client connections")
 		for _, n := range d.clientManager.List() {
 			if c, ok := d.clientManager.Client(n); ok {
+				d.logger.Info(fmt.Sprintf("Closing client %s", n))
 				_ = c.Close()
 			}
 		}
