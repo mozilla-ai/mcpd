@@ -17,8 +17,9 @@ import (
 	"github.com/mozilla-ai/mcpd/v2/internal/runtime"
 )
 
-// intPtr returns a pointer to an int
-func intPtr(i int) *int {
+// testIntPtr returns a pointer to an int
+func testIntPtr(t *testing.T, i int) *int {
+	t.Helper()
 	return &i
 }
 
@@ -447,7 +448,7 @@ func TestRegistry_ExtractArgumentMetadata_EdgeCases(t *testing.T) {
 					Required:     true,
 					Description:  "API key",
 					Example:      "key123",
-					Position:     intPtr(1),
+					Position:     testIntPtr(t, 1),
 				},
 			},
 		},
@@ -577,7 +578,7 @@ func TestRegistry_ExtractArgumentMetadata_WithTestdata(t *testing.T) {
 					Required:     true,
 					Description:  "The base directory that the server will have access to",
 					Example:      "/Users/username/Documents",
-					Position:     intPtr(1),
+					Position:     testIntPtr(t, 1),
 				},
 				"USER_FILESYSTEM_ALLOWED_DIR": {
 					Name:         "USER_FILESYSTEM_ALLOWED_DIR",
@@ -585,7 +586,7 @@ func TestRegistry_ExtractArgumentMetadata_WithTestdata(t *testing.T) {
 					Required:     false,
 					Description:  "Additional allowed directory for file access",
 					Example:      "/Users/username/Projects",
-					Position:     intPtr(2),
+					Position:     testIntPtr(t, 2),
 				},
 			},
 		},
@@ -631,7 +632,7 @@ func TestRegistry_ExtractArgumentMetadata_WithTestdata(t *testing.T) {
 					Required:     true,
 					Description:  "Directory for data storage",
 					Example:      "/path/to/data",
-					Position:     intPtr(1),
+					Position:     testIntPtr(t, 1),
 				},
 			},
 		},
@@ -752,7 +753,7 @@ func TestRegistry_ExtractArgumentMetadata_SyntheticCases(t *testing.T) {
 					Required:     true,
 					Description:  "Base directory",
 					Example:      "/path/to/files",
-					Position:     intPtr(1),
+					Position:     testIntPtr(t, 1),
 				},
 			},
 		},
@@ -1080,7 +1081,7 @@ func TestRegistry_ExtractArgumentMetadata_ComprehensiveScenarios(t *testing.T) {
 			Required:     true,
 			Description:  "Base directory for files",
 			Example:      "/path/to/files",
-			Position:     intPtr(1),
+			Position:     testIntPtr(t, 1),
 		},
 		"OPTIONAL_DIR": {
 			Name:         "OPTIONAL_DIR",
@@ -1088,7 +1089,7 @@ func TestRegistry_ExtractArgumentMetadata_ComprehensiveScenarios(t *testing.T) {
 			Required:     false,
 			Description:  "Optional directory",
 			Example:      "/path/to/optional",
-			Position:     intPtr(2),
+			Position:     testIntPtr(t, 2),
 		},
 	}
 
