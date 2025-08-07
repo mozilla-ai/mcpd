@@ -10,7 +10,7 @@ import (
 	"github.com/mozilla-ai/mcpd/v2/internal/cmd/output"
 	"github.com/mozilla-ai/mcpd/v2/internal/flags"
 	"github.com/mozilla-ai/mcpd/v2/internal/provider/mcpm"
-	mozilla_ai "github.com/mozilla-ai/mcpd/v2/internal/provider/mozilla_ai"
+	"github.com/mozilla-ai/mcpd/v2/internal/provider/mozilla_ai"
 	"github.com/mozilla-ai/mcpd/v2/internal/registry"
 	"github.com/mozilla-ai/mcpd/v2/internal/runtime"
 )

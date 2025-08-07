@@ -79,8 +79,7 @@ func NewDaemon(apiAddr string, opts *Opts) (*Daemon, error) {
 		if err := srv.Validate(); err != nil {
 			validateErrs = errors.Join(
 				validateErrs,
-				fmt.Errorf("invalid server configuration '%s':", srv.Name()),
-				err,
+				fmt.Errorf("invalid server configuration '%s': %w", srv.Name(), err),
 			)
 		}
 	}
