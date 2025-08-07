@@ -36,13 +36,13 @@ func NewSearchCmd(baseCmd *internalcmd.BaseCmd, opt ...cmdopts.CmdOption) (*cobr
 		return nil, err
 	}
 
-	pkgPrinter := printer.NewPackagePrinter()
+	pkgPrinter := printer.NewServerPrinter()
 
 	c := &SearchCmd{
 		BaseCmd:         baseCmd,
 		Format:          internalcmd.FormatText, // Default to plain text
 		registryBuilder: opts.RegistryBuilder,
-		packagePrinter:  printer.NewPackageResultsPrinter(pkgPrinter),
+		packagePrinter:  printer.NewServerResultsPrinter(pkgPrinter),
 	}
 
 	cobraCommand := &cobra.Command{

@@ -8,49 +8,49 @@ import (
 	"github.com/mozilla-ai/mcpd/v2/internal/packages"
 )
 
-type PackageResultsPrinter struct {
-	headerFunc     output.WriteFunc[packages.Server]
-	footerFunc     output.WriteFunc[packages.Server]
-	PackagePrinter output.Printer[packages.Server]
+type ServerResultsPrinter struct {
+	headerFunc output.WriteFunc[packages.Server]
+	footerFunc output.WriteFunc[packages.Server]
+	Printer    output.Printer[packages.Server]
 }
 
-func NewPackageResultsPrinter(prn output.Printer[packages.Server]) *PackageResultsPrinter {
-	return &PackageResultsPrinter{
-		headerFunc:     DefaultResultsHeader(),
-		footerFunc:     DefaultResultsFooter(),
-		PackagePrinter: prn,
+func NewServerResultsPrinter(prn output.Printer[packages.Server]) *ServerResultsPrinter {
+	return &ServerResultsPrinter{
+		headerFunc: DefaultResultsHeader(),
+		footerFunc: DefaultResultsFooter(),
+		Printer:    prn,
 	}
 }
 
-func (p *PackageResultsPrinter) Header(w io.Writer, count int) {
+func (p *ServerResultsPrinter) Header(w io.Writer, count int) {
 	if p.headerFunc != nil {
 		p.headerFunc(w, count)
 	}
 }
 
-func (p *PackageResultsPrinter) SetHeader(fn output.WriteFunc[packages.Server]) {
+func (p *ServerResultsPrinter) SetHeader(fn output.WriteFunc[packages.Server]) {
 	p.headerFunc = fn
 }
 
-func (p *PackageResultsPrinter) Item(w io.Writer, pkg packages.Server) error {
-	p.PackagePrinter.Header(w, 0)
+func (p *ServerResultsPrinter) Item(w io.Writer, pkg packages.Server) error {
+	p.Printer.Header(w, 0)
 
-	if err := p.PackagePrinter.Item(w, pkg); err != nil {
+	if err := p.Printer.Item(w, pkg); err != nil {
 		return err
 	}
 
-	p.PackagePrinter.Footer(w, 0)
+	p.Printer.Footer(w, 0)
 
 	return nil
 }
 
-func (p *PackageResultsPrinter) Footer(w io.Writer, count int) {
+func (p *ServerResultsPrinter) Footer(w io.Writer, count int) {
 	if p.footerFunc != nil {
 		p.footerFunc(w, count)
 	}
 }
 
-func (p *PackageResultsPrinter) SetFooter(fn output.WriteFunc[packages.Server]) {
+func (p *ServerResultsPrinter) SetFooter(fn output.WriteFunc[packages.Server]) {
 	p.footerFunc = fn
 }
 
@@ -66,7 +66,7 @@ func DefaultResultsHeader() output.WriteFunc[packages.Server] {
 
 func DefaultResultsFooter() output.WriteFunc[packages.Server] {
 	return func(w io.Writer, count int) {
-		_, _ = fmt.Fprintf(w, "📦 Found %d package%s\n", count, map[bool]string{true: "s"}[count > 1])
+		_, _ = fmt.Fprintf(w, "📦 Found %d servers%s\n", count, map[bool]string{true: "s"}[count > 1])
 		_, _ = fmt.Fprintln(w, "")
 	}
 }

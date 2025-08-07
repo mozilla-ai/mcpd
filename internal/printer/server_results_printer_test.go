@@ -43,7 +43,7 @@ func TestPackageListPrinter_Header(t *testing.T) {
 	t.Parallel()
 
 	buf := &bytes.Buffer{}
-	printer := NewPackageResultsPrinter(&testPrinterInner{})
+	printer := NewServerResultsPrinter(&testPrinterInner{})
 	printer.Header(buf, 5)
 
 	out := buf.String()
@@ -56,7 +56,7 @@ func TestPackageListPrinter_Item(t *testing.T) {
 	t.Parallel()
 
 	inner := &testPrinterInner{}
-	printer := NewPackageResultsPrinter(inner)
+	printer := NewServerResultsPrinter(inner)
 
 	pkg := newPkg("testpkg")
 	err := printer.Item(nil, pkg)
@@ -65,7 +65,7 @@ func TestPackageListPrinter_Item(t *testing.T) {
 
 	// error case
 	inner = &testPrinterInner{errOnPackage: "badpkg"}
-	printer = NewPackageResultsPrinter(inner)
+	printer = NewServerResultsPrinter(inner)
 	bad := newPkg("badpkg")
 	err = printer.Item(nil, bad)
 	require.EqualError(t, err, "print error")
@@ -75,7 +75,7 @@ func TestPackageListPrinter_Footer(t *testing.T) {
 	t.Parallel()
 
 	buf := &bytes.Buffer{}
-	printer := NewPackageResultsPrinter(&testPrinterInner{})
+	printer := NewServerResultsPrinter(&testPrinterInner{})
 
 	// singular
 	printer.Footer(buf, 1)
