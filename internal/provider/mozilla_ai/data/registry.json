@@ -1,1776 +1,921 @@
 {
-  "filesystem": {
-    "id": "filesystem",
-    "name": "filesystem",
-    "displayName": "Filesystem",
-    "description": "Secure file operations with configurable access controls",
-    "license": "MIT",
-    "categories": ["System Tools"],
-    "tags": ["Node.js", "server", "filesystem", "operations"],
-    "homepage": "https://github.com/modelcontextprotocol/servers/blob/main/src/filesystem",
-    "publisher": {
-      "name": "modelcontextprotocol"
-    },
-    "tools": [
-      {
-        "name": "read_file",
-        "description": "Read the complete contents of a file from the file system. Handles various text encodings and provides detailed error messages if the file cannot be read. Use this tool when you need to examine the contents of a single file. Only works within allowed directories.",
-        "inputSchema": {
-          "type": "object",
-          "properties": {
-            "path": {
-              "type": "string"
-            }
-          },
-          "required": ["path"]
-        }
-      },
-      {
-        "name": "read_multiple_files",
-        "description": "Read the contents of multiple files simultaneously. This is more efficient than reading files one by one when you need to analyze or compare multiple files. Each file's content is returned with its path as a reference. Failed reads for individual files won't stop the entire operation. Only works within allowed directories.",
-        "inputSchema": {
-          "type": "object",
-          "properties": {
-            "paths": {
-              "type": "array",
-              "items": {
-                "type": "string"
-              }
-            }
-          },
-          "required": ["paths"]
-        }
-      },
-      {
-        "name": "write_file",
-        "description": "Create a new file or completely overwrite an existing file with new content. Use with caution as it will overwrite existing files without warning. Handles text content with proper encoding. Only works within allowed directories.",
-        "inputSchema": {
-          "type": "object",
-          "properties": {
-            "path": {
-              "type": "string"
-            },
-            "content": {
-              "type": "string"
-            }
-          },
-          "required": ["path", "content"]
-        }
-      },
-      {
-        "name": "edit_file",
-        "description": "Make line-based edits to a text file. Each edit replaces exact line sequences with new content. Returns a git-style diff showing the changes made. Only works within allowed directories.",
-        "inputSchema": {
-          "type": "object",
-          "properties": {
-            "path": {
-              "type": "string"
-            },
-            "edits": {
-              "type": "array",
-              "items": {
-                "type": "object",
-                "properties": {
-                  "oldText": {
-                    "type": "string",
-                    "description": "Text to search for - must match exactly"
-                  },
-                  "newText": {
-                    "type": "string",
-                    "description": "Text to replace with"
-                  }
-                },
-                "required": ["oldText", "newText"],
-                "additionalProperties": false
-              }
-            },
-            "dryRun": {
-              "type": "boolean",
-              "default": false,
-              "description": "Preview changes using git-style diff format"
-            }
-          },
-          "required": ["path", "edits"]
-        }
-      },
-      {
-        "name": "create_directory",
-        "description": "Create a new directory or ensure a directory exists. Can create multiple nested directories in one operation. If the directory already exists, this operation will succeed silently. Perfect for setting up directory structures for projects or ensuring required paths exist. Only works within allowed directories.",
-        "inputSchema": {
-          "type": "object",
-          "properties": {
-            "path": {
-              "type": "string"
-            }
-          },
-          "required": ["path"]
-        }
-      },
-      {
-        "name": "list_directory",
-        "description": "Get a detailed listing of all files and directories in a specified path. Results clearly distinguish between files and directories with [FILE] and [DIR] prefixes. This tool is essential for understanding directory structure and finding specific files within a directory. Only works within allowed directories.",
-        "inputSchema": {
-          "type": "object",
-          "properties": {
-            "path": {
-              "type": "string"
-            }
-          },
-          "required": ["path"]
-        }
-      },
-      {
-        "name": "directory_tree",
-        "description": "Get a recursive tree view of files and directories as a JSON structure. Each entry includes 'name', 'type' (file/directory), and 'children' for directories. Files have no children array, while directories always have a children array (which may be empty). The output is formatted with 2-space indentation for readability. Only works within allowed directories.",
-        "inputSchema": {
-          "type": "object",
-          "properties": {
-            "path": {
-              "type": "string"
-            }
-          },
-          "required": ["path"]
-        }
-      },
-      {
-        "name": "move_file",
-        "description": "Move or rename files and directories. Can move files between directories and rename them in a single operation. If the destination exists, the operation will fail. Works across different directories and can be used for simple renaming within the same directory. Both source and destination must be within allowed directories.",
-        "inputSchema": {
-          "type": "object",
-          "properties": {
-            "source": {
-              "type": "string"
-            },
-            "destination": {
-              "type": "string"
-            }
-          },
-          "required": ["source", "destination"]
-        }
-      },
-      {
-        "name": "search_files",
-        "description": "Recursively search for files and directories matching a pattern. Searches through all subdirectories from the starting path. The search is case-insensitive and matches partial names. Returns full paths to all matching items. Great for finding files when you don't know their exact location. Only searches within allowed directories.",
-        "inputSchema": {
-          "type": "object",
-          "properties": {
-            "path": {
-              "type": "string"
-            },
-            "pattern": {
-              "type": "string"
-            },
-            "excludePatterns": {
-              "type": "array",
-              "items": {
-                "type": "string"
-              },
-              "default": []
-            }
-          },
-          "required": ["path", "pattern"]
-        }
-      },
-      {
-        "name": "get_file_info",
-        "description": "Retrieve detailed metadata about a file or directory. Returns comprehensive information including size, creation time, last modified time, permissions, and type. This tool is perfect for understanding file characteristics without reading the actual content. Only works within allowed directories.",
-        "inputSchema": {
-          "type": "object",
-          "properties": {
-            "path": {
-              "type": "string"
-            }
-          },
-          "required": ["path"]
-        }
-      },
-      {
-        "name": "list_allowed_directories",
-        "description": "Returns the list of directories that this server is allowed to access. Use this to understand which directories are available before trying to access files.",
-        "inputSchema": {
-          "type": "object",
-          "properties": {},
-          "required": []
-        }
-      }
-    ],
-    "installations": {
-      "npm": {
-        "type": "npx",
-        "command": "npx",
-        "args": [
-          "${USER_FILESYSTEM_DIRECTORY}",
-          "${USER_FILESYSTEM_ALLOWED_DIR}"
-        ],
-        "package": "@modelcontextprotocol/server-filesystem",
-        "version": "2025.7.29",
-        "recommended": true
-      }
-    },
+  "airtable": {
     "arguments": {
-      "USER_FILESYSTEM_DIRECTORY": {
-        "description": "The allowed directory where the server can operate. This should be a path that the server has permission to read and write files in.",
-        "required": true,
-        "type": "environment"
-      },
-      "USER_FILESYSTEM_ALLOWED_DIR": {
-        "description": "The allowed directory where the server can operate. This should be a path that the server has permission to read and write files in.",
+      "AIRTABLE_API_KEY": {
+        "description": "Airtable API key for database access",
+        "example": "keyXXXXXXXXXXXXXX",
+        "name": "AIRTABLE_API_KEY",
         "required": true,
         "type": "environment"
       }
     },
-    "isOfficial": true
-  },
-  "duckduckgo-mcp": {
-    "id": "duckduckgo-mcp",
-    "name": "duckduckgo-mcp",
-    "displayName": "DuckDuckGo Search MCP Server",
-    "description": "A Model Context Protocol (MCP) server that provides web search capabilities through DuckDuckGo, with additional features for content fetching and parsing.",
-    "license": "MIT License",
-    "categories": ["Web Services"],
-    "tags": [
-      "web search",
-      "duckduckgo",
-      "content fetching",
-      "rate limiting",
-      "mcp",
-      "text extraction"
+    "categories": [
+      "Databases"
     ],
-    "homepage": "https://github.com/nickclyde/duckduckgo-mcp-server",
-    "publisher": {
-      "name": "nickclyde"
-    },
-    "tools": [
-      {
-        "name": "search",
-        "description": "\n    Search DuckDuckGo and return formatted results.\n\n    Args:\n        query: The search query string\n        max_results: Maximum number of results to return (default: 10)\n        ctx: MCP context for logging\n    ",
-        "inputSchema": {
-          "properties": {
-            "query": {
-              "title": "Query",
-              "type": "string"
-            },
-            "max_results": {
-              "default": 10,
-              "title": "Max Results",
-              "type": "integer"
-            }
-          },
-          "required": ["query"],
-          "title": "searchArguments",
-          "type": "object"
-        }
-      },
-      {
-        "name": "fetch_content",
-        "description": "\n    Fetch and parse content from a webpage URL.\n\n    Args:\n        url: The webpage URL to fetch content from\n        ctx: MCP context for logging\n    ",
-        "inputSchema": {
-          "properties": {
-            "url": {
-              "title": "Url",
-              "type": "string"
-            }
-          },
-          "required": ["url"],
-          "title": "fetch_contentArguments",
-          "type": "object"
-        }
-      }
-    ],
-    "installations": {
-      "uvx": {
-        "type": "uvx",
-        "command": "uvx",
-        "package": "duckduckgo-mcp-server",
-        "version": "0.1.1",
-        "recommended": false
-      }
-    },
-    "arguments": {},
-    "isOfficial": false
-  },
-  "mcp-obsidian": {
-    "id": "mcp-obsidian",
-    "name": "mcp-obsidian",
-    "displayName": "MCP server for Obsidian",
-    "description": "MCP server to interact with Obsidian via the Local REST API community plugin.",
-    "license": "MIT",
-    "categories": ["Knowledge Base"],
-    "tags": [
-      "obsidian",
-      "note-taking",
-      "knowledge-management",
-      "rest-api",
-      "mcp"
-    ],
-    "homepage": "https://github.com/MarkusPfundstein/mcp-obsidian",
-    "publisher": {
-      "name": "MarkusPfundstein"
-    },
-    "tools": [
-      {
-        "name": "obsidian_list_files_in_dir",
-        "description": "Lists all files and directories that exist in a specific Obsidian directory.",
-        "inputSchema": {
-          "type": "object",
-          "properties": {
-            "dirpath": {
-              "type": "string",
-              "description": "Path to list files from (relative to your vault root). Note that empty directories will not be returned."
-            }
-          },
-          "required": ["dirpath"]
-        }
-      },
-      {
-        "name": "obsidian_list_files_in_vault",
-        "description": "Lists all files and directories in the root directory of your Obsidian vault.",
-        "inputSchema": {
-          "type": "object",
-          "properties": {},
-          "required": []
-        }
-      },
-      {
-        "name": "obsidian_get_file_contents",
-        "description": "Return the content of a single file in your vault.",
-        "inputSchema": {
-          "type": "object",
-          "properties": {
-            "filepath": {
-              "type": "string",
-              "description": "Path to the relevant file (relative to your vault root).",
-              "format": "path"
-            }
-          },
-          "required": ["filepath"]
-        }
-      },
-      {
-        "name": "obsidian_simple_search",
-        "description": "Simple search for documents matching a specified text query across all files in the vault. \n            Use this tool when you want to do a simple text search",
-        "inputSchema": {
-          "type": "object",
-          "properties": {
-            "query": {
-              "type": "string",
-              "description": "Text to a simple search for in the vault."
-            },
-            "context_length": {
-              "type": "integer",
-              "description": "How much context to return around the matching string (default: 100)",
-              "default": 100
-            }
-          },
-          "required": ["query"]
-        }
-      },
-      {
-        "name": "obsidian_patch_content",
-        "description": "Insert content into an existing note relative to a heading, block reference, or frontmatter field.",
-        "inputSchema": {
-          "type": "object",
-          "properties": {
-            "filepath": {
-              "type": "string",
-              "description": "Path to the file (relative to vault root)",
-              "format": "path"
-            },
-            "operation": {
-              "type": "string",
-              "description": "Operation to perform (append, prepend, or replace)",
-              "enum": ["append", "prepend", "replace"]
-            },
-            "target_type": {
-              "type": "string",
-              "description": "Type of target to patch",
-              "enum": ["heading", "block", "frontmatter"]
-            },
-            "target": {
-              "type": "string",
-              "description": "Target identifier (heading path, block reference, or frontmatter field)"
-            },
-            "content": {
-              "type": "string",
-              "description": "Content to insert"
-            }
-          },
-          "required": [
-            "filepath",
-            "operation",
-            "target_type",
-            "target",
-            "content"
-          ]
-        }
-      },
-      {
-        "name": "obsidian_append_content",
-        "description": "Append content to a new or existing file in the vault.",
-        "inputSchema": {
-          "type": "object",
-          "properties": {
-            "filepath": {
-              "type": "string",
-              "description": "Path to the file (relative to vault root)",
-              "format": "path"
-            },
-            "content": {
-              "type": "string",
-              "description": "Content to append to the file"
-            }
-          },
-          "required": ["filepath", "content"]
-        }
-      },
-      {
-        "name": "obsidian_delete_file",
-        "description": "Delete a file or directory from the vault.",
-        "inputSchema": {
-          "type": "object",
-          "properties": {
-            "filepath": {
-              "type": "string",
-              "description": "Path to the file or directory to delete (relative to vault root)",
-              "format": "path"
-            },
-            "confirm": {
-              "type": "boolean",
-              "description": "Confirmation to delete the file (must be true)",
-              "default": false
-            }
-          },
-          "required": ["filepath", "confirm"]
-        }
-      },
-      {
-        "name": "obsidian_complex_search",
-        "description": "Complex search for documents using a JsonLogic query. \n           Supports standard JsonLogic operators plus 'glob' and 'regexp' for pattern matching. Results must be non-falsy.\n\n           Use this tool when you want to do a complex search, e.g. for all documents with certain tags etc.\n           ",
-        "inputSchema": {
-          "type": "object",
-          "properties": {
-            "query": {
-              "type": "object",
-              "description": "JsonLogic query object. Example: {\"glob\": [\"*.md\", {\"var\": \"path\"}]} matches all markdown files"
-            }
-          },
-          "required": ["query"]
-        }
-      },
-      {
-        "name": "obsidian_batch_get_file_contents",
-        "description": "Return the contents of multiple files in your vault, concatenated with headers.",
-        "inputSchema": {
-          "type": "object",
-          "properties": {
-            "filepaths": {
-              "type": "array",
-              "items": {
-                "type": "string",
-                "description": "Path to a file (relative to your vault root)",
-                "format": "path"
-              },
-              "description": "List of file paths to read"
-            }
-          },
-          "required": ["filepaths"]
-        }
-      },
-      {
-        "name": "obsidian_get_periodic_note",
-        "description": "Get current periodic note for the specified period.",
-        "inputSchema": {
-          "type": "object",
-          "properties": {
-            "period": {
-              "type": "string",
-              "description": "The period type (daily, weekly, monthly, quarterly, yearly)",
-              "enum": ["daily", "weekly", "monthly", "quarterly", "yearly"]
-            }
-          },
-          "required": ["period"]
-        }
-      },
-      {
-        "name": "obsidian_get_recent_periodic_notes",
-        "description": "Get most recent periodic notes for the specified period type.",
-        "inputSchema": {
-          "type": "object",
-          "properties": {
-            "period": {
-              "type": "string",
-              "description": "The period type (daily, weekly, monthly, quarterly, yearly)",
-              "enum": ["daily", "weekly", "monthly", "quarterly", "yearly"]
-            },
-            "limit": {
-              "type": "integer",
-              "description": "Maximum number of notes to return (default: 5)",
-              "default": 5,
-              "minimum": 1,
-              "maximum": 50
-            },
-            "include_content": {
-              "type": "boolean",
-              "description": "Whether to include note content (default: false)",
-              "default": false
-            }
-          },
-          "required": ["period"]
-        }
-      },
-      {
-        "name": "obsidian_get_recent_changes",
-        "description": "Get recently modified files in the vault.",
-        "inputSchema": {
-          "type": "object",
-          "properties": {
-            "limit": {
-              "type": "integer",
-              "description": "Maximum number of files to return (default: 10)",
-              "default": 10,
-              "minimum": 1,
-              "maximum": 100
-            },
-            "days": {
-              "type": "integer",
-              "description": "Only include files modified within this many days (default: 90)",
-              "minimum": 1,
-              "default": 90
-            }
-          }
-        }
-      }
-    ],
-    "installations": {
-      "uvx": {
-        "type": "uvx",
-        "command": "uvx",
-        "args": [],
-        "package": "mcp-obsidian",
-        "version": "0.2.2",
-        "recommended": false
-      }
-    },
-    "arguments": {
-      "OBSIDIAN_API_KEY": {
-        "description": "Obsidian API key",
-        "required": true,
-        "type": "environment"
-      }
-    },
-    "isOfficial": false
-  },
-  "mcp-discord": {
-    "id": "mcp-discord",
-    "name": "mcp-discord",
-    "displayName": "MCP-Discord",
-    "description": "A Discord MCP (Model Context Protocol) server that enables AI assistants to interact with the Discord platform.",
-    "license": "MIT License",
-    "categories": ["Messaging"],
-    "tags": [
-      "discord",
-      "mcp",
-      "model context protocol",
-      "bot",
-      "messaging",
-      "webhook",
-      "channel management",
-      "forum"
-    ],
-    "homepage": "https://github.com/barryyip0625/mcp-discord",
-    "publisher": {
-      "name": "barryyip0625"
-    },
-    "tools": [
-      {
-        "name": "discord_send",
-        "description": "Sends a message to a specified Discord text channel",
-        "inputSchema": {
-          "type": "object",
-          "properties": {
-            "channelId": {
-              "type": "string"
-            },
-            "message": {
-              "type": "string"
-            }
-          },
-          "required": ["channelId", "message"]
-        },
-        "annotations": {}
-      },
-      {
-        "name": "discord_get_forum_channels",
-        "description": "Lists all forum channels in a specified Discord server (guild)",
-        "inputSchema": {
-          "type": "object",
-          "properties": {
-            "guildId": {
-              "type": "string"
-            }
-          },
-          "required": ["guildId"]
-        },
-        "annotations": {}
-      },
-      {
-        "name": "discord_create_forum_post",
-        "description": "Creates a new post in a Discord forum channel with optional tags",
-        "inputSchema": {
-          "type": "object",
-          "properties": {
-            "content": {
-              "type": "string"
-            },
-            "forumChannelId": {
-              "type": "string"
-            },
-            "tags": {
-              "items": {
-                "type": "string"
-              },
-              "type": "array"
-            },
-            "title": {
-              "type": "string"
-            }
-          },
-          "required": ["forumChannelId", "title", "content"]
-        },
-        "annotations": {}
-      },
-      {
-        "name": "discord_get_forum_post",
-        "description": "Retrieves details about a forum post including its messages",
-        "inputSchema": {
-          "type": "object",
-          "properties": {
-            "threadId": {
-              "type": "string"
-            }
-          },
-          "required": ["threadId"]
-        },
-        "annotations": {}
-      },
-      {
-        "name": "discord_reply_to_forum",
-        "description": "Adds a reply to an existing forum post or thread",
-        "inputSchema": {
-          "type": "object",
-          "properties": {
-            "message": {
-              "type": "string"
-            },
-            "threadId": {
-              "type": "string"
-            }
-          },
-          "required": ["threadId", "message"]
-        },
-        "annotations": {}
-      },
-      {
-        "name": "discord_create_text_channel",
-        "description": "Creates a new text channel in a Discord server with an optional topic",
-        "inputSchema": {
-          "type": "object",
-          "properties": {
-            "channelName": {
-              "type": "string"
-            },
-            "guildId": {
-              "type": "string"
-            },
-            "topic": {
-              "type": "string"
-            }
-          },
-          "required": ["guildId", "channelName"]
-        },
-        "annotations": {}
-      },
-      {
-        "name": "discord_delete_channel",
-        "description": "Deletes a Discord channel with an optional reason",
-        "inputSchema": {
-          "type": "object",
-          "properties": {
-            "channelId": {
-              "type": "string"
-            },
-            "reason": {
-              "type": "string"
-            }
-          },
-          "required": ["channelId"]
-        },
-        "annotations": {}
-      },
-      {
-        "name": "discord_read_messages",
-        "description": "Retrieves messages from a Discord text channel with a configurable limit",
-        "inputSchema": {
-          "type": "object",
-          "properties": {
-            "channelId": {
-              "type": "string"
-            },
-            "limit": {
-              "default": 50,
-              "maximum": 100,
-              "minimum": 1,
-              "type": "number"
-            }
-          },
-          "required": ["channelId"]
-        },
-        "annotations": {}
-      },
-      {
-        "name": "discord_get_server_info",
-        "description": "Retrieves detailed information about a Discord server including channels and member count",
-        "inputSchema": {
-          "type": "object",
-          "properties": {
-            "guildId": {
-              "type": "string"
-            }
-          },
-          "required": ["guildId"]
-        },
-        "annotations": {}
-      },
-      {
-        "name": "discord_add_reaction",
-        "description": "Adds an emoji reaction to a specific Discord message",
-        "inputSchema": {
-          "type": "object",
-          "properties": {
-            "channelId": {
-              "type": "string"
-            },
-            "emoji": {
-              "type": "string"
-            },
-            "messageId": {
-              "type": "string"
-            }
-          },
-          "required": ["channelId", "messageId", "emoji"]
-        },
-        "annotations": {}
-      },
-      {
-        "name": "discord_add_multiple_reactions",
-        "description": "Adds multiple emoji reactions to a Discord message at once",
-        "inputSchema": {
-          "type": "object",
-          "properties": {
-            "channelId": {
-              "type": "string"
-            },
-            "emojis": {
-              "items": {
-                "type": "string"
-              },
-              "type": "array"
-            },
-            "messageId": {
-              "type": "string"
-            }
-          },
-          "required": ["channelId", "messageId", "emojis"]
-        },
-        "annotations": {}
-      },
-      {
-        "name": "discord_remove_reaction",
-        "description": "Removes a specific emoji reaction from a Discord message",
-        "inputSchema": {
-          "type": "object",
-          "properties": {
-            "channelId": {
-              "type": "string"
-            },
-            "emoji": {
-              "type": "string"
-            },
-            "messageId": {
-              "type": "string"
-            },
-            "userId": {
-              "type": "string"
-            }
-          },
-          "required": ["channelId", "messageId", "emoji"]
-        },
-        "annotations": {}
-      },
-      {
-        "name": "discord_delete_forum_post",
-        "description": "Deletes a forum post or thread with an optional reason",
-        "inputSchema": {
-          "type": "object",
-          "properties": {
-            "reason": {
-              "type": "string"
-            },
-            "threadId": {
-              "type": "string"
-            }
-          },
-          "required": ["threadId"]
-        },
-        "annotations": {}
-      },
-      {
-        "name": "discord_delete_message",
-        "description": "Deletes a specific message from a Discord text channel",
-        "inputSchema": {
-          "type": "object",
-          "properties": {
-            "channelId": {
-              "type": "string"
-            },
-            "messageId": {
-              "type": "string"
-            },
-            "reason": {
-              "type": "string"
-            }
-          },
-          "required": ["channelId", "messageId"]
-        },
-        "annotations": {}
-      },
-      {
-        "name": "discord_create_webhook",
-        "description": "Creates a new webhook for a Discord channel",
-        "inputSchema": {
-          "type": "object",
-          "properties": {
-            "avatar": {
-              "type": "string"
-            },
-            "channelId": {
-              "type": "string"
-            },
-            "name": {
-              "type": "string"
-            },
-            "reason": {
-              "type": "string"
-            }
-          },
-          "required": ["channelId", "name"]
-        },
-        "annotations": {}
-      },
-      {
-        "name": "discord_send_webhook_message",
-        "description": "Sends a message to a Discord channel using a webhook",
-        "inputSchema": {
-          "type": "object",
-          "properties": {
-            "avatarURL": {
-              "type": "string"
-            },
-            "content": {
-              "type": "string"
-            },
-            "threadId": {
-              "type": "string"
-            },
-            "username": {
-              "type": "string"
-            },
-            "webhookId": {
-              "type": "string"
-            },
-            "webhookToken": {
-              "type": "string"
-            }
-          },
-          "required": ["webhookId", "webhookToken", "content"]
-        },
-        "annotations": {}
-      },
-      {
-        "name": "discord_edit_webhook",
-        "description": "Edits an existing webhook for a Discord channel",
-        "inputSchema": {
-          "type": "object",
-          "properties": {
-            "avatar": {
-              "type": "string"
-            },
-            "channelId": {
-              "type": "string"
-            },
-            "name": {
-              "type": "string"
-            },
-            "reason": {
-              "type": "string"
-            },
-            "webhookId": {
-              "type": "string"
-            },
-            "webhookToken": {
-              "type": "string"
-            }
-          },
-          "required": ["webhookId"]
-        },
-        "annotations": {}
-      },
-      {
-        "name": "discord_delete_webhook",
-        "description": "Deletes an existing webhook for a Discord channel",
-        "inputSchema": {
-          "type": "object",
-          "properties": {
-            "reason": {
-              "type": "string"
-            },
-            "webhookId": {
-              "type": "string"
-            },
-            "webhookToken": {
-              "type": "string"
-            }
-          },
-          "required": ["webhookId"]
-        },
-        "annotations": {}
-      }
-    ],
+    "description": "Airtable database and spreadsheet operations for managing bases, tables, and records",
+    "displayName": "Airtable",
+    "homepage": "https://github.com/felores/airtable-mcp",
+    "id": "airtable",
     "installations": {
       "npx": {
-        "type": "npx",
-        "command": "npx",
-        "args": ["--config", "${DISCORD_TOKEN}"],
-        "package": "@modelcontextprotocol/server-discord",
-        "version": "1.3.4",
-        "recommended": true
+        "args": [],
+        "description": "Run with npx",
+        "package": "@felores/airtable-mcp-server",
+        "recommended": true,
+        "runtime": "npx",
+        "version": "0.3.0"
       }
     },
-    "arguments": {
-      "DISCORD_TOKEN": {
-        "description": "Your Discord bot token.",
-        "required": true,
-        "type": "environment"
-      }
-    },
-    "isOfficial": true
-  },
-  "memory": {
-    "id": "memory",
-    "name": "memory",
-    "displayName": "Knowledge Graph Memory",
-    "description": "Knowledge graph-based persistent memory system",
+    "isOfficial": false,
     "license": "MIT",
-    "categories": ["Knowledge Base"],
-    "tags": ["knowledge graph", "memory", "persistent memory"],
-    "homepage": "https://github.com/modelcontextprotocol/servers/blob/main/src/memory",
+    "name": "airtable",
     "publisher": {
-      "name": "modelcontextprotocol"
+      "name": "Felipe Restrepo"
     },
+    "tags": [
+      "airtable",
+      "data management",
+      "database",
+      "records",
+      "spreadsheet"
+    ],
     "tools": [
       {
-        "name": "create_entities",
-        "description": "Create multiple new entities in the knowledge graph",
-        "inputSchema": {
-          "type": "object",
-          "properties": {
-            "entities": {
-              "type": "array",
-              "items": {
-                "type": "object",
-                "properties": {
-                  "name": {
-                    "type": "string",
-                    "description": "The name of the entity"
-                  },
-                  "entityType": {
-                    "type": "string",
-                    "description": "The type of the entity"
-                  },
-                  "observations": {
-                    "type": "array",
-                    "items": {
-                      "type": "string"
-                    },
-                    "description": "An array of observation contents associated with the entity"
-                  }
-                },
-                "required": ["name", "entityType", "observations"]
-              }
-            }
-          },
-          "required": ["entities"]
-        }
+        "description": "Create a new record in an Airtable table",
+        "name": "create_record"
       },
       {
-        "name": "create_relations",
-        "description": "Create multiple new relations between entities in the knowledge graph. Relations should be in active voice",
-        "inputSchema": {
-          "type": "object",
-          "properties": {
-            "relations": {
-              "type": "array",
-              "items": {
-                "type": "object",
-                "properties": {
-                  "from": {
-                    "type": "string",
-                    "description": "The name of the entity where the relation starts"
-                  },
-                  "to": {
-                    "type": "string",
-                    "description": "The name of the entity where the relation ends"
-                  },
-                  "relationType": {
-                    "type": "string",
-                    "description": "The type of the relation"
-                  }
-                },
-                "required": ["from", "to", "relationType"]
-              }
-            }
-          },
-          "required": ["relations"]
-        }
+        "description": "Retrieve records from an Airtable table",
+        "name": "get_records"
       },
       {
-        "name": "add_observations",
-        "description": "Add new observations to existing entities in the knowledge graph",
-        "inputSchema": {
-          "type": "object",
-          "properties": {
-            "observations": {
-              "type": "array",
-              "items": {
-                "type": "object",
-                "properties": {
-                  "entityName": {
-                    "type": "string",
-                    "description": "The name of the entity to add the observations to"
-                  },
-                  "contents": {
-                    "type": "array",
-                    "items": {
-                      "type": "string"
-                    },
-                    "description": "An array of observation contents to add"
-                  }
-                },
-                "required": ["entityName", "contents"]
-              }
-            }
-          },
-          "required": ["observations"]
-        }
+        "description": "List all accessible Airtable bases",
+        "name": "list_bases"
       },
       {
-        "name": "delete_entities",
-        "description": "Delete multiple entities and their associated relations from the knowledge graph",
-        "inputSchema": {
-          "type": "object",
-          "properties": {
-            "entityNames": {
-              "type": "array",
-              "items": {
-                "type": "string"
-              },
-              "description": "An array of entity names to delete"
-            }
-          },
-          "required": ["entityNames"]
-        }
-      },
-      {
-        "name": "delete_observations",
-        "description": "Delete specific observations from entities in the knowledge graph",
-        "inputSchema": {
-          "type": "object",
-          "properties": {
-            "deletions": {
-              "type": "array",
-              "items": {
-                "type": "object",
-                "properties": {
-                  "entityName": {
-                    "type": "string",
-                    "description": "The name of the entity containing the observations"
-                  },
-                  "observations": {
-                    "type": "array",
-                    "items": {
-                      "type": "string"
-                    },
-                    "description": "An array of observations to delete"
-                  }
-                },
-                "required": ["entityName", "observations"]
-              }
-            }
-          },
-          "required": ["deletions"]
-        }
-      },
-      {
-        "name": "delete_relations",
-        "description": "Delete multiple relations from the knowledge graph",
-        "inputSchema": {
-          "type": "object",
-          "properties": {
-            "relations": {
-              "type": "array",
-              "items": {
-                "type": "object",
-                "properties": {
-                  "from": {
-                    "type": "string",
-                    "description": "The name of the entity where the relation starts"
-                  },
-                  "to": {
-                    "type": "string",
-                    "description": "The name of the entity where the relation ends"
-                  },
-                  "relationType": {
-                    "type": "string",
-                    "description": "The type of the relation"
-                  }
-                },
-                "required": ["from", "to", "relationType"]
-              },
-              "description": "An array of relations to delete"
-            }
-          },
-          "required": ["relations"]
-        }
-      },
-      {
-        "name": "read_graph",
-        "description": "Read the entire knowledge graph",
-        "inputSchema": {
-          "type": "object",
-          "properties": {}
-        }
-      },
-      {
-        "name": "search_nodes",
-        "description": "Search for nodes in the knowledge graph based on a query",
-        "inputSchema": {
-          "type": "object",
-          "properties": {
-            "query": {
-              "type": "string",
-              "description": "The search query to match against entity names, types, and observation content"
-            }
-          },
-          "required": ["query"]
-        }
-      },
-      {
-        "name": "open_nodes",
-        "description": "Open specific nodes in the knowledge graph by their names",
-        "inputSchema": {
-          "type": "object",
-          "properties": {
-            "names": {
-              "type": "array",
-              "items": {
-                "type": "string"
-              },
-              "description": "An array of entity names to retrieve"
-            }
-          },
-          "required": ["names"]
-        }
+        "description": "List tables in an Airtable base",
+        "name": "list_tables"
       }
     ],
-    "installations": {
-      "npm": {
-        "type": "npx",
-        "command": "npx",
-        "args": [],
-        "package": "@modelcontextprotocol/server-memory",
-        "version": "2025.8.4",
-        "recommended": true
-      }
-    },
-    "arguments": {
-      "MEMORY_FILE_PATH": {
-        "description": "Path to the memory storage JSON file (default: memory.json in the server directory)",
-        "required": false,
-        "type": "environment"
-      }
-    },
-    "isOfficial": true
+    "transports": [
+      "stdio"
+    ]
   },
-  "notion": {
-    "id": "notion",
-    "name": "notion",
-    "displayName": "Notion",
-    "description": "Notion MCP integration. Search, Read, Update, and Create pages through Claude chat.",
-    "license": "MIT",
-    "categories": [
-      "Productivity"
-    ],
-    "tags": [
-      "Notion"
-    ],
-    "homepage": "https://github.com/v-3/notion-server",
-    "publisher": {
-      "name": "v-3"
-    },
-    "tools": [],
-    "installations": {
-      "npm": {
-        "type": "npx",
-        "command": "npx",
-        "args": [
-          "-y",
-          "https://github.com/v-3/notion-server"
-        ],
-        "package": "https://github.com/v-3/notion-server",
-        "version": "latest",
-        "recommended": true
-      }
-    },
-    "arguments": {
-      "NOTION_API_KEY": {
-        "description": "Your Notion API key for authentication to access data within your Notion workspace.",
-        "required": true,
-        "type": "environment"
-      }
-    },
-    "isOfficial": false
-  },
-  "google-maps": {
-    "id": "google-maps",
-    "name": "google-maps",
-    "displayName": "Google Maps",
-    "description": "Location services, directions, and place details",
-    "license": "MIT",
+  "duckduckgo-mcp": {
+    "arguments": {},
     "categories": [
       "Web Services"
     ],
-    "tags": [
-      "Google Maps",
-      "Geolocation"
-    ],
-    "homepage": "https://github.com/modelcontextprotocol/servers-archived/tree/main/src/google-maps",
-    "publisher": {
-      "name": "modelcontextprotocol"
-    },
-    "tools": [
-      {
-        "name": "maps_geocode",
-        "description": "Convert an address into geographic coordinates",
-        "inputSchema": {
-          "type": "object",
-          "properties": {
-            "address": {
-              "type": "string",
-              "description": "The address to geocode"
-            }
-          },
-          "required": [
-            "address"
-          ]
-        }
-      },
-      {
-        "name": "maps_reverse_geocode",
-        "description": "Convert coordinates into an address",
-        "inputSchema": {
-          "type": "object",
-          "properties": {
-            "latitude": {
-              "type": "number",
-              "description": "Latitude coordinate"
-            },
-            "longitude": {
-              "type": "number",
-              "description": "Longitude coordinate"
-            }
-          },
-          "required": [
-            "latitude",
-            "longitude"
-          ]
-        }
-      },
-      {
-        "name": "maps_search_places",
-        "description": "Search for places using Google Places API",
-        "inputSchema": {
-          "type": "object",
-          "properties": {
-            "query": {
-              "type": "string",
-              "description": "Search query"
-            },
-            "location": {
-              "type": "object",
-              "properties": {
-                "latitude": {
-                  "type": "number"
-                },
-                "longitude": {
-                  "type": "number"
-                }
-              },
-              "description": "Optional center point for the search"
-            },
-            "radius": {
-              "type": "number",
-              "description": "Search radius in meters (max 50000)"
-            }
-          },
-          "required": [
-            "query"
-          ]
-        }
-      },
-      {
-        "name": "maps_place_details",
-        "description": "Get detailed information about a specific place",
-        "inputSchema": {
-          "type": "object",
-          "properties": {
-            "place_id": {
-              "type": "string",
-              "description": "The place ID to get details for"
-            }
-          },
-          "required": [
-            "place_id"
-          ]
-        }
-      },
-      {
-        "name": "maps_distance_matrix",
-        "description": "Calculate travel distance and time for multiple origins and destinations",
-        "inputSchema": {
-          "type": "object",
-          "properties": {
-            "origins": {
-              "type": "array",
-              "items": {
-                "type": "string"
-              },
-              "description": "Array of origin addresses or coordinates"
-            },
-            "destinations": {
-              "type": "array",
-              "items": {
-                "type": "string"
-              },
-              "description": "Array of destination addresses or coordinates"
-            },
-            "mode": {
-              "type": "string",
-              "description": "Travel mode (driving, walking, bicycling, transit)",
-              "enum": [
-                "driving",
-                "walking",
-                "bicycling",
-                "transit"
-              ]
-            }
-          },
-          "required": [
-            "origins",
-            "destinations"
-          ]
-        }
-      },
-      {
-        "name": "maps_elevation",
-        "description": "Get elevation data for locations on the earth",
-        "inputSchema": {
-          "type": "object",
-          "properties": {
-            "locations": {
-              "type": "array",
-              "items": {
-                "type": "object",
-                "properties": {
-                  "latitude": {
-                    "type": "number"
-                  },
-                  "longitude": {
-                    "type": "number"
-                  }
-                },
-                "required": [
-                  "latitude",
-                  "longitude"
-                ]
-              },
-              "description": "Array of locations to get elevation for"
-            }
-          },
-          "required": [
-            "locations"
-          ]
-        }
-      },
-      {
-        "name": "maps_directions",
-        "description": "Get directions between two points",
-        "inputSchema": {
-          "type": "object",
-          "properties": {
-            "origin": {
-              "type": "string",
-              "description": "Starting point address or coordinates"
-            },
-            "destination": {
-              "type": "string",
-              "description": "Ending point address or coordinates"
-            },
-            "mode": {
-              "type": "string",
-              "description": "Travel mode (driving, walking, bicycling, transit)",
-              "enum": [
-                "driving",
-                "walking",
-                "bicycling",
-                "transit"
-              ]
-            }
-          },
-          "required": [
-            "origin",
-            "destination"
-          ]
-        }
-      }
-    ],
-    "installations": {
-      "npm": {
-        "type": "npx",
-        "command": "npx",
-        "args": [
-          "-y",
-          "@modelcontextprotocol/server-google-maps"
-        ],
-        "package": "@modelcontextprotocol/server-google-maps",
-        "version": "0.1.0",
-        "recommended": true
-      }
-    },
-    "arguments": {
-      "GOOGLE_MAPS_API_KEY": {
-        "description": "Your Google Maps API key obtained from the Google Developers Console.",
-        "required": true,
-        "type": "environment"
-      }
-    },
-    "isOfficial": true
-  },
-  "perplexity": {
-    "id": "perplexity",
-    "name": "perplexity",
-    "displayName": "Perplexity Ask MCP Server",
-    "description": "An MCP server implementation that integrates the Sonar API to provide Claude with unparalleled real-time, web-wide research.",
-    "license": "MIT",
-    "categories": ["Web Services"],
-    "tags": ["perplexity", "search", "sonar-api", "web-search"],
-    "homepage": "https://github.com/ppl-ai/modelcontextprotocol",
-    "publisher": {
-      "name": "ppl-ai"
-    },
-    "tools": [
-      {
-        "name": "perplexity_ask",
-        "description": "Engages in a conversation using the Sonar API. Accepts an array of messages (each with a role and content) and returns a ask completion response from the Perplexity model.",
-        "inputSchema": {
-          "type": "object",
-          "properties": {
-            "messages": {
-              "type": "array",
-              "items": {
-                "type": "object",
-                "properties": {
-                  "role": {
-                    "type": "string",
-                    "description": "Role of the message (e.g., system, user, assistant)"
-                  },
-                  "content": {
-                    "type": "string",
-                    "description": "The content of the message"
-                  }
-                },
-                "required": ["role", "content"]
-              },
-              "description": "Array of conversation messages"
-            }
-          },
-          "required": ["messages"]
-        }
-      }
-    ],
-    "installations": {
-      "npx": {
-        "type": "npx",
-        "command": "npx",
-        "args": [],
-        "package": "server-perplexity-ask",
-        "version": "0.1.3",
-        "recommended": false
-      }
-    },
-    "arguments": {
-      "PERPLEXITY_API_KEY": {
-        "description": "API key for the Perplexity Sonar API",
-        "required": true,
-        "type": "environment"
-      }
-    },
-    "isOfficial": true
-  },
-  "salesforce": {
-    "id": "salesforce",
-    "name": "salesforce",
-    "displayName": "Salesforce",
-    "description": "Salesforce CRM integration",
-    "categories": [],
-    "tags": [],
-    "tools": [],
+    "description": "Web search capabilities using DuckDuckGo with additional features for content fetching and parsing",
+    "displayName": "DuckDuckGo Search",
+    "homepage": "https://github.com/nickclyde/duckduckgo-mcp-server",
+    "id": "duckduckgo-mcp",
     "installations": {
       "uvx": {
-        "type": "uvx",
-        "command": "uvx",
-        "args": ["--from", "mcp-salesforce-connector", "salesforce"],
-        "package": "mcp-salesforce-connector",
-        "version": "0.1.8",
-        "env": {
-          "SALESFORCE_USERNAME": "YOUR_SALESFORCE_USERNAME_HERE",
-          "SALESFORCE_PASSWORD": "YOUR_SALESFORCE_PASSWORD_HERE",
-          "SALESFORCE_SECURITY_TOKEN": "YOUR_SALESFORCE_SECURITY_TOKEN_HERE"
-        },
-        "recommended": true
+        "args": [],
+        "description": "Run with Python uvx",
+        "package": "duckduckgo-mcp-server",
+        "recommended": true,
+        "runtime": "uvx",
+        "version": "0.1.1"
       }
     },
-    "arguments": {},
-    "isOfficial": false
+    "isOfficial": false,
+    "license": "MIT",
+    "name": "duckduckgo-mcp",
+    "publisher": {
+      "name": "Nick Clyde",
+      "url": "https://clyde.tech"
+    },
+    "tags": [
+      "content fetching",
+      "duckduckgo",
+      "search engine",
+      "web search"
+    ],
+    "tools": [
+      {
+        "description": "Fetch and parse content from a webpage URL",
+        "name": "fetch_content"
+      },
+      {
+        "description": "Search DuckDuckGo and return formatted results",
+        "name": "search"
+      }
+    ],
+    "transports": [
+      "stdio"
+    ]
   },
   "elasticsearch": {
-    "id": "elasticsearch",
-    "name": "elasticsearch",
-    "displayName": "Elasticsearch",
-    "description": "MCP server implementation that provides Elasticsearch interaction.",
-    "license": "Apache License Version 2.0",
-    "categories": ["Databases"],
-    "tags": ["elasticsearch", "server"],
-    "homepage": "https://github.com/cr7258/elasticsearch-mcp-server",
-    "publisher": {
-      "name": "cr7258"
-    },
-    "tools": [
-      {
-        "name": "list_indices",
-        "description": "List all indices in the Elasticsearch cluster",
-        "inputSchema": {
-          "properties": {},
-          "title": "list_indicesArguments",
-          "type": "object"
-        }
-      },
-      {
-        "name": "get_mapping",
-        "description": "Get index mapping",
-        "inputSchema": {
-          "properties": {
-            "index": {
-              "title": "Index",
-              "type": "string"
-            }
-          },
-          "required": ["index"],
-          "title": "get_mappingArguments",
-          "type": "object"
-        }
-      },
-      {
-        "name": "get_settings",
-        "description": "Get index settings",
-        "inputSchema": {
-          "properties": {
-            "index": {
-              "title": "Index",
-              "type": "string"
-            }
-          },
-          "required": ["index"],
-          "title": "get_settingsArguments",
-          "type": "object"
-        }
-      },
-      {
-        "name": "search_documents",
-        "description": "Search documents in an index with a custom query",
-        "inputSchema": {
-          "properties": {
-            "index": {
-              "title": "Index",
-              "type": "string"
-            },
-            "body": {
-              "additionalProperties": true,
-              "title": "Body",
-              "type": "object"
-            }
-          },
-          "required": ["index", "body"],
-          "title": "search_documentsArguments",
-          "type": "object"
-        }
-      },
-      {
-        "name": "get_cluster_health",
-        "description": "Get cluster health status",
-        "inputSchema": {
-          "properties": {},
-          "title": "get_cluster_healthArguments",
-          "type": "object"
-        }
-      },
-      {
-        "name": "get_cluster_stats",
-        "description": "Get cluster statistics",
-        "inputSchema": {
-          "properties": {},
-          "title": "get_cluster_statsArguments",
-          "type": "object"
-        }
-      }
-    ],
-    "installations": {
-      "uvx": {
-        "type": "uvx",
-        "command": "uvx",
-        "args": ["elasticsearch-mcp-server"],
-        "package": "elasticsearch-mcp-server",
-        "version": "latest",
-        "recommended": false
-      }
-    },
     "arguments": {
       "ELASTIC_HOST": {
-        "description": "The host URL of the Elasticsearch server.",
-        "required": true,
-        "type": "environment"
-      },
-      "ELASTIC_USERNAME": {
-        "description": "The username for authenticating with the Elasticsearch server.",
+        "description": "Elasticsearch server host URL",
+        "example": "https://localhost:9200",
+        "name": "ELASTIC_HOST",
         "required": true,
         "type": "environment"
       },
       "ELASTIC_PASSWORD": {
-        "description": "The password for authenticating with the Elasticsearch server.",
+        "description": "Password for Elasticsearch authentication",
+        "example": "changeme",
+        "name": "ELASTIC_PASSWORD",
+        "required": true,
+        "type": "environment"
+      },
+      "ELASTIC_USERNAME": {
+        "description": "Username for Elasticsearch authentication",
+        "example": "elastic",
+        "name": "ELASTIC_USERNAME",
         "required": true,
         "type": "environment"
       }
     },
-    "isOfficial": false
+    "categories": [
+      "Databases"
+    ],
+    "description": "Elasticsearch and OpenSearch integration for searching documents, analyzing indices, and managing clusters",
+    "displayName": "Elasticsearch",
+    "homepage": "https://github.com/cr7258/elasticsearch-mcp-server",
+    "id": "elasticsearch",
+    "installations": {
+      "uvx": {
+        "args": [],
+        "description": "Run with Python uvx",
+        "package": "elasticsearch-mcp-server",
+        "recommended": true,
+        "runtime": "uvx",
+        "version": "2.0.10"
+      }
+    },
+    "isOfficial": false,
+    "license": "Apache-2.0",
+    "name": "elasticsearch",
+    "publisher": {
+      "name": "cr7258"
+    },
+    "tags": [
+      "analytics",
+      "cluster management",
+      "elasticsearch",
+      "opensearch",
+      "search"
+    ],
+    "tools": [
+      {
+        "description": "Create a new index",
+        "name": "create_index"
+      },
+      {
+        "description": "Delete an alias",
+        "name": "delete_alias"
+      },
+      {
+        "description": "Delete documents matching a query",
+        "name": "delete_by_query"
+      },
+      {
+        "description": "Delete a document by ID",
+        "name": "delete_document"
+      },
+      {
+        "description": "Delete an index",
+        "name": "delete_index"
+      },
+      {
+        "description": "Perform a general HTTP API request",
+        "name": "general_api_request"
+      },
+      {
+        "description": "Get alias information",
+        "name": "get_alias"
+      },
+      {
+        "description": "Get cluster health status",
+        "name": "get_cluster_health"
+      },
+      {
+        "description": "Get cluster statistics",
+        "name": "get_cluster_stats"
+      },
+      {
+        "description": "Get a document by ID",
+        "name": "get_document"
+      },
+      {
+        "description": "Get index information",
+        "name": "get_index"
+      },
+      {
+        "description": "Create or update a document",
+        "name": "index_document"
+      },
+      {
+        "description": "List all aliases",
+        "name": "list_aliases"
+      },
+      {
+        "description": "List all indices in the Elasticsearch cluster",
+        "name": "list_indices"
+      },
+      {
+        "description": "Create or update an alias",
+        "name": "put_alias"
+      },
+      {
+        "description": "Search documents in an index with a custom query",
+        "name": "search_documents"
+      }
+    ],
+    "transports": [
+      "stdio"
+    ]
+  },
+  "filesystem": {
+    "arguments": {
+      "ALLOWED_DIRS": {
+        "description": "Additional allowed directories for file operations",
+        "example": "/path/to/another/allowed/directory",
+        "name": "ALLOWED_DIRS",
+        "position": 2,
+        "required": false,
+        "type": "argument_positional"
+      },
+      "DIRECTORY_PATH": {
+        "description": "The directory path where the server can operate",
+        "example": "/path/to/working/directory",
+        "name": "DIRECTORY_PATH",
+        "position": 1,
+        "required": true,
+        "type": "argument_positional"
+      }
+    },
+    "categories": [
+      "System Tools"
+    ],
+    "description": "Secure file operations with configurable access controls for reading, writing, and managing files and directories",
+    "displayName": "Filesystem",
+    "homepage": "https://github.com/modelcontextprotocol/servers/tree/main/src/filesystem",
+    "id": "filesystem",
+    "installations": {
+      "npm": {
+        "args": [],
+        "description": "Run with npm",
+        "package": "@modelcontextprotocol/server-filesystem",
+        "recommended": true,
+        "runtime": "npx",
+        "version": "2025.7.29"        
+      }
+    },
+    "isOfficial": true,
+    "license": "MIT",
+    "name": "filesystem",
+    "publisher": {
+      "name": "Anthropic, PBC",
+      "url": "https://anthropic.com"
+    },
+    "tags": [
+      "directory management",
+      "file operations",
+      "filesystem",
+      "secure access"
+    ],
+    "tools": [
+      {
+        "description": "Create a new directory or ensure a directory exists",
+        "name": "create_directory"
+      },
+      {
+        "description": "Get a detailed listing of all files and directories in a specified path",
+        "name": "list_directory"
+      },
+      {
+        "description": "Read the complete contents of a file from the file system",
+        "name": "read_file"
+      },
+      {
+        "description": "Recursively search for files and directories matching a pattern",
+        "name": "search_files"
+      },
+      {
+        "description": "Create a new file or completely overwrite an existing file with new content",
+        "name": "write_file"
+      }
+    ],
+    "transports": [
+      "stdio"
+    ]
+  },
+  "gitlab": {
+    "arguments": {
+      "GITLAB_API_URL": {
+        "description": "GitLab API URL (for self-hosted instances)",
+        "example": "https://gitlab.example.com/api/v4",
+        "name": "GITLAB_API_URL",
+        "required": false,
+        "type": "environment"
+      },
+      "GITLAB_PERSONAL_ACCESS_TOKEN": {
+        "description": "GitLab personal access token for API authentication",
+        "example": "glpat-xxxxxxxxxxxxxxxxxxxx",
+        "name": "GITLAB_PERSONAL_ACCESS_TOKEN",
+        "required": true,
+        "type": "environment"
+      }
+    },
+    "categories": [
+      "Development"
+    ],
+    "description": "GitLab API integration for project management and repository operations",
+    "displayName": "GitLab",
+    "homepage": "https://github.com/modelcontextprotocol/servers/tree/main/src/gitlab",
+    "id": "gitlab",
+    "installations": {
+      "npm": {
+        "args": [],
+        "description": "Run with npm",
+        "package": "@modelcontextprotocol/server-gitlab",
+        "recommended": true,
+        "runtime": "npx",
+        "version": "2025.4.25"
+      }
+    },
+    "isOfficial": true,
+    "license": "MIT",
+    "name": "gitlab",
+    "publisher": {
+      "name": "GitLab, PBC",
+      "url": "https://gitlab.com"
+    },
+    "tags": [
+      "git",
+      "gitlab",
+      "project management",
+      "repository",
+      "version control"
+    ],
+    "tools": [
+      {
+        "description": "Create a new issue in a GitLab project",
+        "name": "create_issue"
+      },
+      {
+        "description": "Get details of a specific GitLab project",
+        "name": "get_project"
+      },
+      {
+        "description": "List issues for a GitLab project",
+        "name": "list_issues"
+      },
+      {
+        "description": "List GitLab projects accessible to the user",
+        "name": "list_projects"
+      }
+    ],
+    "transports": [
+      "stdio"
+    ]
+  },
+  "google-maps": {
+    "arguments": {
+      "GOOGLE_MAPS_API_KEY": {
+        "description": "Google Maps API key from Google Developers Console",
+        "example": "AIzaSyXXXXXXXXXXXXXXXXXXXXXXXXXXXXX",
+        "name": "GOOGLE_MAPS_API_KEY",
+        "required": true,
+        "type": "environment"
+      }
+    },
+    "categories": [
+      "Web Services"
+    ],
+    "description": "Location services, directions, and place details using Google Maps API",
+    "displayName": "Google Maps",
+    "homepage": "https://github.com/modelcontextprotocol/servers/tree/main/src/google-maps",
+    "id": "google-maps",
+    "installations": {
+      "npm": {
+        "args": [],
+        "description": "Run with npm",
+        "package": "@modelcontextprotocol/server-google-maps",
+        "recommended": true,
+        "runtime": "npx",
+        "version": "0.6.2"        
+      }
+    },
+    "isOfficial": true,
+    "license": "MIT",
+    "name": "google-maps",
+    "publisher": {
+      "name": "Anthropic, PBC",
+      "url": "https://anthropic.com"
+    },
+    "tags": [
+      "directions",
+      "geocoding",
+      "google maps",
+      "location",
+      "places"
+    ],
+    "tools": [
+      {
+        "description": "Get directions between two points",
+        "name": "maps_directions"
+      },
+      {
+        "description": "Convert an address into geographic coordinates",
+        "name": "maps_geocode"
+      },
+      {
+        "description": "Convert coordinates into an address",
+        "name": "maps_reverse_geocode"
+      },
+      {
+        "description": "Search for places using Google Places API",
+        "name": "maps_search_places"
+      }
+    ],
+    "transports": [
+      "stdio"
+    ]
+  },
+  "jira": {
+    "arguments": {
+      "CONFLUENCE_TOKEN": {
+        "description": "Confluence API token",
+        "example": "ATATT3xFfGF0...",
+        "name": "CONFLUENCE_TOKEN",
+        "required": true,
+        "type": "environment"
+      },
+      "CONFLUENCE_URL": {
+        "description": "Confluence server URL",
+        "example": "https://your-domain.atlassian.net",
+        "name": "CONFLUENCE_URL",
+        "required": true,
+        "type": "environment"
+      },
+      "CONFLUENCE_USERNAME": {
+        "description": "Confluence username or email",
+        "example": "user@example.com",
+        "name": "CONFLUENCE_USERNAME",
+        "required": true,
+        "type": "environment"
+      },
+      "JIRA_TOKEN": {
+        "description": "Jira API token",
+        "example": "ATATT3xFfGF0...",
+        "name": "JIRA_TOKEN",
+        "required": true,
+        "type": "environment"
+      },
+      "JIRA_URL": {
+        "description": "Jira server URL",
+        "example": "https://your-domain.atlassian.net",
+        "name": "JIRA_URL",
+        "required": true,
+        "type": "environment"
+      },
+      "JIRA_USERNAME": {
+        "description": "Jira username or email",
+        "example": "user@example.com",
+        "name": "JIRA_USERNAME",
+        "required": true,
+        "type": "environment"
+      }
+    },
+    "categories": [
+      "Productivity"
+    ],
+    "description": "Atlassian integration for Jira project management and Confluence documentation with comprehensive API access",
+    "displayName": "Atlassian Jira & Confluence",
+    "homepage": "https://github.com/sooperset/mcp-atlassian",
+    "id": "jira",
+    "installations": {
+      "uvx": {
+        "args": [
+          "--confluence-token=${CONFLUENCE_TOKEN}",
+          "--confluence-url=${CONFLUENCE_URL}",
+          "--confluence-username=${CONFLUENCE_USERNAME}",
+          "--jira-token=${JIRA_TOKEN}",
+          "--jira-url=${JIRA_URL}",
+          "--jira-username=${JIRA_USERNAME}"
+        ],
+        "description": "Run with Python uvx",
+        "package": "mcp-atlassian",
+        "recommended": true,
+        "runtime": "uvx",
+        "version": "0.11.9"        
+      }
+    },
+    "isOfficial": false,
+    "license": "MIT",
+    "name": "jira",
+    "publisher": {
+      "name": "sooperset"
+    },
+    "tags": [
+      "atlassian",
+      "confluence",
+      "documentation",
+      "jira",
+      "project management"
+    ],
+    "tools": [
+      {
+        "description": "Create a new Confluence page",
+        "name": "create_confluence_page"
+      },
+      {
+        "description": "Create a new Jira issue",
+        "name": "create_jira_issue"
+      },
+      {
+        "description": "Search Confluence pages",
+        "name": "search_confluence_pages"
+      },
+      {
+        "description": "Search for Jira issues using JQL",
+        "name": "search_jira_issues"
+      }
+    ],
+    "transports": [
+      "stdio"
+    ]
+  },
+  "mcp-discord": {
+    "arguments": {
+      "DISCORD_TOKEN": {
+        "description": "Discord bot token for authentication",
+        "example": "YOUR_DISCORD_BOT_TOKEN_HERE",
+        "name": "DISCORD_TOKEN",
+        "required": true,
+        "type": "environment"
+      }
+    },
+    "categories": [
+      "Messaging"
+    ],
+    "description": "Discord messaging and server management with comprehensive channel, message, and webhook capabilities",
+    "displayName": "Discord Integration",
+    "homepage": "https://github.com/barryyip0625/mcp-discord",
+    "id": "mcp-discord",
+    "installations": {
+      "npm": {
+        "args": [],
+        "description": "Run with npm",
+        "package":  "mcp-discord",
+        "recommended": true,
+        "runtime": "npx",
+        "version": "1.3.4"        
+      }
+    },
+    "isOfficial": false,
+    "license": "MIT",
+    "name": "mcp-discord",
+    "publisher": {
+      "name": "Barry Yip"
+    },
+    "tags": [
+      "bot",
+      "channel management",
+      "discord",
+      "messaging",
+      "webhook"
+    ],
+    "tools": [
+      {
+        "description": "Add an emoji reaction to a Discord message",
+        "name": "discord_add_reaction"
+      },
+      {
+        "description": "Create a new text channel in a Discord server",
+        "name": "discord_create_text_channel"
+      },
+      {
+        "description": "Retrieve messages from a Discord text channel",
+        "name": "discord_read_messages"
+      },
+      {
+        "description": "Send a message to a specified Discord text channel",
+        "name": "discord_send"
+      }
+    ],
+    "transports": [
+      "stdio"
+    ]
+  },
+  "memory": {
+    "arguments": {
+      "MEMORY_FILE_PATH": {
+        "description": "Path to the memory storage JSON file",
+        "example": "/path/to/memory.json",
+        "name": "MEMORY_FILE_PATH",
+        "required": false,
+        "type": "environment"
+      }
+    },
+    "categories": [
+      "Knowledge Base"
+    ],
+    "description": "Knowledge graph-based persistent memory system for storing and retrieving contextual information",
+    "displayName": "Knowledge Graph Memory",
+    "homepage": "https://github.com/modelcontextprotocol/servers/tree/main/src/memory",
+    "id": "memory",
+    "installations": {
+      "npm": {
+        "args": [],
+        "description": "Run with npm",
+        "package": "@modelcontextprotocol/server-memory",
+        "recommended": true,
+        "runtime": "npx",
+        "version": "2025.8.4"
+      }
+    },
+    "isOfficial": true,
+    "license": "MIT",
+    "name": "memory",
+    "publisher": {
+      "name": "Anthropic, PBC",
+      "url": "https://anthropic.com"
+    },
+    "tags": [
+      "context",
+      "knowledge graph",
+      "memory",
+      "persistent storage"
+    ],
+    "tools": [
+      {
+        "description": "Create multiple new entities in the knowledge graph",
+        "name": "create_entities"
+      },
+      {
+        "description": "Create relations between entities in the knowledge graph",
+        "name": "create_relations"
+      },
+      {
+        "description": "Search for nodes in the knowledge graph",
+        "name": "search_nodes"
+      }
+    ],
+    "transports": [
+      "stdio"
+    ]
   },
   "monday-api-mcp": {
+    "arguments": {
+      "MONDAY_API_TOKEN": {
+        "description": "Monday.com API token for workspace access",
+        "example": "eyJhbGciOiJIUzI1NiJ9...",
+        "name": "MONDAY_API_TOKEN",
+        "required": true,
+        "type": "environment"
+      }
+    },
+    "categories": [
+      "Productivity"
+    ],
+    "description": "Monday.com integration with dynamic API tools for project management and workflow automation",
+    "displayName": "Monday.com API",
+    "homepage": "https://github.com/mondaycom/monday-ai/tree/master/packages/monday-api-mcp",
     "id": "monday-api-mcp",
-    "name": "monday-api-mcp",
-    "displayName": "Monday Api Mcp",
-    "description": "Monday.com integration with dynamic API tools enabled",
-    "categories": [],
-    "tags": [],
-    "tools": [],
     "installations": {
-      "npx": {
-        "type": "npx",
-        "command": "npx",
+      "npm": {
         "args": [
-          "-y",
-          "@mondaydotcomorg/monday-api-mcp",
           "-t",
-          "$MONDAY_API_TOKEN",
+          "${MONDAY_API_TOKEN}",
           "--enable-dynamic-api-tools",
           "true"
         ],
-        "version": "latest",
-        "env": {
-          "MONDAY_API_TOKEN": "YOUR_MONDAY_API_TOKEN_HERE"
-        },
-        "recommended": true
+        "description": "Run with npm and dynamic API tools",
+        "package": "@mondaydotcomorg/monday-api-mcp",
+        "recommended": true,
+        "runtime": "npx",
+        "version": "1.0.6"        
       }
     },
-    "arguments": {},
-    "isOfficial": false
+    "isOfficial": false,
+    "license": "MIT",
+    "name": "monday-api-mcp",
+    "publisher": {
+      "name": "Monday.com",
+      "url": "https://monday.com"
+    },
+    "tags": [
+      "api integration",
+      "collaboration",
+      "monday.com",
+      "project management",
+      "workflow"
+    ],
+    "tools": [
+      {
+        "description": "Create a new item in a Monday.com board",
+        "name": "create_item"
+      },
+      {
+        "description": "Retrieve boards from Monday.com workspace",
+        "name": "get_boards"
+      },
+      {
+        "description": "Retrieve items from a specific board",
+        "name": "get_items"
+      }
+    ],
+    "transports": [
+      "stdio"
+    ]
+  },
+  "notion": {
+    "arguments": {
+      "NOTION_API_KEY": {
+        "description": "Notion API key for workspace access",
+        "example": "secret_XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX",
+        "name": "NOTION_API_KEY",
+        "required": true,
+        "type": "environment"
+      }
+    },
+    "categories": [
+      "Productivity"
+    ],
+    "description": "Official Notion integration for page management, database operations, and content creation",
+    "displayName": "Notion Workspace",
+    "homepage": "https://github.com/makenotion/notion-mcp-server",
+    "id": "notion",
+    "installations": {
+      "npm": {
+        "args": [],
+        "description": "Run with npm",
+        "package": "@notionhq/notion-mcp-server",
+        "recommended": true,
+        "runtime": "npx",
+        "version": "1.8.1"
+      }
+    },
+    "isOfficial": false,
+    "license": "MIT",
+    "name": "notion",
+    "publisher": {
+      "name": "Notion Labs, Inc.",
+      "url": "https://notion.so"
+    },
+    "tags": [
+      "content management",
+      "database",
+      "notion",
+      "pages",
+      "workspace"
+    ],
+    "tools": [
+      {
+        "description": "Create a new page in Notion",
+        "name": "create_page"
+      },
+      {
+        "description": "Retrieve a specific page by ID",
+        "name": "get_page"
+      },
+      {
+        "description": "Search for pages in the Notion workspace",
+        "name": "search_pages"
+      },
+      {
+        "description": "Update an existing Notion page",
+        "name": "update_page"
+      }
+    ],
+    "transports": [
+      "stdio"
+    ]
+  },
+  "perplexity": {
+    "arguments": {
+      "PERPLEXITY_API_KEY": {
+        "description": "API key for Perplexity Sonar API",
+        "example": "pplx-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+        "name": "PERPLEXITY_API_KEY",
+        "required": true,
+        "type": "environment"
+      }
+    },
+    "categories": [
+      "Web Services"
+    ],
+    "description": "AI-powered search and information retrieval using Perplexity's Sonar API for real-time web research",
+    "displayName": "Perplexity AI Search",
+    "homepage": "https://github.com/ppl-ai/modelcontextprotocol",
+    "id": "perplexity",
+    "installations": {
+      "npm": {
+        "args": [],
+        "description": "Run with npm",
+        "package": "server-perplexity-ask",
+        "recommended": true,
+        "runtime": "npx",
+        "version": "0.1.3"
+      }
+    },
+    "isOfficial": false,
+    "license": "MIT",
+    "name": "perplexity",
+    "publisher": {
+      "name": "Perplexity AI",
+      "url": "https://perplexity.ai"
+    },
+    "tags": [
+      "ai search",
+      "information retrieval",
+      "perplexity",
+      "sonar api",
+      "web research"
+    ],
+    "tools": [
+      {
+        "description": "Engage in a conversation using the Sonar API for AI-powered search",
+        "name": "perplexity_ask"
+      }
+    ],
+    "transports": [
+      "stdio"
+    ]
   },
   "slack-mcp": {
+    "arguments": {
+      "SLACK_BOT_TOKEN": {
+        "description": "Slack bot token for authentication",
+        "example": "xoxb-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+        "name": "SLACK_BOT_TOKEN",
+        "required": true,
+        "type": "environment"
+      },
+      "SLACK_CHANNEL_IDS": {
+        "description": "Comma-separated list of channel IDs to monitor",
+        "example": "general,random,development",
+        "name": "SLACK_CHANNEL_IDS",
+        "required": false,
+        "type": "environment"
+      },
+      "SLACK_TEAM_ID": {
+        "description": "Slack team/workspace ID",
+        "example": "T0123456789",
+        "name": "SLACK_TEAM_ID",
+        "required": true,
+        "type": "environment"
+      }
+    },
+    "categories": [
+      "Messaging"
+    ],
+    "description": "Slack workspace integration for comprehensive channel, message, reaction and user management",
+    "displayName": "Slack Workspace",
+    "homepage": "https://github.com/zencoderai/slack-mcp-server",
     "id": "slack-mcp",
+    "installations": {
+      "npm": {
+        "args": [],
+        "description": "Run with npm",
+        "package": "@zencoderai/slack-mcp-server",
+        "recommended": true,
+        "runtime": "npx",
+        "version": "0.0.1"
+      }
+    },
+    "isOfficial": false,
+    "license": "MIT",
     "name": "slack-mcp",
-    "displayName": "Slack Mcp",
-    "description": "Slack workspace integration for channel, message, reaction and user management",
-    "categories": [],
-    "tags": [],
-    "tools": [],
-    "installations": {
-      "npx": {
-        "type": "npx",
-        "command": "npx",
-        "args": ["-y", "@zencoderai/slack-mcp-server"],
-        "version": "latest",
-        "env": {
-          "SLACK_BOT_TOKEN": "YOUR_SLACK_BOT_TOKEN_HERE",
-          "SLACK_TEAM_ID": "YOUR_SLACK_TEAM_ID_HERE",
-          "SLACK_CHANNEL_IDS": "general,random"
-        },
-        "recommended": true
-      }
+    "publisher": {
+      "name": "Zencoder AI",
+      "url": "https://zencoder.ai"
     },
-    "arguments": {},
-    "isOfficial": false
-  },
-  "jira": {
-    "id": "jira",
-    "name": "jira",
-    "displayName": "Jira",
-    "description": "Atlassian integration for Jira project management and Confluence documentation",
-    "categories": [],
-    "tags": [],
-    "tools": [],
-    "installations": {
-      "uvx": {
-        "type": "uvx",
-        "command": "uvx",
-        "args": [
-          "mcp-atlassian",
-          "--confluence-url=${CONFLUENCE_URL}",
-          "--confluence-username=${CONFLUENCE_USERNAME}",
-          "--confluence-token=${CONFLUENCE_TOKEN}",
-          "--jira-url=${JIRA_URL}",
-          "--jira-username=${JIRA_USERNAME}",
-          "--jira-token=${JIRA_TOKEN}"
-        ],
-        "version": "latest",
-        "env": {
-          "CONFLUENCE_URL": "YOUR_CONFLUENCE_URL_HERE",
-          "CONFLUENCE_USERNAME": "YOUR_CONFLUENCE_USERNAME_HERE",
-          "CONFLUENCE_TOKEN": "YOUR_CONFLUENCE_TOKEN_HERE",
-          "JIRA_URL": "YOUR_JIRA_URL_HERE",
-          "JIRA_USERNAME": "YOUR_JIRA_USERNAME_HERE",
-          "JIRA_TOKEN": "YOUR_JIRA_TOKEN_HERE"
-        },
-        "recommended": true
+    "tags": [
+      "channels",
+      "collaboration",
+      "messaging",
+      "slack",
+      "workspace"
+    ],
+    "tools": [
+      {
+        "description": "Add an emoji reaction to a message",
+        "name": "add_reaction"
+      },
+      {
+        "description": "Retrieve message history from a channel",
+        "name": "get_channel_history"
+      },
+      {
+        "description": "List all channels in the Slack workspace",
+        "name": "list_channels"
+      },
+      {
+        "description": "Post a message to a Slack channel",
+        "name": "post_message"
       }
-    },
-    "arguments": {},
-    "isOfficial": false
+    ],
+    "transports": [
+      "stdio"
+    ]
   }
 }
