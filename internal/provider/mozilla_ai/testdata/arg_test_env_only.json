@@ -21,32 +21,28 @@
     },
     "installations": {
       "npx": {
-        "type": "npx",
-        "command": "npx",
-        "args": ["env-server"],
+        "args": [
+          "env-server"
+        ],
         "env": {
           "API_KEY": "${API_KEY}",
           "DEBUG_MODE": "${DEBUG_MODE}"
         },
         "version": "1.0.0",
         "description": "Run with npx",
-        "recommended": true
+        "recommended": true,
+        "runtime": "npx"
       }
     },
     "tools": [
       {
         "name": "test_tool",
-        "description": "Test tool",
-        "inputSchema": {
-          "type": "object",
-          "properties": {
-            "input": {"type": "string"}
-          },
-          "required": ["input"]
-        }
+        "description": "Test tool"
       }
     ],
-    "transports": ["stdio"],
+    "transports": [
+      "stdio"
+    ],
     "isOfficial": false
   }
 }

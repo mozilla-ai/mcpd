@@ -162,7 +162,7 @@ func TestRegistry_Search(t *testing.T) {
 			name: "single filter",
 			id:   "filesystem",
 			filters: map[string]string{
-				"tags": "server",
+				"tags": "filesystem",
 			},
 			opts: nil,
 		},
@@ -170,7 +170,7 @@ func TestRegistry_Search(t *testing.T) {
 			name: "single filter, multiple values",
 			id:   "filesystem",
 			filters: map[string]string{
-				"tags": "server,operations",
+				"tags": "filesystem,file operations",
 			},
 			opts: nil,
 		},
@@ -178,8 +178,8 @@ func TestRegistry_Search(t *testing.T) {
 			name: "multiple filter",
 			id:   "filesystem",
 			filters: map[string]string{
-				"tags":       "server,operations",
-				"categories": "tools",
+				"tags":       "filesystem,file operations",
+				"categories": "System Tools",
 			},
 			opts: nil,
 		},
@@ -187,7 +187,7 @@ func TestRegistry_Search(t *testing.T) {
 			name: "source exact match",
 			id:   "filesystem",
 			filters: map[string]string{
-				"tags": "server,operations",
+				"tags": "filesystem,file operations",
 			},
 			opts: []options.SearchOption{
 				options.WithSearchSource(RegistryName),
@@ -197,7 +197,7 @@ func TestRegistry_Search(t *testing.T) {
 			name: "source partial match",
 			id:   "filesystem",
 			filters: map[string]string{
-				"tags": "server,operations",
+				"tags": "filesystem,file operations",
 			},
 			opts: []options.SearchOption{
 				options.WithSearchSource("mozilla"),
@@ -239,15 +239,15 @@ func TestRegistry_Search(t *testing.T) {
 	require.NoError(t, err)
 	ensureFound(t, results, "filesystem")
 
-	results, err = registry.Search("filesystem", map[string]string{"tags": "server"})
+	results, err = registry.Search("filesystem", map[string]string{"tags": "filesystem"})
 	require.NoError(t, err)
 	ensureFound(t, results, "filesystem")
 
-	results, err = registry.Search("filesystem", map[string]string{"tags": "server,operations"})
+	results, err = registry.Search("filesystem", map[string]string{"tags": "filesystem,file operations"})
 	require.NoError(t, err)
 	ensureFound(t, results, "filesystem")
 
-	results, err = registry.Search("filesystem", map[string]string{"tags": "server,operations"})
+	results, err = registry.Search("filesystem", map[string]string{"tags": "filesystem,file operations"})
 	require.NoError(t, err)
 	ensureFound(t, results, "filesystem")
 }
@@ -260,13 +260,6 @@ func TestRegistry_Tools_ToDomainType(t *testing.T) {
 			Name:        "test_tool",
 			Description: "A test tool",
 			Title:       "Test Tool",
-			InputSchema: &JSONSchema{
-				Type: "object",
-				Properties: map[string]any{
-					"input": map[string]any{"type": "string"},
-				},
-				Required: []string{"input"},
-			},
 		},
 	}
 
@@ -276,9 +269,6 @@ func TestRegistry_Tools_ToDomainType(t *testing.T) {
 	require.Equal(t, "test_tool", result[0].Name)
 	require.Equal(t, "A test tool", result[0].Description)
 	require.Equal(t, "Test Tool", result[0].Title)
-	require.Equal(t, "object", result[0].InputSchema.Type)
-	require.Contains(t, result[0].InputSchema.Properties, "input")
-	require.Equal(t, []string{"input"}, result[0].InputSchema.Required)
 }
 
 func TestRegistry_Arguments_ToDomainType(t *testing.T) {
@@ -568,8 +558,7 @@ func TestRegistry_BuildPackageResult_ArgumentExtraction(t *testing.T) {
 			},
 			Installations: map[string]Installation{
 				"npx": {
-					Type:        Runtime("npx"),
-					Command:     "npx",
+					Runtime:     NPX,
 					Args:        []string{"test-server", "--config", "${CONFIG_FILE}", "--debug"},
 					Env:         map[string]string{"API_TOKEN": "${API_TOKEN}"},
 					Version:     "1.0.0",
@@ -581,11 +570,6 @@ func TestRegistry_BuildPackageResult_ArgumentExtraction(t *testing.T) {
 				{
 					Name:        "test_tool",
 					Description: "Test tool",
-					InputSchema: &JSONSchema{
-						Type:       "object",
-						Properties: map[string]any{"input": map[string]any{"type": "string"}},
-						Required:   []string{"input"},
-					},
 				},
 			},
 			Transports: []string{"stdio"},

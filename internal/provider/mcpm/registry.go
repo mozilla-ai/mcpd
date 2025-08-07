@@ -442,11 +442,6 @@ func (t Tool) ToDomainType() (packages.Tool, error) {
 		Name:        t.Name,
 		Title:       t.Title,
 		Description: t.Description,
-		InputSchema: packages.JSONSchema{
-			Type:       t.InputSchema.Type,
-			Properties: t.InputSchema.Properties,
-			Required:   t.InputSchema.Required,
-		},
 	}, nil
 }
 

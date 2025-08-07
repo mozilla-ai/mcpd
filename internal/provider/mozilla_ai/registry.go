@@ -278,13 +278,9 @@ func (r *Registry) supportedRuntimePackageNames(
 
 	specs := runtime.Specs()
 
-	for name, inst := range installations {
-		rt := runtime.Runtime(inst.Command)
+	for _, inst := range installations {
+		rt := runtime.Runtime(inst.Runtime)
 		if _, ok := r.supportedRuntimes[rt]; !ok {
-			continue
-		}
-
-		if !inst.isValid(name) {
 			continue
 		}
 
@@ -316,13 +312,9 @@ func convertInstallations(
 	specs := runtime.Specs()
 	details := make(packages.Installations, len(src))
 
-	for name, install := range src {
-		rt := runtime.Runtime(install.Command)
+	for _, install := range src {
+		rt := runtime.Runtime(install.Runtime)
 		if _, ok := supported[rt]; !ok {
-			continue
-		}
-
-		if !install.isValid(name) {
 			continue
 		}
 
@@ -334,7 +326,7 @@ func convertInstallations(
 		}
 
 		details[rt] = packages.Installation{
-			Command:     install.Command,
+			Command:     string(install.Runtime),
 			Args:        slices.Clone(install.Args),
 			Package:     pkg,
 			Version:     install.Version,
@@ -369,11 +361,6 @@ func (t Tool) ToDomainType() (packages.Tool, error) {
 		Name:        t.Name,
 		Title:       t.Title,
 		Description: t.Description,
-		InputSchema: packages.JSONSchema{
-			Type:       t.InputSchema.Type,
-			Properties: t.InputSchema.Properties,
-			Required:   t.InputSchema.Required,
-		},
 	}, nil
 }
 
@@ -399,25 +386,4 @@ func (a Argument) ToDomainType() (packages.ArgumentMetadata, error) {
 		Example:      a.Example,
 		Position:     a.Position,
 	}, nil
-}
-
-// isValid checks an installation, and its name to ensure that the runtime,
-// name and type align with expected values.
-func (i *Installation) isValid(name string) bool {
-	name = filter.NormalizeString(name)
-
-	switch runtime.Runtime(i.Command) {
-	case runtime.UVX:
-		uvx := string(runtime.UVX)
-		return name == uvx && i.Type == Runtime(uvx)
-	case runtime.NPX:
-		npx := string(runtime.NPX)
-		npm := "npm"
-		return (name == npm || name == npx) && (i.Type == Runtime(npm) || i.Type == Runtime(npx))
-	case runtime.Docker:
-		docker := string(runtime.Docker)
-		return name == docker && i.Type == Runtime(docker)
-	default:
-		return false
-	}
 }

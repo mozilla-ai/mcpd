@@ -27,31 +27,30 @@
     },
     "installations": {
       "uvx": {
-        "type": "uvx",
-        "command": "uvx",
-        "args": ["mixed-server", "--config", "${CONFIG_PATH}", "--verbose"],
+        "args": [
+          "mixed-server",
+          "--config",
+          "${CONFIG_PATH}",
+          "--verbose"
+        ],
         "env": {
           "DATABASE_URL": "${DATABASE_URL}"
         },
         "version": "2.1.0",
         "description": "Run with uvx",
-        "recommended": true
+        "recommended": true,
+        "runtime": "uvx"
       }
     },
     "tools": [
       {
         "name": "query_db",
-        "description": "Query database",
-        "inputSchema": {
-          "type": "object",
-          "properties": {
-            "query": {"type": "string"}
-          },
-          "required": ["query"]
-        }
+        "description": "Query database"
       }
     ],
-    "transports": ["stdio"],
+    "transports": [
+      "stdio"
+    ],
     "isOfficial": true
   }
 }

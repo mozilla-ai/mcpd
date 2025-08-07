@@ -127,17 +127,13 @@
     "Installation": {
       "type": "object",
       "properties": {
-        "type": {
+        "runtime": {
           "type": "string",
           "enum": [
             "npx",
             "uvx"
           ],
           "description": "Runtime type for this installation method"
-        },
-        "command": {
-          "type": "string",
-          "description": "Executable command to run the server"
         },
         "args": {
           "type": "array",
@@ -184,8 +180,8 @@
         }
       },
       "required": [
-        "type",
-        "command",
+        "package",
+        "runtime",
         "version"
       ],
       "additionalProperties": false
@@ -204,14 +200,6 @@
         "description": {
           "type": "string",
           "description": "Human-readable description of the tool"
-        },
-        "inputSchema": {
-          "$ref": "#/$defs/JSONSchema",
-          "description": "JSONSchema defining the expected parameters for the tool"
-        },
-        "outputSchema": {
-          "$ref": "#/$defs/JSONSchema",
-          "description": "Optional JSONSchema defining the structure of the tool's output"
         },
         "annotations": {
           "$ref": "#/$defs/ToolAnnotations",
@@ -342,27 +330,6 @@
         }
       },
       "additionalProperties": false
-    },
-    "JSONSchema": {
-      "type": "object",
-      "properties": {
-        "type": {
-          "type": "string",
-          "description": "Type for this schema (e.g. 'object')"
-        },
-        "properties": {
-          "type": "object",
-          "description": "Property name and associated object definition"
-        },
-        "required": {
-          "type": "array",
-          "items": {
-            "type": "string"
-          },
-          "description": "List of required properties"
-        }
-      },
-      "additionalProperties": true
     }
   }
 }

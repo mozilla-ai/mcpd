@@ -26,37 +26,42 @@
     },
     "installations": {
       "npx": {
-        "type": "npx",
-        "command": "npx",
-        "args": ["cli-server", "--format", "${OUTPUT_FORMAT}", "--port", "${PORT}", "--cors"],
+        "args": [
+          "cli-server",
+          "--format",
+          "${OUTPUT_FORMAT}",
+          "--port",
+          "${PORT}",
+          "--cors"
+        ],
         "version": "1.5.2",
         "description": "Run with npx",
-        "recommended": false
+        "recommended": false,
+        "runtime": "npx"
       },
       "uvx": {
-        "type": "uvx", 
-        "command": "uvx",
-        "args": ["cli-server", "--format", "${OUTPUT_FORMAT}", "--enable-cors"],
+        "args": [
+          "cli-server",
+          "--format",
+          "${OUTPUT_FORMAT}",
+          "--enable-cors"
+        ],
         "version": "1.5.2",
         "description": "Run with uvx",
-        "recommended": true
+        "recommended": true,
+        "runtime": "uvx"
       }
     },
     "tools": [
       {
         "name": "format_output",
-        "description": "Format output data",
-        "inputSchema": {
-          "type": "object",
-          "properties": {
-            "data": {"type": "object"},
-            "format": {"type": "string"}
-          },
-          "required": ["data"]
-        }
+        "description": "Format output data"
       }
     ],
-    "transports": ["stdio", "http"],
+    "transports": [
+      "stdio",
+      "http"
+    ],
     "isOfficial": false
   }
 }

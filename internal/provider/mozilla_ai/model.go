@@ -78,11 +78,8 @@ type Server struct {
 
 // Installation represents a method for installing and running an MCP server.
 type Installation struct {
-	// Type specifies the runtime type for this installation method.
-	Type Runtime `json:"type"`
-
-	// Command is the executable command to run the server.
-	Command string `json:"command"`
+	// Runtime specifies the runtime type for this installation method.
+	Runtime Runtime `json:"runtime"`
 
 	// Args contains command-line arguments for the server.
 	Args []string `json:"args,omitempty"`
@@ -122,13 +119,6 @@ type Tool struct {
 	// This can be used by clients to improve the LLM's understanding of available tools.
 	// It can be thought of like a "hint" to the model.
 	Description string `json:"description"`
-
-	// InputSchema is JSONSchema defining the expected parameters for the tool.
-	InputSchema *JSONSchema `json:"inputSchema,omitempty"`
-
-	// OutputSchema is an optional JSONSchema defining the structure of the tool's
-	// output returned in the structured content field of a tool call result.
-	OutputSchema *JSONSchema `json:"outputSchema,omitempty"`
 
 	// Annotations provide optional additional tool information.
 	// Display name precedence order is: title, annotations.title when present, then tool name.
@@ -212,16 +202,4 @@ type ToolAnnotations struct {
 	// For example, the world of a web search tool is open, whereas that
 	// of a memory tool is not.
 	OpenWorldHint *bool `json:"openWorldHint,omitempty"`
-}
-
-// JSONSchema defines the structure for a JSON schema object.
-type JSONSchema struct {
-	// Type defines the type for this schema, e.g. "object".
-	Type string `json:"type"`
-
-	// Properties represents a property name and associated object definition.
-	Properties map[string]any `json:"properties,omitempty"`
-
-	// Required lists the (keys of) Properties that are required.
-	Required []string `json:"required,omitempty"`
 }

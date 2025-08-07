@@ -5,8 +5,15 @@
     "displayName": "Test Filesystem Server",
     "description": "Test filesystem server for unit testing",
     "license": "MIT",
-    "categories": ["tools", "filesystem"],
-    "tags": ["server", "filesystem", "operations"],
+    "categories": [
+      "tools",
+      "filesystem"
+    ],
+    "tags": [
+      "server",
+      "filesystem",
+      "operations"
+    ],
     "arguments": {
       "BASE_PATH": {
         "description": "Base directory for filesystem access",
@@ -22,78 +29,70 @@
     },
     "installations": {
       "npx": {
-        "type": "npx",
-        "command": "npx",
-        "args": ["test-filesystem-server", "--readonly"],
+        "args": [
+          "test-filesystem-server",
+          "--readonly"
+        ],
         "env": {
           "BASE_PATH": "${BASE_PATH}"
         },
         "version": "1.0.0",
         "description": "Run with npx",
-        "recommended": true
+        "recommended": true,
+        "runtime": "npx"
       }
     },
     "tools": [
       {
         "name": "read_file",
-        "description": "Read file contents",
-        "inputSchema": {
-          "type": "object",
-          "properties": {
-            "path": {"type": "string"}
-          },
-          "required": ["path"]
-        }
+        "description": "Read file contents"
       },
       {
         "name": "list_directory",
-        "description": "List directory contents",
-        "inputSchema": {
-          "type": "object",
-          "properties": {
-            "path": {"type": "string"}
-          },
-          "required": ["path"]
-        }
+        "description": "List directory contents"
       }
     ],
-    "transports": ["stdio"],
+    "transports": [
+      "stdio"
+    ],
     "isOfficial": true
   },
   "test-memory": {
     "id": "test-memory",
-    "name": "test-memory", 
+    "name": "test-memory",
     "displayName": "Test Memory Server",
     "description": "Test memory server for unit testing",
     "license": "MIT",
-    "categories": ["tools", "memory"],
-    "tags": ["server", "memory", "storage"],
+    "categories": [
+      "tools",
+      "memory"
+    ],
+    "tags": [
+      "server",
+      "memory",
+      "storage"
+    ],
     "arguments": {},
     "installations": {
       "uvx": {
-        "type": "uvx",
-        "command": "uvx",
-        "args": ["test-memory-server"],
+        "args": [
+          "test-memory-server"
+        ],
         "version": "2.0.0",
         "description": "Run with uvx",
-        "recommended": true
+        "recommended": true,
+        "runtime": "uvx"
       }
     },
     "tools": [
       {
         "name": "store_memory",
-        "description": "Store data in memory",
-        "inputSchema": {
-          "type": "object",
-          "properties": {
-            "key": {"type": "string"},
-            "value": {"type": "string"}
-          },
-          "required": ["key", "value"]
-        }
+        "description": "Store data in memory"
       }
     ],
-    "transports": ["stdio"],
+    "transports": [
+      "stdio"
+    ],
     "isOfficial": false
   }
 }

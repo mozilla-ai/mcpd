@@ -951,13 +951,6 @@ func TestRegistry_Tool_ToDomainType(t *testing.T) {
 				Name:        "t1",
 				Title:       "Tool One",
 				Description: "Test tool",
-				InputSchema: packages.JSONSchema{
-					Type: "object",
-					Properties: map[string]any{
-						"foo": map[string]any{"type": "string"},
-					},
-					Required: []string{"foo"},
-				},
 			},
 		},
 	}
