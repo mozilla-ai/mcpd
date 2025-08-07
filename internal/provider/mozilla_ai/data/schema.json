@@ -135,13 +135,6 @@
           ],
           "description": "Runtime type for this installation method"
         },
-        "args": {
-          "type": "array",
-          "items": {
-            "type": "string"
-          },
-          "description": "Command-line arguments for the server"
-        },
         "package": {
           "type": "string",
           "description": "Package name for package manager installations"
@@ -149,16 +142,6 @@
         "version": {
           "type": "string",
           "description": "Version for this installation method"
-        },
-        "env": {
-          "type": "object",
-          "patternProperties": {
-            "^[A-Z_][A-Z0-9_]*$": {
-              "type": "string"
-            }
-          },
-          "additionalProperties": false,
-          "description": "Environment variables required for the server"
         },
         "description": {
           "type": "string",

@@ -16,7 +16,6 @@
     "id": "airtable",
     "installations": {
       "npx": {
-        "args": [],
         "description": "Run with npx",
         "package": "@felores/airtable-mcp-server",
         "recommended": true,
@@ -66,7 +65,6 @@
     "id": "duckduckgo-mcp",
     "installations": {
       "uvx": {
-        "args": [],
         "description": "Run with Python uvx",
         "package": "duckduckgo-mcp-server",
         "recommended": true,
@@ -125,7 +123,6 @@
     "id": "elasticsearch",
     "installations": {
       "uvx": {
-        "args": [],
         "description": "Run with Python uvx",
         "package": "elasticsearch-mcp-server",
         "recommended": true,
@@ -240,7 +237,6 @@
     "id": "filesystem",
     "installations": {
       "npm": {
-        "args": [],
         "description": "Run with npm",
         "package": "@modelcontextprotocol/server-filesystem",
         "recommended": true,
@@ -309,7 +305,6 @@
     "id": "gitlab",
     "installations": {
       "npm": {
-        "args": [],
         "description": "Run with npm",
         "package": "@modelcontextprotocol/server-gitlab",
         "recommended": true,
@@ -368,7 +363,6 @@
     "id": "google-maps",
     "installations": {
       "npm": {
-        "args": [],
         "description": "Run with npm",
         "package": "@modelcontextprotocol/server-google-maps",
         "recommended": true,
@@ -406,47 +400,47 @@
   },
   "jira": {
     "arguments": {
-      "CONFLUENCE_TOKEN": {
+      "--confluence-token": {
         "description": "Confluence API token",
         "example": "ATATT3xFfGF0...",
-        "name": "CONFLUENCE_TOKEN",
+        "name": "--confluence-token",
         "required": true,
-        "type": "environment"
+        "type": "argument"
       },
-      "CONFLUENCE_URL": {
+      "--confluence-url": {
         "description": "Confluence server URL",
         "example": "https://your-domain.atlassian.net",
-        "name": "CONFLUENCE_URL",
+        "name": "--confluence-url",
         "required": true,
-        "type": "environment"
+        "type": "argument"
       },
-      "CONFLUENCE_USERNAME": {
+      "--confluence-username": {
         "description": "Confluence username or email",
         "example": "user@example.com",
-        "name": "CONFLUENCE_USERNAME",
+        "name": "--confluence-username",
         "required": true,
-        "type": "environment"
+        "type": "argument"
       },
-      "JIRA_TOKEN": {
+      "--jira-token": {
         "description": "Jira API token",
         "example": "ATATT3xFfGF0...",
-        "name": "JIRA_TOKEN",
+        "name": "--jira-token",
         "required": true,
-        "type": "environment"
+        "type": "argument"
       },
-      "JIRA_URL": {
+      "--jira-url": {
         "description": "Jira server URL",
         "example": "https://your-domain.atlassian.net",
-        "name": "JIRA_URL",
+        "name": "--jira-url",
         "required": true,
-        "type": "environment"
+        "type": "argument"
       },
-      "JIRA_USERNAME": {
+      "--jira-username": {
         "description": "Jira username or email",
         "example": "user@example.com",
-        "name": "JIRA_USERNAME",
+        "name": "--jira-username",
         "required": true,
-        "type": "environment"
+        "type": "argument"
       }
     },
     "categories": ["Productivity"],
@@ -456,14 +450,6 @@
     "id": "jira",
     "installations": {
       "uvx": {
-        "args": [
-          "--confluence-token=${CONFLUENCE_TOKEN}",
-          "--confluence-url=${CONFLUENCE_URL}",
-          "--confluence-username=${CONFLUENCE_USERNAME}",
-          "--jira-token=${JIRA_TOKEN}",
-          "--jira-url=${JIRA_URL}",
-          "--jira-username=${JIRA_USERNAME}"
-        ],
         "description": "Run with Python uvx",
         "package": "mcp-atlassian",
         "recommended": true,
@@ -521,7 +507,6 @@
     "id": "mcp-discord",
     "installations": {
       "npm": {
-        "args": [],
         "description": "Run with npm",
         "package": "mcp-discord",
         "recommended": true,
@@ -573,7 +558,6 @@
     "id": "memory",
     "installations": {
       "npm": {
-        "args": [],
         "description": "Run with npm",
         "package": "@modelcontextprotocol/server-memory",
         "recommended": true,
@@ -607,12 +591,31 @@
   },
   "monday-api-mcp": {
     "arguments": {
-      "MONDAY_API_TOKEN": {
+      "--token": {
         "description": "Monday.com API token for workspace access",
         "example": "eyJhbGciOiJIUzI1NiJ9...",
-        "name": "MONDAY_API_TOKEN",
+        "name": "--token",
         "required": true,
-        "type": "environment"
+        "type": "argument"
+      },
+      "--version": {
+        "description": "Version of the Monday.com API to use",
+        "name": "--version",
+        "required": false,
+        "type": "argument"
+      },
+      "--read-only": {
+        "description": "Enable read-only mode",
+        "name": "--read-only",
+        "required": false,
+        "type": "argument"
+      },
+      "--enable-dynamic-api-tools": {
+        "description": "Enable dynamic API tools (Mode that includes the whole API schema, not supported when using read-only mode)",
+        "example": "true",
+        "name": "--enable-dynamic-api-tools",
+        "required": false,
+        "type": "argument"
       }
     },
     "categories": ["Productivity"],
@@ -622,12 +625,6 @@
     "id": "monday-api-mcp",
     "installations": {
       "npm": {
-        "args": [
-          "-t",
-          "${MONDAY_API_TOKEN}",
-          "--enable-dynamic-api-tools",
-          "true"
-        ],
         "description": "Run with npm and dynamic API tools",
         "package": "@mondaydotcomorg/monday-api-mcp",
         "recommended": true,
@@ -682,7 +679,6 @@
     "id": "notion",
     "installations": {
       "npm": {
-        "args": [],
         "description": "Run with npm",
         "package": "@notionhq/notion-mcp-server",
         "recommended": true,
@@ -735,7 +731,6 @@
     "id": "perplexity",
     "installations": {
       "npm": {
-        "args": [],
         "description": "Run with npm",
         "package": "server-perplexity-ask",
         "recommended": true,
@@ -796,7 +791,6 @@
     "id": "slack-mcp",
     "installations": {
       "npm": {
-        "args": [],
         "description": "Run with npm",
         "package": "@zencoderai/slack-mcp-server",
         "recommended": true,
@@ -834,10 +828,10 @@
   },
   "sqlite": {
     "arguments": {
-      "DATABASE_PATH": {
+      "--db-path": {
         "description": "Path to the SQLite database file",
         "example": "~/test.db",
-        "name": "DATABASE_PATH",
+        "name": "--db-path",
         "required": true,
         "type": "argument"
       }
@@ -849,7 +843,6 @@
     "id": "sqlite",
     "installations": {
       "uvx": {
-        "args": ["--db-path", "${DATABASE_PATH}"],
         "description": "Run with Python uvx",
         "package": "mcp-server-sqlite",
         "recommended": true,
