@@ -17,14 +17,14 @@ type ArgumentType string
 type Runtime string
 
 // MCPRegistry represents the root registry as a map of server IDs to server details.
-type MCPRegistry map[string]ServerDetail
+type MCPRegistry map[string]Server
 
 type Tools []Tool
 
 type Arguments map[string]Argument
 
-// ServerDetail represents a complete MCP server entry.
-type ServerDetail struct {
+// Server represents a complete MCP server entry.
+type Server struct {
 	// ID is a unique identifier for the server.
 	ID string `json:"id"`
 

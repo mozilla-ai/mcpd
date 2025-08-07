@@ -201,7 +201,7 @@ func (r *Registry) Search(
 	return results, nil
 }
 
-// buildPackageResult attempts to convert the ServerDetail associated with the specified ID,
+// buildPackageResult attempts to convert the Server associated with the specified ID,
 // into a Package.
 func (r *Registry) buildPackageResult(pkgKey string) (packages.Package, bool) {
 	// Sanity check to ensure things work when a random ID gets supplied.
@@ -242,7 +242,7 @@ func (r *Registry) buildPackageResult(pkgKey string) (packages.Package, bool) {
 		return packages.Package{}, false
 	}
 
-	// Determine transports - if specified in ServerDetail, use those, otherwise default to stdio
+	// Determine transports - if specified in Server, use those, otherwise default to stdio
 	transports := packages.DefaultTransports()
 	if len(sd.Transports) > 0 {
 		transports = packages.FromStrings(sd.Transports)

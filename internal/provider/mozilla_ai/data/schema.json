@@ -6,12 +6,12 @@
   "type": "object",
   "patternProperties": {
     "^[a-zA-Z0-9_-]+$": {
-      "$ref": "#/$defs/ServerDetail"
+      "$ref": "#/$defs/Server"
     }
   },
   "additionalProperties": false,
   "$defs": {
-    "ServerDetail": {
+    "Server": {
       "type": "object",
       "properties": {
         "id": {

@@ -538,7 +538,7 @@ func TestRegistry_BuildPackageResult_ArgumentExtraction(t *testing.T) {
 
 	// Create a mock registry with test data
 	mockRegistry := MCPRegistry{
-		"test-server": ServerDetail{
+		"test-server": Server{
 			ID:          "test-server",
 			Name:        "test-server",
 			DisplayName: "Test Server",
