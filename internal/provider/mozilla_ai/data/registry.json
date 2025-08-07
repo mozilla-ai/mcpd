@@ -9,9 +9,7 @@
         "type": "environment"
       }
     },
-    "categories": [
-      "Databases"
-    ],
+    "categories": ["Databases"],
     "description": "Airtable database and spreadsheet operations for managing bases, tables, and records",
     "displayName": "Airtable",
     "homepage": "https://github.com/felores/airtable-mcp",
@@ -57,15 +55,11 @@
         "name": "list_tables"
       }
     ],
-    "transports": [
-      "stdio"
-    ]
+    "transports": ["stdio"]
   },
   "duckduckgo-mcp": {
     "arguments": {},
-    "categories": [
-      "Web Services"
-    ],
+    "categories": ["Web Services"],
     "description": "Web search capabilities using DuckDuckGo with additional features for content fetching and parsing",
     "displayName": "DuckDuckGo Search",
     "homepage": "https://github.com/nickclyde/duckduckgo-mcp-server",
@@ -87,12 +81,7 @@
       "name": "Nick Clyde",
       "url": "https://clyde.tech"
     },
-    "tags": [
-      "content fetching",
-      "duckduckgo",
-      "search engine",
-      "web search"
-    ],
+    "tags": ["content fetching", "duckduckgo", "search engine", "web search"],
     "tools": [
       {
         "description": "Fetch and parse content from a webpage URL",
@@ -103,9 +92,7 @@
         "name": "search"
       }
     ],
-    "transports": [
-      "stdio"
-    ]
+    "transports": ["stdio"]
   },
   "elasticsearch": {
     "arguments": {
@@ -131,9 +118,7 @@
         "type": "environment"
       }
     },
-    "categories": [
-      "Databases"
-    ],
+    "categories": ["Databases"],
     "description": "Elasticsearch and OpenSearch integration for searching documents, analyzing indices, and managing clusters",
     "displayName": "Elasticsearch",
     "homepage": "https://github.com/cr7258/elasticsearch-mcp-server",
@@ -227,9 +212,7 @@
         "name": "search_documents"
       }
     ],
-    "transports": [
-      "stdio"
-    ]
+    "transports": ["stdio"]
   },
   "filesystem": {
     "arguments": {
@@ -250,9 +233,7 @@
         "type": "argument_positional"
       }
     },
-    "categories": [
-      "System Tools"
-    ],
+    "categories": ["System Tools"],
     "description": "Secure file operations with configurable access controls for reading, writing, and managing files and directories",
     "displayName": "Filesystem",
     "homepage": "https://github.com/modelcontextprotocol/servers/tree/main/src/filesystem",
@@ -264,7 +245,7 @@
         "package": "@modelcontextprotocol/server-filesystem",
         "recommended": true,
         "runtime": "npx",
-        "version": "2025.7.29"        
+        "version": "2025.7.29"
       }
     },
     "isOfficial": true,
@@ -302,9 +283,7 @@
         "name": "write_file"
       }
     ],
-    "transports": [
-      "stdio"
-    ]
+    "transports": ["stdio"]
   },
   "gitlab": {
     "arguments": {
@@ -323,9 +302,7 @@
         "type": "environment"
       }
     },
-    "categories": [
-      "Development"
-    ],
+    "categories": ["Development"],
     "description": "GitLab API integration for project management and repository operations",
     "displayName": "GitLab",
     "homepage": "https://github.com/modelcontextprotocol/servers/tree/main/src/gitlab",
@@ -372,9 +349,7 @@
         "name": "list_projects"
       }
     ],
-    "transports": [
-      "stdio"
-    ]
+    "transports": ["stdio"]
   },
   "google-maps": {
     "arguments": {
@@ -386,9 +361,7 @@
         "type": "environment"
       }
     },
-    "categories": [
-      "Web Services"
-    ],
+    "categories": ["Web Services"],
     "description": "Location services, directions, and place details using Google Maps API",
     "displayName": "Google Maps",
     "homepage": "https://github.com/modelcontextprotocol/servers/tree/main/src/google-maps",
@@ -400,7 +373,7 @@
         "package": "@modelcontextprotocol/server-google-maps",
         "recommended": true,
         "runtime": "npx",
-        "version": "0.6.2"        
+        "version": "0.6.2"
       }
     },
     "isOfficial": true,
@@ -410,13 +383,7 @@
       "name": "Anthropic, PBC",
       "url": "https://anthropic.com"
     },
-    "tags": [
-      "directions",
-      "geocoding",
-      "google maps",
-      "location",
-      "places"
-    ],
+    "tags": ["directions", "geocoding", "google maps", "location", "places"],
     "tools": [
       {
         "description": "Get directions between two points",
@@ -435,9 +402,7 @@
         "name": "maps_search_places"
       }
     ],
-    "transports": [
-      "stdio"
-    ]
+    "transports": ["stdio"]
   },
   "jira": {
     "arguments": {
@@ -484,9 +449,7 @@
         "type": "environment"
       }
     },
-    "categories": [
-      "Productivity"
-    ],
+    "categories": ["Productivity"],
     "description": "Atlassian integration for Jira project management and Confluence documentation with comprehensive API access",
     "displayName": "Atlassian Jira & Confluence",
     "homepage": "https://github.com/sooperset/mcp-atlassian",
@@ -505,7 +468,7 @@
         "package": "mcp-atlassian",
         "recommended": true,
         "runtime": "uvx",
-        "version": "0.11.9"        
+        "version": "0.11.9"
       }
     },
     "isOfficial": false,
@@ -539,9 +502,7 @@
         "name": "search_jira_issues"
       }
     ],
-    "transports": [
-      "stdio"
-    ]
+    "transports": ["stdio"]
   },
   "mcp-discord": {
     "arguments": {
@@ -553,9 +514,7 @@
         "type": "environment"
       }
     },
-    "categories": [
-      "Messaging"
-    ],
+    "categories": ["Messaging"],
     "description": "Discord messaging and server management with comprehensive channel, message, and webhook capabilities",
     "displayName": "Discord Integration",
     "homepage": "https://github.com/barryyip0625/mcp-discord",
@@ -564,10 +523,10 @@
       "npm": {
         "args": [],
         "description": "Run with npm",
-        "package":  "mcp-discord",
+        "package": "mcp-discord",
         "recommended": true,
         "runtime": "npx",
-        "version": "1.3.4"        
+        "version": "1.3.4"
       }
     },
     "isOfficial": false,
@@ -576,13 +535,7 @@
     "publisher": {
       "name": "Barry Yip"
     },
-    "tags": [
-      "bot",
-      "channel management",
-      "discord",
-      "messaging",
-      "webhook"
-    ],
+    "tags": ["bot", "channel management", "discord", "messaging", "webhook"],
     "tools": [
       {
         "description": "Add an emoji reaction to a Discord message",
@@ -601,9 +554,7 @@
         "name": "discord_send"
       }
     ],
-    "transports": [
-      "stdio"
-    ]
+    "transports": ["stdio"]
   },
   "memory": {
     "arguments": {
@@ -615,9 +566,7 @@
         "type": "environment"
       }
     },
-    "categories": [
-      "Knowledge Base"
-    ],
+    "categories": ["Knowledge Base"],
     "description": "Knowledge graph-based persistent memory system for storing and retrieving contextual information",
     "displayName": "Knowledge Graph Memory",
     "homepage": "https://github.com/modelcontextprotocol/servers/tree/main/src/memory",
@@ -639,12 +588,7 @@
       "name": "Anthropic, PBC",
       "url": "https://anthropic.com"
     },
-    "tags": [
-      "context",
-      "knowledge graph",
-      "memory",
-      "persistent storage"
-    ],
+    "tags": ["context", "knowledge graph", "memory", "persistent storage"],
     "tools": [
       {
         "description": "Create multiple new entities in the knowledge graph",
@@ -659,9 +603,7 @@
         "name": "search_nodes"
       }
     ],
-    "transports": [
-      "stdio"
-    ]
+    "transports": ["stdio"]
   },
   "monday-api-mcp": {
     "arguments": {
@@ -673,9 +615,7 @@
         "type": "environment"
       }
     },
-    "categories": [
-      "Productivity"
-    ],
+    "categories": ["Productivity"],
     "description": "Monday.com integration with dynamic API tools for project management and workflow automation",
     "displayName": "Monday.com API",
     "homepage": "https://github.com/mondaycom/monday-ai/tree/master/packages/monday-api-mcp",
@@ -692,7 +632,7 @@
         "package": "@mondaydotcomorg/monday-api-mcp",
         "recommended": true,
         "runtime": "npx",
-        "version": "1.0.6"        
+        "version": "1.0.6"
       }
     },
     "isOfficial": false,
@@ -723,9 +663,7 @@
         "name": "get_items"
       }
     ],
-    "transports": [
-      "stdio"
-    ]
+    "transports": ["stdio"]
   },
   "notion": {
     "arguments": {
@@ -737,9 +675,7 @@
         "type": "environment"
       }
     },
-    "categories": [
-      "Productivity"
-    ],
+    "categories": ["Productivity"],
     "description": "Official Notion integration for page management, database operations, and content creation",
     "displayName": "Notion Workspace",
     "homepage": "https://github.com/makenotion/notion-mcp-server",
@@ -761,13 +697,7 @@
       "name": "Notion Labs, Inc.",
       "url": "https://notion.so"
     },
-    "tags": [
-      "content management",
-      "database",
-      "notion",
-      "pages",
-      "workspace"
-    ],
+    "tags": ["content management", "database", "notion", "pages", "workspace"],
     "tools": [
       {
         "description": "Create a new page in Notion",
@@ -786,9 +716,7 @@
         "name": "update_page"
       }
     ],
-    "transports": [
-      "stdio"
-    ]
+    "transports": ["stdio"]
   },
   "perplexity": {
     "arguments": {
@@ -800,9 +728,7 @@
         "type": "environment"
       }
     },
-    "categories": [
-      "Web Services"
-    ],
+    "categories": ["Web Services"],
     "description": "AI-powered search and information retrieval using Perplexity's Sonar API for real-time web research",
     "displayName": "Perplexity AI Search",
     "homepage": "https://github.com/ppl-ai/modelcontextprotocol",
@@ -837,9 +763,7 @@
         "name": "perplexity_ask"
       }
     ],
-    "transports": [
-      "stdio"
-    ]
+    "transports": ["stdio"]
   },
   "slack-mcp": {
     "arguments": {
@@ -865,9 +789,7 @@
         "type": "environment"
       }
     },
-    "categories": [
-      "Messaging"
-    ],
+    "categories": ["Messaging"],
     "description": "Slack workspace integration for comprehensive channel, message, reaction and user management",
     "displayName": "Slack Workspace",
     "homepage": "https://github.com/zencoderai/slack-mcp-server",
@@ -889,13 +811,7 @@
       "name": "Zencoder AI",
       "url": "https://zencoder.ai"
     },
-    "tags": [
-      "channels",
-      "collaboration",
-      "messaging",
-      "slack",
-      "workspace"
-    ],
+    "tags": ["channels", "collaboration", "messaging", "slack", "workspace"],
     "tools": [
       {
         "description": "Add an emoji reaction to a message",
@@ -914,8 +830,74 @@
         "name": "post_message"
       }
     ],
-    "transports": [
-      "stdio"
-    ]
+    "transports": ["stdio"]
+  },
+  "sqlite": {
+    "arguments": {
+      "DATABASE_PATH": {
+        "description": "Path to the SQLite database file",
+        "example": "~/test.db",
+        "name": "DATABASE_PATH",
+        "required": true,
+        "type": "argument"
+      }
+    },
+    "categories": ["Databases"],
+    "description": "SQLite database operations with business intelligence capabilities for querying, analyzing, and generating automated insights",
+    "displayName": "SQLite Database",
+    "homepage": "https://github.com/modelcontextprotocol/servers-archived/tree/main/src/sqlite",
+    "id": "sqlite",
+    "installations": {
+      "uvx": {
+        "args": ["--db-path", "${DATABASE_PATH}"],
+        "description": "Run with Python uvx",
+        "package": "mcp-server-sqlite",
+        "recommended": true,
+        "runtime": "uvx",
+        "version": "2025.4.25"
+      }
+    },
+    "isOfficial": true,
+    "license": "MIT",
+    "name": "sqlite",
+    "publisher": {
+      "name": "Model Context Protocol",
+      "url": "https://modelcontextprotocol.io"
+    },
+    "tags": [
+      "business intelligence",
+      "database",
+      "queries",
+      "schema management",
+      "sql",
+      "sqlite"
+    ],
+    "tools": [
+      {
+        "description": "Add business insights to the memo resource",
+        "name": "append_insight"
+      },
+      {
+        "description": "Create new database tables",
+        "name": "create_table"
+      },
+      {
+        "description": "View detailed table schema information",
+        "name": "describe_table"
+      },
+      {
+        "description": "Get all table names in the database",
+        "name": "list_tables"
+      },
+      {
+        "description": "Execute SELECT queries on the database",
+        "name": "read_query"
+      },
+      {
+        "description": "Perform INSERT, UPDATE, DELETE operations",
+        "name": "write_query"
+      }
+    ],
+    "transports": ["stdio"]
   }
 }
