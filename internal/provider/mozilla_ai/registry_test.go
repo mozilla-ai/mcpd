@@ -286,11 +286,13 @@ func TestRegistry_Arguments_ToDomainType(t *testing.T) {
 
 	args := Arguments{
 		"TEST_ENV": {
+			Name:        "TEST_ENV",
 			Description: "Test environment variable",
 			Required:    true,
 			Type:        ArgumentEnv,
 		},
 		"TEST_ARG": {
+			Name:        "TEST_ARG",
 			Description: "Test command argument",
 			Required:    false,
 			Type:        ArgumentValue,
@@ -302,11 +304,13 @@ func TestRegistry_Arguments_ToDomainType(t *testing.T) {
 	require.Len(t, result, 2)
 
 	require.Contains(t, result, "TEST_ENV")
+	require.Equal(t, "TEST_ENV", result["TEST_ENV"].Name)
 	require.Equal(t, "Test environment variable", result["TEST_ENV"].Description)
 	require.True(t, result["TEST_ENV"].Required)
 	require.Equal(t, "environment", string(result["TEST_ENV"].VariableType))
 
 	require.Contains(t, result, "TEST_ARG")
+	require.Equal(t, "TEST_ARG", result["TEST_ARG"].Name)
 	require.Equal(t, "Test command argument", result["TEST_ARG"].Description)
 	require.False(t, result["TEST_ARG"].Required)
 	require.Equal(t, "argument", string(result["TEST_ARG"].VariableType))
@@ -368,18 +372,21 @@ func TestRegistry_Arguments_ToDomainType_EdgeCases(t *testing.T) {
 			description: "All three argument types should be correctly converted",
 			args: Arguments{
 				"ENV_VAR": {
+					Name:        "ENV_VAR",
 					Description: "Environment variable",
 					Required:    true,
 					Type:        ArgumentEnv,
 					Example:     "env_example",
 				},
 				"CLI_ARG": {
+					Name:        "CLI_ARG",
 					Description: "Command line argument",
 					Required:    false,
 					Type:        ArgumentValue,
 					Example:     "cli_example",
 				},
 				"BOOL_FLAG": {
+					Name:        "BOOL_FLAG",
 					Description: "Boolean flag",
 					Required:    false,
 					Type:        ArgumentBool,
@@ -387,18 +394,21 @@ func TestRegistry_Arguments_ToDomainType_EdgeCases(t *testing.T) {
 			},
 			expected: packages.Arguments{
 				"ENV_VAR": {
+					Name:         "ENV_VAR",
 					Description:  "Environment variable",
 					Required:     true,
 					VariableType: packages.VariableTypeEnv,
 					Example:      "env_example",
 				},
 				"CLI_ARG": {
+					Name:         "CLI_ARG",
 					Description:  "Command line argument",
 					Required:     false,
 					VariableType: packages.VariableTypeArg,
 					Example:      "cli_example",
 				},
 				"BOOL_FLAG": {
+					Name:         "BOOL_FLAG",
 					Description:  "Boolean flag",
 					Required:     false,
 					VariableType: packages.VariableTypeArgBool,
@@ -411,12 +421,14 @@ func TestRegistry_Arguments_ToDomainType_EdgeCases(t *testing.T) {
 			description: "Mix of required and optional arguments should preserve requirements",
 			args: Arguments{
 				"REQUIRED_ENV": {
+					Name:        "REQUIRED_ENV",
 					Description: "Required environment variable",
 					Required:    true,
 					Type:        ArgumentEnv,
 					Example:     "required_value",
 				},
 				"OPTIONAL_ARG": {
+					Name:        "OPTIONAL_ARG",
 					Description: "Optional command line argument",
 					Required:    false,
 					Type:        ArgumentValue,
@@ -424,12 +436,14 @@ func TestRegistry_Arguments_ToDomainType_EdgeCases(t *testing.T) {
 			},
 			expected: packages.Arguments{
 				"REQUIRED_ENV": {
+					Name:         "REQUIRED_ENV",
 					Description:  "Required environment variable",
 					Required:     true,
 					VariableType: packages.VariableTypeEnv,
 					Example:      "required_value",
 				},
 				"OPTIONAL_ARG": {
+					Name:         "OPTIONAL_ARG",
 					Description:  "Optional command line argument",
 					Required:     false,
 					VariableType: packages.VariableTypeArg,
@@ -532,18 +546,21 @@ func TestRegistry_BuildPackageResult_ArgumentExtraction(t *testing.T) {
 			License:     "MIT",
 			Arguments: Arguments{
 				"CONFIG_FILE": {
+					Name:        "CONFIG_FILE",
 					Description: "Configuration file path",
 					Required:    true,
 					Type:        ArgumentValue,
 					Example:     "/etc/config.yaml",
 				},
 				"API_TOKEN": {
+					Name:        "API_TOKEN",
 					Description: "API authentication token",
 					Required:    true,
 					Type:        ArgumentEnv,
 					Example:     "abc123",
 				},
 				"DEBUG": {
+					Name:        "DEBUG",
 					Description: "Enable debug mode",
 					Required:    false,
 					Type:        ArgumentBool,
@@ -604,6 +621,7 @@ func TestRegistry_BuildPackageResult_ArgumentExtraction(t *testing.T) {
 	// Verify argument details
 	apiToken, exists := pkg.Arguments["API_TOKEN"]
 	require.True(t, exists, "API_TOKEN should exist")
+	require.Equal(t, "API_TOKEN", apiToken.Name)
 	require.Equal(t, packages.VariableTypeEnv, apiToken.VariableType)
 	require.True(t, apiToken.Required)
 	require.Equal(t, "API authentication token", apiToken.Description)
@@ -611,6 +629,7 @@ func TestRegistry_BuildPackageResult_ArgumentExtraction(t *testing.T) {
 
 	configFile, exists := pkg.Arguments["CONFIG_FILE"]
 	require.True(t, exists, "CONFIG_FILE should exist")
+	require.Equal(t, "CONFIG_FILE", configFile.Name)
 	require.Equal(t, packages.VariableTypeArg, configFile.VariableType)
 	require.True(t, configFile.Required)
 	require.Equal(t, "Configuration file path", configFile.Description)
@@ -618,6 +637,7 @@ func TestRegistry_BuildPackageResult_ArgumentExtraction(t *testing.T) {
 
 	debug, exists := pkg.Arguments["DEBUG"]
 	require.True(t, exists, "DEBUG should exist")
+	require.Equal(t, "DEBUG", debug.Name)
 	require.Equal(t, packages.VariableTypeArgBool, debug.VariableType)
 	require.False(t, debug.Required)
 	require.Equal(t, "Enable debug mode", debug.Description)

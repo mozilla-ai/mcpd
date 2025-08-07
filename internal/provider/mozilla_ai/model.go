@@ -1,9 +1,10 @@
 package mozilla_ai
 
 const (
-	ArgumentEnv   ArgumentType = "environment"
-	ArgumentValue ArgumentType = "argument"
-	ArgumentBool  ArgumentType = "argument_bool"
+	ArgumentEnv        ArgumentType = "environment"
+	ArgumentValue      ArgumentType = "argument"
+	ArgumentBool       ArgumentType = "argument_bool"
+	ArgumentPositional ArgumentType = "argument_positional"
 )
 
 const (
@@ -154,6 +155,10 @@ type Argument struct {
 
 	// Example provides an example value for the argument.
 	Example string `json:"example,omitempty"`
+
+	// Position specifies the position for positional arguments (1-based index).
+	// Only relevant when Type is ArgumentPositional.
+	Position *int `json:"position,omitempty"`
 }
 
 // Repository represents a source code repository with version verification.

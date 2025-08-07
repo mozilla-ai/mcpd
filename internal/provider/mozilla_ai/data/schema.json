@@ -249,13 +249,19 @@
           "enum": [
             "environment",
             "argument",
-            "argument_bool"
+            "argument_bool",
+            "argument_positional"
           ],
-          "description": "Argument type (environment variable, command-line argument, etc.)"
+          "description": "Argument type (environment variable, command-line argument, boolean flag, or positional argument)"
         },
         "example": {
           "type": "string",
           "description": "Example value for the argument"
+        },
+        "position": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Position for positional arguments (1-based index), only relevant when type is 'argument_positional'"
         }
       },
       "required": [

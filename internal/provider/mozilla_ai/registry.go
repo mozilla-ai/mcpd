@@ -379,12 +379,12 @@ func (t Tool) ToDomainType() (packages.Tool, error) {
 
 func (a Arguments) ToDomainType() (packages.Arguments, error) {
 	args := make(packages.Arguments, len(a))
-	for i, arg := range a {
+	for key, arg := range a {
 		data, err := arg.ToDomainType()
 		if err != nil {
 			return nil, err
 		}
-		args[i] = data
+		args[key] = data
 	}
 
 	return args, nil
@@ -397,6 +397,7 @@ func (a Argument) ToDomainType() (packages.ArgumentMetadata, error) {
 		Required:     a.Required,
 		VariableType: packages.VariableType(a.Type),
 		Example:      a.Example,
+		Position:     a.Position,
 	}, nil
 }
 
