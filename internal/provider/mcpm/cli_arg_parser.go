@@ -53,7 +53,7 @@ func (p *CLIArgParser) parsePositional(arg string, position int) {
 
 	// Store as positional argument with logical position information
 	if metadata, exists := p.schema[placeholder]; exists {
-		p.storeResultWithPosition(placeholder, packages.VariableTypePositionalArg, metadata, p.positionalCount)
+		p.storeResultWithPosition(placeholder, packages.VariableTypeArgPositional, metadata, p.positionalCount)
 	}
 }
 
