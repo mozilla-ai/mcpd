@@ -637,87 +637,87 @@
     "tools": [
       {
         "name": "monday-create-item",
-        "description": "Create a new item in a Monday.com Board. Optionally, specify the parent Item ID to create a Sub-item.",
+        "description": "Create a new item in a Monday.com Board. Optionally, specify the parent Item ID to create a Sub-item."
       },
       {
         "name": "monday-get-items-by-id",
-        "description": "Fetch specific Monday.com item by its ID",
+        "description": "Fetch specific Monday.com item by its ID"
       },
       {
         "name": "monday-update-item",
-        "description": "Update a Monday.com item's or sub-item's column values.",
+        "description": "Update a Monday.com item's or sub-item's column values."
       },
       {
         "name": "monday-get-board-columns",
-        "description": "Get the Columns of a Monday.com Board.",
+        "description": "Get the Columns of a Monday.com Board."
       },
       {
         "name": "monday-get-board-groups",
-        "description": "Get the Groups of a Monday.com Board.",
+        "description": "Get the Groups of a Monday.com Board."
       },
       {
         "name": "monday-create-update",
-        "description": "Create an update (comment) on a Monday.com Item or Sub-item.",
+        "description": "Create an update (comment) on a Monday.com Item or Sub-item."
       },
       {
         "name": "monday-list-boards",
-        "description": "Get all Boards from Monday.com",
+        "description": "Get all Boards from Monday.com"
       },
       {
         "name": "monday-list-items-in-groups",
-        "description": "List all items in the specified groups of a Monday.com board",
+        "description": "List all items in the specified groups of a Monday.com board"
       },
       {
         "name": "monday-list-subitems-in-items",
-        "description": "List all Sub-items of a list of Monday.com Items",
+        "description": "List all Sub-items of a list of Monday.com Items"
       },
       {
         "name": "monday-create-board",
-        "description": "Create a new Monday.com board",
+        "description": "Create a new Monday.com board"
       },
       {
         "name": "monday-create-board-group",
-        "description": "Create a new group in a Monday.com board",
+        "description": "Create a new group in a Monday.com board"
       },
       {
         "name": "monday-move-item-to-group",
-        "description": "Move an item to a group in a Monday.com board",
+        "description": "Move an item to a group in a Monday.com board"
       },
       {
         "name": "monday-delete-item",
-        "description": "Delete an item from a Monday.com board",
+        "description": "Delete an item from a Monday.com board"
       },
       {
         "name": "monday-archive-item",
-        "description": "Archive an item from a Monday.com board",
+        "description": "Archive an item from a Monday.com board"
       },
       {
         "name": "monday-get-item-updates",
-        "description": "Get updates for a specific item in Monday.com",
+        "description": "Get updates for a specific item in Monday.com"
       },
       {
         "name": "monday-get-docs",
-        "description": "Get a list of documents from Monday.com, optionally filtered by folder",
+        "description": "Get a list of documents from Monday.com, optionally filtered by folder"
       },
       {
         "name": "monday-get-doc-content",
-        "description": "Get the content of a specific document by ID",
+        "description": "Get the content of a specific document by ID"
       },
       {
         "name": "monday-create-doc",
-        "description": "Create a new document in Monday.com",
+        "description": "Create a new document in Monday.com"
       },
       {
         "name": "monday-add-doc-block",
-        "description": "Add a block to a document",
+        "description": "Add a block to a document"
       },
       {
         "name": "monday-get-item-files",
-        "description": "Get files (PDFs, documents, images, etc.) attached to a Monday.com item",
+        "description": "Get files (PDFs, documents, images, etc.) attached to a Monday.com item"
       },
       {
         "name": "monday-get-update-files",
-        "description": "Get files (PDFs, documents, images, etc.) attached to a specific update in Monday.com",
+        "description": "Get files (PDFs, documents, images, etc.) attached to a specific update in Monday.com"
       }
     ],
     "transports": ["stdio"]
