@@ -425,7 +425,6 @@ func convertInstallations(
 			Command:     install.Command,
 			Args:        slices.Clone(install.Args),
 			Package:     pkg,
-			Version:     "latest", // MCPM doesn't support versions, so everything is 'latest'
 			Env:         maps.Clone(install.Env),
 			Description: install.Description,
 			Recommended: install.Recommended,
