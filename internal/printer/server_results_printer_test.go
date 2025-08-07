@@ -79,10 +79,10 @@ func TestPackageListPrinter_Footer(t *testing.T) {
 
 	// singular
 	printer.Footer(buf, 1)
-	require.Contains(t, buf.String(), "📦 Found 1 package")
+	require.Contains(t, buf.String(), "📦 Found 1 server")
 
 	buf.Reset()
 	// plural
 	printer.Footer(buf, 3)
-	require.Contains(t, buf.String(), "📦 Found 3 packages")
+	require.Contains(t, buf.String(), "📦 Found 3 servers")
 }
