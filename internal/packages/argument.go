@@ -146,5 +146,11 @@ func PositionalArgument(_ string, data ArgumentMetadata) bool {
 
 // NonPositionalArgument is a predicate that requires the argument is not a positional command line argument.
 func NonPositionalArgument(s string, data ArgumentMetadata) bool {
-	return !PositionalArgument(s, data)
+	return !PositionalArgument(s, data) && !EnvVar(s, data)
+}
+
+// ValueAcceptingArgument is a predicate that requires an argument is capable of accepting a value.
+// This means it must be an argument (as opposed to env var) and cannot be a boolean flag.
+func ValueAcceptingArgument(_ string, data ArgumentMetadata) bool {
+	return data.VariableType == VariableTypeArgPositional || data.VariableType == VariableTypeArg
 }
