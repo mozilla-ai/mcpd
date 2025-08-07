@@ -10,30 +10,64 @@ type Tools []Tool
 // MCPServer represents the detailed information for an MCP single server.
 // NOTE: Based on mcpm server schema: https://github.com/pathintegral-institute/mcpm.sh/blob/8edbd723cf3c35433739afb27a723fdcdf763c23/mcp-registry/schema/server-schema.json
 type MCPServer struct {
-	Name          string        `json:"name"`
-	DisplayName   string        `json:"display_name"`
-	Description   string        `json:"description,omitempty"`
-	License       string        `json:"license"`
-	Arguments     Arguments     `json:"arguments"`
+	// Name is the canonical name of the server.
+	Name string `json:"name"`
+
+	// DisplayName is a human-readable display name for the server.
+	DisplayName string `json:"display_name"`
+
+	// Description provides a detailed description of the server's capabilities.
+	Description string `json:"description,omitempty"`
+
+	// License specifies the SPDX license identifier for the server.
+	License string `json:"license"`
+
+	// Arguments specifies configurable arguments for the server.
+	Arguments Arguments `json:"arguments"`
+
+	// Installations defines the available methods for installing and running the server.
 	Installations Installations `json:"installations"`
-	Tools         Tools         `json:"tools,omitempty"`
-	IsOfficial    bool          `json:"is_official"`
-	Repository    Repository    `json:"repository,omitempty"`
-	Homepage      string        `json:"homepage,omitempty"`
-	Author        Author        `json:"author,omitempty"`
-	Tags          []string      `json:"tags,omitempty"`
-	Categories    []string      `json:"categories,omitempty"`
-	Examples      []Example     `json:"examples,omitempty"`
+
+	// Tools lists all tools provided by this server.
+	Tools Tools `json:"tools,omitempty"`
+
+	// IsOfficial indicates whether this is an officially supported server.
+	IsOfficial bool `json:"is_official"`
+
+	// Repository optionally specifies a different source repository for this installation.
+	Repository Repository `json:"repository,omitempty"`
+
+	// Homepage is the URL to the server's homepage or documentation.
+	Homepage string `json:"homepage,omitempty"`
+
+	// Author identifies the organization or individual that published the server.
+	Author Author `json:"author,omitempty"`
+
+	// Categories lists the functional categories this server belongs to.
+	Categories []string `json:"categories,omitempty"`
+
+	// Tags provides searchable keywords for the server.
+	Tags []string `json:"tags,omitempty"`
+
+	// Examples show examples of how to use the MCP server (usually via prompts).
+	Examples []Example `json:"examples,omitempty"`
 }
 
 type Arguments map[string]Argument
 
 // Argument defines a command-line argument for the server.
 type Argument struct {
-	Name        string `json:"name"`
+	// Name is the reference for the argument.
+	Name string `json:"name"`
+
+	// Description provides a human-readable explanation of the argument's purpose.
 	Description string `json:"description"`
-	Required    bool   `json:"required"`
-	Example     string `json:"example,omitempty"`
+
+	// Required indicates whether this argument is mandatory for server operation.
+	Required bool `json:"required"`
+
+	// Example provides an example value for the argument.
+	Example string `json:"example,omitempty"`
 }
 
 type Installations map[string]Installation
@@ -56,7 +90,7 @@ type Tool struct {
 	Name           string     `json:"name"`
 	Title          string     `json:"title"`
 	Description    string     `json:"description"`
-	InputSchema    JSONSchema `json:"inputSchema"`
+	InputSchema    JSONSchema `json:"inputSchema"` // NOTE: Some servers have 'input_schema'
 	RequiredInputs []string   `json:"required"`
 }
 

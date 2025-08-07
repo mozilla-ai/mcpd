@@ -32,12 +32,24 @@ type Arguments map[string]ArgumentMetadata
 
 // ArgumentMetadata represents metadata about an argument/variable
 type ArgumentMetadata struct {
-	Name         string       `json:"name"`
-	Description  string       `json:"description"`
-	Required     bool         `json:"required"`
-	Example      string       `json:"example"`
+	// Name is the reference for the argument.
+	Name string `json:"name"`
+
+	// VariableType represents the type of argument this is (env var, value flag, bool flag, positional arg).
 	VariableType VariableType `json:"type"`
-	Position     *int         `json:"position,omitempty"` // Position in args array for positional arguments
+
+	// Description provides a human-readable explanation of the argument's purpose.
+	Description string `json:"description"`
+
+	// Required indicates whether this argument is mandatory for server operation.
+	Required bool `json:"required"`
+
+	// Example provides an example value for the argument.
+	Example string `json:"example,omitempty"`
+
+	// Position specifies the position for positional arguments (1-based index).
+	// Only relevant when Type is ArgumentPositional.
+	Position *int `json:"position,omitempty"`
 }
 
 // FilterBy allows filtering of Arguments using predicates.

@@ -27,7 +27,7 @@ type SearchCmd struct {
 	Format          internalcmd.OutputFormat
 	IsOfficial      bool
 	registryBuilder registry.Builder
-	packagePrinter  output.Printer[packages.Package]
+	packagePrinter  output.Printer[packages.Server]
 }
 
 func NewSearchCmd(baseCmd *internalcmd.BaseCmd, opt ...cmdopts.CmdOption) (*cobra.Command, error) {

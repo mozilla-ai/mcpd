@@ -92,7 +92,7 @@ func TestRegistry_Resolve_EmbeddedServer(t *testing.T) {
 	)
 	require.NoError(t, err)
 	require.Contains(t, registry.mcpServers, "filesystem")
-	pkg, transformed := registry.buildPackageResult("filesystem")
+	pkg, transformed := registry.serverForID("filesystem")
 	require.True(t, transformed)
 	require.NotNil(t, pkg)
 	require.Equal(t, "filesystem", pkg.Name)
@@ -179,7 +179,7 @@ func TestRegistry_Search(t *testing.T) {
 		},
 	}
 
-	ensureFound := func(t *testing.T, results []packages.Package, name string) {
+	ensureFound := func(t *testing.T, results []packages.Server, name string) {
 		t.Helper()
 
 		found := false
@@ -290,7 +290,7 @@ func TestRegistry_BuildPackageResult_ValidServer(t *testing.T) {
 	// Find a server that can actually be built
 	var validServerKey string
 	for key := range registry.mcpServers {
-		if pkg, ok := registry.buildPackageResult(key); ok && len(pkg.Installations) > 0 {
+		if pkg, ok := registry.serverForID(key); ok && len(pkg.Installations) > 0 {
 			validServerKey = key
 			break
 		}
@@ -298,7 +298,7 @@ func TestRegistry_BuildPackageResult_ValidServer(t *testing.T) {
 	require.NotEmpty(t, validServerKey, "Should have at least one server that can be built")
 
 	// Test building package result
-	pkg, ok := registry.buildPackageResult(validServerKey)
+	pkg, ok := registry.serverForID(validServerKey)
 	require.True(t, ok, "Should successfully build package result")
 	require.Equal(t, validServerKey, pkg.Name)
 	require.Equal(t, RegistryName, pkg.Source)
@@ -312,7 +312,7 @@ func TestRegistry_BuildPackageResult_InvalidServer(t *testing.T) {
 	require.NoError(t, err)
 
 	// Test with non-existent server
-	_, ok := registry.buildPackageResult("nonexistent-server")
+	_, ok := registry.serverForID("nonexistent-server")
 	require.False(t, ok, "Should fail to build package result for non-existent server")
 }
 
@@ -344,7 +344,7 @@ func TestRegistry_Arguments_ToDomainType_EdgeCases(t *testing.T) {
 				},
 				"CLI_ARG": {
 					Name:        "CLI_ARG",
-					Description: "Command line argument",
+					Description: "Runtime line argument",
 					Required:    false,
 					Type:        ArgumentValue,
 					Example:     "cli_example",
@@ -366,7 +366,7 @@ func TestRegistry_Arguments_ToDomainType_EdgeCases(t *testing.T) {
 				},
 				"CLI_ARG": {
 					Name:         "CLI_ARG",
-					Description:  "Command line argument",
+					Description:  "Runtime line argument",
 					Required:     false,
 					VariableType: packages.VariableTypeArg,
 					Example:      "cli_example",
@@ -532,6 +532,7 @@ func TestRegistry_BuildPackageResult_ArgumentExtraction(t *testing.T) {
 					Version:     "1.0.0",
 					Description: "Run with npx",
 					Recommended: true,
+					Transports:  []string{"stdio"},
 				},
 			},
 			Tools: Tools{
@@ -540,7 +541,6 @@ func TestRegistry_BuildPackageResult_ArgumentExtraction(t *testing.T) {
 					Description: "Test tool",
 				},
 			},
-			Transports: []string{"stdio"},
 			IsOfficial: false,
 		},
 	}
@@ -554,7 +554,7 @@ func TestRegistry_BuildPackageResult_ArgumentExtraction(t *testing.T) {
 	}
 
 	// Build package result
-	pkg, ok := registry.buildPackageResult("test-server")
+	pkg, ok := registry.serverForID("test-server")
 	require.True(t, ok, "Should successfully build package result")
 	require.Equal(t, "test-server", pkg.Name)
 	require.Equal(t, "mozilla-ai", pkg.Source)
@@ -603,12 +603,12 @@ func TestRegistry_BuildPackageResult_WithOptionalArguments(t *testing.T) {
 	tests := []struct {
 		name      string
 		serverID  string
-		checkFunc func(t *testing.T, pkg packages.Package)
+		checkFunc func(t *testing.T, pkg packages.Server)
 	}{
 		{
 			name:     "time server with optional timezone argument",
 			serverID: "time",
-			checkFunc: func(t *testing.T, pkg packages.Package) {
+			checkFunc: func(t *testing.T, pkg packages.Server) {
 				require.Equal(t, "time", pkg.Name)
 				require.Equal(t, "Time Server", pkg.DisplayName)
 
@@ -628,7 +628,7 @@ func TestRegistry_BuildPackageResult_WithOptionalArguments(t *testing.T) {
 		{
 			name:     "sqlite with required argument and package field",
 			serverID: "sqlite-with-package",
-			checkFunc: func(t *testing.T, pkg packages.Package) {
+			checkFunc: func(t *testing.T, pkg packages.Server) {
 				require.Equal(t, "sqlite-with-package", pkg.Name)
 
 				// Check required argument
@@ -659,7 +659,7 @@ func TestRegistry_BuildPackageResult_WithOptionalArguments(t *testing.T) {
 				filterOptions: []options.Option{},
 			}
 
-			pkg, ok := registry.buildPackageResult(tc.serverID)
+			pkg, ok := registry.serverForID(tc.serverID)
 			require.True(t, ok, "Should successfully build package result")
 			tc.checkFunc(t, pkg)
 		})

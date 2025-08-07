@@ -683,7 +683,7 @@ func TestRegistry_ExtractArgumentMetadata_WithTestdata(t *testing.T) {
 
 			// Get the specific server we're testing
 			server, exists := servers[tc.packageName]
-			require.True(t, exists, "Package %q not found in testdata file %q", tc.packageName, tc.testdataFile)
+			require.True(t, exists, "Server %q not found in testdata file %q", tc.packageName, tc.testdataFile)
 
 			// Extract arguments using the fixed logic
 			result := extractArgumentMetadata(server, runtime.DefaultSupportedRuntimes())

@@ -21,7 +21,7 @@ import (
 var embeddedRegistryData embed.FS
 
 const (
-	// RegistryName is the name of this registry that will appear as the Package.Source, and in logs/errors.
+	// RegistryName is the name of this registry that will appear as the Server.Source, and in logs/errors.
 	RegistryName = "mozilla-ai"
 )
 
@@ -108,23 +108,23 @@ func (r *Registry) ID() string {
 }
 
 // Resolve implements the PackageGetter interface for Registry.
-func (r *Registry) Resolve(name string, opt ...options.ResolveOption) (packages.Package, error) {
+func (r *Registry) Resolve(name string, opt ...options.ResolveOption) (packages.Server, error) {
 	// Handle name.
 	name = filter.NormalizeString(name)
 	if name == "" {
-		return packages.Package{}, fmt.Errorf("name must not be empty")
+		return packages.Server{}, fmt.Errorf("name must not be empty")
 	}
 
 	// Handle options.
 	opts, err := options.NewResolveOptions(opt...)
 	if err != nil {
-		return packages.Package{}, err
+		return packages.Server{}, err
 	}
 
 	// Handle creation of filters.
 	fs, err := options.PrepareFilters(options.ResolveFilters(opts), name, nil)
 	if err != nil {
-		return packages.Package{}, fmt.Errorf("invalid filters for %s: %w", r.ID(), err)
+		return packages.Server{}, fmt.Errorf("invalid filters for %s: %w", r.ID(), err)
 	}
 
 	r.logger.Debug(
@@ -136,18 +136,18 @@ func (r *Registry) Resolve(name string, opt ...options.ResolveOption) (packages.
 		"filters", fs,
 	)
 
-	result, transformed := r.buildPackageResult(name)
+	result, transformed := r.serverForID(name)
 	if !transformed {
-		return packages.Package{}, fmt.Errorf("failed to build package result for '%s'", name)
+		return packages.Server{}, fmt.Errorf("failed to build package result for '%s'", name)
 	}
 
 	combinedMatchOpts := append(slices.Clone(r.filterOptions), options.WithDefaultMatchers())
 	matches, err := options.Match(result, fs, combinedMatchOpts...)
 	if err != nil {
-		return packages.Package{}, err
+		return packages.Server{}, err
 	}
 	if !matches {
-		return packages.Package{}, fmt.Errorf("package with name '%s' does not match requested filters", name)
+		return packages.Server{}, fmt.Errorf("package with name '%s' does not match requested filters", name)
 	}
 
 	return result, nil
@@ -158,7 +158,7 @@ func (r *Registry) Search(
 	name string,
 	filters map[string]string,
 	opt ...options.SearchOption,
-) ([]packages.Package, error) {
+) ([]packages.Server, error) {
 	name = filter.NormalizeString(name)
 	if name == "" {
 		return nil, fmt.Errorf("name must not be empty")
@@ -175,9 +175,9 @@ func (r *Registry) Search(
 	}
 
 	r.logger.Debug("Searching for package", "name", name, "filters", fs, "source", opts.Source)
-	var results []packages.Package
+	var results []packages.Server
 	for id := range r.mcpServers {
-		result, transformed := r.buildPackageResult(id)
+		result, transformed := r.serverForID(id)
 		if !transformed {
 			continue
 		}
@@ -201,14 +201,14 @@ func (r *Registry) Search(
 	return results, nil
 }
 
-// buildPackageResult attempts to convert the Server associated with the specified ID,
-// into a Package.
-func (r *Registry) buildPackageResult(pkgKey string) (packages.Package, bool) {
+// serverForID attempts to convert the Server associated with the specified ID, into a packages.Server.
+// Returns the packages.Server and a boolean value indicating success.
+func (r *Registry) serverForID(pkgKey string) (packages.Server, bool) {
 	// Sanity check to ensure things work when a random ID gets supplied.
 	sd, foundServer := r.mcpServers[pkgKey]
 	if !foundServer {
 		r.logger.Warn("cannot transform package, unknown key", "pkgKey", pkgKey)
-		return packages.Package{}, false
+		return packages.Server{}, false
 	}
 
 	tools, err := sd.Tools.ToDomainType()
@@ -218,7 +218,7 @@ func (r *Registry) buildPackageResult(pkgKey string) (packages.Package, bool) {
 			"name", pkgKey,
 			"error", err,
 		)
-		return packages.Package{}, false
+		return packages.Server{}, false
 	}
 
 	// Convert arguments to ArgumentMetadata format
@@ -229,20 +229,14 @@ func (r *Registry) buildPackageResult(pkgKey string) (packages.Package, bool) {
 			"name", pkgKey,
 			"error", err,
 		)
-		return packages.Package{}, false
-	}
-
-	// Determine transports - if specified in Server, use those, otherwise default to stdio
-	transports := packages.DefaultTransports()
-	if len(sd.Transports) > 0 {
-		transports = packages.FromStrings(sd.Transports)
+		return packages.Server{}, false
 	}
 
 	// Check if deprecated based on all installations
 	installations := convertInstallations(sd.Installations, r.supportedRuntimes)
 	deprecated := installations.AllDeprecated()
 
-	return packages.Package{
+	return packages.Server{
 		Source:        RegistryName,
 		ID:            pkgKey,
 		Name:          pkgKey,
@@ -254,7 +248,6 @@ func (r *Registry) buildPackageResult(pkgKey string) (packages.Package, bool) {
 		Categories:    sd.Categories,
 		Installations: installations,
 		Arguments:     arguments,
-		Transports:    transports,
 		IsOfficial:    sd.IsOfficial,
 		Deprecated:    deprecated || sd.Deprecated,
 	}, true
@@ -276,14 +269,20 @@ func convertInstallations(
 			continue
 		}
 
+		transports := install.Transports
+		if len(transports) == 0 {
+			// TODO: mozilla-ai defaults to stdio, could be extended per-installation later.
+			transports = packages.DefaultTransports().ToStrings()
+		}
+
 		details[rt] = packages.Installation{
-			Command:     string(install.Runtime),
+			Runtime:     runtime.Runtime(install.Runtime),
 			Package:     install.Package,
 			Version:     install.Version,
 			Description: install.Description,
 			Recommended: install.Recommended,
 			Deprecated:  install.Deprecated,
-			Transports:  packages.DefaultTransports(), // TODO: mozilla-ai defaults to stdio, could be extended per-installation later
+			Transports:  transports,
 		}
 	}
 
