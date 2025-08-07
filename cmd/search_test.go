@@ -167,7 +167,7 @@ func TestSearchCmd_DefaultFormat(t *testing.T) {
 	outStr := o.String()
 	assert.Contains(t, outStr, "🔎 Registry search results...")
 	assert.Contains(t, outStr, "🆔 test-server")
-	assert.Contains(t, outStr, "📦 Found 1 package")
+	assert.Contains(t, outStr, "📦 Found 1 server")
 }
 
 func TestSearchCmd_TextFormat(t *testing.T) {
@@ -203,7 +203,7 @@ func TestSearchCmd_TextFormat(t *testing.T) {
 	outStr := o.String()
 	assert.Contains(t, outStr, "🔎 Registry search results...")
 	assert.Contains(t, outStr, "🆔 test-server")
-	assert.Contains(t, outStr, "📦 Found 1 package")
+	assert.Contains(t, outStr, "📦 Found 1 server")
 }
 
 func TestSearchCmd_JSONFormat(t *testing.T) {
@@ -417,7 +417,7 @@ func TestSearchCmd_CaseInsensitiveFormat(t *testing.T) {
 				outStr := o.String()
 				assert.Contains(t, outStr, "🔎 Registry search results...")
 				assert.Contains(t, outStr, "🆔 test-server")
-				assert.Contains(t, outStr, "📦 Found 1 package")
+				assert.Contains(t, outStr, "📦 Found 1 server")
 			}
 		})
 	}
