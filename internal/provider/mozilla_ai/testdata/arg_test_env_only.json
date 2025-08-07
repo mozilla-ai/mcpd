@@ -7,12 +7,14 @@
     "license": "MIT",
     "arguments": {
       "API_KEY": {
+        "name": "API_KEY",
         "description": "API key for authentication",
         "required": true,
         "type": "environment",
         "example": "sk-1234567890"
       },
       "DEBUG_MODE": {
+        "name": "DEBUG_MODE",
         "description": "Enable debug logging",
         "required": false,
         "type": "environment",
@@ -21,13 +23,7 @@
     },
     "installations": {
       "npx": {
-        "args": [
-          "env-server"
-        ],
-        "env": {
-          "API_KEY": "${API_KEY}",
-          "DEBUG_MODE": "${DEBUG_MODE}"
-        },
+        "package": "env-server",
         "version": "1.0.0",
         "description": "Run with npx",
         "recommended": true,

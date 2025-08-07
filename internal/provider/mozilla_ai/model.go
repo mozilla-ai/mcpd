@@ -81,17 +81,11 @@ type Installation struct {
 	// Runtime specifies the runtime type for this installation method.
 	Runtime Runtime `json:"runtime"`
 
-	// Args contains command-line arguments for the server.
-	Args []string `json:"args,omitempty"`
-
-	// Package is the package name for package manager installations.
+	// Package is the package name that will be executed.
 	Package string `json:"package,omitempty"`
 
 	// Version specifies the version for this installation method.
 	Version string `json:"version"`
-
-	// Env defines environment variables required for the server.
-	Env map[string]string `json:"env,omitempty"`
 
 	// Description provides additional details about this installation method.
 	Description string `json:"description,omitempty"`

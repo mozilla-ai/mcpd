@@ -211,16 +211,6 @@ func (r *Registry) buildPackageResult(pkgKey string) (packages.Package, bool) {
 		return packages.Package{}, false
 	}
 
-	runtimesAndPackages, err := r.supportedRuntimePackageNames(sd.Installations)
-	if err != nil || len(runtimesAndPackages) == 0 {
-		r.logger.Debug(
-			"no supported runtime packages found in registry",
-			"pkgKey", pkgKey,
-			"error", err,
-		)
-		return packages.Package{}, false
-	}
-
 	tools, err := sd.Tools.ToDomainType()
 	if err != nil {
 		r.logger.Error(
@@ -270,37 +260,6 @@ func (r *Registry) buildPackageResult(pkgKey string) (packages.Package, bool) {
 	}, true
 }
 
-// supportedRuntimePackageNames extracts runtime-specific package names for a given MCP server.
-func (r *Registry) supportedRuntimePackageNames(
-	installations map[string]Installation,
-) (map[runtime.Runtime]string, error) {
-	result := make(map[runtime.Runtime]string)
-
-	specs := runtime.Specs()
-
-	for _, inst := range installations {
-		rt := runtime.Runtime(inst.Runtime)
-		if _, ok := r.supportedRuntimes[rt]; !ok {
-			continue
-		}
-
-		spec, ok := specs[rt]
-		if !ok || spec.ExtractPackageName == nil {
-			r.logger.Debug("no package extractor for runtime", "runtime", rt)
-			continue
-		}
-
-		pkg, err := spec.ExtractPackageName(inst.Args)
-		if err != nil {
-			return nil, fmt.Errorf("failed to extract package for runtime %q: %w", rt, err)
-		}
-
-		result[rt] = pkg
-	}
-
-	return result, nil
-}
-
 func convertInstallations(
 	src map[string]Installation,
 	supported map[runtime.Runtime]struct{},
@@ -309,7 +268,6 @@ func convertInstallations(
 		return nil
 	}
 
-	specs := runtime.Specs()
 	details := make(packages.Installations, len(src))
 
 	for _, install := range src {
@@ -318,23 +276,14 @@ func convertInstallations(
 			continue
 		}
 
-		pkg := ""
-		if spec, ok := specs[rt]; ok && spec.ExtractPackageName != nil {
-			if packageName, err := spec.ExtractPackageName(install.Args); err == nil {
-				pkg = packageName
-			}
-		}
-
 		details[rt] = packages.Installation{
 			Command:     string(install.Runtime),
-			Args:        slices.Clone(install.Args),
-			Package:     pkg,
+			Package:     install.Package,
 			Version:     install.Version,
-			Env:         maps.Clone(install.Env),
 			Description: install.Description,
 			Recommended: install.Recommended,
 			Deprecated:  install.Deprecated,
-			Transports:  packages.DefaultTransports(), // mozilla-ai defaults to stdio, could be extended per-installation later
+			Transports:  packages.DefaultTransports(), // TODO: mozilla-ai defaults to stdio, could be extended per-installation later
 		}
 	}
 

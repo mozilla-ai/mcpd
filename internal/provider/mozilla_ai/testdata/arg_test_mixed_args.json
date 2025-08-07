@@ -6,19 +6,22 @@
     "description": "Server with both environment variables and command-line arguments",
     "license": "MIT",
     "arguments": {
-      "CONFIG_PATH": {
+      "--config-path": {
+        "name": "--config-path",
         "description": "Path to configuration file",
         "required": true,
         "type": "argument",
         "example": "/path/to/config.json"
       },
       "DATABASE_URL": {
+        "name": "DATABASE_URL",
         "description": "Database connection URL",
         "required": true,
         "type": "environment",
         "example": "postgresql://user:pass@localhost:5432/db"
       },
-      "VERBOSE": {
+      "--verbose": {
+        "name": "--verbose",
         "description": "Enable verbose logging",
         "required": false,
         "type": "argument_bool",

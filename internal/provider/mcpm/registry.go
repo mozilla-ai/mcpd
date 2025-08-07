@@ -423,9 +423,7 @@ func convertInstallations(
 
 		details[rt] = packages.Installation{
 			Command:     install.Command,
-			Args:        slices.Clone(install.Args),
 			Package:     pkg,
-			Env:         maps.Clone(install.Env),
 			Description: install.Description,
 			Recommended: install.Recommended,
 			Deprecated:  false,                        // MCPM doesn't support deprecated installations

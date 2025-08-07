@@ -6,19 +6,22 @@
     "description": "Server that uses command-line arguments only",
     "license": "Apache-2.0",
     "arguments": {
-      "OUTPUT_FORMAT": {
+      "--output-format": {
+        "name": "--output-format",
         "description": "Output format for results",
         "required": true,
         "type": "argument",
         "example": "json"
       },
-      "PORT": {
+      "--port": {
+        "name": "--port",
         "description": "Port number to listen on",
         "required": false,
         "type": "argument",
         "example": "3000"
       },
-      "ENABLE_CORS": {
+      "--enable-cors": {
+        "name": "--enable-cors",
         "description": "Enable CORS headers",
         "required": false,
         "type": "argument_bool"
@@ -26,26 +29,14 @@
     },
     "installations": {
       "npx": {
-        "args": [
-          "cli-server",
-          "--format",
-          "${OUTPUT_FORMAT}",
-          "--port",
-          "${PORT}",
-          "--cors"
-        ],
+        "package": "cli-server",
         "version": "1.5.2",
         "description": "Run with npx",
         "recommended": false,
         "runtime": "npx"
       },
       "uvx": {
-        "args": [
-          "cli-server",
-          "--format",
-          "${OUTPUT_FORMAT}",
-          "--enable-cors"
-        ],
+        "package": "cli-server",
         "version": "1.5.2",
         "description": "Run with uvx",
         "recommended": true,

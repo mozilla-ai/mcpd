@@ -42,32 +42,6 @@ func newTestLogger(t *testing.T) hclog.Logger {
 	})
 }
 
-// extractTestEnvVarNames extracts environment variable names from Arguments for testing.
-func extractTestEnvVarNames(t *testing.T, args packages.Arguments) []string {
-	t.Helper()
-
-	var envVars []string
-	for key, arg := range args {
-		if arg.VariableType == packages.VariableTypeEnv {
-			envVars = append(envVars, key)
-		}
-	}
-	return envVars
-}
-
-// extractTestCLIArgNames extracts CLI argument names from Arguments for testing.
-func extractTestCLIArgNames(t *testing.T, args packages.Arguments) []string {
-	t.Helper()
-
-	var cliArgs []string
-	for key, arg := range args {
-		if arg.VariableType == packages.VariableTypeArg || arg.VariableType == packages.VariableTypeArgBool {
-			cliArgs = append(cliArgs, key)
-		}
-	}
-	return cliArgs
-}
-
 func TestRegistry_ID(t *testing.T) {
 	t.Parallel()
 
@@ -456,11 +430,12 @@ func TestRegistry_Arguments_ToDomainType_EdgeCases(t *testing.T) {
 }
 
 func TestRegistry_Arguments_ToDomainType_WithTestdata(t *testing.T) {
+	t.Parallel()
+
 	testCases := []struct {
 		name         string
 		testdataFile string
 		serverName   string
-		description  string
 		expectedEnv  []string
 		expectedArgs []string
 	}{
@@ -468,57 +443,51 @@ func TestRegistry_Arguments_ToDomainType_WithTestdata(t *testing.T) {
 			name:         "environment variables only",
 			testdataFile: "arg_test_env_only.json",
 			serverName:   "env-only-server",
-			description:  "Server using only environment variables should extract env vars correctly",
 			expectedEnv:  []string{"API_KEY", "DEBUG_MODE"},
-			expectedArgs: []string{},
 		},
 		{
 			name:         "command-line arguments only",
 			testdataFile: "arg_test_cli_only.json",
 			serverName:   "cli-only-server",
-			description:  "Server using only CLI arguments should extract args correctly",
-			expectedEnv:  []string{},
-			expectedArgs: []string{"OUTPUT_FORMAT", "PORT", "ENABLE_CORS"},
+			expectedArgs: []string{"--output-format", "--port", "--enable-cors"},
 		},
 		{
 			name:         "mixed environment and arguments",
 			testdataFile: "arg_test_mixed_args.json",
 			serverName:   "mixed-args-server",
-			description:  "Server with mixed argument types should classify each correctly",
 			expectedEnv:  []string{"DATABASE_URL"},
-			expectedArgs: []string{"CONFIG_PATH", "VERBOSE"},
+			expectedArgs: []string{"--config-path", "--verbose"},
 		},
 	}
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			t.Logf("Test description: %s", tc.description)
+			t.Parallel()
 
-			// Load testdata registry
 			registry := loadTestDataRegistry(t, tc.testdataFile)
-
-			// Get the specific server we're testing
 			server, exists := registry[tc.serverName]
-			require.True(t, exists, "Server %q not found in testdata file %q", tc.serverName, tc.testdataFile)
+			require.True(t, exists)
 
-			// Convert arguments using Mozilla AI's ToDomainType method
 			result, err := server.Arguments.ToDomainType()
-			require.NoError(t, err, "Should convert arguments successfully")
+			require.NoError(t, err)
 
 			// Verify expected environment variables
-			envVars := extractTestEnvVarNames(t, result)
-			require.ElementsMatch(t, tc.expectedEnv, envVars,
-				"Unexpected environment variables for %s", tc.serverName)
+			envVars := result.FilterBy(packages.EnvVar).Names()
+			require.ElementsMatch(t, tc.expectedEnv, envVars)
+			for _, key := range tc.expectedEnv {
+				require.Equal(t, key, result[key].Name)
+			}
 
 			// Verify expected CLI arguments
-			cliArgs := extractTestCLIArgNames(t, result)
-			require.ElementsMatch(t, tc.expectedArgs, cliArgs,
-				"Unexpected CLI arguments for %s", tc.serverName)
+			cliArgs := result.FilterBy(packages.Argument).Names()
+			require.ElementsMatch(t, tc.expectedArgs, cliArgs)
+			for _, key := range tc.expectedArgs {
+				require.Equal(t, key, result[key].Name)
+			}
 
 			// Verify argument count matches expectations
 			expectedTotal := len(tc.expectedEnv) + len(tc.expectedArgs)
-			require.Len(t, result, expectedTotal,
-				"Total argument count mismatch for %s", tc.serverName)
+			require.Len(t, result, expectedTotal)
 		})
 	}
 }
@@ -559,8 +528,7 @@ func TestRegistry_BuildPackageResult_ArgumentExtraction(t *testing.T) {
 			Installations: map[string]Installation{
 				"npx": {
 					Runtime:     NPX,
-					Args:        []string{"test-server", "--config", "${CONFIG_FILE}", "--debug"},
-					Env:         map[string]string{"API_TOKEN": "${API_TOKEN}"},
+					Package:     "test-server",
 					Version:     "1.0.0",
 					Description: "Run with npx",
 					Recommended: true,
@@ -595,11 +563,11 @@ func TestRegistry_BuildPackageResult_ArgumentExtraction(t *testing.T) {
 	require.Len(t, pkg.Arguments, 3, "Should have 3 arguments")
 
 	// Check environment variable
-	envVars := extractTestEnvVarNames(t, pkg.Arguments)
+	envVars := pkg.Arguments.FilterBy(packages.EnvVar).Names()
 	require.ElementsMatch(t, []string{"API_TOKEN"}, envVars, "Should extract environment variable")
 
 	// Check CLI arguments
-	cliArgs := extractTestCLIArgNames(t, pkg.Arguments)
+	cliArgs := pkg.Arguments.FilterBy(packages.Argument).Names()
 	require.ElementsMatch(t, []string{"CONFIG_FILE", "DEBUG"}, cliArgs, "Should extract CLI arguments")
 
 	// Verify argument details
@@ -625,4 +593,75 @@ func TestRegistry_BuildPackageResult_ArgumentExtraction(t *testing.T) {
 	require.Equal(t, packages.VariableTypeArgBool, debug.VariableType)
 	require.False(t, debug.Required)
 	require.Equal(t, "Enable debug mode", debug.Description)
+}
+
+func TestRegistry_BuildPackageResult_WithOptionalArguments(t *testing.T) {
+	t.Parallel()
+
+	testRegistry := loadTestDataRegistry(t, "registry_optional_args.json")
+
+	tests := []struct {
+		name      string
+		serverID  string
+		checkFunc func(t *testing.T, pkg packages.Package)
+	}{
+		{
+			name:     "time server with optional timezone argument",
+			serverID: "time",
+			checkFunc: func(t *testing.T, pkg packages.Package) {
+				require.Equal(t, "time", pkg.Name)
+				require.Equal(t, "Time Server", pkg.DisplayName)
+
+				// Check optional argument
+				tzArg, exists := pkg.Arguments["--local-timezone"]
+				require.True(t, exists)
+				require.False(t, tzArg.Required)
+				require.Equal(t, packages.VariableType("argument"), tzArg.VariableType)
+				require.Equal(t, "America/New_York", tzArg.Example)
+
+				// Check installation
+				uvxInstall, exists := pkg.Installations[runtime.UVX]
+				require.True(t, exists, "Should have UVX installation")
+				require.Equal(t, "mcp-server-time", uvxInstall.Package)
+			},
+		},
+		{
+			name:     "sqlite with required argument and package field",
+			serverID: "sqlite-with-package",
+			checkFunc: func(t *testing.T, pkg packages.Package) {
+				require.Equal(t, "sqlite-with-package", pkg.Name)
+
+				// Check required argument
+				dbArg, exists := pkg.Arguments["--db-path"]
+				require.True(t, exists)
+				require.True(t, dbArg.Required)
+
+				// Check installation with package field
+				uvxInstall, exists := pkg.Installations[runtime.UVX]
+				require.True(t, exists, "Should have UVX installation")
+				require.Equal(t, "mcp-server-sqlite", uvxInstall.Package)
+			},
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			logger := newTestLogger(t)
+			registry := &Registry{
+				mcpServers: testRegistry,
+				logger:     logger,
+				supportedRuntimes: map[runtime.Runtime]struct{}{
+					runtime.UVX: {},
+					runtime.NPX: {},
+				},
+				filterOptions: []options.Option{},
+			}
+
+			pkg, ok := registry.buildPackageResult(tc.serverID)
+			require.True(t, ok, "Should successfully build package result")
+			tc.checkFunc(t, pkg)
+		})
+	}
 }
