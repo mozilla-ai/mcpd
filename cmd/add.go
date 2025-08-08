@@ -61,7 +61,7 @@ func NewAddCmd(baseCmd *internalcmd.BaseCmd, opt ...cmdopts.CmdOption) (*cobra.C
 	cobraCommand.Flags().StringVar(
 		&c.Version,
 		"version",
-		"latest",
+		"",
 		"Specify the version of the server package",
 	)
 
@@ -76,14 +76,14 @@ func NewAddCmd(baseCmd *internalcmd.BaseCmd, opt ...cmdopts.CmdOption) (*cobra.C
 		&c.Runtime,
 		"runtime",
 		"",
-		"Optional, specify the runtime of the server package (e.g. `uvx`, `npx`)",
+		"Optional, specify the runtime of the server (e.g. uvx, npx)",
 	)
 
 	cobraCommand.Flags().StringVar(
 		&c.Source,
 		"source",
 		"",
-		"Optional, specify the source registry of the server package (e.g. `mcpm`)",
+		"Optional, specify the source registry of the server (e.g. mozilla-ai)",
 	)
 
 	allowed := internalcmd.AllowedOutputFormats()
@@ -138,7 +138,7 @@ func (c *AddCmd) run(cmd *cobra.Command, args []string) error {
 	pkg, err := reg.Resolve(name, c.options()...)
 	if err != nil {
 		logger.Warn(
-			"package retrieval from registry failed",
+			"server retrieval from registry failed",
 			"name", name,
 			"version", c.Version,
 			"tools", strings.Join(c.Tools, ","),
@@ -147,7 +147,7 @@ func (c *AddCmd) run(cmd *cobra.Command, args []string) error {
 			"error", err,
 		)
 		return handler.HandleError(fmt.Errorf(
-			"⚠️ Failed to get package '%s@%s' from registry: %w",
+			"⚠️ Failed to get server '%s@%s' from registry: %w",
 			name,
 			c.Version,
 			err),
@@ -259,7 +259,7 @@ func parseServerEntry(pkg packages.Server, opts serverEntryOptions) (config.Serv
 
 	if installation.Package == "" {
 		return config.ServerEntry{}, fmt.Errorf(
-			"installation package name is missing for runtime '%s'",
+			"installation server name is missing for runtime '%s'",
 			selectedRuntime,
 		)
 	}
@@ -289,7 +289,7 @@ func parseServerEntry(pkg packages.Server, opts serverEntryOptions) (config.Serv
 func (c *AddCmd) options() []regopts.ResolveOption {
 	var o []regopts.ResolveOption
 
-	if c.Version != "" && c.Version != "latest" {
+	if c.Version != "" {
 		o = append(o, regopts.WithResolveVersion(c.Version))
 	}
 	if c.Runtime != "" {

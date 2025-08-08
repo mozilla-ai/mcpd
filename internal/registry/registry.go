@@ -2,6 +2,7 @@ package registry
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/hashicorp/go-hclog"
 
@@ -149,12 +150,17 @@ func (r *Registry) Resolve(name string, opt ...options.ResolveOption) (packages.
 		return result, nil
 	}
 
-	err = fmt.Errorf(
-		"package '%s', version '%s', runtime '%s' not found in any registry",
-		name,
-		opts.Version,
-		opts.Runtime,
-	)
+	// Build error message with only non-empty criteria
+	var criteria []string
+	criteria = append(criteria, fmt.Sprintf("server '%s'", name))
+	if opts.Version != "" {
+		criteria = append(criteria, fmt.Sprintf("version '%s'", opts.Version))
+	}
+	if opts.Runtime != "" {
+		criteria = append(criteria, fmt.Sprintf("runtime '%s'", opts.Runtime))
+	}
+
+	err = fmt.Errorf("%s not found in any registry", strings.Join(criteria, ", "))
 	return packages.Server{}, err
 }
 
@@ -187,7 +193,7 @@ func (r *Registry) Search(
 
 	var allResults []packages.Server
 
-	// If a specific source registry was requested, only check that one for packages.
+	// If a specific source registry was requested, only check that one for server.
 	if opts.Source != "" {
 		reg, ok := r.registries[opts.Source]
 		if !ok {
@@ -202,7 +208,7 @@ func (r *Registry) Search(
 		return results, nil
 	}
 
-	// Search all registries for packages.
+	// Search all registries for servers.
 	for _, reg := range r.registries {
 		results, err := reg.Search(name, fs, opt...)
 		if err != nil {

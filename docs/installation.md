@@ -66,7 +66,7 @@ git clone git@github.com:mozilla-ai/mcpd.git
 cd mcpd
 # Checkout a specific tag (or build latest main)
 git fetch --tags
-git checkout v0.0.3
+git checkout v0.0.4
 # Use Makefile commands to build and install mcpd
 make build
 sudo make install # Installs mcpd 'globally' to /usr/local/bin
@@ -97,5 +97,5 @@ docker run  -p 8090:8090 \
             -v $PWD/.mcpd.toml:/etc/mcpd/.mcpd.toml \
             -v $HOME/.config/mcpd/secrets.dev.toml:/home/mcpd/.config/mcpd/secrets.prd.toml \
             -e MCPD_LOG_LEVEL=debug \
-            mzdotai/mcpd:v0.0.3
+            mzdotai/mcpd:v0.0.4
 ```
