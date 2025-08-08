@@ -58,14 +58,14 @@ func NewSearchCmd(baseCmd *internalcmd.BaseCmd, opt ...cmdopts.CmdOption) (*cobr
 		&c.Version,
 		"version",
 		"",
-		"Optional, specify the version of the server package",
+		"Optional, specify the version of the server",
 	)
 
 	cobraCommand.Flags().StringVar(
 		&c.Runtime,
 		"runtime",
 		"",
-		"Optional, specify the runtime of the server package (e.g. uvx, npx)",
+		"Optional, specify the runtime of the server (e.g. uvx, npx)",
 	)
 
 	cobraCommand.Flags().StringArrayVar(
@@ -79,14 +79,14 @@ func NewSearchCmd(baseCmd *internalcmd.BaseCmd, opt ...cmdopts.CmdOption) (*cobr
 		&c.License,
 		"license",
 		"",
-		"Optional, specify a partial match for the license of the server package (e.g. MIT, Apache)",
+		"Optional, specify a partial match for the license of the server (e.g. MIT, Apache)",
 	)
 
 	cobraCommand.Flags().StringVar(
 		&c.Source,
 		"source",
 		"",
-		"Optional, specify the source registry of the server package (e.g. mcpm)",
+		"Optional, specify the source registry of the server (e.g. mozilla-ai)",
 	)
 
 	cobraCommand.Flags().StringArrayVar(

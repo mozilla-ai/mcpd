@@ -110,19 +110,13 @@ func (r *Registry) Resolve(name string, opt ...options.ResolveOption) (packages.
 		return packages.Server{}, err
 	}
 
+	// Handle unsupported filters.
+	if opts.Version != "" {
+		return packages.Server{}, fmt.Errorf("version is not supported by '%s' registry", r.ID())
+	}
+
 	// Handle creation of filters.
-	fs, err := options.PrepareFilters(options.ResolveFilters(opts), name, func(fs map[string]string) error {
-		// Handle lack of 'version' support in mcpm.
-		if v, ok := fs[options.FilterKeyVersion]; ok {
-			r.logger.Warn(
-				"'version' not supported on resolve operation, returning latest known definition",
-				"name", name,
-				options.FilterKeyVersion, v)
-			// Clear 'version' for mcpm as it cannot be used.
-			delete(fs, options.FilterKeyVersion)
-		}
-		return nil
-	})
+	fs, err := options.PrepareFilters(options.ResolveFilters(opts), name, nil)
 	if err != nil {
 		return packages.Server{}, fmt.Errorf("invalid filters for %s: %w", r.ID(), err)
 	}
@@ -147,7 +141,7 @@ func (r *Registry) Resolve(name string, opt ...options.ResolveOption) (packages.
 		return packages.Server{}, err
 	}
 	if !matches {
-		return packages.Server{}, fmt.Errorf("package with name '%s' does not match requested filters", name)
+		return packages.Server{}, fmt.Errorf("server with name '%s' does not match requested filters", name)
 	}
 
 	return result, nil
@@ -169,19 +163,12 @@ func (r *Registry) Search(
 		return nil, err
 	}
 
-	fs, err := options.PrepareFilters(filters, name, func(fs map[string]string) error {
-		// Handle lack of 'version' support in mcpm.
-		if v, ok := fs[options.FilterKeyVersion]; ok {
-			r.logger.Warn(
-				"'version' not supported on search operation, returning latest known definition",
-				"name", name,
-				options.FilterKeyVersion, v,
-			)
-			// Clear 'version' for mcpm as it cannot be used.
-			delete(fs, options.FilterKeyVersion)
-		}
-		return nil
-	})
+	// Handle unsupported filters.
+	if v, ok := filters[options.FilterKeyVersion]; ok && v != "" {
+		return nil, fmt.Errorf("version is not supported by '%s' registry", r.ID())
+	}
+
+	fs, err := options.PrepareFilters(filters, name, nil)
 	if err != nil {
 		return nil, fmt.Errorf("invalid filters for %s: %w", r.ID(), err)
 	}

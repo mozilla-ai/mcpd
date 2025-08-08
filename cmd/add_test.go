@@ -670,7 +670,7 @@ func TestParseServerEntry(t *testing.T) {
 			requestedTools:       []string{"convert_time"},
 			arguments:            packages.Arguments{},
 			isErrorExpected:      true,
-			expectedErrorMessage: "installation package name is missing for runtime 'docker'",
+			expectedErrorMessage: "installation server name is missing for runtime 'docker'",
 		},
 		{
 			name: "requested tool not found",

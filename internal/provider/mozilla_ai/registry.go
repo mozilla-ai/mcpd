@@ -147,7 +147,7 @@ func (r *Registry) Resolve(name string, opt ...options.ResolveOption) (packages.
 		return packages.Server{}, err
 	}
 	if !matches {
-		return packages.Server{}, fmt.Errorf("package with name '%s' does not match requested filters", name)
+		return packages.Server{}, fmt.Errorf("server with name '%s' does not match requested filters", name)
 	}
 
 	return result, nil
