@@ -10,7 +10,8 @@ brew tap mozilla-ai/tap
 brew install mcpd
 ```
 
-Official releases can be downloaded from [mcpd's GitHub releases page](https://github.com/mozilla-ai/mcpd/releases).
+!!! tip "Installation methods"
+    Please see our [Installation](installation.md) page for additional ways to install and run `mcpd`.
 
 ---
 
@@ -31,16 +32,16 @@ Add the latest version of the `time` server:
 mcpd add time
 ```
 
-Or add a specific version and restrict access to specific tools:
+You can also restrict access to allow only specific tools:
 ```bash
-mcpd add time --version 0.6.2 --tool get_current_time
+mcpd add time --tool get_current_time
 ```
 
 ---
 
 ## 4. Set Startup Arguments
 
-Configure any startup flags required by the server:
+Configure any startup flags for the server, in this case `--local-timezone` is optional, but let's set it:
 ```bash
 mcpd config args set time -- --local-timezone=Europe/London
 ```
@@ -77,7 +78,6 @@ curl -s -X POST -H "Content-Type: application/json" \
      http://localhost:8090/api/v1/servers/time/tools/get_current_time | jq
 ```
 
+## 8. Use `mcpd` in your Agentic Python application
 
-# Using mcpd in your Python application
-
-For tutorials on using mcpd with agents in Python, please refer to the [Python mcpd SDK](https://github.com/mozilla-ai/mcpd-sdk-python) documentation.
+For [examples](https://github.com/mozilla-ai/mcpd-sdk-python/tree/main/examples/anyagent) on using `mcpd` with agents in Python, please refer to the [Python SDK](https://github.com/mozilla-ai/mcpd-sdk-python) documentation.

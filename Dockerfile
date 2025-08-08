@@ -70,8 +70,8 @@ CMD mcpd daemon \
     --runtime-file $MCPD_RUNTIME_FILE
 
 # Example run:
-# docker run -p 8090:8090
+# docker run -p 8090:8090 \
 #            -v $PWD/.mcpd.toml:/etc/mcpd/.mcpd.toml \
-#            -v HOME/.config/mcpd/secrets.dev.toml:/home/mcpd/.config/mcpd/secrets.prd.toml \
+#            -v $HOME/.config/mcpd/secrets.dev.toml:/home/mcpd/.config/mcpd/secrets.prd.toml \
 #            -e MCPD_LOG_LEVEL=debug \
-#            mzdotai/mcpd:v0.0.2
+#            mzdotai/mcpd:v0.0.3
