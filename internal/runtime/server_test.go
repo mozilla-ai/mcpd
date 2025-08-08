@@ -492,11 +492,36 @@ func TestValidateRequiredEnvVars(t *testing.T) {
 		reqEnvVars []string
 		wantErr    bool
 	}{
-		{"all set", map[string]string{"FOO": "bar"}, []string{"FOO"}, false},
-		{"missing", map[string]string{}, []string{"FOO"}, true},
-		{"empty", map[string]string{"FOO": ""}, []string{"FOO"}, true},
-		{"extra env", map[string]string{"FOO": "bar", "BAR": "baz"}, []string{"FOO"}, false},
-		{"no required env", map[string]string{"FOO": "bar"}, []string{}, false},
+		{
+			name:       "all set",
+			env:        map[string]string{"FOO": "bar"},
+			reqEnvVars: []string{"FOO"},
+			wantErr:    false,
+		},
+		{
+			name:       "missing",
+			env:        map[string]string{},
+			reqEnvVars: []string{"FOO"},
+			wantErr:    true,
+		},
+		{
+			name:       "empty",
+			env:        map[string]string{"FOO": ""},
+			reqEnvVars: []string{"FOO"},
+			wantErr:    true,
+		},
+		{
+			name:       "extra env",
+			env:        map[string]string{"FOO": "bar", "BAR": "baz"},
+			reqEnvVars: []string{"FOO"},
+			wantErr:    false,
+		},
+		{
+			name:       "no required env",
+			env:        map[string]string{"FOO": "bar"},
+			reqEnvVars: []string{},
+			wantErr:    false,
+		},
 	}
 
 	for _, tc := range tests {
@@ -534,15 +559,55 @@ func TestValidateRequiredValueArgs(t *testing.T) {
 		reqValArgs []string
 		wantErr    bool
 	}{
-		{"single --key=val", []string{"--foo=bar"}, []string{"--foo"}, false},
-		{"single --key val", []string{"--foo", "bar"}, []string{"--foo"}, false},
-		{"missing value", []string{"--foo"}, []string{"--foo"}, true},
-		{"missing arg", []string{}, []string{"--foo"}, true},
-		{"multiple args present", []string{"--foo=bar", "--baz=qux"}, []string{"--foo", "--baz"}, false},
-		{"value looks like flag", []string{"--foo", "--bar"}, []string{"--foo"}, true},
+		{
+			name:       "single --key=val",
+			args:       []string{"--foo=bar"},
+			reqValArgs: []string{"--foo"},
+			wantErr:    false,
+		},
+		{
+			name:       "single --key val",
+			args:       []string{"--foo", "bar"},
+			reqValArgs: []string{"--foo"},
+			wantErr:    false,
+		},
+		{
+			name:       "missing value",
+			args:       []string{"--foo"},
+			reqValArgs: []string{"--foo"},
+			wantErr:    true,
+		},
+		{
+			name:       "missing arg",
+			args:       []string{},
+			reqValArgs: []string{"--foo"},
+			wantErr:    true,
+		},
+		{
+			name:       "multiple args present",
+			args:       []string{"--foo=bar", "--baz=qux"},
+			reqValArgs: []string{"--foo", "--baz"},
+			wantErr:    false,
+		},
+		{
+			name:       "value looks like flag",
+			args:       []string{"--foo", "--bar"},
+			reqValArgs: []string{"--foo"},
+			wantErr:    true,
+		},
 		// TODO: Uncomment or remove after deciding whether to support this kind of validation
-		// {"value is short flag", []string{"--foo", "-b"}, []string{"--foo"}, true},
-		{"empty args & none required", []string{}, []string{}, false},
+		// {
+		//     name:       "value is short flag",
+		//     args:       []string{"--foo", "-b"},
+		//     reqValArgs: []string{"--foo"},
+		//     wantErr:    true,
+		// },
+		{
+			name:       "empty args & none required",
+			args:       []string{},
+			reqValArgs: []string{},
+			wantErr:    false,
+		},
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
@@ -570,6 +635,80 @@ func TestValidateRequiredValueArgs(t *testing.T) {
 	}
 }
 
+func TestValidateRequiredPositionalArgs(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name       string
+		args       []string
+		reqPosArgs []string
+		wantErr    bool
+	}{
+		{
+			name:       "all positional present",
+			args:       []string{"file.txt", "output.json", "--flag"},
+			reqPosArgs: []string{"input", "output"},
+			wantErr:    false,
+		},
+		{
+			name:       "missing one positional",
+			args:       []string{"file.txt", "--flag"},
+			reqPosArgs: []string{"input", "output"},
+			wantErr:    true,
+		},
+		{
+			name:       "missing all positional",
+			args:       []string{"--flag", "--another"},
+			reqPosArgs: []string{"input", "output"},
+			wantErr:    true,
+		},
+		{
+			name:       "extra positional ok",
+			args:       []string{"file.txt", "output.json", "extra.txt", "--flag"},
+			reqPosArgs: []string{"input", "output"},
+			wantErr:    false,
+		},
+		{
+			name:       "positional only no flags",
+			args:       []string{"file.txt", "output.json"},
+			reqPosArgs: []string{"input", "output"},
+			wantErr:    false,
+		},
+		{
+			name:       "no positional required",
+			args:       []string{"--flag", "--another"},
+			reqPosArgs: []string{},
+			wantErr:    false,
+		},
+		{
+			name:       "empty args when positional required",
+			args:       []string{},
+			reqPosArgs: []string{"input"},
+			wantErr:    true,
+		},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			s := &Server{
+				ServerEntry: config.ServerEntry{
+					RequiredPositionalArgs: tc.reqPosArgs,
+				},
+				ServerExecutionContext: context.ServerExecutionContext{
+					Args: tc.args,
+				},
+			}
+			err := s.validateRequiredPositionalArgs()
+			if tc.wantErr {
+				require.Error(t, err)
+			} else {
+				require.NoError(t, err)
+			}
+		})
+	}
+}
+
 func TestValidateRequiredBoolArgs(t *testing.T) {
 	t.Parallel()
 
@@ -579,12 +718,42 @@ func TestValidateRequiredBoolArgs(t *testing.T) {
 		reqBoolArgs []string
 		wantErr     bool
 	}{
-		{"single flag present", []string{"--flag"}, []string{"--flag"}, false},
-		{"flag missing", []string{}, []string{"--flag"}, true},
-		{"multiple flags present", []string{"--foo", "--bar"}, []string{"--foo", "--bar"}, false},
-		{"flag present among others", []string{"--foo", "--bar"}, []string{"--bar"}, false},
-		{"flag as prefix no match", []string{"--foobar"}, []string{"--foo"}, true},
-		{"empty args & none required", []string{}, []string{}, false},
+		{
+			name:        "single flag present",
+			args:        []string{"--flag"},
+			reqBoolArgs: []string{"--flag"},
+			wantErr:     false,
+		},
+		{
+			name:        "flag missing",
+			args:        []string{},
+			reqBoolArgs: []string{"--flag"},
+			wantErr:     true,
+		},
+		{
+			name:        "multiple flags present",
+			args:        []string{"--foo", "--bar"},
+			reqBoolArgs: []string{"--foo", "--bar"},
+			wantErr:     false,
+		},
+		{
+			name:        "flag present among others",
+			args:        []string{"--foo", "--bar"},
+			reqBoolArgs: []string{"--bar"},
+			wantErr:     false,
+		},
+		{
+			name:        "flag as prefix no match",
+			args:        []string{"--foobar"},
+			reqBoolArgs: []string{"--foo"},
+			wantErr:     true,
+		},
+		{
+			name:        "empty args & none required",
+			args:        []string{},
+			reqBoolArgs: []string{},
+			wantErr:     false,
+		},
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
@@ -620,6 +789,7 @@ func TestValidate(t *testing.T) {
 		env         map[string]string
 		args        []string
 		reqEnv      []string
+		reqPosArgs  []string
 		reqValArgs  []string
 		reqBoolArgs []string
 		wantErr     bool
@@ -629,6 +799,17 @@ func TestValidate(t *testing.T) {
 			env:         map[string]string{"FOO": "bar"},
 			args:        []string{"--foo=val", "--flag"},
 			reqEnv:      []string{"FOO"},
+			reqPosArgs:  []string{},
+			reqValArgs:  []string{"--foo"},
+			reqBoolArgs: []string{"--flag"},
+			wantErr:     false,
+		},
+		{
+			name:        "all valid with positional",
+			env:         map[string]string{"FOO": "bar"},
+			args:        []string{"input.txt", "output.txt", "--foo=val", "--flag"},
+			reqEnv:      []string{"FOO"},
+			reqPosArgs:  []string{"input", "output"},
 			reqValArgs:  []string{"--foo"},
 			reqBoolArgs: []string{"--flag"},
 			wantErr:     false,
@@ -638,6 +819,17 @@ func TestValidate(t *testing.T) {
 			env:         map[string]string{},
 			args:        []string{"--foo=val", "--flag"},
 			reqEnv:      []string{"FOO"},
+			reqPosArgs:  []string{},
+			reqValArgs:  []string{"--foo"},
+			reqBoolArgs: []string{"--flag"},
+			wantErr:     true,
+		},
+		{
+			name:        "missing positional",
+			env:         map[string]string{"FOO": "bar"},
+			args:        []string{"input.txt", "--foo=val", "--flag"},
+			reqEnv:      []string{"FOO"},
+			reqPosArgs:  []string{"input", "output"},
 			reqValArgs:  []string{"--foo"},
 			reqBoolArgs: []string{"--flag"},
 			wantErr:     true,
@@ -647,6 +839,7 @@ func TestValidate(t *testing.T) {
 			env:         map[string]string{"FOO": "bar"},
 			args:        []string{"--flag"},
 			reqEnv:      []string{"FOO"},
+			reqPosArgs:  []string{},
 			reqValArgs:  []string{"--foo"},
 			reqBoolArgs: []string{"--flag"},
 			wantErr:     true,
@@ -656,6 +849,7 @@ func TestValidate(t *testing.T) {
 			env:         map[string]string{"FOO": "bar"},
 			args:        []string{"--foo=val"},
 			reqEnv:      []string{"FOO"},
+			reqPosArgs:  []string{},
 			reqValArgs:  []string{"--foo"},
 			reqBoolArgs: []string{"--flag"},
 			wantErr:     true,
@@ -665,6 +859,7 @@ func TestValidate(t *testing.T) {
 			env:         map[string]string{},
 			args:        []string{},
 			reqEnv:      []string{"FOO"},
+			reqPosArgs:  []string{},
 			reqValArgs:  []string{"--foo"},
 			reqBoolArgs: []string{"--flag"},
 			wantErr:     true,
@@ -674,6 +869,7 @@ func TestValidate(t *testing.T) {
 			env:         map[string]string{},
 			args:        []string{},
 			reqEnv:      nil,
+			reqPosArgs:  nil,
 			reqValArgs:  nil,
 			reqBoolArgs: nil,
 			wantErr:     false,
@@ -685,9 +881,10 @@ func TestValidate(t *testing.T) {
 
 			s := &Server{
 				ServerEntry: config.ServerEntry{
-					RequiredEnvVars:   tc.reqEnv,
-					RequiredValueArgs: tc.reqValArgs,
-					RequiredBoolArgs:  tc.reqBoolArgs,
+					RequiredEnvVars:        tc.reqEnv,
+					RequiredPositionalArgs: tc.reqPosArgs,
+					RequiredValueArgs:      tc.reqValArgs,
+					RequiredBoolArgs:       tc.reqBoolArgs,
 				},
 				ServerExecutionContext: context.ServerExecutionContext{
 					Env:  tc.env,
@@ -837,14 +1034,34 @@ func TestServer_exportArgs(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
-		name                  string
-		serverName            string
-		requiredValueArgs     []string
-		requiredBoolArgs      []string
-		runtimeArgs           []string
-		expectedArgs          []string
-		expectedContractCalls map[string]string
+		name                   string
+		serverName             string
+		requiredPositionalArgs []string
+		requiredValueArgs      []string
+		requiredBoolArgs       []string
+		runtimeArgs            []string
+		expectedArgs           []string
+		expectedContractCalls  map[string]string
 	}{
+		{
+			name:                   "with positional args",
+			serverName:             "test",
+			requiredPositionalArgs: []string{"input", "output"},
+			requiredValueArgs:      []string{"--config"},
+			requiredBoolArgs:       []string{"--verbose"},
+			runtimeArgs:            []string{},
+			expectedArgs: []string{
+				"${MCPD__TEST__INPUT}",
+				"${MCPD__TEST__OUTPUT}",
+				"--verbose",
+				"--config=${MCPD__TEST__CONFIG}",
+			},
+			expectedContractCalls: map[string]string{
+				"MCPD__TEST__INPUT":  "${MCPD__TEST__INPUT}",
+				"MCPD__TEST__OUTPUT": "${MCPD__TEST__OUTPUT}",
+				"MCPD__TEST__CONFIG": "${MCPD__TEST__CONFIG}",
+			},
+		},
 		{
 			name:              "only required args",
 			serverName:        "test",
@@ -930,9 +1147,10 @@ func TestServer_exportArgs(t *testing.T) {
 
 			server := &Server{
 				ServerEntry: config.ServerEntry{
-					Name:              tc.serverName,
-					RequiredValueArgs: tc.requiredValueArgs,
-					RequiredBoolArgs:  tc.requiredBoolArgs,
+					Name:                   tc.serverName,
+					RequiredPositionalArgs: tc.requiredPositionalArgs,
+					RequiredValueArgs:      tc.requiredValueArgs,
+					RequiredBoolArgs:       tc.requiredBoolArgs,
 				},
 				ServerExecutionContext: context.ServerExecutionContext{
 					Args: tc.runtimeArgs,

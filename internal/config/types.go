@@ -53,6 +53,10 @@ type ServerEntry struct {
 	// RequiredEnvVars captures any environment variables required to run the server.
 	RequiredEnvVars []string `json:"requiredEnv,omitempty" toml:"required_env,omitempty" yaml:"required_env,omitempty"`
 
+	// RequiredPositionalArgs captures any command line args that must be positional, and which are required to run the server.
+	// The arguments must be ordered by their position (ascending).
+	RequiredPositionalArgs []string `json:"requiredPositionalArgs,omitempty" toml:"required_args_positional,omitempty"`
+
 	// RequiredValueArgs captures any command line args that need values, which are required to run the server.
 	RequiredValueArgs []string `json:"requiredArgs,omitempty" toml:"required_args,omitempty" yaml:"required_args,omitempty"`
 
@@ -97,7 +101,15 @@ func (e *argEntry) String() string {
 	return e.key
 }
 
-// RequiredArguments returns all required CLI arguments, including both value-based and boolean flags.
+// RequiredArguments returns all required CLI arguments, including positional, value-based and boolean flags.
+// NOTE: The order of these arguments matters, so positional arguments appear first.
 func (e *ServerEntry) RequiredArguments() []string {
-	return append(e.RequiredValueArgs, e.RequiredBoolArgs...)
+	out := make([]string, 0, len(e.RequiredPositionalArgs)+len(e.RequiredValueArgs)+len(e.RequiredBoolArgs))
+
+	// Add positional args first.
+	out = append(out, e.RequiredPositionalArgs...)
+	out = append(out, e.RequiredValueArgs...)
+	out = append(out, e.RequiredBoolArgs...)
+
+	return out
 }

@@ -74,6 +74,36 @@ func (s *Server) validateRequiredEnvVars() error {
 	return errs
 }
 
+// validateRequiredPositionalArgs verifies that required positional arguments are present.
+// Positional args must appear before any flag arguments (--arg).
+func (s *Server) validateRequiredPositionalArgs() error {
+	var errs error
+	positionalCount := 0
+
+	// Count positional args (non-flag arguments before the first flag)
+	for _, arg := range s.Args {
+		if strings.HasPrefix(arg, "--") {
+			break // Stop counting at first flag
+		}
+		positionalCount++
+	}
+
+	// Check if we have enough positional arguments
+	requiredCount := len(s.RequiredPositionalArgs)
+	if positionalCount < requiredCount {
+		errs = errors.Join(errs, fmt.Errorf("expected %d positional arguments, got %d", requiredCount, positionalCount))
+		// Optionally report which ones are missing for better UX
+		for i := positionalCount; i < requiredCount; i++ {
+			errs = errors.Join(
+				errs,
+				fmt.Errorf("missing required positional argument: %s", s.RequiredPositionalArgs[i]),
+			)
+		}
+	}
+
+	return errs
+}
+
 // validateRequiredValueArgs verifies all required arguments that must have values are present with values.
 func (s *Server) validateRequiredValueArgs() error {
 	var errs error
@@ -137,6 +167,10 @@ func (s *Server) Validate() error {
 		errs = errors.Join(errs, envErrs)
 	}
 
+	if positionalArgsErrs := s.validateRequiredPositionalArgs(); positionalArgsErrs != nil {
+		errs = errors.Join(errs, positionalArgsErrs)
+	}
+
 	if valueArgsErrs := s.validateRequiredValueArgs(); valueArgsErrs != nil {
 		errs = errors.Join(errs, valueArgsErrs)
 	}
@@ -149,7 +183,17 @@ func (s *Server) Validate() error {
 }
 
 func (s *Server) exportArgs(appName string, recordContractFunc func(k, v string)) []string {
-	args := make([]string, 0, len(s.RequiredArguments()))
+	args := make([]string, 0, len(s.RequiredPositionalArgs)+len(s.RequiredValueArgs)+len(s.RequiredBoolArgs))
+
+	// Add required positional args first (they must come before any flags).
+	// Transform each positional arg to use an environment variable placeholder.
+	for _, argName := range s.RequiredPositionalArgs {
+		// Create env var name based on argument name for clarity
+		envVarName := buildEnvVarName(appName, s.Name(), argName)
+		envVarRef := fmt.Sprintf("${%s}", envVarName)
+		args = append(args, envVarRef)
+		recordContractFunc(envVarName, envVarRef)
+	}
 
 	// Add all required bool args (flags).
 	args = append(args, s.RequiredBoolArgs...)
@@ -161,10 +205,11 @@ func (s *Server) exportArgs(appName string, recordContractFunc func(k, v string)
 		recordContractFunc(t.EnvVarName, t.EnvVarReference) // Track for contract export (e.g. '.env' file).
 	}
 
-	// Capture the required args we've now seen.
-	seen := make(map[string]struct{}, len(args))
-	for _, k := range args {
-		k = extractArgNameWithPrefix(k)
+	// Capture the required args we've now seen (only flag args, not positional).
+	seen := make(map[string]struct{}, len(s.RequiredValueArgs)+len(s.RequiredBoolArgs))
+	// Start after positional args to only track flag arguments
+	for i := len(s.RequiredPositionalArgs); i < len(args); i++ {
+		k := extractArgNameWithPrefix(args[i])
 		seen[k] = struct{}{}
 	}
 
@@ -316,12 +361,13 @@ func AggregateConfigs(
 	for _, s := range cfg.ListServers() {
 		runtimeServer := Server{
 			ServerEntry: config.ServerEntry{
-				Name:              s.Name,
-				Package:           s.Package,
-				Tools:             s.Tools,
-				RequiredEnvVars:   s.RequiredEnvVars,
-				RequiredValueArgs: s.RequiredValueArgs,
-				RequiredBoolArgs:  s.RequiredBoolArgs,
+				Name:                   s.Name,
+				Package:                s.Package,
+				Tools:                  s.Tools,
+				RequiredEnvVars:        s.RequiredEnvVars,
+				RequiredPositionalArgs: s.RequiredPositionalArgs,
+				RequiredValueArgs:      s.RequiredValueArgs,
+				RequiredBoolArgs:       s.RequiredBoolArgs,
 			},
 		}
 

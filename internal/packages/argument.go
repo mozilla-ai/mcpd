@@ -30,6 +30,8 @@ type VariableType string
 
 type Arguments map[string]ArgumentMetadata
 
+type OrderedArguments []ArgumentMetadata
+
 // ArgumentMetadata represents metadata about an argument/variable
 type ArgumentMetadata struct {
 	// Name is the reference for the argument.
@@ -63,9 +65,18 @@ func (a Arguments) Names() []string {
 	return slices.Collect(maps.Keys(a))
 }
 
+// Names returns the list of names of a collection of OrderedArguments.
+func (a OrderedArguments) Names() []string {
+	orderedArgNames := make([]string, 0, len(a))
+	for _, arg := range a {
+		orderedArgNames = append(orderedArgNames, arg.Name)
+	}
+	return orderedArgNames
+}
+
 // Ordered returns all arguments with positional arguments first (in position order),
 // followed by all other arguments in alphabetical order by name.
-func (a Arguments) Ordered() []ArgumentMetadata {
+func (a Arguments) Ordered() OrderedArguments {
 	var positional []ArgumentMetadata
 	var others []ArgumentMetadata
 

@@ -197,11 +197,12 @@ func TestAddCmd_ServerWithArguments(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
-		name                   string
-		pkg                    packages.Server
-		expectedRequiredEnvs   []string
-		expectedRequiredValues []string
-		expectedRequiredBools  []string
+		name                        string
+		pkg                         packages.Server
+		expectedRequiredEnvs        []string
+		expectedRequiredPositionals []string
+		expectedRequiredValues      []string
+		expectedRequiredBools       []string
 	}{
 		{
 			name: "server with all argument types",
@@ -307,7 +308,66 @@ func TestAddCmd_ServerWithArguments(t *testing.T) {
 					"--optional-value": {VariableType: packages.VariableTypeArg, Required: false},
 				},
 			},
-			// All empty since none are required
+		},
+		{
+			name: "server all kinds of required args and envs",
+			pkg: packages.Server{
+				ID:   "simple-server",
+				Name: "Simple Server",
+				Tools: []packages.Tool{
+					{
+						Name: "hello",
+					},
+				},
+				Installations: map[runtime.Runtime]packages.Installation{
+					runtime.UVX: {
+						Runtime:     "uvx",
+						Package:     "mcp-server-simple",
+						Version:     "1.0.0",
+						Recommended: true,
+					},
+				},
+				Arguments: packages.Arguments{
+					"REQUIRED_ENV": {
+						VariableType: packages.VariableTypeEnv,
+						Required:     true,
+					},
+					"OPTIONAL_ENV": {
+						VariableType: packages.VariableTypeEnv,
+						Required:     false,
+					},
+					"RequiredPositional1": {
+						VariableType: packages.VariableTypeArgPositional,
+						Position:     testIntPtr(t, 1),
+						Required:     true,
+					},
+					"OptionalPositional2": {
+						VariableType: packages.VariableTypeArgPositional,
+						Position:     testIntPtr(t, 2),
+						Required:     false,
+					},
+					"--required-value": {
+						VariableType: packages.VariableTypeArg,
+						Required:     true,
+					},
+					"--optional-value": {
+						VariableType: packages.VariableTypeArg,
+						Required:     false,
+					},
+					"--required-flag": {
+						VariableType: packages.VariableTypeArgBool,
+						Required:     true,
+					},
+					"--optional-flag": {
+						VariableType: packages.VariableTypeArgBool,
+						Required:     false,
+					},
+				},
+			},
+			expectedRequiredEnvs:        []string{"REQUIRED_ENV"},
+			expectedRequiredPositionals: []string{"RequiredPositional1"},
+			expectedRequiredValues:      []string{"--required-value"},
+			expectedRequiredBools:       []string{"--required-flag"},
 		},
 	}
 
@@ -334,6 +394,7 @@ func TestAddCmd_ServerWithArguments(t *testing.T) {
 			require.True(t, cfg.addCalled)
 			assert.Equal(t, tc.pkg.ID, cfg.entry.Name)
 			assert.ElementsMatch(t, tc.expectedRequiredEnvs, cfg.entry.RequiredEnvVars)
+			assert.ElementsMatch(t, tc.expectedRequiredPositionals, cfg.entry.RequiredPositionalArgs)
 			assert.ElementsMatch(t, tc.expectedRequiredValues, cfg.entry.RequiredValueArgs)
 			assert.ElementsMatch(t, tc.expectedRequiredBools, cfg.entry.RequiredBoolArgs)
 		})
@@ -421,21 +482,22 @@ func TestParseServerEntry(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
-		name                   string
-		installations          map[runtime.Runtime]packages.Installation
-		supportedRuntimes      []runtime.Runtime
-		pkgName                string
-		pkgID                  string
-		availableTools         []string
-		requestedTools         []string
-		requestedRuntime       runtime.Runtime
-		arguments              packages.Arguments
-		isErrorExpected        bool
-		expectedErrorMessage   string
-		expectedPackageValue   string
-		expectedRequiredEnvs   []string
-		expectedRequiredValues []string
-		expectedRequiredBools  []string
+		name                        string
+		installations               map[runtime.Runtime]packages.Installation
+		supportedRuntimes           []runtime.Runtime
+		pkgName                     string
+		pkgID                       string
+		availableTools              []string
+		requestedTools              []string
+		requestedRuntime            runtime.Runtime
+		arguments                   packages.Arguments
+		isErrorExpected             bool
+		expectedErrorMessage        string
+		expectedPackageValue        string
+		expectedRequiredEnvs        []string
+		expectedRequiredPositionals []string
+		expectedRequiredValues      []string
+		expectedRequiredBools       []string
 	}{
 		{
 			name: "basic server with no arguments",
@@ -548,8 +610,9 @@ func TestParseServerEntry(t *testing.T) {
 				"--format":   {VariableType: packages.VariableTypeArg, Required: true},
 				"--encoding": {VariableType: packages.VariableTypeArg, Required: false},
 			},
-			expectedPackageValue:   "uvx::mcp-server-files@latest",
-			expectedRequiredValues: []string{"path", "mode", "--format"},
+			expectedPackageValue:        "uvx::mcp-server-files@latest",
+			expectedRequiredPositionals: []string{"path", "mode"},
+			expectedRequiredValues:      []string{"--format"},
 		},
 		{
 			name: "server with only required bool args",
@@ -676,12 +739,13 @@ func TestParseServerEntry(t *testing.T) {
 			} else {
 				require.NoError(t, err)
 				expected := config.ServerEntry{
-					Name:              tc.pkgID,
-					Package:           tc.expectedPackageValue,
-					Tools:             tc.requestedTools,
-					RequiredEnvVars:   tc.expectedRequiredEnvs,
-					RequiredValueArgs: tc.expectedRequiredValues,
-					RequiredBoolArgs:  tc.expectedRequiredBools,
+					Name:                   tc.pkgID,
+					Package:                tc.expectedPackageValue,
+					Tools:                  tc.requestedTools,
+					RequiredEnvVars:        tc.expectedRequiredEnvs,
+					RequiredPositionalArgs: tc.expectedRequiredPositionals,
+					RequiredValueArgs:      tc.expectedRequiredValues,
+					RequiredBoolArgs:       tc.expectedRequiredBools,
 				}
 				require.Equal(t, expected.Name, entry.Name)
 				require.Equal(t, expected.Package, entry.Package)

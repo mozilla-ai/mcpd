@@ -14313,7 +14313,7 @@
       "type": "git",
       "url": "https://github.com/modelcontextprotocol/servers"
     },
-    "homepage": "https://github.com/modelcontextprotocol/servers/blob/main/src/brave-search",
+    "homepage": "https://github.com/modelcontextprotocol/servers-archived/tree/main/src/brave-search",
     "author": {
       "name": "modelcontextprotocol"
     },
@@ -15033,7 +15033,7 @@
       "type": "git",
       "url": "https://github.com/modelcontextprotocol/servers"
     },
-    "homepage": "https://github.com/modelcontextprotocol/servers/blob/main/src/gdrive",
+    "homepage": "https://github.com/modelcontextprotocol/servers-archived/tree/main/src/gdrive",
     "author": {
       "name": "modelcontextprotocol"
     },
@@ -16260,7 +16260,7 @@
       "type": "git",
       "url": "https://github.com/modelcontextprotocol/servers"
     },
-    "homepage": "https://github.com/modelcontextprotocol/servers/blob/main/src/google-maps",
+    "homepage": "https://github.com/modelcontextprotocol/servers-archived/tree/main/src/google-maps",
     "author": {
       "name": "modelcontextprotocol"
     },
@@ -16843,7 +16843,7 @@
       "type": "git",
       "url": "https://github.com/modelcontextprotocol/servers"
     },
-    "homepage": "https://github.com/modelcontextprotocol/servers/blob/main/src/sqlite",
+    "homepage": "https://github.com/modelcontextprotocol/servers-archived/tree/main/src/sqlite",
     "author": {
       "name": "modelcontextprotocol"
     },
@@ -16864,19 +16864,31 @@
           "run",
           "--rm",
           "-i",
-          "-v",
-          "mcp-test:/mcp",
+          "--mount",
+          "type=bind,src=${DB_PATH},dst=/data/database.db",
           "mcp/sqlite",
           "--db-path",
-          "/mcp/test.db"
+          "/data/database.db"
         ]
+      }
+    },
+    "arguments": {
+      "DB_PATH": {
+        "description": "The path to the SQLite database file on your local machine.",
+        "required": true,
+        "example": "/path/to/your/database.db"
       }
     },
     "examples": [
       {
-        "title": "Interactive SQL Analysis",
-        "description": "Guides users through database operations and insights generation.",
-        "prompt": "mcp-demo -topic [business_domain]"
+        "title": "List Tables",
+        "description": "List all tables in the database.",
+        "prompt": "List all the tables in my database"
+      },
+      {
+        "title": "Query Data",
+        "description": "Run a SELECT query to get data from a table.",
+        "prompt": "Show me the first 10 rows from the 'customers' table"
       }
     ],
     "tools": [
@@ -18578,6 +18590,690 @@
         ]
       }
     ]
+  },
+  "elevenlabs-mcp": {
+    "name": "elevenlabs-mcp",
+    "display_name": "ElevenLabs Official MCP Server",
+    "description": "Text-to-speech and speech-to-text via ElevenLabs API.",
+    "is_official": true,
+    "repository": {
+      "type": "git",
+      "url": "https://github.com/elevenlabs/elevenlabs-mcp"
+    },
+    "homepage": "https://elevenlabs.io/",
+    "author": {
+      "name": "elevenlabs"
+    },
+    "license": "MIT",
+    "categories": [
+      "Media Creation"
+    ],
+    "tags": [
+      "ElevenLabs",
+      "text-to-speech",
+      "TTS",
+      "speech-to-text",
+      "STT",
+      "audio"
+    ],
+    "arguments": {
+      "ELEVENLABS_API_KEY": {
+        "description": "Your ElevenLabs API key obtained from the ElevenLabs website.",
+        "required": true,
+        "example": "your-elevenlabs-api-key"
+      }
+    },
+    "installations": {
+      "uvx": {
+        "type": "uvx",
+        "command": "uvx",
+        "args": [
+          "elevenlabs-mcp"
+        ],
+        "env": {
+          "ELEVENLABS_API_KEY": "${ELEVENLABS_API_KEY}"
+        }
+      },
+      "docker": {
+        "type": "docker",
+        "command": "docker",
+        "args": [
+          "run",
+          "-i",
+          "--rm",
+          "-e",
+          "ELEVENLABS_API_KEY",
+          "mcp/elevenlabs"
+        ],
+        "env": {
+          "ELEVENLABS_API_KEY": "${ELEVENLABS_API_KEY}"
+        }
+      }
+    },
+    "tools": [
+      {
+        "name": "text_to_speech",
+        "description": "Convert text to speech with a given voice and save the output audio file to a given directory.\nDirectory is optional, if not provided, the output file will be saved to $HOME/Desktop.\nOnly one of voice_id or voice_name can be provided. If none are provided, the default voice will be used.\n\n\u26a0\ufe0f COST WARNING: This tool makes an API call to ElevenLabs which may incur costs. Only use when explicitly requested by the user.",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "text": {
+              "type": "string",
+              "description": "The text to convert to speech."
+            },
+            "voice_name": {
+              "type": "string",
+              "description": "The name of the voice to use."
+            },
+            "output_directory": {
+              "type": "string",
+              "description": "Directory where files should be saved. Defaults to $HOME/Desktop if not provided."
+            },
+            "voice_id": {
+              "type": "string",
+              "description": "The ID of the voice to use."
+            },
+            "stability": {
+              "type": "number",
+              "description": "Stability of the generated audio. Lower values introduce broader emotional range. Range is 0 to 1."
+            },
+            "similarity_boost": {
+              "type": "number",
+              "description": "Similarity boost of the generated audio. Determines how closely the AI should adhere to the original voice. Range is 0 to 1."
+            },
+            "style": {
+              "type": "number",
+              "description": "Style exaggeration of the voice. Amplifies the style of the original speaker. Range is 0 to 1."
+            },
+            "use_speaker_boost": {
+              "type": "boolean",
+              "description": "Boosts the similarity to the original speaker."
+            },
+            "speed": {
+              "type": "number",
+              "description": "Controls the speed of the generated speech. Range is 0.7 to 1.2."
+            },
+            "language": {
+              "type": "string",
+              "description": "ISO 639-1 language code for the voice."
+            },
+            "output_format": {
+              "type": "string",
+              "description": "Output format of the generated audio (e.g., mp3_44100_128).",
+              "enum": [
+                "mp3_22050_32",
+                "mp3_44100_32",
+                "mp3_44100_64",
+                "mp3_44100_96",
+                "mp3_44100_128",
+                "mp3_44100_192",
+                "pcm_8000",
+                "pcm_16000",
+                "pcm_22050",
+                "pcm_24000",
+                "pcm_44100",
+                "ulaw_8000",
+                "alaw_8000",
+                "opus_48000_32",
+                "opus_48000_64",
+                "opus_48000_96",
+                "opus_48000_128",
+                "opus_48000_192"
+              ]
+            }
+          },
+          "required": [
+            "text"
+          ]
+        }
+      },
+      {
+        "name": "speech_to_text",
+        "description": "Transcribe speech from an audio file and either save the output text file or return the text directly.\n\n\u26a0\ufe0f COST WARNING: This tool makes an API call to ElevenLabs which may incur costs. Only use when explicitly requested by the user.",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "input_file_path": {
+              "type": "string",
+              "description": "Path to the audio file to transcribe."
+            },
+            "language_code": {
+              "type": "string",
+              "description": "ISO 639-3 language code for transcription (default: 'eng')."
+            },
+            "diarize": {
+              "type": "boolean",
+              "description": "Annotate which speaker is currently speaking in the transcription."
+            },
+            "save_transcript_to_file": {
+              "type": "boolean",
+              "description": "Whether to save the transcript to a file."
+            },
+            "return_transcript_to_client_directly": {
+              "type": "boolean",
+              "description": "Whether to return the transcript to the client directly."
+            },
+            "output_directory": {
+              "type": "string",
+              "description": "Directory where files should be saved. Defaults to $HOME/Desktop if not provided."
+            }
+          },
+          "required": [
+            "input_file_path"
+          ]
+        }
+      },
+      {
+        "name": "text_to_sound_effects",
+        "description": "Convert a text description to a sound effect and save it to a file.\nDuration must be between 0.5 and 5 seconds.\n\n\u26a0\ufe0f COST WARNING: This tool makes an API call to ElevenLabs which may incur costs. Only use when explicitly requested by the user.",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "text": {
+              "type": "string",
+              "description": "Text description of the sound effect."
+            },
+            "duration_seconds": {
+              "type": "number",
+              "description": "Duration of the sound effect in seconds (0.5 to 5)."
+            },
+            "output_directory": {
+              "type": "string",
+              "description": "Directory where files should be saved. Defaults to $HOME/Desktop if not provided."
+            },
+            "output_format": {
+              "type": "string",
+              "description": "Output format of the generated audio.",
+              "enum": [
+                "mp3_22050_32",
+                "mp3_44100_32",
+                "mp3_44100_64",
+                "mp3_44100_96",
+                "mp3_44100_128",
+                "mp3_44100_192",
+                "pcm_8000",
+                "pcm_16000",
+                "pcm_22050",
+                "pcm_24000",
+                "pcm_44100",
+                "ulaw_8000",
+                "alaw_8000",
+                "opus_48000_32",
+                "opus_48000_64",
+                "opus_48000_96",
+                "opus_48000_128",
+                "opus_48000_192"
+              ]
+            }
+          },
+          "required": [
+            "text"
+          ]
+        }
+      },
+      {
+        "name": "search_voices",
+        "description": "Search for existing voices in the user's ElevenLabs voice library. Searches in name, description, labels and category.",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "search": {
+              "type": "string",
+              "description": "Search term to filter voices by."
+            },
+            "sort": {
+              "type": "string",
+              "description": "Which field to sort by.",
+              "enum": [
+                "created_at_unix",
+                "name"
+              ]
+            },
+            "sort_direction": {
+              "type": "string",
+              "description": "Sort order, either ascending or descending.",
+              "enum": [
+                "asc",
+                "desc"
+              ]
+            }
+          },
+          "required": []
+        }
+      },
+      {
+        "name": "list_models",
+        "description": "List all available models.",
+        "inputSchema": {
+          "type": "object",
+          "properties": {},
+          "required": []
+        }
+      },
+      {
+        "name": "get_voice",
+        "description": "Get details of a specific voice.",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "voice_id": {
+              "type": "string",
+              "description": "The ID of the voice to retrieve."
+            }
+          },
+          "required": [
+            "voice_id"
+          ]
+        }
+      },
+      {
+        "name": "voice_clone",
+        "description": "Create an instant voice clone of a voice using provided audio files.\n\n\u26a0\ufe0f COST WARNING: This tool makes an API call to ElevenLabs which may incur costs. Only use when explicitly requested by the user.",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "name": {
+              "type": "string",
+              "description": "The name for the new cloned voice."
+            },
+            "files": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              },
+              "description": "A list of file paths to the audio files for cloning."
+            },
+            "description": {
+              "type": "string",
+              "description": "A description for the new voice."
+            }
+          },
+          "required": [
+            "name",
+            "files"
+          ]
+        }
+      },
+      {
+        "name": "isolate_audio",
+        "description": "Isolate audio from a file and save the output audio file to a given directory.\n\n\u26a0\ufe0f COST WARNING: This tool makes an API call to ElevenLabs which may incur costs. Only use when explicitly requested by the user.",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "input_file_path": {
+              "type": "string",
+              "description": "Path to the audio file to process."
+            },
+            "output_directory": {
+              "type": "string",
+              "description": "Directory where files should be saved. Defaults to $HOME/Desktop if not provided."
+            }
+          },
+          "required": [
+            "input_file_path"
+          ]
+        }
+      },
+      {
+        "name": "check_subscription",
+        "description": "Check the current subscription status. Could be used to measure the usage of the API.",
+        "inputSchema": {
+          "type": "object",
+          "properties": {},
+          "required": []
+        }
+      },
+      {
+        "name": "create_agent",
+        "description": "Create a conversational AI agent with custom configuration.\n\n\u26a0\ufe0f COST WARNING: This tool makes an API call to ElevenLabs which may incur costs. Only use when explicitly requested by the user.",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "name": {
+              "type": "string",
+              "description": "Name of the agent."
+            },
+            "first_message": {
+              "type": "string",
+              "description": "First message the agent will say."
+            },
+            "system_prompt": {
+              "type": "string",
+              "description": "System prompt for the agent."
+            },
+            "voice_id": {
+              "type": "string",
+              "description": "ID of the voice to use for the agent."
+            },
+            "language": {
+              "type": "string",
+              "description": "ISO 639-1 language code for the agent."
+            },
+            "llm": {
+              "type": "string",
+              "description": "LLM to use for the agent."
+            },
+            "temperature": {
+              "type": "number",
+              "description": "Temperature for the agent's responses (0 to 1)."
+            },
+            "max_tokens": {
+              "type": "integer",
+              "description": "Maximum number of tokens to generate."
+            },
+            "asr_quality": {
+              "type": "string",
+              "description": "Quality of the ASR ('high' or 'low')."
+            },
+            "model_id": {
+              "type": "string",
+              "description": "ID of the ElevenLabs model to use for the agent."
+            },
+            "optimize_streaming_latency": {
+              "type": "integer",
+              "description": "Optimize streaming latency (0 to 4)."
+            },
+            "stability": {
+              "type": "number",
+              "description": "Stability for the agent's voice (0 to 1)."
+            },
+            "similarity_boost": {
+              "type": "number",
+              "description": "Similarity boost for the agent's voice (0 to 1)."
+            },
+            "turn_timeout": {
+              "type": "integer",
+              "description": "Timeout for the agent to respond in seconds."
+            },
+            "max_duration_seconds": {
+              "type": "integer",
+              "description": "Maximum duration of a conversation in seconds."
+            },
+            "record_voice": {
+              "type": "boolean",
+              "description": "Whether to record the agent's voice."
+            },
+            "retention_days": {
+              "type": "integer",
+              "description": "Number of days to retain the agent's data."
+            }
+          },
+          "required": [
+            "name",
+            "first_message",
+            "system_prompt"
+          ]
+        }
+      },
+      {
+        "name": "add_knowledge_base_to_agent",
+        "description": "Add a knowledge base to an ElevenLabs agent from a URL, file, or text. Allowed file types are epub, pdf, docx, txt, html.\n\n\u26a0\ufe0f COST WARNING: This tool makes an API call to ElevenLabs which may incur costs. Only use when explicitly requested by the user.",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "agent_id": {
+              "type": "string",
+              "description": "ID of the agent to add the knowledge base to."
+            },
+            "knowledge_base_name": {
+              "type": "string",
+              "description": "Name of the knowledge base."
+            },
+            "url": {
+              "type": "string",
+              "description": "URL of the knowledge base."
+            },
+            "input_file_path": {
+              "type": "string",
+              "description": "Path to the file to add to the knowledge base."
+            },
+            "text": {
+              "type": "string",
+              "description": "Text to add to the knowledge base."
+            }
+          },
+          "required": [
+            "agent_id",
+            "knowledge_base_name"
+          ]
+        }
+      },
+      {
+        "name": "list_agents",
+        "description": "List all available conversational AI agents.",
+        "inputSchema": {
+          "type": "object",
+          "properties": {},
+          "required": []
+        }
+      },
+      {
+        "name": "get_agent",
+        "description": "Get details about a specific conversational AI agent.",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "agent_id": {
+              "type": "string",
+              "description": "The ID of the agent to retrieve."
+            }
+          },
+          "required": [
+            "agent_id"
+          ]
+        }
+      },
+      {
+        "name": "get_conversation",
+        "description": "Gets conversation with transcript. Returns conversation details and full transcript. Use when analyzing completed agent conversations.",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "conversation_id": {
+              "type": "string",
+              "description": "The unique identifier of the conversation to retrieve."
+            }
+          },
+          "required": [
+            "conversation_id"
+          ]
+        }
+      },
+      {
+        "name": "list_conversations",
+        "description": "Lists agent conversations with metadata. Use when asked about conversation history.",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "agent_id": {
+              "type": "string",
+              "description": "Filter conversations by specific agent ID."
+            },
+            "cursor": {
+              "type": "string",
+              "description": "Pagination cursor for retrieving the next page of results."
+            },
+            "call_start_before_unix": {
+              "type": "integer",
+              "description": "Filter conversations that started before this Unix timestamp."
+            },
+            "call_start_after_unix": {
+              "type": "integer",
+              "description": "Filter conversations that started after this Unix timestamp."
+            },
+            "page_size": {
+              "type": "integer",
+              "description": "Number of conversations to return per page (1-100, defaults to 30)."
+            },
+            "max_length": {
+              "type": "integer",
+              "description": "Maximum length of the response text."
+            }
+          },
+          "required": []
+        }
+      },
+      {
+        "name": "speech_to_speech",
+        "description": "Transform audio from one voice to another using a provided audio file.\n\n\u26a0\ufe0f COST WARNING: This tool makes an API call to ElevenLabs which may incur costs. Only use when explicitly requested by the user.",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "input_file_path": {
+              "type": "string",
+              "description": "Path to the source audio file."
+            },
+            "voice_name": {
+              "type": "string",
+              "description": "The name of the target voice."
+            },
+            "output_directory": {
+              "type": "string",
+              "description": "Directory where the output file should be saved. Defaults to $HOME/Desktop."
+            }
+          },
+          "required": [
+            "input_file_path"
+          ]
+        }
+      },
+      {
+        "name": "text_to_voice",
+        "description": "Create voice previews from a text prompt. Creates three previews with slight variations and saves them to a directory.\n\n\u26a0\ufe0f COST WARNING: This tool makes an API call to ElevenLabs which may incur costs. Only use when explicitly requested by the user.",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "voice_description": {
+              "type": "string",
+              "description": "A detailed description of the voice to be generated."
+            },
+            "text": {
+              "type": "string",
+              "description": "The text to be spoken in the preview. If not provided, it will be auto-generated."
+            },
+            "output_directory": {
+              "type": "string",
+              "description": "Directory where the preview files should be saved. Defaults to $HOME/Desktop."
+            }
+          },
+          "required": [
+            "voice_description"
+          ]
+        }
+      },
+      {
+        "name": "create_voice_from_preview",
+        "description": "Add a generated voice to the voice library using the voice ID from the `text_to_voice` tool.\n\n\u26a0\ufe0f COST WARNING: This tool makes an API call to ElevenLabs which may incur costs. Only use when explicitly requested by the user.",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "generated_voice_id": {
+              "type": "string",
+              "description": "The ID of the generated voice preview."
+            },
+            "voice_name": {
+              "type": "string",
+              "description": "The name for the new voice."
+            },
+            "voice_description": {
+              "type": "string",
+              "description": "A description for the new voice."
+            }
+          },
+          "required": [
+            "generated_voice_id",
+            "voice_name",
+            "voice_description"
+          ]
+        }
+      },
+      {
+        "name": "make_outbound_call",
+        "description": "Make an outbound call using an ElevenLabs agent.\n\n\u26a0\ufe0f COST WARNING: This tool makes an API call to ElevenLabs which may incur costs. Only use when explicitly requested by the user.",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "agent_id": {
+              "type": "string",
+              "description": "The ID of the agent that will handle the call."
+            },
+            "agent_phone_number_id": {
+              "type": "string",
+              "description": "The ID of the phone number to use for the call."
+            },
+            "to_number": {
+              "type": "string",
+              "description": "The phone number to call (E.164 format: +1xxxxxxxxxx)."
+            }
+          },
+          "required": [
+            "agent_id",
+            "agent_phone_number_id",
+            "to_number"
+          ]
+        }
+      },
+      {
+        "name": "search_voice_library",
+        "description": "Search for a voice across the entire ElevenLabs voice library.",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "page": {
+              "type": "integer",
+              "description": "Page number to return (0-indexed)."
+            },
+            "page_size": {
+              "type": "integer",
+              "description": "Number of voices to return per page (1-100)."
+            },
+            "search": {
+              "type": "string",
+              "description": "Search term to filter voices by."
+            }
+          },
+          "required": []
+        }
+      },
+      {
+        "name": "list_phone_numbers",
+        "description": "List all phone numbers associated with the ElevenLabs account.",
+        "inputSchema": {
+          "type": "object",
+          "properties": {},
+          "required": []
+        }
+      },
+      {
+        "name": "play_audio",
+        "description": "Play an audio file. Supports WAV and MP3 formats.",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "input_file_path": {
+              "type": "string",
+              "description": "Path to the audio file to be played."
+            }
+          },
+          "required": [
+            "input_file_path"
+          ]
+        }
+      }
+    ],
+    "examples": [
+      {
+        "title": "Convert Text to Speech",
+        "description": "Convert a piece of text into an audio file using a specific voice.",
+        "prompt": "Use the text_to_speech tool to convert the text 'Hello, this is a test of the ElevenLabs MCP server.' into an audio file using the 'Adam' voice."
+      },
+      {
+        "title": "Transcribe an Audio File",
+        "description": "Transcribe the spoken content of an audio file into text.",
+        "prompt": "I have an audio file located at '~/Desktop/meeting_recording.mp3'. Please transcribe it using the speech_to_text tool and save the transcript to a file."
+      }
+    ],
+    "docker_url": "https://hub.docker.com/r/mcp/elevenlabs"
   },
   "ios-simulator-mcp": {
     "display_name": "iOS Simulator MCP Server",
@@ -23745,7 +24441,7 @@
       "type": "git",
       "url": "https://github.com/modelcontextprotocol/servers"
     },
-    "homepage": "https://github.com/modelcontextprotocol/servers/blob/main/src/gitlab",
+    "homepage": "https://github.com/modelcontextprotocol/servers-archived/tree/main/src/gitlab",
     "author": {
       "name": "modelcontextprotocol"
     },
@@ -37341,7 +38037,7 @@
       "type": "git",
       "url": "https://github.com/modelcontextprotocol/servers"
     },
-    "homepage": "https://github.com/modelcontextprotocol/servers/blob/main/src/puppeteer",
+    "homepage": "https://github.com/modelcontextprotocol/servers-archived/tree/main/src/puppeteer",
     "author": {
       "name": "modelcontextprotocol"
     },
@@ -38587,7 +39283,7 @@
       "type": "git",
       "url": "https://github.com/modelcontextprotocol/servers"
     },
-    "homepage": "https://github.com/modelcontextprotocol/servers/blob/main/src/sentry",
+    "homepage": "https://github.com/modelcontextprotocol/servers-archived/tree/main/src/sentry",
     "author": {
       "name": "modelcontextprotocol"
     },
@@ -39134,15 +39830,15 @@
   },
   "github": {
     "name": "github",
-    "display_name": "GitHub",
-    "description": "MCP Server for the GitHub API, enabling file operations, repository management, search functionality, and more.",
+    "display_name": "GitHub Official MCP Server",
+    "description": "The official GitHub MCP server written in Go. Provides comprehensive GitHub API integration including repository management, issue tracking, pull requests, code search, and more.",
     "repository": {
       "type": "git",
-      "url": "https://github.com/modelcontextprotocol/servers"
+      "url": "https://github.com/github/github-mcp-server"
     },
-    "homepage": "https://github.com/modelcontextprotocol/servers/tree/main/src/github#readme",
+    "homepage": "https://github.com/github/github-mcp-server",
     "author": {
-      "name": "MCP Team"
+      "name": "GitHub"
     },
     "license": "MIT",
     "categories": [
@@ -39152,28 +39848,23 @@
       "github",
       "code",
       "repository",
-      "git"
+      "git",
+      "issues",
+      "pull-requests",
+      "api"
     ],
     "arguments": {
       "GITHUB_PERSONAL_ACCESS_TOKEN": {
-        "description": "Personal Access Token for GitHub to authenticate API requests",
+        "description": "GitHub Personal Access Token for authentication. Not required for http installation.",
         "required": true,
         "example": "ghp_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
       }
     },
     "installations": {
-      "npm": {
-        "type": "npm",
-        "command": "npx",
-        "args": [
-          "-y",
-          "@modelcontextprotocol/server-github"
-        ],
-        "package": "@modelcontextprotocol/server-github",
-        "env": {
-          "GITHUB_PERSONAL_ACCESS_TOKEN": "${GITHUB_PERSONAL_ACCESS_TOKEN}"
-        },
-        "description": "Install and run using NPX",
+      "http": {
+        "type": "http",
+        "url": "https://api.githubcopilot.com/mcp/",
+        "description": "Run github mcp directly with OAuth",
         "recommended": true
       },
       "docker": {
@@ -39184,8 +39875,8 @@
           "-i",
           "--rm",
           "-e",
-          "GITHUB_PERSONAL_ACCESS_TOKEN",
-          "mcp/github"
+          "${GITHUB_PERSONAL_ACCESS_TOKEN}",
+          "ghcr.io/github/github-mcp-server"
         ],
         "env": {
           "GITHUB_PERSONAL_ACCESS_TOKEN": "${GITHUB_PERSONAL_ACCESS_TOKEN}"
@@ -39195,79 +39886,138 @@
     },
     "examples": [
       {
-        "title": "Search GitHub repositories",
-        "description": "Find repositories related to machine learning",
-        "prompt": "Find GitHub repositories about machine learning with more than 1000 stars."
+        "title": "List repositories",
+        "description": "Get repositories for an organization or user",
+        "prompt": "List all repositories for the organization 'modelcontextprotocol'"
       },
       {
-        "title": "View repository contents",
-        "description": "Browse files in a GitHub repository",
-        "prompt": "Show me the main Python files in the Hugging Face transformers repository."
+        "title": "Search code",
+        "description": "Search for code across GitHub",
+        "prompt": "Find all TypeScript files that import '@modelcontextprotocol/sdk'"
+      },
+      {
+        "title": "Create issue",
+        "description": "Create a new issue in a repository",
+        "prompt": "Create an issue in the repo owner/repo with title 'Bug: XYZ' and describe the problem"
+      },
+      {
+        "title": "View pull requests",
+        "description": "List and review pull requests",
+        "prompt": "Show me all open pull requests in the kubernetes/kubernetes repository"
+      },
+      {
+        "title": "Repository insights",
+        "description": "Get statistics and insights about a repository",
+        "prompt": "Show me the contributor statistics for the facebook/react repository"
       }
     ],
     "tools": [
       {
-        "name": "create_or_update_file",
-        "description": "Create or update a single file in a GitHub repository",
+        "name": "list_repositories",
+        "description": "List repositories for a user or organization",
         "inputSchema": {
           "type": "object",
           "properties": {
             "owner": {
               "type": "string",
-              "description": "Repository owner (username or organization)"
+              "description": "Username or organization name"
             },
-            "repo": {
+            "type": {
               "type": "string",
-              "description": "Repository name"
+              "enum": [
+                "all",
+                "owner",
+                "public",
+                "private",
+                "member"
+              ],
+              "description": "Type of repositories to list"
             },
-            "path": {
+            "sort": {
               "type": "string",
-              "description": "Path where to create/update the file"
+              "enum": [
+                "created",
+                "updated",
+                "pushed",
+                "full_name"
+              ],
+              "description": "Property to sort by"
             },
-            "content": {
+            "direction": {
               "type": "string",
-              "description": "Content of the file"
+              "enum": [
+                "asc",
+                "desc"
+              ],
+              "description": "Sort direction"
             },
-            "message": {
-              "type": "string",
-              "description": "Commit message"
+            "per_page": {
+              "type": "integer",
+              "description": "Results per page (max 100)"
             },
-            "branch": {
-              "type": "string",
-              "description": "Branch to create/update the file in"
-            },
-            "sha": {
-              "type": "string",
-              "description": "SHA of the file being replaced (required when updating existing files)"
+            "page": {
+              "type": "integer",
+              "description": "Page number"
             }
           },
           "required": [
-            "owner",
-            "repo",
-            "path",
-            "content",
-            "message",
-            "branch"
+            "owner"
           ]
         }
       },
       {
-        "name": "search_repositories",
-        "description": "Search for GitHub repositories",
+        "name": "get_repository",
+        "description": "Get detailed information about a repository",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "owner": {
+              "type": "string",
+              "description": "Repository owner"
+            },
+            "repo": {
+              "type": "string",
+              "description": "Repository name"
+            }
+          },
+          "required": [
+            "owner",
+            "repo"
+          ]
+        }
+      },
+      {
+        "name": "search_code",
+        "description": "Search for code on GitHub",
         "inputSchema": {
           "type": "object",
           "properties": {
             "query": {
               "type": "string",
-              "description": "Search query (see GitHub search syntax)"
+              "description": "Search query using GitHub search syntax"
+            },
+            "sort": {
+              "type": "string",
+              "enum": [
+                "indexed"
+              ],
+              "description": "Sort field"
+            },
+            "order": {
+              "type": "string",
+              "enum": [
+                "asc",
+                "desc"
+              ],
+              "description": "Sort order"
+            },
+            "per_page": {
+              "type": "integer",
+              "description": "Results per page"
             },
             "page": {
-              "type": "number",
-              "description": "Page number for pagination (default: 1)"
-            },
-            "perPage": {
-              "type": "number",
-              "description": "Number of results per page (default: 30, max: 100)"
+              "type": "integer",
+              "description": "Page number"
             }
           },
           "required": [
@@ -39276,147 +40026,44 @@
         }
       },
       {
-        "name": "create_repository",
-        "description": "Create a new GitHub repository in your account",
-        "inputSchema": {
-          "type": "object",
-          "properties": {
-            "name": {
-              "type": "string",
-              "description": "Repository name"
-            },
-            "description": {
-              "type": "string",
-              "description": "Repository description"
-            },
-            "private": {
-              "type": "boolean",
-              "description": "Whether the repository should be private"
-            },
-            "autoInit": {
-              "type": "boolean",
-              "description": "Initialize with README.md"
-            }
-          },
-          "required": [
-            "name"
-          ]
-        }
-      },
-      {
-        "name": "get_file_contents",
-        "description": "Get the contents of a file or directory from a GitHub repository",
-        "inputSchema": {
-          "type": "object",
-          "properties": {
-            "owner": {
-              "type": "string",
-              "description": "Repository owner (username or organization)"
-            },
-            "repo": {
-              "type": "string",
-              "description": "Repository name"
-            },
-            "path": {
-              "type": "string",
-              "description": "Path to the file or directory"
-            },
-            "branch": {
-              "type": "string",
-              "description": "Branch to get contents from"
-            }
-          },
-          "required": [
-            "owner",
-            "repo",
-            "path"
-          ]
-        }
-      },
-      {
-        "name": "push_files",
-        "description": "Push multiple files to a GitHub repository in a single commit",
-        "inputSchema": {
-          "type": "object",
-          "properties": {
-            "owner": {
-              "type": "string",
-              "description": "Repository owner (username or organization)"
-            },
-            "repo": {
-              "type": "string",
-              "description": "Repository name"
-            },
-            "branch": {
-              "type": "string",
-              "description": "Branch to push to (e.g., 'main' or 'master')"
-            },
-            "files": {
-              "type": "array",
-              "items": {
-                "type": "object",
-                "properties": {
-                  "path": {
-                    "type": "string"
-                  },
-                  "content": {
-                    "type": "string"
-                  }
-                },
-                "required": [
-                  "path",
-                  "content"
-                ],
-                "additionalProperties": false
-              },
-              "description": "Array of files to push"
-            },
-            "message": {
-              "type": "string",
-              "description": "Commit message"
-            }
-          },
-          "required": [
-            "owner",
-            "repo",
-            "branch",
-            "files",
-            "message"
-          ]
-        }
-      },
-      {
         "name": "create_issue",
-        "description": "Create a new issue in a GitHub repository",
+        "description": "Create a new issue",
         "inputSchema": {
           "type": "object",
           "properties": {
             "owner": {
-              "type": "string"
+              "type": "string",
+              "description": "Repository owner"
             },
             "repo": {
-              "type": "string"
+              "type": "string",
+              "description": "Repository name"
             },
             "title": {
-              "type": "string"
+              "type": "string",
+              "description": "Issue title"
             },
             "body": {
-              "type": "string"
+              "type": "string",
+              "description": "Issue body"
             },
             "assignees": {
               "type": "array",
               "items": {
                 "type": "string"
-              }
-            },
-            "milestone": {
-              "type": "number"
+              },
+              "description": "Usernames to assign"
             },
             "labels": {
               "type": "array",
               "items": {
                 "type": "string"
-              }
+              },
+              "description": "Labels to add"
+            },
+            "milestone": {
+              "type": "integer",
+              "description": "Milestone number"
             }
           },
           "required": [
@@ -39427,446 +40074,14 @@
         }
       },
       {
-        "name": "create_pull_request",
-        "description": "Create a new pull request in a GitHub repository",
-        "inputSchema": {
-          "type": "object",
-          "properties": {
-            "owner": {
-              "type": "string",
-              "description": "Repository owner (username or organization)"
-            },
-            "repo": {
-              "type": "string",
-              "description": "Repository name"
-            },
-            "title": {
-              "type": "string",
-              "description": "Pull request title"
-            },
-            "body": {
-              "type": "string",
-              "description": "Pull request body/description"
-            },
-            "head": {
-              "type": "string",
-              "description": "The name of the branch where your changes are implemented"
-            },
-            "base": {
-              "type": "string",
-              "description": "The name of the branch you want the changes pulled into"
-            },
-            "draft": {
-              "type": "boolean",
-              "description": "Whether to create the pull request as a draft"
-            },
-            "maintainer_can_modify": {
-              "type": "boolean",
-              "description": "Whether maintainers can modify the pull request"
-            }
-          },
-          "required": [
-            "owner",
-            "repo",
-            "title",
-            "head",
-            "base"
-          ]
-        }
-      },
-      {
-        "name": "fork_repository",
-        "description": "Fork a GitHub repository to your account or specified organization",
-        "inputSchema": {
-          "type": "object",
-          "properties": {
-            "owner": {
-              "type": "string",
-              "description": "Repository owner (username or organization)"
-            },
-            "repo": {
-              "type": "string",
-              "description": "Repository name"
-            },
-            "organization": {
-              "type": "string",
-              "description": "Optional: organization to fork to (defaults to your personal account)"
-            }
-          },
-          "required": [
-            "owner",
-            "repo"
-          ]
-        }
-      },
-      {
-        "name": "create_branch",
-        "description": "Create a new branch in a GitHub repository",
-        "inputSchema": {
-          "type": "object",
-          "properties": {
-            "owner": {
-              "type": "string",
-              "description": "Repository owner (username or organization)"
-            },
-            "repo": {
-              "type": "string",
-              "description": "Repository name"
-            },
-            "branch": {
-              "type": "string",
-              "description": "Name for the new branch"
-            },
-            "from_branch": {
-              "type": "string",
-              "description": "Optional: source branch to create from (defaults to the repository's default branch)"
-            }
-          },
-          "required": [
-            "owner",
-            "repo",
-            "branch"
-          ]
-        }
-      },
-      {
-        "name": "list_commits",
-        "description": "Get list of commits of a branch in a GitHub repository",
-        "inputSchema": {
-          "type": "object",
-          "properties": {
-            "owner": {
-              "type": "string"
-            },
-            "repo": {
-              "type": "string"
-            },
-            "sha": {
-              "type": "string"
-            },
-            "page": {
-              "type": "number"
-            },
-            "perPage": {
-              "type": "number"
-            }
-          },
-          "required": [
-            "owner",
-            "repo"
-          ]
-        }
-      },
-      {
-        "name": "list_issues",
-        "description": "List issues in a GitHub repository with filtering options",
-        "inputSchema": {
-          "type": "object",
-          "properties": {
-            "owner": {
-              "type": "string"
-            },
-            "repo": {
-              "type": "string"
-            },
-            "direction": {
-              "type": "string",
-              "enum": [
-                "asc",
-                "desc"
-              ]
-            },
-            "labels": {
-              "type": "array",
-              "items": {
-                "type": "string"
-              }
-            },
-            "page": {
-              "type": "number"
-            },
-            "per_page": {
-              "type": "number"
-            },
-            "since": {
-              "type": "string"
-            },
-            "sort": {
-              "type": "string",
-              "enum": [
-                "created",
-                "updated",
-                "comments"
-              ]
-            },
-            "state": {
-              "type": "string",
-              "enum": [
-                "open",
-                "closed",
-                "all"
-              ]
-            }
-          },
-          "required": [
-            "owner",
-            "repo"
-          ]
-        }
-      },
-      {
-        "name": "update_issue",
-        "description": "Update an existing issue in a GitHub repository",
-        "inputSchema": {
-          "type": "object",
-          "properties": {
-            "owner": {
-              "type": "string"
-            },
-            "repo": {
-              "type": "string"
-            },
-            "issue_number": {
-              "type": "number"
-            },
-            "title": {
-              "type": "string"
-            },
-            "body": {
-              "type": "string"
-            },
-            "assignees": {
-              "type": "array",
-              "items": {
-                "type": "string"
-              }
-            },
-            "milestone": {
-              "type": "number"
-            },
-            "labels": {
-              "type": "array",
-              "items": {
-                "type": "string"
-              }
-            },
-            "state": {
-              "type": "string",
-              "enum": [
-                "open",
-                "closed"
-              ]
-            }
-          },
-          "required": [
-            "owner",
-            "repo",
-            "issue_number"
-          ]
-        }
-      },
-      {
-        "name": "add_issue_comment",
-        "description": "Add a comment to an existing issue",
-        "inputSchema": {
-          "type": "object",
-          "properties": {
-            "owner": {
-              "type": "string"
-            },
-            "repo": {
-              "type": "string"
-            },
-            "issue_number": {
-              "type": "number"
-            },
-            "body": {
-              "type": "string"
-            }
-          },
-          "required": [
-            "owner",
-            "repo",
-            "issue_number",
-            "body"
-          ]
-        }
-      },
-      {
-        "name": "search_code",
-        "description": "Search for code across GitHub repositories",
-        "inputSchema": {
-          "type": "object",
-          "properties": {
-            "q": {
-              "type": "string"
-            },
-            "order": {
-              "type": "string",
-              "enum": [
-                "asc",
-                "desc"
-              ]
-            },
-            "page": {
-              "type": "number",
-              "minimum": 1
-            },
-            "per_page": {
-              "type": "number",
-              "minimum": 1,
-              "maximum": 100
-            }
-          },
-          "required": [
-            "q"
-          ]
-        }
-      },
-      {
-        "name": "search_issues",
-        "description": "Search for issues and pull requests across GitHub repositories",
-        "inputSchema": {
-          "type": "object",
-          "properties": {
-            "q": {
-              "type": "string"
-            },
-            "order": {
-              "type": "string",
-              "enum": [
-                "asc",
-                "desc"
-              ]
-            },
-            "page": {
-              "type": "number",
-              "minimum": 1
-            },
-            "per_page": {
-              "type": "number",
-              "minimum": 1,
-              "maximum": 100
-            },
-            "sort": {
-              "type": "string",
-              "enum": [
-                "comments",
-                "reactions",
-                "reactions-+1",
-                "reactions--1",
-                "reactions-smile",
-                "reactions-thinking_face",
-                "reactions-heart",
-                "reactions-tada",
-                "interactions",
-                "created",
-                "updated"
-              ]
-            }
-          },
-          "required": [
-            "q"
-          ]
-        }
-      },
-      {
-        "name": "search_users",
-        "description": "Search for users on GitHub",
-        "inputSchema": {
-          "type": "object",
-          "properties": {
-            "q": {
-              "type": "string"
-            },
-            "order": {
-              "type": "string",
-              "enum": [
-                "asc",
-                "desc"
-              ]
-            },
-            "page": {
-              "type": "number",
-              "minimum": 1
-            },
-            "per_page": {
-              "type": "number",
-              "minimum": 1,
-              "maximum": 100
-            },
-            "sort": {
-              "type": "string",
-              "enum": [
-                "followers",
-                "repositories",
-                "joined"
-              ]
-            }
-          },
-          "required": [
-            "q"
-          ]
-        }
-      },
-      {
-        "name": "get_issue",
-        "description": "Get details of a specific issue in a GitHub repository.",
-        "inputSchema": {
-          "type": "object",
-          "properties": {
-            "owner": {
-              "type": "string"
-            },
-            "repo": {
-              "type": "string"
-            },
-            "issue_number": {
-              "type": "number"
-            }
-          },
-          "required": [
-            "owner",
-            "repo",
-            "issue_number"
-          ]
-        }
-      },
-      {
-        "name": "get_pull_request",
-        "description": "Get details of a specific pull request",
-        "inputSchema": {
-          "type": "object",
-          "properties": {
-            "owner": {
-              "type": "string",
-              "description": "Repository owner (username or organization)"
-            },
-            "repo": {
-              "type": "string",
-              "description": "Repository name"
-            },
-            "pull_number": {
-              "type": "number",
-              "description": "Pull request number"
-            }
-          },
-          "required": [
-            "owner",
-            "repo",
-            "pull_number"
-          ]
-        }
-      },
-      {
         "name": "list_pull_requests",
-        "description": "List and filter repository pull requests",
+        "description": "List pull requests for a repository",
         "inputSchema": {
           "type": "object",
           "properties": {
             "owner": {
               "type": "string",
-              "description": "Repository owner (username or organization)"
+              "description": "Repository owner"
             },
             "repo": {
               "type": "string",
@@ -39879,7 +40094,7 @@
                 "closed",
                 "all"
               ],
-              "description": "State of the pull requests to return"
+              "description": "State of pull requests"
             },
             "head": {
               "type": "string",
@@ -39897,7 +40112,7 @@
                 "popularity",
                 "long-running"
               ],
-              "description": "What to sort results by"
+              "description": "What to sort by"
             },
             "direction": {
               "type": "string",
@@ -39905,15 +40120,15 @@
                 "asc",
                 "desc"
               ],
-              "description": "The direction of the sort"
+              "description": "Sort direction"
             },
             "per_page": {
-              "type": "number",
-              "description": "Results per page (max 100)"
+              "type": "integer",
+              "description": "Results per page"
             },
             "page": {
-              "type": "number",
-              "description": "Page number of the results"
+              "type": "integer",
+              "description": "Page number"
             }
           },
           "required": [
@@ -39923,74 +40138,76 @@
         }
       },
       {
-        "name": "create_pull_request_review",
-        "description": "Create a review on a pull request",
+        "name": "get_pull_request",
+        "description": "Get a specific pull request",
         "inputSchema": {
           "type": "object",
           "properties": {
             "owner": {
               "type": "string",
-              "description": "Repository owner (username or organization)"
+              "description": "Repository owner"
             },
             "repo": {
               "type": "string",
               "description": "Repository name"
             },
             "pull_number": {
-              "type": "number",
+              "type": "integer",
               "description": "Pull request number"
-            },
-            "commit_id": {
-              "type": "string",
-              "description": "The SHA of the commit that needs a review"
-            },
-            "body": {
-              "type": "string",
-              "description": "The body text of the review"
-            },
-            "event": {
-              "type": "string",
-              "enum": [
-                "APPROVE",
-                "REQUEST_CHANGES",
-                "COMMENT"
-              ],
-              "description": "The review action to perform"
-            },
-            "comments": {
-              "type": "array",
-              "items": {
-                "type": "object",
-                "properties": {
-                  "path": {
-                    "type": "string",
-                    "description": "The relative path to the file being commented on"
-                  },
-                  "position": {
-                    "type": "number",
-                    "description": "The position in the diff where you want to add a review comment"
-                  },
-                  "body": {
-                    "type": "string",
-                    "description": "Text of the review comment"
-                  }
-                },
-                "required": [
-                  "path",
-                  "position",
-                  "body"
-                ],
-                "additionalProperties": false
-              },
-              "description": "Comments to post as part of the review"
             }
           },
           "required": [
             "owner",
             "repo",
-            "pull_number",
-            "body",
-            "event"
+            "pull_number"
+          ]
+        }
+      },
+      {
+        "name": "create_pull_request",
+        "description": "Create a pull request",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "owner": {
+              "type": "string",
+              "description": "Repository owner"
+            },
+            "repo": {
+              "type": "string",
+              "description": "Repository name"
+            },
+            "title": {
+              "type": "string",
+              "description": "Pull request title"
+            },
+            "head": {
+              "type": "string",
+              "description": "The name of the branch where your changes are implemented"
+            },
+            "base": {
+              "type": "string",
+              "description": "The name of the branch you want the changes pulled into"
+            },
+            "body": {
+              "type": "string",
+              "description": "Pull request body"
+            },
+            "maintainer_can_modify": {
+              "type": "boolean",
+              "description": "Whether maintainers can modify the pull request"
+            },
+            "draft": {
+              "type": "boolean",
+              "description": "Whether to create as draft"
+            }
+          },
+          "required": [
+            "owner",
+            "repo",
+            "title",
+            "head",
+            "base"
           ]
         }
       },
@@ -40002,23 +40219,27 @@
           "properties": {
             "owner": {
               "type": "string",
-              "description": "Repository owner (username or organization)"
+              "description": "Repository owner"
             },
             "repo": {
               "type": "string",
               "description": "Repository name"
             },
             "pull_number": {
-              "type": "number",
+              "type": "integer",
               "description": "Pull request number"
             },
             "commit_title": {
               "type": "string",
-              "description": "Title for the automatic commit message"
+              "description": "Title for the merge commit"
             },
             "commit_message": {
               "type": "string",
-              "description": "Extra detail to append to automatic commit message"
+              "description": "Extra detail for merge commit message"
+            },
+            "sha": {
+              "type": "string",
+              "description": "SHA that pull request head must match"
             },
             "merge_method": {
               "type": "string",
@@ -40038,143 +40259,585 @@
         }
       },
       {
-        "name": "get_pull_request_files",
-        "description": "Get the list of files changed in a pull request",
+        "name": "get_file_contents",
+        "description": "Get contents of a file in a repository",
         "inputSchema": {
           "type": "object",
           "properties": {
             "owner": {
               "type": "string",
-              "description": "Repository owner (username or organization)"
+              "description": "Repository owner"
             },
             "repo": {
               "type": "string",
               "description": "Repository name"
             },
-            "pull_number": {
-              "type": "number",
-              "description": "Pull request number"
+            "path": {
+              "type": "string",
+              "description": "File path in the repository"
+            },
+            "ref": {
+              "type": "string",
+              "description": "Name of the commit/branch/tag"
             }
           },
           "required": [
             "owner",
             "repo",
-            "pull_number"
+            "path"
           ]
         }
       },
       {
-        "name": "get_pull_request_status",
-        "description": "Get the combined status of all status checks for a pull request",
+        "name": "create_or_update_file",
+        "description": "Create or update a file in a repository",
         "inputSchema": {
           "type": "object",
           "properties": {
             "owner": {
               "type": "string",
-              "description": "Repository owner (username or organization)"
+              "description": "Repository owner"
             },
             "repo": {
               "type": "string",
               "description": "Repository name"
             },
-            "pull_number": {
-              "type": "number",
-              "description": "Pull request number"
+            "path": {
+              "type": "string",
+              "description": "File path in the repository"
+            },
+            "message": {
+              "type": "string",
+              "description": "Commit message"
+            },
+            "content": {
+              "type": "string",
+              "description": "The new file content (base64 encoded)"
+            },
+            "branch": {
+              "type": "string",
+              "description": "Branch name"
+            },
+            "sha": {
+              "type": "string",
+              "description": "Blob SHA of the file being replaced (required for updates)"
+            },
+            "committer": {
+              "type": "object",
+              "properties": {
+                "name": {
+                  "type": "string"
+                },
+                "email": {
+                  "type": "string"
+                }
+              },
+              "description": "Committer information"
             }
           },
           "required": [
             "owner",
             "repo",
-            "pull_number"
+            "path",
+            "message",
+            "content"
           ]
         }
       },
       {
-        "name": "update_pull_request_branch",
-        "description": "Update a pull request branch with the latest changes from the base branch",
+        "name": "list_issues",
+        "description": "List issues for a repository",
         "inputSchema": {
           "type": "object",
           "properties": {
             "owner": {
               "type": "string",
-              "description": "Repository owner (username or organization)"
+              "description": "Repository owner"
             },
             "repo": {
               "type": "string",
               "description": "Repository name"
             },
-            "pull_number": {
-              "type": "number",
-              "description": "Pull request number"
-            },
-            "expected_head_sha": {
+            "milestone": {
               "type": "string",
-              "description": "The expected SHA of the pull request's HEAD ref"
+              "description": "Milestone number, 'none', or '*'"
+            },
+            "state": {
+              "type": "string",
+              "enum": [
+                "open",
+                "closed",
+                "all"
+              ],
+              "description": "Issue state"
+            },
+            "assignee": {
+              "type": "string",
+              "description": "User login, 'none', or '*'"
+            },
+            "creator": {
+              "type": "string",
+              "description": "User login"
+            },
+            "mentioned": {
+              "type": "string",
+              "description": "User login"
+            },
+            "labels": {
+              "type": "string",
+              "description": "Comma-separated label names"
+            },
+            "sort": {
+              "type": "string",
+              "enum": [
+                "created",
+                "updated",
+                "comments"
+              ],
+              "description": "What to sort by"
+            },
+            "direction": {
+              "type": "string",
+              "enum": [
+                "asc",
+                "desc"
+              ],
+              "description": "Sort direction"
+            },
+            "since": {
+              "type": "string",
+              "description": "ISO 8601 timestamp"
+            },
+            "per_page": {
+              "type": "integer",
+              "description": "Results per page"
+            },
+            "page": {
+              "type": "integer",
+              "description": "Page number"
             }
           },
           "required": [
             "owner",
-            "repo",
-            "pull_number"
+            "repo"
           ]
         }
       },
       {
-        "name": "get_pull_request_comments",
-        "description": "Get the review comments on a pull request",
+        "name": "get_issue",
+        "description": "Get a specific issue",
         "inputSchema": {
           "type": "object",
           "properties": {
             "owner": {
               "type": "string",
-              "description": "Repository owner (username or organization)"
+              "description": "Repository owner"
             },
             "repo": {
               "type": "string",
               "description": "Repository name"
             },
-            "pull_number": {
-              "type": "number",
-              "description": "Pull request number"
+            "issue_number": {
+              "type": "integer",
+              "description": "Issue number"
             }
           },
           "required": [
             "owner",
             "repo",
-            "pull_number"
+            "issue_number"
           ]
         }
       },
       {
-        "name": "get_pull_request_reviews",
-        "description": "Get the reviews on a pull request",
+        "name": "update_issue",
+        "description": "Update an issue",
         "inputSchema": {
           "type": "object",
           "properties": {
             "owner": {
               "type": "string",
-              "description": "Repository owner (username or organization)"
+              "description": "Repository owner"
             },
             "repo": {
               "type": "string",
               "description": "Repository name"
             },
-            "pull_number": {
-              "type": "number",
-              "description": "Pull request number"
+            "issue_number": {
+              "type": "integer",
+              "description": "Issue number"
+            },
+            "title": {
+              "type": "string",
+              "description": "Issue title"
+            },
+            "body": {
+              "type": "string",
+              "description": "Issue body"
+            },
+            "state": {
+              "type": "string",
+              "enum": [
+                "open",
+                "closed"
+              ],
+              "description": "Issue state"
+            },
+            "milestone": {
+              "type": "integer",
+              "description": "Milestone number"
+            },
+            "labels": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              },
+              "description": "Labels to set"
+            },
+            "assignees": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              },
+              "description": "Usernames to assign"
             }
           },
           "required": [
             "owner",
             "repo",
-            "pull_number"
+            "issue_number"
+          ]
+        }
+      },
+      {
+        "name": "add_issue_comment",
+        "description": "Create a comment on an issue",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "owner": {
+              "type": "string",
+              "description": "Repository owner"
+            },
+            "repo": {
+              "type": "string",
+              "description": "Repository name"
+            },
+            "issue_number": {
+              "type": "integer",
+              "description": "Issue number"
+            },
+            "body": {
+              "type": "string",
+              "description": "Comment body"
+            }
+          },
+          "required": [
+            "owner",
+            "repo",
+            "issue_number",
+            "body"
+          ]
+        }
+      },
+      {
+        "name": "list_commits",
+        "description": "List commits on a repository",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "owner": {
+              "type": "string",
+              "description": "Repository owner"
+            },
+            "repo": {
+              "type": "string",
+              "description": "Repository name"
+            },
+            "sha": {
+              "type": "string",
+              "description": "SHA or branch to list commits from"
+            },
+            "path": {
+              "type": "string",
+              "description": "Only commits containing this path"
+            },
+            "author": {
+              "type": "string",
+              "description": "GitHub login or email"
+            },
+            "since": {
+              "type": "string",
+              "description": "ISO 8601 date"
+            },
+            "until": {
+              "type": "string",
+              "description": "ISO 8601 date"
+            },
+            "per_page": {
+              "type": "integer",
+              "description": "Results per page"
+            },
+            "page": {
+              "type": "integer",
+              "description": "Page number"
+            }
+          },
+          "required": [
+            "owner",
+            "repo"
+          ]
+        }
+      },
+      {
+        "name": "get_commit",
+        "description": "Get a specific commit",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "owner": {
+              "type": "string",
+              "description": "Repository owner"
+            },
+            "repo": {
+              "type": "string",
+              "description": "Repository name"
+            },
+            "ref": {
+              "type": "string",
+              "description": "Commit SHA"
+            }
+          },
+          "required": [
+            "owner",
+            "repo",
+            "ref"
+          ]
+        }
+      },
+      {
+        "name": "compare_commits",
+        "description": "Compare two commits",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "owner": {
+              "type": "string",
+              "description": "Repository owner"
+            },
+            "repo": {
+              "type": "string",
+              "description": "Repository name"
+            },
+            "base": {
+              "type": "string",
+              "description": "Base commit SHA"
+            },
+            "head": {
+              "type": "string",
+              "description": "Head commit SHA"
+            }
+          },
+          "required": [
+            "owner",
+            "repo",
+            "base",
+            "head"
+          ]
+        }
+      },
+      {
+        "name": "list_branches",
+        "description": "List repository branches",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "owner": {
+              "type": "string",
+              "description": "Repository owner"
+            },
+            "repo": {
+              "type": "string",
+              "description": "Repository name"
+            },
+            "protected": {
+              "type": "boolean",
+              "description": "Filter by protected branches"
+            },
+            "per_page": {
+              "type": "integer",
+              "description": "Results per page"
+            },
+            "page": {
+              "type": "integer",
+              "description": "Page number"
+            }
+          },
+          "required": [
+            "owner",
+            "repo"
+          ]
+        }
+      },
+      {
+        "name": "get_branch",
+        "description": "Get a specific branch",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "owner": {
+              "type": "string",
+              "description": "Repository owner"
+            },
+            "repo": {
+              "type": "string",
+              "description": "Repository name"
+            },
+            "branch": {
+              "type": "string",
+              "description": "Branch name"
+            }
+          },
+          "required": [
+            "owner",
+            "repo",
+            "branch"
+          ]
+        }
+      },
+      {
+        "name": "list_tags",
+        "description": "List repository tags",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "owner": {
+              "type": "string",
+              "description": "Repository owner"
+            },
+            "repo": {
+              "type": "string",
+              "description": "Repository name"
+            },
+            "per_page": {
+              "type": "integer",
+              "description": "Results per page"
+            },
+            "page": {
+              "type": "integer",
+              "description": "Page number"
+            }
+          },
+          "required": [
+            "owner",
+            "repo"
+          ]
+        }
+      },
+      {
+        "name": "list_releases",
+        "description": "List repository releases",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "owner": {
+              "type": "string",
+              "description": "Repository owner"
+            },
+            "repo": {
+              "type": "string",
+              "description": "Repository name"
+            },
+            "per_page": {
+              "type": "integer",
+              "description": "Results per page"
+            },
+            "page": {
+              "type": "integer",
+              "description": "Page number"
+            }
+          },
+          "required": [
+            "owner",
+            "repo"
+          ]
+        }
+      },
+      {
+        "name": "get_release",
+        "description": "Get a specific release",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "owner": {
+              "type": "string",
+              "description": "Repository owner"
+            },
+            "repo": {
+              "type": "string",
+              "description": "Repository name"
+            },
+            "release_id": {
+              "type": "integer",
+              "description": "Release ID"
+            }
+          },
+          "required": [
+            "owner",
+            "repo",
+            "release_id"
+          ]
+        }
+      },
+      {
+        "name": "create_release",
+        "description": "Create a release",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "owner": {
+              "type": "string",
+              "description": "Repository owner"
+            },
+            "repo": {
+              "type": "string",
+              "description": "Repository name"
+            },
+            "tag_name": {
+              "type": "string",
+              "description": "Tag name for the release"
+            },
+            "target_commitish": {
+              "type": "string",
+              "description": "Target commitish (branch/commit SHA)"
+            },
+            "name": {
+              "type": "string",
+              "description": "Release name"
+            },
+            "body": {
+              "type": "string",
+              "description": "Release body text"
+            },
+            "draft": {
+              "type": "boolean",
+              "description": "Whether release is a draft"
+            },
+            "prerelease": {
+              "type": "boolean",
+              "description": "Whether release is a prerelease"
+            }
+          },
+          "required": [
+            "owner",
+            "repo",
+            "tag_name"
           ]
         }
       }
     ],
     "is_official": true,
-    "is_archived": true,
-    "docker_url": "https://hub.docker.com/r/mcp/github"
+    "is_archived": false
   },
   "mcp-discord": {
     "display_name": "MCP-Discord",
@@ -40530,193 +41193,6 @@
       "Databases"
     ],
     "is_official": true
-  },
-  "elevenlabs": {
-    "name": "elevenlabs",
-    "display_name": "ElevenLabs",
-    "description": "A server that integrates with ElevenLabs text-to-speech API capable of generating full voiceovers with multiple voices.",
-    "repository": {
-      "type": "git",
-      "url": "https://github.com/mamertofabian/elevenlabs-mcp-server"
-    },
-    "homepage": "https://github.com/mamertofabian/elevenlabs-mcp-server",
-    "author": {
-      "name": "mamertofabian"
-    },
-    "license": "MIT",
-    "categories": [
-      "Media Creation"
-    ],
-    "tags": [
-      "ElevenLabs",
-      "Text-to-Speech",
-      "SvelteKit",
-      "TTS"
-    ],
-    "installations": {
-      "uvx": {
-        "type": "uvx",
-        "command": "uvx",
-        "args": [
-          "elevenlabs-mcp-server"
-        ],
-        "env": {
-          "ELEVENLABS_API_KEY": "${ELEVENLABS_API_KEY}",
-          "ELEVENLABS_VOICE_ID": "${ELEVENLABS_VOICE_ID}",
-          "ELEVENLABS_MODEL_ID": "${ELEVENLABS_MODEL_ID}",
-          "ELEVENLABS_STABILITY": "${ELEVENLABS_STABILITY}",
-          "ELEVENLABS_SIMILARITY_BOOST": "${ELEVENLABS_SIMILARITY_BOOST}",
-          "ELEVENLABS_STYLE": "${ELEVENLABS_STYLE}",
-          "ELEVENLABS_OUTPUT_DIR": "${ELEVENLABS_OUTPUT_DIR}"
-        }
-      },
-      "docker": {
-        "type": "docker",
-        "command": "docker",
-        "args": [
-          "run",
-          "-i",
-          "--rm",
-          "-e",
-          "ELEVENLABS_API_KEY",
-          "mcp/elevenlabs"
-        ],
-        "env": {
-          "ELEVENLABS_API_KEY": "${ELEVENLABS_API_KEY}"
-        }
-      }
-    },
-    "arguments": {
-      "ELEVENLABS_API_KEY": {
-        "description": "Your API key for ElevenLabs to access the text-to-speech services.",
-        "required": true,
-        "example": "sk-12345abcd"
-      },
-      "ELEVENLABS_VOICE_ID": {
-        "description": "The ID of the voice you want to use for synthesis.",
-        "required": true,
-        "example": "voice-12345"
-      },
-      "ELEVENLABS_MODEL_ID": {
-        "description": "The model ID to be used, indicating the version of the ElevenLabs API to utilize.",
-        "required": false,
-        "example": "eleven_flash_v2"
-      },
-      "ELEVENLABS_STABILITY": {
-        "description": "Stability of the voice generation; controls variations in the output voice.",
-        "required": false,
-        "example": "0.5"
-      },
-      "ELEVENLABS_SIMILARITY_BOOST": {
-        "description": "Boosting similarity for the voices; affects how closely the output mimics the selected voice.",
-        "required": false,
-        "example": "0.75"
-      },
-      "ELEVENLABS_STYLE": {
-        "description": "Style parameter to adjust the expression in the generated speech.",
-        "required": false,
-        "example": "0.1"
-      },
-      "ELEVENLABS_OUTPUT_DIR": {
-        "description": "Directory path where the generated audio files will be saved.",
-        "required": false,
-        "example": "output"
-      }
-    },
-    "tools": [
-      {
-        "name": "generate_audio_simple",
-        "description": "Generate audio from plain text using default voice settings",
-        "inputSchema": {
-          "type": "object",
-          "properties": {
-            "text": {
-              "type": "string",
-              "description": "Plain text to convert to audio"
-            },
-            "voice_id": {
-              "type": "string",
-              "description": "Optional voice ID to use for generation"
-            }
-          },
-          "required": [
-            "text"
-          ]
-        }
-      },
-      {
-        "name": "generate_audio_script",
-        "description": "Generate audio from a structured script with multiple voices and actors. \n                    Accepts either:\n                    1. Plain text string\n                    2. JSON string with format: {\n                        \"script\": [\n                            {\n                                \"text\": \"Text to speak\",\n                                \"voice_id\": \"optional-voice-id\",\n                                \"actor\": \"optional-actor-name\"\n                            },\n                            ...\n                        ]\n                    }",
-        "inputSchema": {
-          "type": "object",
-          "properties": {
-            "script": {
-              "type": "string",
-              "description": "JSON string containing script array or plain text. For JSON format, provide an object with a 'script' array containing objects with 'text' (required), 'voice_id' (optional), and 'actor' (optional) fields."
-            }
-          },
-          "required": [
-            "script"
-          ]
-        }
-      },
-      {
-        "name": "delete_job",
-        "description": "Delete a voiceover job and its associated files",
-        "inputSchema": {
-          "type": "object",
-          "properties": {
-            "job_id": {
-              "type": "string",
-              "description": "ID of the job to delete"
-            }
-          },
-          "required": [
-            "job_id"
-          ]
-        }
-      },
-      {
-        "name": "get_audio_file",
-        "description": "Get the audio file content for a specific job",
-        "inputSchema": {
-          "type": "object",
-          "properties": {
-            "job_id": {
-              "type": "string",
-              "description": "ID of the job to get audio file for"
-            }
-          },
-          "required": [
-            "job_id"
-          ]
-        }
-      },
-      {
-        "name": "list_voices",
-        "description": "Get a list of all available ElevenLabs voices with metadata",
-        "inputSchema": {
-          "type": "object",
-          "properties": {},
-          "required": []
-        }
-      },
-      {
-        "name": "get_voiceover_history",
-        "description": "Get voiceover job history. Optionally specify a job ID for a specific job.",
-        "inputSchema": {
-          "type": "object",
-          "properties": {
-            "job_id": {
-              "type": "string",
-              "description": "Optional job ID to get details for a specific job"
-            }
-          },
-          "required": []
-        }
-      }
-    ],
-    "docker_url": "https://hub.docker.com/r/mcp/elevenlabs"
   },
   "mcp-neo4j-aura-api": {
     "display_name": "Neo4j MCP (Aura API)",
@@ -55465,7 +55941,7 @@
       "type": "git",
       "url": "https://github.com/modelcontextprotocol/servers"
     },
-    "homepage": "https://github.com/modelcontextprotocol/servers/blob/main/src/everart",
+    "homepage": "https://github.com/modelcontextprotocol/servers-archived/tree/main/src/everart",
     "author": {
       "name": "modelcontextprotocol"
     },
@@ -75929,7 +76405,7 @@
       "type": "git",
       "url": "https://github.com/modelcontextprotocol/servers"
     },
-    "homepage": "https://github.com/modelcontextprotocol/servers/blob/main/src/aws-kb-retrieval-server",
+    "homepage": "https://github.com/modelcontextprotocol/servers-archived/tree/main/src/aws-kb-retrieval-server",
     "author": {
       "name": "modelcontextprotocol"
     },
@@ -81808,7 +82284,7 @@
     "author": {
       "name": "modelcontextprotocol"
     },
-    "homepage": "https://github.com/modelcontextprotocol/servers/blob/main/src/postgres",
+    "homepage": "https://github.com/modelcontextprotocol/servers-archived/tree/main/src/postgres",
     "installations": {
       "npm": {
         "type": "npm",
@@ -83380,7 +83856,7 @@
     "author": {
       "name": "modelcontextprotocol"
     },
-    "homepage": "https://github.com/modelcontextprotocol/servers/blob/main/src/slack",
+    "homepage": "https://github.com/modelcontextprotocol/servers-archived/tree/main/src/slack",
     "arguments": {
       "SLACK_BOT_TOKEN": {
         "description": "The OAuth token for the bot user in the Slack workspace, used for authenticating API requests.",

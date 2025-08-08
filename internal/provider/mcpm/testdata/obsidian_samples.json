@@ -1,0 +1,49 @@
+{
+  "obsidian-mcp": {
+    "name": "obsidian-mcp",
+    "display_name": "Obsidian",
+    "installations": {
+      "npm": {
+        "type": "npm",
+        "command": "npx",
+        "args": [
+          "-y",
+          "obsidian-mcp",
+          "${OBSIDIAN_VAULT_PATH}",
+          "${OBSIDIAN_VAULT_PATH2}"
+        ]
+      }
+    },
+    "arguments": {
+      "OBSIDIAN_VAULT_PATH": {
+        "description": "Path to your Obsidian vault",
+        "required": true
+      },
+      "OBSIDIAN_VAULT_PATH2": {
+        "description": "Path to your second Obsidian vault",
+        "required": false
+      }
+    }
+  },
+  "mcp-obsidian": {
+    "name": "mcp-obsidian",
+    "display_name": "Obsidian",
+    "installations": {
+      "uvx": {
+        "type": "uvx",
+        "command": "uvx",
+        "args": ["mcp-obsidian"],
+        "env": {
+          "OBSIDIAN_API_KEY": "${OBSIDIAN_API_KEY}"
+        }
+      }
+    },
+    "arguments": {
+      "OBSIDIAN_API_KEY": {
+        "description": "Obsidian API key",
+        "required": true,
+        "example": "your-obsidian-api-key"
+      }
+    }
+  }
+}
