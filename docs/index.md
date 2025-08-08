@@ -88,6 +88,9 @@ Or install directly from the cask in a single command:
 brew install --cask mozilla-ai/tap/mcpd
 ```
 
+!!! tip "Installation methods"
+    Please see our [Installation](installation.md) page for additional ways to install and run `mcpd`.
+
 ---
 
 ## 📚 Explore the Docs
