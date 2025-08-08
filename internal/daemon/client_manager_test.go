@@ -1,19 +1,121 @@
 package daemon
 
 import (
+	"context"
 	"fmt"
 	"sync"
 	"testing"
 
-	"github.com/mark3labs/mcp-go/client"
+	"github.com/mark3labs/mcp-go/mcp"
 	"github.com/stretchr/testify/require"
 )
+
+// mockMCPClient is a test implementation of client.MCPClient
+type mockMCPClient struct{}
+
+func (m *mockMCPClient) Initialize(ctx context.Context, request mcp.InitializeRequest) (*mcp.InitializeResult, error) {
+	return nil, nil
+}
+
+func (m *mockMCPClient) Ping(ctx context.Context) error {
+	return nil
+}
+
+func (m *mockMCPClient) ListResourcesByPage(
+	ctx context.Context,
+	request mcp.ListResourcesRequest,
+) (*mcp.ListResourcesResult, error) {
+	return nil, nil
+}
+
+func (m *mockMCPClient) ListResources(
+	ctx context.Context,
+	request mcp.ListResourcesRequest,
+) (*mcp.ListResourcesResult, error) {
+	return nil, nil
+}
+
+func (m *mockMCPClient) ListResourceTemplatesByPage(
+	ctx context.Context,
+	request mcp.ListResourceTemplatesRequest,
+) (*mcp.ListResourceTemplatesResult, error) {
+	return nil, nil
+}
+
+func (m *mockMCPClient) ListResourceTemplates(
+	ctx context.Context,
+	request mcp.ListResourceTemplatesRequest,
+) (*mcp.ListResourceTemplatesResult, error) {
+	return nil, nil
+}
+
+func (m *mockMCPClient) ReadResource(
+	ctx context.Context,
+	request mcp.ReadResourceRequest,
+) (*mcp.ReadResourceResult, error) {
+	return nil, nil
+}
+
+func (m *mockMCPClient) Subscribe(ctx context.Context, request mcp.SubscribeRequest) error {
+	return nil
+}
+
+func (m *mockMCPClient) Unsubscribe(ctx context.Context, request mcp.UnsubscribeRequest) error {
+	return nil
+}
+
+func (m *mockMCPClient) ListPromptsByPage(
+	ctx context.Context,
+	request mcp.ListPromptsRequest,
+) (*mcp.ListPromptsResult, error) {
+	return nil, nil
+}
+
+func (m *mockMCPClient) ListPrompts(
+	ctx context.Context,
+	request mcp.ListPromptsRequest,
+) (*mcp.ListPromptsResult, error) {
+	return nil, nil
+}
+
+func (m *mockMCPClient) GetPrompt(ctx context.Context, request mcp.GetPromptRequest) (*mcp.GetPromptResult, error) {
+	return nil, nil
+}
+
+func (m *mockMCPClient) ListToolsByPage(
+	ctx context.Context,
+	request mcp.ListToolsRequest,
+) (*mcp.ListToolsResult, error) {
+	return nil, nil
+}
+
+func (m *mockMCPClient) ListTools(ctx context.Context, request mcp.ListToolsRequest) (*mcp.ListToolsResult, error) {
+	return nil, nil
+}
+
+func (m *mockMCPClient) CallTool(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+	return nil, nil
+}
+
+func (m *mockMCPClient) SetLevel(ctx context.Context, request mcp.SetLevelRequest) error {
+	return nil
+}
+
+func (m *mockMCPClient) Complete(ctx context.Context, request mcp.CompleteRequest) (*mcp.CompleteResult, error) {
+	return nil, nil
+}
+
+func (m *mockMCPClient) Close() error {
+	return nil
+}
+
+func (m *mockMCPClient) OnNotification(handler func(notification mcp.JSONRPCNotification)) {}
 
 func TestClientManager_Add_Client_Tools(t *testing.T) {
 	t.Parallel()
 	cm := NewClientManager()
 
-	c := &client.Client{}
+	c := &mockMCPClient{}
 	tools := []string{"tool1", "tool2"}
 	name := "server1"
 
@@ -34,8 +136,8 @@ func TestClientManager_List(t *testing.T) {
 	t.Parallel()
 	cm := NewClientManager()
 
-	cm.Add("server1", &client.Client{}, []string{"a"})
-	cm.Add("server2", &client.Client{}, []string{"b"})
+	cm.Add("server1", &mockMCPClient{}, []string{"a"})
+	cm.Add("server2", &mockMCPClient{}, []string{"b"})
 
 	names := cm.List()
 	require.Len(t, names, 2)
@@ -46,7 +148,7 @@ func TestClientManager_Remove(t *testing.T) {
 	t.Parallel()
 	cm := NewClientManager()
 
-	cm.Add("server1", &client.Client{}, []string{"tool"})
+	cm.Add("server1", &mockMCPClient{}, []string{"tool"})
 	cm.Remove("server1")
 
 	_, ok := cm.Client("server1")
@@ -83,7 +185,7 @@ func TestClientManager_ConcurrentAccess(t *testing.T) {
 		name := fmt.Sprintf("server-%d", i)
 		go func() {
 			defer wg.Done()
-			cm.Add(name, &client.Client{}, []string{"tool"})
+			cm.Add(name, &mockMCPClient{}, []string{"tool"})
 		}()
 		go func() {
 			defer wg.Done()

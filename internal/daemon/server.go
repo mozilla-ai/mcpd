@@ -96,8 +96,9 @@ func (a *ApiServer) Start(ctx context.Context) error {
 	case <-ctx.Done():
 		shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second) // TODO: make configurable
 		defer cancel()
-		a.logger.Info("Shutting down API server")
+		a.logger.Info("Shutting down API server...")
 		_ = srv.Shutdown(shutdownCtx)
+		a.logger.Info("Shutdown complete")
 		return ctx.Err()
 	case err := <-errCh:
 		return err

@@ -134,9 +134,10 @@ func (c *DaemonCmd) run(_ *cobra.Command, _ []string) error {
 
 	select {
 	case <-daemonCtx.Done():
-		logger.Info("Shutting down daemon")
+		logger.Info("Shutting down daemon...")
 		err := <-runErr // Wait for cleanup and deferred logging.
-		return err      // Graceful Ctrl+C / SIGTERM.
+		logger.Info("Shutdown complete")
+		return err // Graceful Ctrl+C / SIGTERM.
 	case err := <-runErr:
 		logger.Error("daemon exited with error", "error", err)
 		return err // Propagate daemon failure.
