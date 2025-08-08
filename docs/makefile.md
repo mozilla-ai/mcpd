@@ -79,6 +79,9 @@ The `mcpd` project includes a `Makefile` to streamline common developer tasks.
 
 These commands manage the [MkDocs](https://www.mkdocs.org) developer documentation site for `mcpd`.
 
+!!! note "Environment"
+    Docs commands assume you have `uv` installed and available in your `PATH` (in additon to Go).
+
 - **Generate CLI reference docs from the Cobra commands**
     ```bash
     make docs-cli

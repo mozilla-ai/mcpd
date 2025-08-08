@@ -43,9 +43,10 @@ markdown_extensions:
 nav:
   - Home: index.md
   - Requirements: requirements.md
+  - Installation: installation.md
+  - Tutorial: tutorial.md
   - Configuration: configuration.md
   - Execution Context: execution-context.md
   - Makefile: makefile.md
-  - Tutorial: tutorial.md
   - CLI Reference:
       - Overview: commands/mcpd.md
