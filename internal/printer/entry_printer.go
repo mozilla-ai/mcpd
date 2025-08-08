@@ -52,21 +52,40 @@ func (p *ServerEntryPrinter) Item(w io.Writer, elem config.ServerEntry) error {
 		_, _ = fmt.Fprint(w, "\nsee: mcpd config env set --help\n")
 	}
 
-	if len(elem.RequiredValueArgs) > 0 || len(elem.RequiredBoolArgs) > 0 {
+	if len(elem.RequiredPositionalArgs) > 0 || len(elem.RequiredValueArgs) > 0 || len(elem.RequiredBoolArgs) > 0 {
+		if len(elem.RequiredPositionalArgs) > 0 {
+			_, _ = fmt.Fprintf(w, "\n❗ The following positional arguments are required for this server:\n\n")
+			position := 0
+			parts := make([]string, 0, len(elem.RequiredPositionalArgs))
+			for _, posArg := range elem.RequiredPositionalArgs {
+				position++
+				parts = append(parts, fmt.Sprintf("  📍 (%d) %s", position, posArg))
+			}
+			_, _ = fmt.Fprintln(w, strings.Join(parts, "\n"))
+		}
+
 		if len(elem.RequiredValueArgs) > 0 {
 			_, _ = fmt.Fprintf(
 				w,
-				"\n! The following command line arguments are required (along with values) for this server:\n\n  %s\n",
-				strings.Join(elem.RequiredValueArgs, "\n  "),
+				"\n❗ The following command line arguments are required (along with values) for this server:\n\n",
 			)
+			parts := make([]string, 0, len(elem.RequiredValueArgs))
+			for _, arg := range elem.RequiredValueArgs {
+				parts = append(parts, fmt.Sprintf("  🚩 %s", arg))
+			}
+			_, _ = fmt.Fprintln(w, strings.Join(parts, "\n"))
 		}
 
 		if len(elem.RequiredBoolArgs) > 0 {
 			_, _ = fmt.Fprintf(
 				w,
-				"\n! The following command line arguments are required (as boolean flags) for this server:\n\n  %s\n",
-				strings.Join(elem.RequiredBoolArgs, "\n  "),
+				"\n❗ The following command line arguments are required (as boolean flags) for this server:\n\n",
 			)
+			parts := make([]string, 0, len(elem.RequiredBoolArgs))
+			for _, arg := range elem.RequiredBoolArgs {
+				parts = append(parts, fmt.Sprintf("  ✅ %s", arg))
+			}
+			_, _ = fmt.Fprintln(w, strings.Join(parts, "\n"))
 		}
 
 		_, _ = fmt.Fprint(w, "\nsee: mcpd config args set --help\n")

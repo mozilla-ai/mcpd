@@ -1158,3 +1158,79 @@ func extractTestCLIArgNames(t *testing.T, args packages.Arguments) []string {
 	}
 	return cliArgs
 }
+
+func TestRegistry_ExtractArgumentMetadata_ObsidianParsingFix(t *testing.T) {
+	t.Parallel()
+
+	// Load the obsidian samples that demonstrate the parsing issue
+	servers := loadTestDataServers(t, "obsidian_samples.json")
+
+	tests := []struct {
+		name           string
+		serverName     string
+		expectedResult map[string]packages.ArgumentMetadata
+	}{
+		{
+			name:       "obsidian-mcp should parse positional arguments correctly",
+			serverName: "obsidian-mcp",
+			expectedResult: map[string]packages.ArgumentMetadata{
+				"OBSIDIAN_VAULT_PATH": {
+					Name:         "OBSIDIAN_VAULT_PATH",
+					VariableType: packages.VariableTypeArgPositional,
+					Position:     testIntPtr(t, 1),
+					Required:     true,
+					Description:  "Path to your Obsidian vault",
+				},
+				"OBSIDIAN_VAULT_PATH2": {
+					Name:         "OBSIDIAN_VAULT_PATH2",
+					VariableType: packages.VariableTypeArgPositional,
+					Position:     testIntPtr(t, 2),
+					Required:     false,
+					Description:  "Path to your second Obsidian vault",
+				},
+			},
+		},
+		{
+			name:       "mcp-obsidian should parse environment variables correctly",
+			serverName: "mcp-obsidian",
+			expectedResult: map[string]packages.ArgumentMetadata{
+				"OBSIDIAN_API_KEY": {
+					Name:         "OBSIDIAN_API_KEY",
+					VariableType: packages.VariableTypeEnv,
+					Required:     true,
+					Description:  "Obsidian API key",
+					Example:      "your-obsidian-api-key",
+				},
+			},
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			server, exists := servers[tc.serverName]
+			require.True(t, exists, "Server %q not found in obsidian_samples.json", tc.serverName)
+
+			// Extract arguments using the fixed logic
+			result := extractArgumentMetadata(server, runtime.DefaultSupportedRuntimes())
+
+			// Verify expected arguments are present and correctly classified
+			require.Equal(t, len(tc.expectedResult), len(result),
+				"Unexpected number of arguments extracted for %s", tc.serverName)
+
+			for expectedKey, expectedMeta := range tc.expectedResult {
+				actualMeta, found := result[expectedKey]
+				require.True(t, found, "Expected argument %q not found in results", expectedKey)
+				require.Equal(t, expectedMeta, actualMeta,
+					"Argument metadata mismatch for %q in %s", expectedKey, tc.serverName)
+			}
+
+			// Log results for debugging
+			t.Logf("Server %q extracted %d arguments:", tc.serverName, len(result))
+			for argName, metadata := range result {
+				t.Logf("  %s: %s (%s)", argName, metadata.VariableType, metadata.Description)
+			}
+		})
+	}
+}

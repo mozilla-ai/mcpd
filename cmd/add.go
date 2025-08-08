@@ -270,17 +270,19 @@ func parseServerEntry(pkg packages.Server, opts serverEntryOptions) (config.Serv
 	}
 
 	runtimePackageVersion := fmt.Sprintf("%s::%s@%s", selectedRuntime, installation.Package, version)
-	envs := pkg.Arguments.FilterBy(packages.Required, packages.EnvVar)
-	args := pkg.Arguments.FilterBy(packages.Required, packages.ValueAcceptingArgument)
-	boolArgs := pkg.Arguments.FilterBy(packages.Required, packages.BoolArgument)
+	envs := pkg.Arguments.FilterBy(packages.Required, packages.EnvVar).Names()
+	positionalArgs := pkg.Arguments.FilterBy(packages.Required, packages.PositionalArgument).Ordered().Names()
+	valueArgs := pkg.Arguments.FilterBy(packages.Required, packages.ValueArgument).Ordered().Names()
+	boolArgs := pkg.Arguments.FilterBy(packages.Required, packages.BoolArgument).Names()
 
 	return config.ServerEntry{
-		Name:              pkg.ID,
-		Package:           runtimePackageVersion,
-		Tools:             requestedTools,
-		RequiredValueArgs: args.Names(),
-		RequiredBoolArgs:  boolArgs.Names(),
-		RequiredEnvVars:   envs.Names(),
+		Name:                   pkg.ID,
+		Package:                runtimePackageVersion,
+		Tools:                  requestedTools,
+		RequiredPositionalArgs: positionalArgs,
+		RequiredValueArgs:      valueArgs,
+		RequiredBoolArgs:       boolArgs,
+		RequiredEnvVars:        envs,
 	}, nil
 }
 
