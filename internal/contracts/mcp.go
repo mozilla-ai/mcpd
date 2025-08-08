@@ -23,11 +23,11 @@ type MCPHealthMonitor interface {
 // MCPClientAccessor provides a way to interact with MCP servers through a client.
 type MCPClientAccessor interface {
 	// Add registers a client and its tools by server name.
-	Add(name string, c *client.Client, tools []string)
+	Add(name string, c client.MCPClient, tools []string)
 
 	// Client returns the client for the given server name.
 	// It returns a boolean to indicate whether the client was found.
-	Client(name string) (*client.Client, bool)
+	Client(name string) (client.MCPClient, bool)
 
 	// Tools returns the tools for the given server name.
 	// It returns a boolean to indicate whether the tools were found.

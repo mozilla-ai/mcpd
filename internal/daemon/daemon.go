@@ -27,6 +27,8 @@ import (
 	"github.com/mozilla-ai/mcpd/v2/internal/runtime"
 )
 
+// Daemon manages MCP server lifecycles, client connections, and health monitoring.
+// It should only be created using NewDaemon to ensure proper initialization.
 type Daemon struct {
 	apiServer         *ApiServer
 	logger            hclog.Logger
@@ -60,6 +62,8 @@ func NewDaemonOpts(logger hclog.Logger, cfgLoader config.Loader, ctxLoader confi
 	}, nil
 }
 
+// NewDaemon creates a new Daemon instance with proper initialization.
+// Use this function instead of directly creating a Daemon struct.
 func NewDaemon(apiAddr string, opts *Opts) (*Daemon, error) {
 	if err := IsValidAddr(apiAddr); err != nil {
 		return nil, fmt.Errorf("invalid API address '%s': %w", apiAddr, err)
@@ -109,15 +113,7 @@ func NewDaemon(apiAddr string, opts *Opts) (*Daemon, error) {
 // It launches regular health checks on the MCP servers, with statuses visible via API routes.
 func (d *Daemon) StartAndManage(ctx context.Context) error {
 	// Handle clean-up.
-	defer func() {
-		d.logger.Info("Shutting down MCP servers and client connections")
-		for _, n := range d.clientManager.List() {
-			if c, ok := d.clientManager.Client(n); ok {
-				d.logger.Info(fmt.Sprintf("Closing client %s", n))
-				_ = c.Close()
-			}
-		}
-	}()
+	defer d.closeAllClients()
 
 	// Launch servers
 	if err := d.startMCPServers(ctx); err != nil {
@@ -429,4 +425,62 @@ func loadConfig(cfgLoader config.Loader, ctxLoader configcontext.Loader) ([]runt
 	}
 
 	return runtime.AggregateConfigs(cfg, execCtx)
+}
+
+// closeAllClients gracefully closes all managed clients with individual timeouts.
+// It closes all clients concurrently and waits for all to complete or timeout.
+func (d *Daemon) closeAllClients() {
+	d.logger.Info("Shutting down MCP servers and client connections")
+
+	clients := d.clientManager.List()
+	if len(clients) == 0 {
+		return
+	}
+
+	var wg sync.WaitGroup
+	timeout := 5 * time.Second
+
+	// Start closing all clients concurrently
+	for _, n := range clients {
+		name := n
+		c, ok := d.clientManager.Client(name)
+		if !ok {
+			continue
+		}
+
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			d.closeClientWithTimeout(name, c, timeout)
+		}()
+	}
+
+	wg.Wait()
+}
+
+// closeClientWithTimeout closes a single client with a timeout.
+func (d *Daemon) closeClientWithTimeout(name string, c client.MCPClient, timeout time.Duration) {
+	d.logger.Info(fmt.Sprintf("Closing client %s", name))
+
+	done := make(chan struct{})
+	go func() {
+		err := c.Close()
+		if err != nil {
+			// 'errors' can result in things like SIGINT which returns exit code 130,
+			// we still log the error but only for debugging purposes.
+			d.logger.Debug("Closing client", "client", name, "error", err)
+		}
+		d.logger.Info(fmt.Sprintf("Closed client %s", name))
+		close(done)
+	}()
+
+	// Wait for this specific client to close or timeout.
+	// NOTE: this could leak if we just time out clients,
+	// but since we're exiting mcpd it isn't an issue.
+	select {
+	case <-done:
+		// Closed successfully.
+	case <-time.After(timeout):
+		d.logger.Warn(fmt.Sprintf("Timeout (%s) closing client %s", timeout.String(), name))
+	}
 }

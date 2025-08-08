@@ -10,21 +10,21 @@ import (
 // It is safe for concurrent use by multiple goroutines.
 type ClientManager struct {
 	mu          sync.RWMutex
-	clients     map[string]*client.Client
+	clients     map[string]client.MCPClient
 	serverTools map[string][]string
 }
 
 // NewClientManager creates an empty, concurrency-safe ClientManager.
 func NewClientManager() *ClientManager {
 	return &ClientManager{
-		clients:     make(map[string]*client.Client),
+		clients:     make(map[string]client.MCPClient),
 		serverTools: make(map[string][]string),
 	}
 }
 
 // Add registers a client and its tools by server name.
 // This method is safe for concurrent use.
-func (cm *ClientManager) Add(name string, c *client.Client, tools []string) {
+func (cm *ClientManager) Add(name string, c client.MCPClient, tools []string) {
 	cm.mu.Lock()
 	defer cm.mu.Unlock()
 	cm.clients[name] = c
@@ -34,7 +34,7 @@ func (cm *ClientManager) Add(name string, c *client.Client, tools []string) {
 // Client returns the client for the given server name.
 // It returns a boolean to indicate whether the client was found.
 // This method is safe for concurrent use.
-func (cm *ClientManager) Client(name string) (*client.Client, bool) {
+func (cm *ClientManager) Client(name string) (client.MCPClient, bool) {
 	cm.mu.RLock()
 	defer cm.mu.RUnlock()
 	c, ok := cm.clients[name]
