@@ -64,7 +64,7 @@ func NewDaemonOpts(logger hclog.Logger, cfgLoader config.Loader, ctxLoader confi
 
 // NewDaemon creates a new Daemon instance with proper initialization.
 // Use this function instead of directly creating a Daemon struct.
-func NewDaemon(apiAddr string, opts *Opts) (*Daemon, error) {
+func NewDaemon(apiAddr string, opts *Opts, enableCORS bool, corsOrigins []string) (*Daemon, error) {
 	if err := IsValidAddr(apiAddr); err != nil {
 		return nil, fmt.Errorf("invalid API address '%s': %w", apiAddr, err)
 	}
@@ -94,7 +94,7 @@ func NewDaemon(apiAddr string, opts *Opts) (*Daemon, error) {
 
 	healthTracker := NewHealthTracker(serverNames)
 	clientManager := NewClientManager()
-	apiServer, err := NewApiServer(opts.logger, clientManager, healthTracker, apiAddr)
+	apiServer, err := NewApiServer(opts.logger, clientManager, healthTracker, apiAddr, enableCORS, corsOrigins)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create daemon API server: %w", err)
 	}

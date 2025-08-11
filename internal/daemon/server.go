@@ -7,12 +7,14 @@ import (
 	"net/http"
 	"net/url"
 	"reflect"
+	"strings"
 	"time"
 
 	"github.com/danielgtaylor/huma/v2"
 	"github.com/danielgtaylor/huma/v2/adapters/humachi"
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
+	"github.com/go-chi/cors"
 	"github.com/hashicorp/go-hclog"
 
 	"github.com/mozilla-ai/mcpd/v2/internal/api"
@@ -26,6 +28,8 @@ type ApiServer struct {
 	healthTracker contracts.MCPHealthMonitor
 	logger        hclog.Logger
 	addr          string
+	enableCORS    bool
+	corsOrigins   []string
 }
 
 func NewApiServer(
@@ -33,6 +37,8 @@ func NewApiServer(
 	accessor contracts.MCPClientAccessor,
 	monitor contracts.MCPHealthMonitor,
 	addr string,
+	enableCORS bool,
+	corsOrigins []string,
 ) (*ApiServer, error) {
 	if logger == nil || reflect.ValueOf(logger).IsNil() {
 		return nil, fmt.Errorf("logger cannot be nil")
@@ -52,6 +58,8 @@ func NewApiServer(
 		clientManager: accessor,
 		healthTracker: monitor,
 		addr:          addr,
+		enableCORS:    enableCORS,
+		corsOrigins:   corsOrigins,
 	}, nil
 }
 
@@ -59,6 +67,33 @@ func (a *ApiServer) Start(ctx context.Context) error {
 	// Create router.
 	mux := chi.NewMux()
 	mux.Use(middleware.StripSlashes)
+
+	// Add CORS middleware if enabled
+	if a.enableCORS {
+		a.logger.Info("Enabling CORS", "origins", a.corsOrigins)
+
+		corsOptions := cors.Options{
+			AllowedOrigins:   a.corsOrigins,
+			AllowedMethods:   []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
+			AllowedHeaders:   []string{"Accept", "Authorization", "Content-Type", "X-CSRF-Token", "X-Requested-With"},
+			ExposedHeaders:   []string{"Link"},
+			AllowCredentials: false,
+			MaxAge:           300, // Maximum value not ignored by any of major browsers
+		}
+
+		// Handle wildcard origins properly
+		for i, origin := range corsOptions.AllowedOrigins {
+			if origin == "*" {
+				corsOptions.AllowedOrigins = []string{"*"}
+				corsOptions.AllowCredentials = false
+				break
+			}
+			corsOptions.AllowedOrigins[i] = strings.TrimSpace(origin)
+		}
+
+		mux.Use(cors.Handler(corsOptions))
+	}
+
 	config := huma.DefaultConfig("mcpd docs", cmd.Version())
 	router := humachi.New(mux, config)
 
@@ -85,6 +120,9 @@ func (a *ApiServer) Start(ctx context.Context) error {
 	// Start the API.
 	go func() {
 		a.logger.Info("Starting API server", "address", a.addr, "prefix", apiPathPrefix)
+		if a.enableCORS {
+			a.logger.Info("CORS enabled", "origins", a.corsOrigins)
+		}
 		if err := srv.ListenAndServe(); err != nil && !stdErrors.Is(err, http.ErrServerClosed) {
 			errCh <- err
 		}

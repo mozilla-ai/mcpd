@@ -22,10 +22,12 @@ import (
 // DaemonCmd should be used to represent the 'daemon' command.
 type DaemonCmd struct {
 	*cmd.BaseCmd
-	Dev       bool
-	Addr      string
-	cfgLoader config.Loader
-	ctxLoader configcontext.Loader
+	Dev             bool
+	Addr            string
+	EnableCORS      bool
+	CORSOrigins     []string
+	cfgLoader       config.Loader
+	ctxLoader       configcontext.Loader
 }
 
 // NewDaemonCmd creates a newly configured (Cobra) command.
@@ -36,13 +38,14 @@ func NewDaemonCmd(baseCmd *cmd.BaseCmd, opt ...cmdopts.CmdOption) (*cobra.Comman
 	}
 
 	c := &DaemonCmd{
-		BaseCmd:   baseCmd,
-		cfgLoader: opts.ConfigLoader,
-		ctxLoader: opts.ContextLoader,
+		BaseCmd:    baseCmd,
+		cfgLoader:  opts.ConfigLoader,
+		ctxLoader:  opts.ContextLoader,
+		CORSOrigins: []string{},
 	}
 
 	cobraCommand := &cobra.Command{
-		Use:   "daemon [--dev] [--addr]",
+		Use:   "daemon [--dev] [--addr] [--enable-cors] [--cors-origins]",
 		Short: "Launches an `mcpd` daemon instance",
 		Long:  "Launches an `mcpd` daemon instance, which starts MCP servers and provides routing via HTTP API",
 		RunE:  c.run,
@@ -60,6 +63,21 @@ func NewDaemonCmd(baseCmd *cmd.BaseCmd, opt ...cmdopts.CmdOption) (*cobra.Comman
 		"addr",
 		"0.0.0.0:8090",
 		"Address for the daemon to bind (not applicable in --dev mode)",
+	)
+
+	// Add CORS flags
+	cobraCommand.Flags().BoolVar(
+		&c.EnableCORS,
+		"enable-cors",
+		false,
+		"Enable Cross-Origin Resource Sharing (CORS) for browser clients",
+	)
+
+	cobraCommand.Flags().StringSliceVar(
+		&c.CORSOrigins,
+		"cors-origins",
+		[]string{"*"},
+		"Comma-separated list of allowed CORS origins (default: * for all origins)",
 	)
 
 	cobraCommand.MarkFlagsMutuallyExclusive("dev", "addr")
@@ -93,7 +111,9 @@ func (c *DaemonCmd) run(_ *cobra.Command, _ []string) error {
 	if err != nil {
 		return fmt.Errorf("error configuring mcpd daemon options: %w", err)
 	}
-	d, err := daemon.NewDaemon(addr, opts)
+
+	// Pass CORS configuration to daemon creation
+	d, err := daemon.NewDaemon(addr, opts, c.EnableCORS, c.CORSOrigins)
 	if err != nil {
 		return fmt.Errorf("failed to create mcpd daemon instance: %w", err)
 	}
@@ -126,6 +146,11 @@ func (c *DaemonCmd) run(_ *cobra.Command, _ []string) error {
 
 		if flags.LogPath != "" {
 			banner += fmt.Sprintf("  Log file:\t%s => (%s)\n", flags.LogPath, flags.LogLevel)
+		}
+
+		// Add CORS status to banner
+		if c.EnableCORS {
+			banner += fmt.Sprintf("  CORS enabled:\t%v (origins: %s)\n", c.EnableCORS, strings.Join(c.CORSOrigins, ", "))
 		}
 
 		banner += "\nPress Ctrl+C to stop.\n\n"
