@@ -130,7 +130,7 @@ func (r *Registry) Resolve(name string, opt ...options.ResolveOption) (packages.
 		"filters", fs,
 	)
 
-	result, transformed := r.buildPackageResult(name)
+	result, transformed := r.serverForID(name)
 	if !transformed {
 		return packages.Server{}, fmt.Errorf("failed to build package result for '%s'", name)
 	}
@@ -176,7 +176,7 @@ func (r *Registry) Search(
 	r.logger.Debug("Searching for package", "name", name, "filters", fs, "source", opts.Source)
 	var results []packages.Server
 	for id := range r.mcpServers {
-		result, transformed := r.buildPackageResult(id)
+		result, transformed := r.serverForID(id)
 		if !transformed {
 			continue
 		}
@@ -200,11 +200,11 @@ func (r *Registry) Search(
 	return results, nil
 }
 
-// buildPackageResult attempts to convert the MCPServer associated with the specified ID,
+// serverForID attempts to convert the MCPServer associated with the specified ID,
 // into a Server.
 // Returns the transformed result, and a flag to indicate if the transformation was successful.
 // If the server cannot be transformed due to unsupported or malformed runtime installations, false is returned.
-func (r *Registry) buildPackageResult(pkgKey string) (packages.Server, bool) {
+func (r *Registry) serverForID(pkgKey string) (packages.Server, bool) {
 	// Sanity check to ensure things work when a random ID gets supplied.
 	sd, foundServer := r.mcpServers[pkgKey]
 	if !foundServer {
@@ -237,19 +237,23 @@ func (r *Registry) buildPackageResult(pkgKey string) (packages.Server, bool) {
 	installations := convertInstallations(sd, r.supportedRuntimes)
 
 	return packages.Server{
-		Source:        RegistryName,
-		ID:            pkgKey,
-		Name:          pkgKey,
-		DisplayName:   sd.DisplayName,
-		Description:   sd.Description,
-		License:       sd.License,
-		Tools:         tools,
-		Tags:          sd.Tags,
-		Categories:    sd.Categories,
-		Installations: installations,
 		Arguments:     arguments,
-		IsOfficial:    sd.IsOfficial,
+		Categories:    sd.Categories,
 		Deprecated:    false, // MCPM doesn't support deprecated packages
+		Description:   sd.Description,
+		DisplayName:   sd.DisplayName,
+		Homepage:      sd.Homepage,
+		ID:            pkgKey,
+		Installations: installations,
+		IsOfficial:    sd.IsOfficial,
+		License:       sd.License,
+		Name:          pkgKey,
+		Publisher: packages.Publisher{
+			Name: sd.Author.Name,
+		},
+		Source: RegistryName,
+		Tags:   sd.Tags,
+		Tools:  tools,
 	}, true
 }
 
