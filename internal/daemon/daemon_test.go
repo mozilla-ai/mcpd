@@ -15,6 +15,7 @@ import (
 
 	"github.com/mozilla-ai/mcpd/v2/internal/config"
 	configcontext "github.com/mozilla-ai/mcpd/v2/internal/context"
+	"github.com/mozilla-ai/mcpd/v2/internal/runtime"
 )
 
 type testLogMessage struct {
@@ -451,50 +452,6 @@ func (m *mockMCPClientWithBehavior) Complete(
 func (m *mockMCPClientWithBehavior) OnNotification(handler func(notification mcp.JSONRPCNotification)) {
 }
 
-// mockConfigModifier implements config.Modifier for testing
-type mockConfigModifier struct{}
-
-func (m *mockConfigModifier) AddServer(entry config.ServerEntry) error {
-	return nil
-}
-
-func (m *mockConfigModifier) RemoveServer(name string) error {
-	return nil
-}
-
-func (m *mockConfigModifier) ListServers() []config.ServerEntry {
-	return []config.ServerEntry{}
-}
-
-// mockConfigLoader implements config.Loader for testing
-type mockConfigLoader struct{}
-
-func (m *mockConfigLoader) Load(path string) (config.Modifier, error) {
-	return &mockConfigModifier{}, nil
-}
-
-// mockContextModifier implements configcontext.Modifier for testing
-type mockContextModifier struct{}
-
-func (m *mockContextModifier) Get(name string) (configcontext.ServerExecutionContext, bool) {
-	return configcontext.ServerExecutionContext{}, false
-}
-
-func (m *mockContextModifier) Upsert(ctx configcontext.ServerExecutionContext) (configcontext.UpsertResult, error) {
-	return configcontext.Created, nil
-}
-
-func (m *mockContextModifier) List() []configcontext.ServerExecutionContext {
-	return []configcontext.ServerExecutionContext{}
-}
-
-// mockContextLoader implements configcontext.Loader for testing
-type mockContextLoader struct{}
-
-func (m *mockContextLoader) Load(path string) (configcontext.Modifier, error) {
-	return &mockContextModifier{}, nil
-}
-
 // Test that client closing happens with proper timeout handling
 func TestDaemon_ClientClosingWithTimeout(t *testing.T) {
 	t.Parallel()
@@ -560,9 +517,15 @@ func TestDaemon_ClientClosingWithTimeout(t *testing.T) {
 			})
 			logger.RegisterSink(customSink)
 
-			opts, err := NewDaemonOpts(logger, &mockConfigLoader{}, &mockContextLoader{})
+			servers := []runtime.Server{
+				{
+					ServerEntry:            config.ServerEntry{},
+					ServerExecutionContext: configcontext.ServerExecutionContext{},
+				},
+			}
+			deps, err := NewDependencies(logger, ":8080", servers)
 			require.NoError(t, err)
-			daemon, err := NewDaemon(":8080", opts)
+			daemon, err := NewDaemon(deps)
 			require.NoError(t, err)
 
 			// Setup clients for this test case
@@ -647,9 +610,15 @@ func TestDaemon_MultipleClientsCloseConcurrently(t *testing.T) {
 	})
 	logger.RegisterSink(customSink)
 
-	opts, err := NewDaemonOpts(logger, &mockConfigLoader{}, &mockContextLoader{})
+	servers := []runtime.Server{
+		{
+			ServerEntry:            config.ServerEntry{},
+			ServerExecutionContext: configcontext.ServerExecutionContext{},
+		},
+	}
+	deps, err := NewDependencies(logger, ":8081", servers)
 	require.NoError(t, err)
-	daemon, err := NewDaemon(":8081", opts)
+	daemon, err := NewDaemon(deps)
 	require.NoError(t, err)
 
 	// Add multiple clients with different delays
@@ -719,9 +688,15 @@ func TestDaemon_CloseAllClients_Direct(t *testing.T) {
 	})
 	logger.RegisterSink(customSink)
 
-	opts, err := NewDaemonOpts(logger, &mockConfigLoader{}, &mockContextLoader{})
+	servers := []runtime.Server{
+		{
+			ServerEntry:            config.ServerEntry{},
+			ServerExecutionContext: configcontext.ServerExecutionContext{},
+		},
+	}
+	deps, err := NewDependencies(logger, ":8082", servers)
 	require.NoError(t, err)
-	daemon, err := NewDaemon(":8082", opts)
+	daemon, err := NewDaemon(deps)
 	require.NoError(t, err)
 
 	fastClient := newMockMCPClientWithBehavior(100*time.Millisecond, nil)
@@ -769,9 +744,15 @@ func TestDaemon_CloseAllClients_EmptyManager(t *testing.T) {
 	})
 	logger.RegisterSink(customSink)
 
-	opts, err := NewDaemonOpts(logger, &mockConfigLoader{}, &mockContextLoader{})
+	servers := []runtime.Server{
+		{
+			ServerEntry:            config.ServerEntry{},
+			ServerExecutionContext: configcontext.ServerExecutionContext{},
+		},
+	}
+	deps, err := NewDependencies(logger, ":8083", servers)
 	require.NoError(t, err)
-	daemon, err := NewDaemon(":8083", opts)
+	daemon, err := NewDaemon(deps)
 	require.NoError(t, err)
 
 	// Don't add any clients
@@ -835,9 +816,15 @@ func TestDaemon_CloseClientWithTimeout_Direct(t *testing.T) {
 			})
 			logger.RegisterSink(customSink)
 
-			opts, err := NewDaemonOpts(logger, &mockConfigLoader{}, &mockContextLoader{})
+			servers := []runtime.Server{
+				{
+					ServerEntry:            config.ServerEntry{},
+					ServerExecutionContext: configcontext.ServerExecutionContext{},
+				},
+			}
+			deps, err := NewDependencies(logger, ":8084", servers)
 			require.NoError(t, err)
-			daemon, err := NewDaemon(":8084", opts)
+			daemon, err := NewDaemon(deps)
 			require.NoError(t, err)
 
 			testClient := newMockMCPClientWithBehavior(tc.clientDelay, nil)

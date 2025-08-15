@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"io"
 	"net"
-	"reflect"
 	"strconv"
 	"strings"
 	"sync"
@@ -19,65 +18,50 @@ import (
 	"golang.org/x/sync/errgroup"
 
 	"github.com/mozilla-ai/mcpd/v2/internal/cmd"
-	"github.com/mozilla-ai/mcpd/v2/internal/config"
-	configcontext "github.com/mozilla-ai/mcpd/v2/internal/context"
 	"github.com/mozilla-ai/mcpd/v2/internal/contracts"
 	"github.com/mozilla-ai/mcpd/v2/internal/domain"
-	"github.com/mozilla-ai/mcpd/v2/internal/flags"
 	"github.com/mozilla-ai/mcpd/v2/internal/runtime"
 )
 
 // Daemon manages MCP server lifecycles, client connections, and health monitoring.
 // It should only be created using NewDaemon to ensure proper initialization.
 type Daemon struct {
-	apiServer         *ApiServer
+	apiServer         *APIServer
 	logger            hclog.Logger
 	clientManager     contracts.MCPClientAccessor
 	healthTracker     contracts.MCPHealthMonitor
 	supportedRuntimes map[runtime.Runtime]struct{}
-	runtimeCfg        []runtime.Server
-}
+	runtimeServers    []runtime.Server
 
-type Opts struct {
-	logger    hclog.Logger
-	cfgLoader config.Loader
-	ctxLoader configcontext.Loader
-}
+	// clientInitTimeout is the time allowed for MCP servers to initialize.
+	clientInitTimeout time.Duration
 
-func NewDaemonOpts(logger hclog.Logger, cfgLoader config.Loader, ctxLoader configcontext.Loader) (*Opts, error) {
-	if logger == nil || reflect.ValueOf(logger).IsNil() {
-		return nil, fmt.Errorf("logger cannot be nil")
-	}
-	if cfgLoader == nil || reflect.ValueOf(cfgLoader).IsNil() {
-		return nil, fmt.Errorf("config loader cannot be nil")
-	}
-	if ctxLoader == nil || reflect.ValueOf(ctxLoader).IsNil() {
-		return nil, fmt.Errorf("runtime execution context config loader cannot be nil")
-	}
+	// clientShutdownTimeout is the time allowed for MCP servers to shut down.
+	clientShutdownTimeout time.Duration
 
-	return &Opts{
-		logger:    logger,
-		cfgLoader: cfgLoader,
-		ctxLoader: ctxLoader,
-	}, nil
+	// clientHealthCheckTimeout is the time allowed for an MCP server to respond to a health check (ping).
+	clientHealthCheckTimeout time.Duration
+
+	// clientHealthCheckInterval is the time interval between MCP server health checks (pings).
+	clientHealthCheckInterval time.Duration
 }
 
 // NewDaemon creates a new Daemon instance with proper initialization.
 // Use this function instead of directly creating a Daemon struct.
-func NewDaemon(apiAddr string, opts *Opts, enableCORS bool, corsOrigins []string) (*Daemon, error) {
-	if err := IsValidAddr(apiAddr); err != nil {
-		return nil, fmt.Errorf("invalid API address '%s': %w", apiAddr, err)
+func NewDaemon(deps Dependencies, opt ...Option) (*Daemon, error) {
+	if err := deps.Validate(); err != nil {
+		return nil, fmt.Errorf("invalid daemon dependencies: %w", err)
 	}
 
-	// Load config.
-	cfg, err := loadConfig(opts.cfgLoader, opts.ctxLoader)
+	// Ensure we always start with defaults and apply user options on top.
+	opts, err := NewOptions(opt...)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("invalid options: %w", err)
 	}
 
 	var serverNames []string // Track server names for server health tracker creation.
 	var validateErrs error
-	for _, srv := range cfg {
+	for _, srv := range deps.RuntimeServers {
 		serverNames = append(serverNames, srv.Name())
 		// Validate the config since the daemon will be required to start MCP servers using it.
 		if err := srv.Validate(); err != nil {
@@ -89,23 +73,37 @@ func NewDaemon(apiAddr string, opts *Opts, enableCORS bool, corsOrigins []string
 	}
 	if validateErrs != nil {
 		// NOTE: Include a line break in the output to improve readability of the validation errors.
-		return nil, fmt.Errorf("invalid runtime configuration:\n%w", validateErrs)
+		return nil, errors.Join(fmt.Errorf("invalid runtime configuration"), validateErrs)
 	}
 
 	healthTracker := NewHealthTracker(serverNames)
 	clientManager := NewClientManager()
-	apiServer, err := NewApiServer(opts.logger, clientManager, healthTracker, apiAddr, enableCORS, corsOrigins)
+	apiDeps, err := NewAPIDependencies(
+		deps.Logger,
+		clientManager,
+		healthTracker,
+		deps.APIAddr,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create API dependencies: %w", err)
+	}
+
+	apiServer, err := NewAPIServer(apiDeps, opts.APIOptions...)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create daemon API server: %w", err)
 	}
 
 	return &Daemon{
-		logger:            opts.logger.Named("daemon"),
-		clientManager:     clientManager,
-		healthTracker:     healthTracker,
-		apiServer:         apiServer,
-		supportedRuntimes: runtime.DefaultSupportedRuntimes(),
-		runtimeCfg:        cfg,
+		logger:                    deps.Logger.Named("daemon"),
+		clientManager:             clientManager,
+		healthTracker:             healthTracker,
+		apiServer:                 apiServer,
+		supportedRuntimes:         runtime.DefaultSupportedRuntimes(),
+		runtimeServers:            deps.RuntimeServers,
+		clientInitTimeout:         opts.ClientInitTimeout,
+		clientShutdownTimeout:     opts.ClientShutdownTimeout,
+		clientHealthCheckTimeout:  opts.ClientHealthCheckTimeout,
+		clientHealthCheckInterval: opts.ClientHealthCheckInterval,
 	}, nil
 }
 
@@ -123,7 +121,9 @@ func (d *Daemon) StartAndManage(ctx context.Context) error {
 	// Run API and regular health checks.
 	runGroup, runGroupCtx := errgroup.WithContext(ctx)
 	runGroup.Go(func() error { return d.apiServer.Start(runGroupCtx) })
-	runGroup.Go(func() error { return d.healthCheckLoop(runGroupCtx, 10*time.Second, 3*time.Second) })
+	runGroup.Go(func() error {
+		return d.healthCheckLoop(runGroupCtx, d.clientHealthCheckInterval, d.clientHealthCheckTimeout)
+	})
 
 	return runGroup.Wait()
 }
@@ -132,11 +132,11 @@ func (d *Daemon) StartAndManage(ctx context.Context) error {
 // It returns a combined error containing one entry per failed launch
 // (nil if all servers start successfully).
 func (d *Daemon) startMCPServers(ctx context.Context) error {
-	errs := make([]error, 0, len(d.runtimeCfg))
+	errs := make([]error, 0, len(d.runtimeServers))
 	mu := sync.Mutex{}
 	runGroup, runCtx := errgroup.WithContext(ctx)
 
-	for _, s := range d.runtimeCfg {
+	for _, s := range d.runtimeServers {
 		s := s
 		runGroup.Go(func() error {
 			if err := d.startMCPServer(runCtx, s); err != nil {
@@ -218,7 +218,7 @@ func (d *Daemon) startMCPServer(ctx context.Context, server runtime.Server) erro
 		}
 	}(ctx, logger, stderr)
 
-	initializeCtx, cancel := context.WithTimeout(ctx, 30*time.Second) // TODO: Configurable timeout.
+	initializeCtx, cancel := context.WithTimeout(ctx, d.clientInitTimeout)
 	defer cancel()
 
 	// 'Initialize'
@@ -413,20 +413,6 @@ func normalizeLogLevel(level string) hclog.Level {
 	}
 }
 
-func loadConfig(cfgLoader config.Loader, ctxLoader configcontext.Loader) ([]runtime.Server, error) {
-	cfg, err := cfgLoader.Load(flags.ConfigFile)
-	if err != nil {
-		return nil, err
-	}
-
-	execCtx, err := ctxLoader.Load(flags.RuntimeFile)
-	if err != nil {
-		return nil, err
-	}
-
-	return runtime.AggregateConfigs(cfg, execCtx)
-}
-
 // closeAllClients gracefully closes all managed clients with individual timeouts.
 // It closes all clients concurrently and waits for all to complete or timeout.
 func (d *Daemon) closeAllClients() {
@@ -438,7 +424,7 @@ func (d *Daemon) closeAllClients() {
 	}
 
 	var wg sync.WaitGroup
-	timeout := 5 * time.Second
+	timeout := d.clientShutdownTimeout
 
 	// Start closing all clients concurrently
 	for _, n := range clients {

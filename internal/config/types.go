@@ -33,6 +33,7 @@ type DefaultLoader struct{}
 // Config represents the .mcpd.toml file structure.
 type Config struct {
 	Servers        []ServerEntry `toml:"servers"`
+	Daemon         *DaemonConfig `toml:"daemon,omitempty"`
 	configFilePath string        `toml:"-"`
 }
 
