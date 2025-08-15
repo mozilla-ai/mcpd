@@ -117,6 +117,11 @@ func (c *Config) ListServers() []ServerEntry {
 	return slices.Clone(c.Servers)
 }
 
+// SaveConfig saves the current configuration to the config file.
+func (c *Config) SaveConfig() error {
+	return c.saveConfig()
+}
+
 // keyFor generates a temporary version of the ServerEntry to be used as a composite key.
 // It consists of the name of the server and the package without version information.
 func keyFor(entry ServerEntry) serverKey {

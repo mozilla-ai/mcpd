@@ -8,6 +8,7 @@ import (
 	"github.com/hashicorp/go-hclog"
 
 	"github.com/mozilla-ai/mcpd/v2/internal/cmd/output"
+	"github.com/mozilla-ai/mcpd/v2/internal/config"
 	"github.com/mozilla-ai/mcpd/v2/internal/flags"
 	"github.com/mozilla-ai/mcpd/v2/internal/provider/mcpm"
 	"github.com/mozilla-ai/mcpd/v2/internal/provider/mozilla_ai"
@@ -143,4 +144,19 @@ func FormatHandler[T any](w io.Writer, format OutputFormat, p output.Printer[T])
 	}
 
 	return handler, nil
+}
+
+// LoadConfig is a utility method that loads and validates configuration.
+// This consolidates the common pattern used across daemon config commands.
+func (c *BaseCmd) LoadConfig(loader config.Loader) (*config.Config, error) {
+	cfgModifier, err := loader.Load(flags.ConfigFile)
+	if err != nil {
+		return nil, fmt.Errorf("failed to load config: %w", err)
+	}
+
+	cfg, ok := cfgModifier.(*config.Config)
+	if !ok {
+		return nil, fmt.Errorf("invalid config structure")
+	}
+	return cfg, nil
 }

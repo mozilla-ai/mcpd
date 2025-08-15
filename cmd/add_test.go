@@ -37,6 +37,10 @@ func (f *fakeConfig) ListServers() []config.ServerEntry {
 	return []config.ServerEntry{f.entry}
 }
 
+func (f *fakeConfig) SaveConfig() error {
+	return nil
+}
+
 type fakeLoader struct {
 	cfg *fakeConfig
 	err error

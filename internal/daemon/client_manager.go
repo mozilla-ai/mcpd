@@ -8,6 +8,7 @@ import (
 
 // ClientManager holds active client connections and their associated tool lists.
 // It is safe for concurrent use by multiple goroutines.
+// NewClientManager should be used to create instances of ClientManager.
 type ClientManager struct {
 	mu          sync.RWMutex
 	clients     map[string]client.MCPClient
