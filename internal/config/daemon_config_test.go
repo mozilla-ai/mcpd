@@ -6,6 +6,8 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/mozilla-ai/mcpd/v2/internal/context"
 )
 
 func TestDuration_UnmarshalText(t *testing.T) {
@@ -451,4 +453,585 @@ func testStringPtr(t *testing.T, s string) *string {
 func testBoolPtr(t *testing.T, b bool) *bool {
 	t.Helper()
 	return &b
+}
+
+func TestDaemonConfig_Set(t *testing.T) {
+	t.Parallel()
+
+	testCases := []struct {
+		name           string
+		config         *DaemonConfig
+		path           string
+		value          string
+		expectedResult context.UpsertResult
+		expectedError  string
+		validateFn     func(t *testing.T, config *DaemonConfig)
+	}{
+		{
+			name:           "empty path returns error",
+			config:         &DaemonConfig{},
+			path:           "",
+			value:          "test",
+			expectedResult: context.Noop,
+			expectedError:  "config path cannot be empty",
+		},
+		{
+			name:           "whitespace path returns error",
+			config:         &DaemonConfig{},
+			path:           "   ",
+			value:          "test",
+			expectedResult: context.Noop,
+			expectedError:  "config path cannot be empty",
+		},
+		{
+			name:           "unknown section returns error",
+			config:         &DaemonConfig{},
+			path:           "unknown.key",
+			value:          "test",
+			expectedResult: context.Noop,
+			expectedError:  "unknown daemon config section: unknown",
+		},
+		{
+			name:           "api section routes correctly",
+			config:         &DaemonConfig{},
+			path:           "api.addr",
+			value:          "0.0.0.0:8080",
+			expectedResult: context.Created,
+			validateFn: func(t *testing.T, config *DaemonConfig) {
+				t.Helper()
+				require.NotNil(t, config.API)
+				require.NotNil(t, config.API.Addr)
+				require.Equal(t, "0.0.0.0:8080", *config.API.Addr)
+			},
+		},
+		{
+			name:           "mcp section routes correctly",
+			config:         &DaemonConfig{},
+			path:           "mcp.timeout.shutdown",
+			value:          "30s",
+			expectedResult: context.Created,
+			validateFn: func(t *testing.T, config *DaemonConfig) {
+				t.Helper()
+				require.NotNil(t, config.MCP)
+				require.NotNil(t, config.MCP.Timeout)
+				require.NotNil(t, config.MCP.Timeout.Shutdown)
+				require.Equal(t, Duration(30*time.Second), *config.MCP.Timeout.Shutdown)
+			},
+		},
+		{
+			name:           "path case normalization",
+			config:         &DaemonConfig{},
+			path:           "API.ADDR",
+			value:          "0.0.0.0:8080",
+			expectedResult: context.Created,
+			validateFn: func(t *testing.T, config *DaemonConfig) {
+				t.Helper()
+				require.NotNil(t, config.API)
+				require.NotNil(t, config.API.Addr)
+				require.Equal(t, "0.0.0.0:8080", *config.API.Addr)
+			},
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			result, err := tc.config.Set(tc.path, tc.value)
+
+			if tc.expectedError != "" {
+				require.Error(t, err)
+				require.Contains(t, err.Error(), tc.expectedError)
+				require.Equal(t, tc.expectedResult, result)
+			} else {
+				require.NoError(t, err)
+				require.Equal(t, tc.expectedResult, result)
+				if tc.validateFn != nil {
+					tc.validateFn(t, tc.config)
+				}
+			}
+		})
+	}
+}
+
+func TestAPIConfigSection_Set(t *testing.T) {
+	t.Parallel()
+
+	testCases := []struct {
+		name           string
+		config         *APIConfigSection
+		path           string
+		value          string
+		expectedResult context.UpsertResult
+		expectedError  string
+		validateFn     func(t *testing.T, config *APIConfigSection)
+	}{
+		{
+			name:           "empty path returns error",
+			config:         &APIConfigSection{},
+			path:           "",
+			value:          "test",
+			expectedResult: context.Noop,
+			expectedError:  "API config path cannot be empty",
+		},
+		{
+			name:           "set addr creates new value",
+			config:         &APIConfigSection{},
+			path:           "addr",
+			value:          "0.0.0.0:9090",
+			expectedResult: context.Created,
+			validateFn: func(t *testing.T, config *APIConfigSection) {
+				t.Helper()
+				require.NotNil(t, config.Addr)
+				require.Equal(t, "0.0.0.0:9090", *config.Addr)
+			},
+		},
+		{
+			name: "set addr updates existing value",
+			config: &APIConfigSection{
+				Addr: testStringPtr(t, "localhost:8080"),
+			},
+			path:           "addr",
+			value:          "0.0.0.0:9090",
+			expectedResult: context.Updated,
+			validateFn: func(t *testing.T, config *APIConfigSection) {
+				t.Helper()
+				require.NotNil(t, config.Addr)
+				require.Equal(t, "0.0.0.0:9090", *config.Addr)
+			},
+		},
+		{
+			name: "set addr to empty deletes value",
+			config: &APIConfigSection{
+				Addr: testStringPtr(t, "localhost:8080"),
+			},
+			path:           "addr",
+			value:          "",
+			expectedResult: context.Deleted,
+			validateFn: func(t *testing.T, config *APIConfigSection) {
+				t.Helper()
+				require.Nil(t, config.Addr)
+			},
+		},
+		{
+			name:           "timeout subsection routes correctly",
+			config:         &APIConfigSection{},
+			path:           "timeout.shutdown",
+			value:          "20s",
+			expectedResult: context.Created,
+			validateFn: func(t *testing.T, config *APIConfigSection) {
+				t.Helper()
+				require.NotNil(t, config.Timeout)
+				require.NotNil(t, config.Timeout.Shutdown)
+				require.Equal(t, Duration(20*time.Second), *config.Timeout.Shutdown)
+			},
+		},
+		{
+			name:           "cors subsection routes correctly",
+			config:         &APIConfigSection{},
+			path:           "cors.enable",
+			value:          "true",
+			expectedResult: context.Created,
+			validateFn: func(t *testing.T, config *APIConfigSection) {
+				t.Helper()
+				require.NotNil(t, config.CORS)
+				require.NotNil(t, config.CORS.Enable)
+				require.True(t, *config.CORS.Enable)
+			},
+		},
+		{
+			name:           "unknown key returns error",
+			config:         &APIConfigSection{},
+			path:           "unknown",
+			value:          "test",
+			expectedResult: context.Noop,
+			expectedError:  "unknown API config key: unknown",
+		},
+		{
+			name:           "unknown subsection returns error",
+			config:         &APIConfigSection{},
+			path:           "unknown.key",
+			value:          "test",
+			expectedResult: context.Noop,
+			expectedError:  "unknown API subsection: unknown",
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			result, err := tc.config.Set(tc.path, tc.value)
+
+			if tc.expectedError != "" {
+				require.Error(t, err)
+				require.Contains(t, err.Error(), tc.expectedError)
+				require.Equal(t, tc.expectedResult, result)
+			} else {
+				require.NoError(t, err)
+				require.Equal(t, tc.expectedResult, result)
+				if tc.validateFn != nil {
+					tc.validateFn(t, tc.config)
+				}
+			}
+		})
+	}
+}
+
+func TestCORSConfigSection_Set(t *testing.T) {
+	t.Parallel()
+
+	testCases := []struct {
+		name           string
+		config         *CORSConfigSection
+		path           string
+		value          string
+		expectedResult context.UpsertResult
+		expectedError  string
+		validateFn     func(t *testing.T, config *CORSConfigSection)
+	}{
+		{
+			name:           "empty path returns error",
+			config:         &CORSConfigSection{},
+			path:           "",
+			value:          "test",
+			expectedResult: context.Noop,
+			expectedError:  "CORS config path cannot be empty",
+		},
+		{
+			name:           "set enable to true",
+			config:         &CORSConfigSection{},
+			path:           "enable",
+			value:          "true",
+			expectedResult: context.Created,
+			validateFn: func(t *testing.T, config *CORSConfigSection) {
+				t.Helper()
+				require.NotNil(t, config.Enable)
+				require.True(t, *config.Enable)
+			},
+		},
+		{
+			name:           "set enable to false",
+			config:         &CORSConfigSection{},
+			path:           "enable",
+			value:          "false",
+			expectedResult: context.Created,
+			validateFn: func(t *testing.T, config *CORSConfigSection) {
+				t.Helper()
+				require.NotNil(t, config.Enable)
+				require.False(t, *config.Enable)
+			},
+		},
+		{
+			name: "update enable value",
+			config: &CORSConfigSection{
+				Enable: testBoolPtr(t, false),
+			},
+			path:           "enable",
+			value:          "true",
+			expectedResult: context.Updated,
+			validateFn: func(t *testing.T, config *CORSConfigSection) {
+				t.Helper()
+				require.NotNil(t, config.Enable)
+				require.True(t, *config.Enable)
+			},
+		},
+		{
+			name:           "set enable with various boolean values",
+			config:         &CORSConfigSection{},
+			path:           "enable",
+			value:          "1",
+			expectedResult: context.Created,
+			validateFn: func(t *testing.T, config *CORSConfigSection) {
+				t.Helper()
+				require.NotNil(t, config.Enable)
+				require.True(t, *config.Enable)
+			},
+		},
+		{
+			name:           "set enable invalid boolean returns error",
+			config:         &CORSConfigSection{},
+			path:           "enable",
+			value:          "invalid",
+			expectedResult: context.Noop,
+			expectedError:  "invalid boolean value for enable: invalid",
+		},
+		{
+			name:           "set allow_origins single value",
+			config:         &CORSConfigSection{},
+			path:           "allow_origins",
+			value:          "http://localhost:3000",
+			expectedResult: context.Created,
+			validateFn: func(t *testing.T, config *CORSConfigSection) {
+				t.Helper()
+				require.Equal(t, []string{"http://localhost:3000"}, config.Origins)
+			},
+		},
+		{
+			name:           "set allow_origins multiple values",
+			config:         &CORSConfigSection{},
+			path:           "allow_origins",
+			value:          "http://localhost:3000,https://app.example.com",
+			expectedResult: context.Created,
+			validateFn: func(t *testing.T, config *CORSConfigSection) {
+				t.Helper()
+				require.Equal(t, []string{"http://localhost:3000", "https://app.example.com"}, config.Origins)
+			},
+		},
+		{
+			name: "update allow_origins",
+			config: &CORSConfigSection{
+				Origins: []string{"old.example.com"},
+			},
+			path:           "allow_origins",
+			value:          "new.example.com",
+			expectedResult: context.Updated,
+			validateFn: func(t *testing.T, config *CORSConfigSection) {
+				t.Helper()
+				require.Equal(t, []string{"new.example.com"}, config.Origins)
+			},
+		},
+		{
+			name: "clear allow_origins with empty value",
+			config: &CORSConfigSection{
+				Origins: []string{"example.com"},
+			},
+			path:           "allow_origins",
+			value:          "",
+			expectedResult: context.Deleted,
+			validateFn: func(t *testing.T, config *CORSConfigSection) {
+				t.Helper()
+				require.Empty(t, config.Origins)
+			},
+		},
+		{
+			name:           "set max_age",
+			config:         &CORSConfigSection{},
+			path:           "max_age",
+			value:          "5m",
+			expectedResult: context.Created,
+			validateFn: func(t *testing.T, config *CORSConfigSection) {
+				t.Helper()
+				require.NotNil(t, config.MaxAge)
+				require.Equal(t, Duration(5*time.Minute), *config.MaxAge)
+			},
+		},
+		{
+			name:           "set max_age invalid duration returns error",
+			config:         &CORSConfigSection{},
+			path:           "max_age",
+			value:          "invalid",
+			expectedResult: context.Noop,
+			expectedError:  "invalid duration value for max_age: invalid",
+		},
+		{
+			name:           "unknown key returns error",
+			config:         &CORSConfigSection{},
+			path:           "unknown",
+			value:          "test",
+			expectedResult: context.Noop,
+			expectedError:  "unknown CORS config key: unknown",
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			result, err := tc.config.Set(tc.path, tc.value)
+
+			if tc.expectedError != "" {
+				require.Error(t, err)
+				require.Contains(t, err.Error(), tc.expectedError)
+				require.Equal(t, tc.expectedResult, result)
+			} else {
+				require.NoError(t, err)
+				require.Equal(t, tc.expectedResult, result)
+				if tc.validateFn != nil {
+					tc.validateFn(t, tc.config)
+				}
+			}
+		})
+	}
+}
+
+func TestMCPConfigSection_Set(t *testing.T) {
+	t.Parallel()
+
+	testCases := []struct {
+		name           string
+		config         *MCPConfigSection
+		path           string
+		value          string
+		expectedResult context.UpsertResult
+		expectedError  string
+		validateFn     func(t *testing.T, config *MCPConfigSection)
+	}{
+		{
+			name:           "empty path returns error",
+			config:         &MCPConfigSection{},
+			path:           "",
+			value:          "test",
+			expectedResult: context.Noop,
+			expectedError:  "MCP config path cannot be empty",
+		},
+		{
+			name:           "invalid path without subsection returns error",
+			config:         &MCPConfigSection{},
+			path:           "invalid",
+			value:          "test",
+			expectedResult: context.Noop,
+			expectedError:  "invalid MCP path, expected subsection.key: invalid",
+		},
+		{
+			name:           "timeout subsection routes correctly",
+			config:         &MCPConfigSection{},
+			path:           "timeout.shutdown",
+			value:          "30s",
+			expectedResult: context.Created,
+			validateFn: func(t *testing.T, config *MCPConfigSection) {
+				t.Helper()
+				require.NotNil(t, config.Timeout)
+				require.NotNil(t, config.Timeout.Shutdown)
+				require.Equal(t, Duration(30*time.Second), *config.Timeout.Shutdown)
+			},
+		},
+		{
+			name:           "interval subsection routes correctly",
+			config:         &MCPConfigSection{},
+			path:           "interval.health",
+			value:          "10s",
+			expectedResult: context.Created,
+			validateFn: func(t *testing.T, config *MCPConfigSection) {
+				t.Helper()
+				require.NotNil(t, config.Interval)
+				require.NotNil(t, config.Interval.Health)
+				require.Equal(t, Duration(10*time.Second), *config.Interval.Health)
+			},
+		},
+		{
+			name:           "unknown subsection returns error",
+			config:         &MCPConfigSection{},
+			path:           "unknown.key",
+			value:          "test",
+			expectedResult: context.Noop,
+			expectedError:  "unknown MCP subsection: unknown",
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			result, err := tc.config.Set(tc.path, tc.value)
+
+			if tc.expectedError != "" {
+				require.Error(t, err)
+				require.Contains(t, err.Error(), tc.expectedError)
+				require.Equal(t, tc.expectedResult, result)
+			} else {
+				require.NoError(t, err)
+				require.Equal(t, tc.expectedResult, result)
+				if tc.validateFn != nil {
+					tc.validateFn(t, tc.config)
+				}
+			}
+		})
+	}
+}
+
+func TestParsingHelpers(t *testing.T) {
+	t.Parallel()
+
+	t.Run("parseBool", func(t *testing.T) {
+		t.Parallel()
+
+		testCases := []struct {
+			input    string
+			expected bool
+			hasError bool
+		}{
+			{"true", true, false},
+			{"True", true, false},
+			{"TRUE", true, false},
+			{"t", true, false},
+			{"T", true, false},
+			{"1", true, false},
+			{"yes", true, false},
+			{"y", true, false},
+			{"false", false, false},
+			{"False", false, false},
+			{"FALSE", false, false},
+			{"f", false, false},
+			{"F", false, false},
+			{"0", false, false},
+			{"no", false, false},
+			{"n", false, false},
+			{"invalid", false, true},
+			{"", false, true},
+		}
+
+		for _, tc := range testCases {
+			t.Run(tc.input, func(t *testing.T) {
+				result, err := parseBool(tc.input)
+				if tc.hasError {
+					require.Error(t, err)
+				} else {
+					require.NoError(t, err)
+					require.Equal(t, tc.expected, result)
+				}
+			})
+		}
+	})
+
+	t.Run("parseDuration", func(t *testing.T) {
+		t.Parallel()
+
+		testCases := []struct {
+			input    string
+			expected Duration
+			hasError bool
+		}{
+			{"1s", Duration(time.Second), false},
+			{"5m", Duration(5 * time.Minute), false},
+			{"2h", Duration(2 * time.Hour), false},
+			{"500ms", Duration(500 * time.Millisecond), false},
+			{"invalid", Duration(0), true},
+			{"", Duration(0), true},
+		}
+
+		for _, tc := range testCases {
+			t.Run(tc.input, func(t *testing.T) {
+				result, err := parseDuration(tc.input)
+				if tc.hasError {
+					require.Error(t, err)
+				} else {
+					require.NoError(t, err)
+					require.Equal(t, tc.expected, result)
+				}
+			})
+		}
+	})
+
+	t.Run("parseStringArray", func(t *testing.T) {
+		t.Parallel()
+
+		testCases := []struct {
+			input    string
+			expected []string
+		}{
+			{"", []string{}},
+			{"single", []string{"single"}},
+			{"one,two,three", []string{"one", "two", "three"}},
+			{"one, two, three", []string{"one", "two", "three"}},
+			{" spaced , values ", []string{"spaced", "values"}},
+		}
+
+		for _, tc := range testCases {
+			t.Run(tc.input, func(t *testing.T) {
+				result := parseStringArray(tc.input)
+				require.Equal(t, tc.expected, result)
+			})
+		}
+	})
 }

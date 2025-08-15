@@ -57,6 +57,10 @@ func (m *mockConfig) ListServers() []config.ServerEntry {
 	return m.entries
 }
 
+func (m *mockConfig) SaveConfig() error {
+	return nil
+}
+
 // mockContextLoader implements configcontext.Loader for testing.
 type mockContextLoader struct {
 	servers []runtime.Server
@@ -1725,6 +1729,7 @@ type testInvalidConfigType struct{}
 func (t testInvalidConfigType) AddServer(entry config.ServerEntry) error { return nil }
 func (t testInvalidConfigType) RemoveServer(name string) error           { return nil }
 func (t testInvalidConfigType) ListServers() []config.ServerEntry        { return nil }
+func (t testInvalidConfigType) SaveConfig() error                        { return nil }
 
 func (m *testMockConfigLoader) Load(path string) (config.Modifier, error) {
 	if m.err != nil {

@@ -2,6 +2,8 @@ package config
 
 import (
 	"strings"
+
+	"github.com/mozilla-ai/mcpd/v2/internal/context"
 )
 
 var (
@@ -26,6 +28,44 @@ type Modifier interface {
 	AddServer(entry ServerEntry) error
 	RemoveServer(name string) error
 	ListServers() []ServerEntry
+	SaveConfig() error
+}
+
+// ConfigSetter defines the interface for setting configuration values using dot-separated path notation.
+// Implementations should handle path routing, value parsing, and validation appropriate to their level.
+type ConfigSetter interface {
+	// Set applies a configuration value using dot-separated path notation.
+	// An empty value removes/clears the configuration at the given path.
+	// Returns the operation performed (Created, Updated, Deleted, Noop) and any validation error.
+	Set(path string, value string) (context.UpsertResult, error)
+}
+
+// ConfigGetter defines the interface for getting configuration values using path segments.
+// Implementations should handle path routing and value retrieval appropriate to their level.
+type ConfigGetter interface {
+	// Get retrieves a configuration value using path segments.
+	// No arguments returns all configuration at that level.
+	// Single argument gets a specific key, multiple arguments traverse nested structure.
+	// Returns the value and any error encountered during retrieval.
+	Get(keys ...string) (any, error)
+}
+
+// ConfigSchema defines the interface for getting available configuration keys.
+// Implementations should return all possible configuration keys with their types and descriptions.
+type ConfigSchema interface {
+	// AvailableKeys returns all configuration keys available at this level.
+	// Keys are returned without prefixes - parent sections add prefixes when recursing.
+	AvailableKeys() []ConfigKey
+}
+
+// ConfigKey represents a single configuration key with metadata.
+type ConfigKey struct {
+	// Path is the configuration key path (e.g., "addr", "enable", "shutdown").
+	Path string
+	// Type describes the expected value type (e.g., "string", "bool", "duration", "[]string").
+	Type string
+	// Description provides a human-readable explanation of the configuration key.
+	Description string
 }
 
 type DefaultLoader struct{}
