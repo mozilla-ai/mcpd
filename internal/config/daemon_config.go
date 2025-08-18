@@ -13,7 +13,9 @@ import (
 )
 
 // APIConfigSection contains API server configuration settings.
-// NOTE: if you add/remove fields you must review the associated Getter, Setter implementations.
+//
+// NOTE: if you add/remove fields you must review the associated Getter, Setter and Validator implementations,
+// along with /docs/daemon-configuration.md.
 type APIConfigSection struct {
 	// Address to bind the API server (e.g., "0.0.0.0:8090")
 	// Maps to CLI flag --addr
@@ -27,7 +29,9 @@ type APIConfigSection struct {
 }
 
 // APITimeoutConfigSection contains timeout settings for API operations.
-// NOTE: if you add/remove fields you must review the associated Getter, Setter implementations.
+//
+// NOTE: if you add/remove fields you must review the associated Getter, Setter and Validator implementations,
+// along with /docs/daemon-configuration.md.
 type APITimeoutConfigSection struct {
 	// Shutdown timeout for graceful API server shutdown
 	// Maps to CLI flag --timeout-api-shutdown
@@ -35,7 +39,9 @@ type APITimeoutConfigSection struct {
 }
 
 // CORSConfigSection contains Cross-Origin Resource Sharing (CORS) configuration.
-// NOTE: if you add/remove fields you must review the associated Getter, Setter implementations.
+//
+// NOTE: if you add/remove fields you must review the associated Getter, Setter and Validator implementations,
+// along with /docs/daemon-configuration.md.
 type CORSConfigSection struct {
 	// Enable CORS support
 	// Maps to CLI flag --cors-enable
@@ -68,7 +74,9 @@ type CORSConfigSection struct {
 
 // DaemonConfig represents daemon-specific configuration that can be stored in .mcpd.toml.
 // This extends the existing Config struct with daemon settings.
-// NOTE: if you add/remove fields you must review the associated Getter, Setter implementations.
+//
+// NOTE: if you add/remove fields you must review the associated Getter, Setter and Validator implementations,
+// along with /docs/daemon-configuration.md.
 type DaemonConfig struct {
 	// API configuration (includes address and nested timeout/cors)
 	API *APIConfigSection `json:"api,omitempty" toml:"api,omitempty" yaml:"api,omitempty"`
@@ -81,7 +89,9 @@ type DaemonConfig struct {
 type Duration time.Duration
 
 // MCPConfigSection contains MCP (Model Context Protocol) server configuration settings.
-// NOTE: if you add/remove fields you must review the associated Getter, Setter implementations.
+//
+// NOTE: if you add/remove fields you must review the associated Getter, Setter and Validator implementations,
+// along with /docs/daemon-configuration.md.
 type MCPConfigSection struct {
 	// Nested timeout configuration for MCP operations
 	Timeout *MCPTimeoutConfigSection `json:"timeout,omitempty" toml:"timeout,omitempty" yaml:"timeout,omitempty"`
@@ -91,7 +101,9 @@ type MCPConfigSection struct {
 }
 
 // MCPIntervalConfigSection contains interval settings for periodic MCP operations.
-// NOTE: if you add/remove fields you must review the associated Getter, Setter implementations.
+//
+// NOTE: if you add/remove fields you must review the associated Getter, Setter and Validator implementations,
+// along with /docs/daemon-configuration.md.
 type MCPIntervalConfigSection struct {
 	// Health check interval for MCP servers
 	// Maps to CLI flag --interval-mcp-health
@@ -99,7 +111,9 @@ type MCPIntervalConfigSection struct {
 }
 
 // MCPTimeoutConfigSection contains timeout settings for MCP operations.
-// NOTE: if you add/remove fields you must review the associated Getter, Setter implementations.
+//
+// NOTE: if you add/remove fields you must review the associated Getter, Setter and Validator implementations,
+// along with /docs/daemon-configuration.md.
 type MCPTimeoutConfigSection struct {
 	// Shutdown timeout for graceful MCP server shutdown
 	// Maps to CLI flag --timeout-mcp-shutdown
