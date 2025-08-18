@@ -46,6 +46,7 @@ nav:
   - Installation: installation.md
   - Tutorial: tutorial.md
   - Configuration: configuration.md
+  - Daemon Configuration: daemon-configuration.md
   - Execution Context: execution-context.md
   - Makefile: makefile.md
   - CLI Reference:

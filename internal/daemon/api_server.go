@@ -6,13 +6,14 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
-	"reflect"
+	"strings"
 	"time"
 
 	"github.com/danielgtaylor/huma/v2"
 	"github.com/danielgtaylor/huma/v2/adapters/humachi"
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
+	"github.com/go-chi/cors"
 	"github.com/hashicorp/go-hclog"
 
 	"github.com/mozilla-ai/mcpd/v2/internal/api"
@@ -21,44 +22,62 @@ import (
 	"github.com/mozilla-ai/mcpd/v2/internal/errors"
 )
 
-type ApiServer struct {
+// APIServer manages the HTTP API for the daemon.
+// NewAPIServer should be used to create instances of APIServer.
+type APIServer struct {
+	// Logger for API server operations.
+	logger hclog.Logger
+
+	// ClientManager handles MCP client connections.
 	clientManager contracts.MCPClientAccessor
+
+	// HealthTracker monitors server health status.
 	healthTracker contracts.MCPHealthMonitor
-	logger        hclog.Logger
-	addr          string
+
+	// Addr specifies the network address to bind.
+	addr string
+
+	// CORS configuration for cross-origin requests.
+	cors CORSConfig
+
+	// ShutdownTimeout specifies how long to wait for graceful shutdown.
+	shutdownTimeout time.Duration
 }
 
-func NewApiServer(
-	logger hclog.Logger,
-	accessor contracts.MCPClientAccessor,
-	monitor contracts.MCPHealthMonitor,
-	addr string,
-) (*ApiServer, error) {
-	if logger == nil || reflect.ValueOf(logger).IsNil() {
-		return nil, fmt.Errorf("logger cannot be nil")
-	}
-	if accessor == nil || reflect.ValueOf(accessor).IsNil() {
-		return nil, fmt.Errorf("accessor cannot be nil")
-	}
-	if monitor == nil || reflect.ValueOf(monitor).IsNil() {
-		return nil, fmt.Errorf("monitor cannot be nil")
-	}
-	if err := IsValidAddr(addr); err != nil {
-		return nil, err
+// NewAPIServer creates a new API server with the provided dependencies and options.
+// Applies default options first, then user-provided options to ensure all fields have valid values.
+func NewAPIServer(deps APIDependencies, opt ...APIOption) (*APIServer, error) {
+	if err := deps.Validate(); err != nil {
+		return nil, fmt.Errorf("invalid dependencies for API server: %w", err)
 	}
 
-	return &ApiServer{
-		logger:        logger.Named("api"),
-		clientManager: accessor,
-		healthTracker: monitor,
-		addr:          addr,
+	// Ensure we always start with defaults and apply user options on top.
+	apiOpts, err := NewAPIOptions(opt...)
+	if err != nil {
+		return nil, fmt.Errorf("invalid API options: %w", err)
+	}
+
+	return &APIServer{
+		logger:          deps.Logger.Named("api"),
+		clientManager:   deps.ClientManager,
+		healthTracker:   deps.HealthTracker,
+		addr:            deps.Addr,
+		cors:            apiOpts.CORS,
+		shutdownTimeout: apiOpts.ShutdownTimeout,
 	}, nil
 }
 
-func (a *ApiServer) Start(ctx context.Context) error {
+// Start starts the API server and blocks until the context is canceled or an error occurs.
+func (a *APIServer) Start(ctx context.Context) error {
 	// Create router.
 	mux := chi.NewMux()
 	mux.Use(middleware.StripSlashes)
+
+	// Add CORS middleware if enabled.
+	if a.cors.Enabled {
+		a.applyCORS(mux)
+	}
+
 	config := huma.DefaultConfig("mcpd docs", cmd.Version())
 	router := humachi.New(mux, config)
 
@@ -85,6 +104,9 @@ func (a *ApiServer) Start(ctx context.Context) error {
 	// Start the API.
 	go func() {
 		a.logger.Info("Starting API server", "address", a.addr, "prefix", apiPathPrefix)
+		if a.cors.Enabled {
+			a.logger.Info("CORS enabled", "origins", a.cors.AllowOrigins)
+		}
 		if err := srv.ListenAndServe(); err != nil && !stdErrors.Is(err, http.ErrServerClosed) {
 			errCh <- err
 		}
@@ -94,7 +116,7 @@ func (a *ApiServer) Start(ctx context.Context) error {
 	// Handle graceful shutdown.
 	select {
 	case <-ctx.Done():
-		shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second) // TODO: make configurable
+		shutdownCtx, cancel := context.WithTimeout(context.Background(), a.shutdownTimeout)
 		defer cancel()
 		a.logger.Info("Shutting down API server...")
 		_ = srv.Shutdown(shutdownCtx)
@@ -103,6 +125,32 @@ func (a *ApiServer) Start(ctx context.Context) error {
 	case err := <-errCh:
 		return err
 	}
+}
+
+// applyCORS applies CORS middleware to the router based on the configured options.
+func (a *APIServer) applyCORS(mux *chi.Mux) {
+	a.logger.Info("Enabling CORS", "origins", a.cors.AllowOrigins)
+
+	corsOptions := cors.Options{
+		AllowedOrigins:   a.cors.AllowOrigins,
+		AllowedMethods:   a.cors.AllowMethods,
+		AllowedHeaders:   a.cors.AllowedHeaders,
+		ExposedHeaders:   a.cors.ExposedHeaders,
+		AllowCredentials: a.cors.AllowCredentials,
+		MaxAge:           int(a.cors.MaxAge.Seconds()),
+	}
+
+	// Handle wildcard origins properly.
+	for i, origin := range corsOptions.AllowedOrigins {
+		if origin == "*" {
+			corsOptions.AllowedOrigins = []string{"*"}
+			corsOptions.AllowCredentials = false
+			break
+		}
+		corsOptions.AllowedOrigins[i] = strings.TrimSpace(origin)
+	}
+
+	mux.Use(cors.Handler(corsOptions))
 }
 
 // mapError maps application domain errors to API errors.

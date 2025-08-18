@@ -2,6 +2,8 @@ package config
 
 import (
 	"strings"
+
+	"github.com/mozilla-ai/mcpd/v2/internal/context"
 )
 
 var (
@@ -26,6 +28,52 @@ type Modifier interface {
 	AddServer(entry ServerEntry) error
 	RemoveServer(name string) error
 	ListServers() []ServerEntry
+	SaveConfig() error
+}
+
+// Setter defines the interface for setting configuration values using dot-separated path notation.
+// Implementations should handle path routing, value parsing, and validation appropriate to their level.
+type Setter interface {
+	// Set applies a configuration value using dot-separated path notation.
+	// An empty value removes/clears the configuration at the given path.
+	// Returns the operation performed (Created, Updated, Deleted, Noop) and any validation error.
+	Set(path string, value string) (context.UpsertResult, error)
+}
+
+// Getter defines the interface for getting configuration values using path segments.
+// Implementations should handle path routing and value retrieval appropriate to their level.
+type Getter interface {
+	// Get retrieves a configuration value using path segments, or all configured values when no key specified.
+	// Single argument gets a specific key, multiple arguments traverse nested structure.
+	// Returns the value or any error encountered during retrieval.
+	// NOTE: When used without any keys, no errors are returned for missing configuration.
+	Get(keys ...string) (any, error)
+}
+
+// SchemaProvider defines the interface for getting available configuration keys.
+// Implementations should return all possible configuration keys with their types and descriptions.
+type SchemaProvider interface {
+	// AvailableKeys returns all configuration keys available at this level.
+	// Keys are returned without prefixes - parent sections add prefixes when recursing.
+	AvailableKeys() []SchemaKey
+}
+
+// Validator defines the interface for validating configuration values.
+// Implementations should validate their own fields and recurse to child sections.
+type Validator interface {
+	// Validate checks the configuration for errors and returns combined validation errors.
+	// Uses errors.Join to combine multiple validation errors from child sections.
+	Validate() error
+}
+
+// SchemaKey represents a single configuration key with metadata.
+type SchemaKey struct {
+	// Path is the configuration key path (e.g., "addr", "enable", "shutdown").
+	Path string
+	// Type describes the expected value type (e.g., "string", "bool", "duration", "[]string").
+	Type string
+	// Description provides a human-readable explanation of the configuration key.
+	Description string
 }
 
 type DefaultLoader struct{}
@@ -33,6 +81,7 @@ type DefaultLoader struct{}
 // Config represents the .mcpd.toml file structure.
 type Config struct {
 	Servers        []ServerEntry `toml:"servers"`
+	Daemon         *DaemonConfig `toml:"daemon,omitempty"`
 	configFilePath string        `toml:"-"`
 }
 
