@@ -162,8 +162,13 @@ func (c *ExecutionContextConfig) Upsert(ec ServerExecutionContext) (UpsertResult
 	return op, nil
 }
 
-// loadExecutionContextConfig loads a runtime execution context file from disk, using the specified path.
-func loadExecutionContextConfig(path string) (*ExecutionContextConfig, error) { // TODO: unexport
+// loadExecutionContextConfig loads a runtime execution context file from disk and expands environment variables.
+//
+// The function parses the TOML file at the specified path and automatically expands all ${VAR} references
+// in both args and env fields using os.ExpandEnv. Non-existent environment variables are expanded to
+// empty strings. This ensures that the loaded configuration contains actual values ready for runtime use,
+// rather than template strings that require later expansion.
+func loadExecutionContextConfig(path string) (*ExecutionContextConfig, error) {
 	cfg := NewExecutionContextConfig(path)
 
 	if _, err := os.Stat(path); err != nil {
@@ -178,9 +183,20 @@ func loadExecutionContextConfig(path string) (*ExecutionContextConfig, error) { 
 		return nil, fmt.Errorf("execution context file '%s' could not be parsed: %w", path, err)
 	}
 
-	// Manually set the name field for each ServerExecutionContext.
+	// Manually set the name field for each ServerExecutionContext and expand all ${VAR} references.
 	for name, server := range cfg.Servers {
 		server.Name = name
+
+		// Expand args.
+		for i, arg := range server.Args {
+			server.Args[i] = os.ExpandEnv(arg)
+		}
+
+		// Expand env vars.
+		for k, v := range server.Env {
+			server.Env[k] = os.ExpandEnv(v)
+		}
+
 		cfg.Servers[name] = server
 	}
 

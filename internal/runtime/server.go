@@ -34,12 +34,8 @@ func (s *Server) Runtime() string {
 	return ""
 }
 
-func (s *Server) ResolvedArgs() []string {
-	return expandEnvSlice(s.Args)
-}
-
-// Environ returns the server's effective environment with overrides applied,
-// irrelevant variables stripped, and any ${VAR} references expanded.
+// Environ returns the server's effective environment with overrides applied
+// and irrelevant variables stripped. Environment variables are already expanded at load time.
 func (s *Server) Environ() []string {
 	baseEnvs := os.Environ()
 
@@ -54,10 +50,8 @@ func (s *Server) Environ() []string {
 	// Filter the environment to remove vars for other MCP servers or mcpd itself.
 	filteredEnvs := filterEnv(mergedEnvs, s.Name())
 
-	// Expand any variables that use templating ${}.
-	expandedEnvs := expandEnvSlice(filteredEnvs)
-
-	return expandedEnvs
+	// No expansion needed - env vars are already expanded at load time.
+	return filteredEnvs
 }
 
 // validateRequiredEnvVars checks that all required environment variables are set and non-empty.
@@ -537,24 +531,4 @@ func filterEnv(env []string, serverName string) []string {
 
 	slices.Sort(filtered)
 	return filtered
-}
-
-// expandEnvSlice returns a new []string with all ${VAR} references of value, expanded using the current environment.
-func expandEnvSlice(input []string) []string {
-	result := make([]string, len(input))
-
-	for i, kv := range input {
-		idx := strings.IndexByte(kv, '=')
-		if idx < 0 {
-			result[i] = kv
-			continue
-		}
-
-		key := kv[:idx]
-		val := os.ExpandEnv(kv[idx+1:])
-
-		result[i] = fmt.Sprintf("%s=%s", key, val)
-	}
-
-	return result
 }
