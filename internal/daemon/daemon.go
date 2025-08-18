@@ -178,7 +178,7 @@ func (d *Daemon) startMCPServer(ctx context.Context, server runtime.Server) erro
 		args = append(args, "-y")
 	}
 	args = append(args, packageNameAndVersion)
-	args = append(args, server.ResolvedArgs()...)
+	args = append(args, server.Args...)
 
 	logger.Debug("attempting to start server", "binary", runtimeBinary)
 

@@ -310,3 +310,304 @@ func TestUpsert(t *testing.T) {
 		})
 	}
 }
+
+// TestLoadExecutionContextConfig_VariableExpansion tests that ${VAR} references are expanded at load time.
+func TestLoadExecutionContextConfig_VariableExpansion(t *testing.T) {
+	// Note: Cannot use t.Parallel() because subtests use t.Setenv
+
+	testCases := []struct {
+		name     string
+		content  string
+		envVars  map[string]string
+		expected map[string]ServerExecutionContext
+	}{
+		{
+			name: "expand environment variables in env section",
+			content: `[servers.test-server]
+args = ["--port", "8080"]
+[servers.test-server.env]
+API_KEY = "${TEST_API_KEY}"
+DB_URL = "${TEST_DB_URL}"
+LITERAL = "no-expansion"`,
+			envVars: map[string]string{
+				"TEST_API_KEY": "secret-key-123",
+				"TEST_DB_URL":  "postgres://localhost:5432/test",
+			},
+			expected: map[string]ServerExecutionContext{
+				"test-server": {
+					Name: "test-server",
+					Args: []string{"--port", "8080"},
+					Env: map[string]string{
+						"API_KEY": "secret-key-123",
+						"DB_URL":  "postgres://localhost:5432/test",
+						"LITERAL": "no-expansion",
+					},
+				},
+			},
+		},
+		{
+			name: "expand environment variables in args section",
+			content: `[servers.test-server]
+args = ["--token", "${AUTH_TOKEN}", "--config", "${CONFIG_PATH}", "--literal", "unchanged"]
+[servers.test-server.env]
+DEBUG = "true"`,
+			envVars: map[string]string{
+				"AUTH_TOKEN":  "bearer-token-456",
+				"CONFIG_PATH": "/etc/myapp/config.json",
+			},
+			expected: map[string]ServerExecutionContext{
+				"test-server": {
+					Name: "test-server",
+					Args: []string{
+						"--token",
+						"bearer-token-456",
+						"--config",
+						"/etc/myapp/config.json",
+						"--literal",
+						"unchanged",
+					},
+					Env: map[string]string{
+						"DEBUG": "true",
+					},
+				},
+			},
+		},
+		{
+			name: "expand variables with KEY=VALUE format in args",
+			content: `[servers.test-server]
+args = ["--api-key=${API_KEY}", "CONFIG_FILE=${CONFIG_FILE}", "--standalone", "${STANDALONE_VAR}"]`,
+			envVars: map[string]string{
+				"API_KEY":        "key-789",
+				"CONFIG_FILE":    "/path/to/config",
+				"STANDALONE_VAR": "standalone-value",
+			},
+			expected: map[string]ServerExecutionContext{
+				"test-server": {
+					Name: "test-server",
+					Args: []string{
+						"--api-key=key-789",
+						"CONFIG_FILE=/path/to/config",
+						"--standalone",
+						"standalone-value",
+					},
+					Env: nil, // No env section in TOML means nil map
+				},
+			},
+		},
+		{
+			name: "non-existent variables expand to empty string",
+			content: `[servers.test-server]
+args = ["--missing", "${NON_EXISTENT_VAR}", "--empty=${ANOTHER_MISSING}"]
+[servers.test-server.env]
+MISSING_VALUE = "${UNDEFINED_ENV_VAR}"
+PRESENT_VALUE = "${DEFINED_VAR}"`,
+			envVars: map[string]string{
+				"DEFINED_VAR": "defined-value",
+			},
+			expected: map[string]ServerExecutionContext{
+				"test-server": {
+					Name: "test-server",
+					Args: []string{"--missing", "", "--empty="},
+					Env: map[string]string{
+						"MISSING_VALUE": "",
+						"PRESENT_VALUE": "defined-value",
+					},
+				},
+			},
+		},
+		{
+			name: "multiple servers with different expansions",
+			content: `[servers.server-a]
+args = ["--port", "${SERVER_A_PORT}"]
+[servers.server-a.env]
+SERVICE_NAME = "${SERVER_A_NAME}"
+
+[servers.server-b]
+args = ["--port", "${SERVER_B_PORT}"]
+[servers.server-b.env]
+SERVICE_NAME = "${SERVER_B_NAME}"`,
+			envVars: map[string]string{
+				"SERVER_A_PORT": "3000",
+				"SERVER_A_NAME": "service-alpha",
+				"SERVER_B_PORT": "4000",
+				"SERVER_B_NAME": "service-beta",
+			},
+			expected: map[string]ServerExecutionContext{
+				"server-a": {
+					Name: "server-a",
+					Args: []string{"--port", "3000"},
+					Env: map[string]string{
+						"SERVICE_NAME": "service-alpha",
+					},
+				},
+				"server-b": {
+					Name: "server-b",
+					Args: []string{"--port", "4000"},
+					Env: map[string]string{
+						"SERVICE_NAME": "service-beta",
+					},
+				},
+			},
+		},
+		{
+			name: "complex variable references",
+			content: `[servers.complex-server]
+args = ["--url", "${PROTO}://${HOST}:${PORT}${PATH}", "--config", "${HOME}/.config/app.json"]
+[servers.complex-server.env]
+FULL_URL = "${PROTO}://${HOST}:${PORT}${PATH}"
+HOME_CONFIG = "${HOME}/.config"`,
+			envVars: map[string]string{
+				"PROTO": "https",
+				"HOST":  "api.example.com",
+				"PORT":  "443",
+				"PATH":  "/v1/api",
+				"HOME":  "/home/user",
+			},
+			expected: map[string]ServerExecutionContext{
+				"complex-server": {
+					Name: "complex-server",
+					Args: []string{
+						"--url",
+						"https://api.example.com:443/v1/api",
+						"--config",
+						"/home/user/.config/app.json",
+					},
+					Env: map[string]string{
+						"FULL_URL":    "https://api.example.com:443/v1/api",
+						"HOME_CONFIG": "/home/user/.config",
+					},
+				},
+			},
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			// Note: Cannot use t.Parallel() with t.Setenv
+
+			// Set up environment variables.
+			for k, v := range tc.envVars {
+				t.Setenv(k, v)
+			}
+
+			// Create a temporary config file.
+			tmpDir := t.TempDir()
+			configPath := filepath.Join(tmpDir, "test-config.toml")
+			err := os.WriteFile(configPath, []byte(tc.content), 0o644)
+			require.NoError(t, err)
+
+			// Load the config.
+			cfg, err := loadExecutionContextConfig(configPath)
+			require.NoError(t, err)
+			require.NotNil(t, cfg)
+
+			// Verify the expanded results.
+			require.Equal(t, len(tc.expected), len(cfg.Servers), "Should have expected number of servers")
+
+			for expectedName, expectedServer := range tc.expected {
+				actualServer, exists := cfg.Servers[expectedName]
+				require.True(t, exists, "Server %s should exist", expectedName)
+
+				// Check server name.
+				require.Equal(t, expectedServer.Name, actualServer.Name, "Server name should match")
+
+				// Check args.
+				require.Equal(
+					t,
+					expectedServer.Args,
+					actualServer.Args,
+					"Args should be expanded correctly for server %s",
+					expectedName,
+				)
+
+				// Check env vars.
+				require.Equal(
+					t,
+					expectedServer.Env,
+					actualServer.Env,
+					"Env vars should be expanded correctly for server %s",
+					expectedName,
+				)
+			}
+		})
+	}
+}
+
+// TestLoadExecutionContextConfig_NoExpansionWhenNoVars tests that files without variables work normally.
+func TestLoadExecutionContextConfig_NoExpansionWhenNoVars(t *testing.T) {
+	t.Parallel()
+
+	content := `[servers.simple-server]
+args = ["--port", "3000", "--debug"]
+[servers.simple-server.env]
+NODE_ENV = "development"
+DEBUG = "true"`
+
+	tmpDir := t.TempDir()
+	configPath := filepath.Join(tmpDir, "simple-config.toml")
+	err := os.WriteFile(configPath, []byte(content), 0o644)
+	require.NoError(t, err)
+
+	cfg, err := loadExecutionContextConfig(configPath)
+	require.NoError(t, err)
+	require.NotNil(t, cfg)
+
+	expected := map[string]ServerExecutionContext{
+		"simple-server": {
+			Name: "simple-server",
+			Args: []string{"--port", "3000", "--debug"},
+			Env: map[string]string{
+				"NODE_ENV": "development",
+				"DEBUG":    "true",
+			},
+		},
+	}
+
+	require.Equal(t, expected, cfg.Servers)
+}
+
+// TestLoadExecutionContextConfig_UndefinedVariables tests that undefined environment variables expand to empty strings.
+func TestLoadExecutionContextConfig_UndefinedVariables(t *testing.T) {
+	t.Parallel()
+
+	content := `[servers.test-server]
+args = ["--token", "${UNDEFINED_TOKEN}", "--config=${UNDEFINED_CONFIG_PATH}"]
+[servers.test-server.env]
+API_KEY = "${UNDEFINED_API_KEY}"
+DATABASE_URL = "${UNDEFINED_DB_URL}"`
+
+	tmpDir := t.TempDir()
+	configPath := filepath.Join(tmpDir, "undefined-vars-config.toml")
+	err := os.WriteFile(configPath, []byte(content), 0o644)
+	require.NoError(t, err)
+
+	// Deliberately NOT setting any environment variables
+	cfg, err := loadExecutionContextConfig(configPath)
+	require.NoError(t, err)
+	require.NotNil(t, cfg)
+
+	server, exists := cfg.Servers["test-server"]
+	require.True(t, exists, "test-server should exist")
+
+	// All undefined variables should expand to empty strings
+	require.Equal(t, []string{"--token", "", "--config="}, server.Args, "Undefined vars in args should expand to empty strings")
+	require.Equal(t, map[string]string{
+		"API_KEY":      "",
+		"DATABASE_URL": "",
+	}, server.Env, "Undefined vars in env should expand to empty strings")
+}
+
+// TestLoadExecutionContextConfig_EmptyFile tests loading an empty config file.
+func TestLoadExecutionContextConfig_EmptyFile(t *testing.T) {
+	t.Parallel()
+
+	tmpDir := t.TempDir()
+	configPath := filepath.Join(tmpDir, "empty-config.toml")
+	err := os.WriteFile(configPath, []byte(""), 0o644)
+	require.NoError(t, err)
+
+	cfg, err := loadExecutionContextConfig(configPath)
+	require.NoError(t, err)
+	require.NotNil(t, cfg)
+	require.Empty(t, cfg.Servers, "Empty file should result in no servers")
+}
