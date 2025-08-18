@@ -4,7 +4,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
@@ -13,11 +12,11 @@ func TestDefaultOptions(t *testing.T) {
 
 	opts := defaultOptions()
 
-	assert.Nil(t, opts.APIOptions) // No API options by default - NewAPIServer will apply its own defaults
-	assert.Equal(t, DefaultClientInitTimeout(), opts.ClientInitTimeout)
-	assert.Equal(t, DefaultHealthCheckInterval(), opts.ClientHealthCheckInterval)
-	assert.Equal(t, DefaultHealthCheckTimeout(), opts.ClientHealthCheckTimeout)
-	assert.Equal(t, DefaultClientShutdownTimeout(), opts.ClientShutdownTimeout)
+	require.Nil(t, opts.APIOptions) // No API options by default - NewAPIServer will apply its own defaults
+	require.Equal(t, DefaultClientInitTimeout(), opts.ClientInitTimeout)
+	require.Equal(t, DefaultHealthCheckInterval(), opts.ClientHealthCheckInterval)
+	require.Equal(t, DefaultHealthCheckTimeout(), opts.ClientHealthCheckTimeout)
+	require.Equal(t, DefaultClientShutdownTimeout(), opts.ClientShutdownTimeout)
 }
 
 func TestNewOptions(t *testing.T) {
@@ -29,11 +28,11 @@ func TestNewOptions(t *testing.T) {
 		opts, err := NewOptions()
 
 		require.NoError(t, err)
-		assert.Nil(t, opts.APIOptions) // No API options by default - NewAPIServer will apply its own defaults
-		assert.Equal(t, DefaultClientInitTimeout(), opts.ClientInitTimeout)
-		assert.Equal(t, DefaultHealthCheckInterval(), opts.ClientHealthCheckInterval)
-		assert.Equal(t, DefaultHealthCheckTimeout(), opts.ClientHealthCheckTimeout)
-		assert.Equal(t, DefaultClientShutdownTimeout(), opts.ClientShutdownTimeout)
+		require.Nil(t, opts.APIOptions) // No API options by default - NewAPIServer will apply its own defaults
+		require.Equal(t, DefaultClientInitTimeout(), opts.ClientInitTimeout)
+		require.Equal(t, DefaultHealthCheckInterval(), opts.ClientHealthCheckInterval)
+		require.Equal(t, DefaultHealthCheckTimeout(), opts.ClientHealthCheckTimeout)
+		require.Equal(t, DefaultClientShutdownTimeout(), opts.ClientShutdownTimeout)
 	})
 
 	t.Run("with API options", func(t *testing.T) {
@@ -53,10 +52,10 @@ func TestNewOptions(t *testing.T) {
 		// Verify the options work by creating an APIOptions struct
 		resultAPIOptions, err := NewAPIOptions(opts.APIOptions...)
 		require.NoError(t, err)
-		assert.True(t, resultAPIOptions.CORS.Enabled)
-		assert.ElementsMatch(t, []string{"http://localhost:3000"}, resultAPIOptions.CORS.AllowOrigins)
-		assert.Equal(t, 10*time.Minute, resultAPIOptions.CORS.MaxAge)
-		assert.Equal(t, 10*time.Second, resultAPIOptions.ShutdownTimeout)
+		require.True(t, resultAPIOptions.CORS.Enabled)
+		require.ElementsMatch(t, []string{"http://localhost:3000"}, resultAPIOptions.CORS.AllowOrigins)
+		require.Equal(t, 10*time.Minute, resultAPIOptions.CORS.MaxAge)
+		require.Equal(t, 10*time.Second, resultAPIOptions.ShutdownTimeout)
 	})
 
 	t.Run("with init timeout", func(t *testing.T) {
@@ -66,7 +65,7 @@ func TestNewOptions(t *testing.T) {
 		opts, err := NewOptions(WithMCPServerInitTimeout(timeout))
 
 		require.NoError(t, err)
-		assert.Equal(t, timeout, opts.ClientInitTimeout)
+		require.Equal(t, timeout, opts.ClientInitTimeout)
 	})
 
 	t.Run("with health check settings", func(t *testing.T) {
@@ -80,8 +79,8 @@ func TestNewOptions(t *testing.T) {
 		)
 
 		require.NoError(t, err)
-		assert.Equal(t, interval, opts.ClientHealthCheckInterval)
-		assert.Equal(t, timeout, opts.ClientHealthCheckTimeout)
+		require.Equal(t, interval, opts.ClientHealthCheckInterval)
+		require.Equal(t, timeout, opts.ClientHealthCheckTimeout)
 	})
 
 	t.Run("with client shutdown timeout", func(t *testing.T) {
@@ -91,7 +90,7 @@ func TestNewOptions(t *testing.T) {
 		opts, err := NewOptions(WithMCPServerShutdownTimeout(timeout))
 
 		require.NoError(t, err)
-		assert.Equal(t, timeout, opts.ClientShutdownTimeout)
+		require.Equal(t, timeout, opts.ClientShutdownTimeout)
 	})
 
 	t.Run("options override in order", func(t *testing.T) {
@@ -106,58 +105,64 @@ func TestNewOptions(t *testing.T) {
 		)
 
 		require.NoError(t, err)
-		assert.Equal(t, second, opts.ClientInitTimeout)
+		require.Equal(t, second, opts.ClientInitTimeout)
 	})
 }
 
 func TestWithTimeouts(t *testing.T) {
 	t.Parallel()
 
-	tests := []struct {
-		name    string
-		timeout time.Duration
-		wantErr string
-	}{
-		{
-			name:    "valid timeout",
-			timeout: 10 * time.Second,
-		},
-		{
-			name:    "zero timeout fails",
-			timeout: 0,
-			wantErr: "must be positive, got 0s",
-		},
-		{
-			name:    "negative timeout fails",
-			timeout: -1 * time.Second,
-			wantErr: "must be positive, got -1s",
-		},
-	}
-
 	timeoutOptions := []struct {
-		name string
-		opt  func(time.Duration) Option
+		name        string
+		opt         func(time.Duration) Option
+		zeroErr     string
+		negativeErr string
 	}{
-		{"WithMCPServerInitTimeout", WithMCPServerInitTimeout},
-		{"WithMCPServerHealthCheckInterval", WithMCPServerHealthCheckInterval},
-		{"WithMCPServerHealthCheckTimeout", WithMCPServerHealthCheckTimeout},
-		{"WithMCPServerShutdownTimeout", WithMCPServerShutdownTimeout},
+		{
+			"WithMCPServerInitTimeout",
+			WithMCPServerInitTimeout,
+			"init timeout must be positive, got 0s",
+			"init timeout must be positive, got -1s",
+		},
+		{
+			"WithMCPServerHealthCheckInterval",
+			WithMCPServerHealthCheckInterval,
+			"health check interval must be positive, got 0s",
+			"health check interval must be positive, got -1s",
+		},
+		{
+			"WithMCPServerHealthCheckTimeout",
+			WithMCPServerHealthCheckTimeout,
+			"health check timeout must be positive, got 0s",
+			"health check timeout must be positive, got -1s",
+		},
+		{
+			"WithMCPServerShutdownTimeout",
+			WithMCPServerShutdownTimeout,
+			"server shutdown timeout must be positive, got 0s",
+			"server shutdown timeout must be positive, got -1s",
+		},
 	}
 
 	for _, timeoutOpt := range timeoutOptions {
-		for _, tc := range tests {
-			t.Run(timeoutOpt.name+"_"+tc.name, func(t *testing.T) {
-				t.Parallel()
+		t.Run(timeoutOpt.name+"_valid_timeout", func(t *testing.T) {
+			t.Parallel()
+			_, err := NewOptions(timeoutOpt.opt(10 * time.Second))
+			require.NoError(t, err)
+		})
 
-				_, err := NewOptions(timeoutOpt.opt(tc.timeout))
+		t.Run(timeoutOpt.name+"_zero_timeout_fails", func(t *testing.T) {
+			t.Parallel()
+			_, err := NewOptions(timeoutOpt.opt(0))
+			require.Error(t, err)
+			require.EqualError(t, err, timeoutOpt.zeroErr)
+		})
 
-				if tc.wantErr == "" {
-					require.NoError(t, err)
-				} else {
-					require.Error(t, err)
-					require.Contains(t, err.Error(), tc.wantErr)
-				}
-			})
-		}
+		t.Run(timeoutOpt.name+"_negative_timeout_fails", func(t *testing.T) {
+			t.Parallel()
+			_, err := NewOptions(timeoutOpt.opt(-1 * time.Second))
+			require.Error(t, err)
+			require.EqualError(t, err, timeoutOpt.negativeErr)
+		})
 	}
 }

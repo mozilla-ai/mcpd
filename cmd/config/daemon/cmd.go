@@ -16,11 +16,11 @@ func NewCmd(baseCmd *cmd.BaseCmd, opt ...options.CmdOption) (*cobra.Command, err
 
 	// Sub-commands for: mcpd config daemon
 	fns := []func(baseCmd *cmd.BaseCmd, opt ...options.CmdOption) (*cobra.Command, error){
-		NewSetCmd,    // set
-		NewGetCmd,    // get
-		NewListCmd,   // list
-		NewRemoveCmd, // remove
-		// NewValidateCmd, // validate
+		NewSetCmd,      // set
+		NewGetCmd,      // get
+		NewListCmd,     // list
+		NewRemoveCmd,   // remove
+		NewValidateCmd, // validate
 	}
 
 	for _, fn := range fns {

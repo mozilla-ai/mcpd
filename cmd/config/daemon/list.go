@@ -2,6 +2,7 @@ package daemon
 
 import (
 	"fmt"
+	"sort"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -61,7 +62,7 @@ func (c *ListCmd) run(cmd *cobra.Command, args []string) error {
 		return nil
 	}
 
-	// Use ConfigGetter to get all configuration
+	// Use Getter to get all configuration
 	allConfig, err := cfg.Daemon.Get()
 	if err != nil {
 		return err
@@ -71,35 +72,63 @@ func (c *ListCmd) run(cmd *cobra.Command, args []string) error {
 }
 
 func (c *ListCmd) showConfig(cmd *cobra.Command, config any, prefix string) error {
-	_, _ = fmt.Fprintf(cmd.OutOrStdout(), "[%s]\n", prefix)
+	// Flatten the config into dotted key-value pairs
+	flatConfig := make(map[string]any)
+	c.flattenConfig(config, "", flatConfig)
 
-	if configMap, ok := config.(map[string]any); ok {
-		c.printConfigMap(cmd, configMap, prefix, "  ")
+	// Sort the keys
+	var keys []string
+	for key := range flatConfig {
+		keys = append(keys, key)
+	}
+	sort.Strings(keys)
+
+	// Print the sorted key-value pairs
+	for _, key := range keys {
+		value := flatConfig[key]
+		c.printKeyValue(cmd, key, value)
 	}
 
 	return nil
 }
 
-func (c *ListCmd) printConfigMap(cmd *cobra.Command, configMap map[string]any, prefix string, indent string) {
-	for key, value := range configMap {
-		switch v := value.(type) {
-		case map[string]any:
-			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "%s[%s.%s]\n", indent, prefix, key)
-			c.printConfigMap(cmd, v, fmt.Sprintf("%s.%s", prefix, key), indent+"  ")
-		case []string:
-			if len(v) > 0 {
-				_, _ = fmt.Fprintf(cmd.OutOrStdout(), "%s%s = %q\n", indent, key, v)
+// flattenConfig recursively flattens a nested configuration map into dotted key-value pairs.
+// The prefix parameter is used to build the full dotted path for nested keys.
+func (c *ListCmd) flattenConfig(value any, prefix string, result map[string]any) {
+	prefix = strings.ToLower(strings.TrimSpace(prefix))
+	switch v := value.(type) {
+	case map[string]any:
+		for key, val := range v {
+			newKey := key
+			if prefix != "" {
+				newKey = prefix + "." + key
 			}
-		case bool:
-			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "%s%s = %t\n", indent, key, v)
-		case string:
-			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "%s%s = %q\n", indent, key, v)
-		default:
-			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "%s%s = %v\n", indent, key, v)
+			c.flattenConfig(val, newKey, result)
+		}
+	default:
+		if prefix != "" {
+			result[prefix] = value
 		}
 	}
 }
 
+// printKeyValue formats and prints a single configuration key-value pair with appropriate type formatting.
+func (c *ListCmd) printKeyValue(cmd *cobra.Command, key string, value any) {
+	switch v := value.(type) {
+	case []string:
+		if len(v) > 0 {
+			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "%s = %q\n", key, v)
+		}
+	case bool:
+		_, _ = fmt.Fprintf(cmd.OutOrStdout(), "%s = %t\n", key, v)
+	case string:
+		_, _ = fmt.Fprintf(cmd.OutOrStdout(), "%s = %q\n", key, v)
+	default:
+		_, _ = fmt.Fprintf(cmd.OutOrStdout(), "%s = %v\n", key, v)
+	}
+}
+
+// showAvailableKeys displays all available daemon configuration keys with their types and descriptions.
 func (c *ListCmd) showAvailableKeys(cmd *cobra.Command) error {
 	// Create a dummy daemon config to get the available keys
 	daemonConfig := &config.DaemonConfig{}
@@ -109,8 +138,8 @@ func (c *ListCmd) showAvailableKeys(cmd *cobra.Command) error {
 	_, _ = fmt.Fprintln(cmd.OutOrStdout(), "")
 
 	// Group keys by top-level section
-	apiKeys := []config.ConfigKey{}
-	mcpKeys := []config.ConfigKey{}
+	var apiKeys []config.SchemaKey
+	var mcpKeys []config.SchemaKey
 
 	for _, key := range keys {
 		if strings.HasPrefix(key.Path, "api.") {
@@ -120,22 +149,32 @@ func (c *ListCmd) showAvailableKeys(cmd *cobra.Command) error {
 		}
 	}
 
+	// Sort keys within each section
+	sort.Slice(apiKeys, func(i, j int) bool {
+		return apiKeys[i].Path < apiKeys[j].Path
+	})
+	sort.Slice(mcpKeys, func(i, j int) bool {
+		return mcpKeys[i].Path < mcpKeys[j].Path
+	})
+
 	// Show API keys
 	if len(apiKeys) > 0 {
-		_, _ = fmt.Fprintln(cmd.OutOrStdout(), "API Configuration:")
-		for _, key := range apiKeys {
-			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "  %-30s %-12s %s\n", key.Path, "("+key.Type+")", key.Description)
-		}
+		c.showKeySection(cmd, "API Configuration:", apiKeys)
 		_, _ = fmt.Fprintln(cmd.OutOrStdout(), "")
 	}
 
 	// Show MCP keys
 	if len(mcpKeys) > 0 {
-		_, _ = fmt.Fprintln(cmd.OutOrStdout(), "MCP Configuration:")
-		for _, key := range mcpKeys {
-			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "  %-30s %-12s %s\n", key.Path, "("+key.Type+")", key.Description)
-		}
+		c.showKeySection(cmd, "MCP Configuration:", mcpKeys)
 	}
 
 	return nil
+}
+
+// showKeySection displays a section of configuration keys with consistent formatting.
+func (c *ListCmd) showKeySection(cmd *cobra.Command, title string, keys []config.SchemaKey) {
+	_, _ = fmt.Fprintln(cmd.OutOrStdout(), title)
+	for _, key := range keys {
+		_, _ = fmt.Fprintf(cmd.OutOrStdout(), "  %-35s %-12s %s\n", key.Path, "("+key.Type+")", key.Description)
+	}
 }

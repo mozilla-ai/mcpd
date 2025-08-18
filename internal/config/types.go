@@ -31,35 +31,43 @@ type Modifier interface {
 	SaveConfig() error
 }
 
-// ConfigSetter defines the interface for setting configuration values using dot-separated path notation.
+// Setter defines the interface for setting configuration values using dot-separated path notation.
 // Implementations should handle path routing, value parsing, and validation appropriate to their level.
-type ConfigSetter interface {
+type Setter interface {
 	// Set applies a configuration value using dot-separated path notation.
 	// An empty value removes/clears the configuration at the given path.
 	// Returns the operation performed (Created, Updated, Deleted, Noop) and any validation error.
 	Set(path string, value string) (context.UpsertResult, error)
 }
 
-// ConfigGetter defines the interface for getting configuration values using path segments.
+// Getter defines the interface for getting configuration values using path segments.
 // Implementations should handle path routing and value retrieval appropriate to their level.
-type ConfigGetter interface {
-	// Get retrieves a configuration value using path segments.
-	// No arguments returns all configuration at that level.
+type Getter interface {
+	// Get retrieves a configuration value using path segments, or all configured values when no key specified.
 	// Single argument gets a specific key, multiple arguments traverse nested structure.
-	// Returns the value and any error encountered during retrieval.
+	// Returns the value or any error encountered during retrieval.
+	// NOTE: When used without any keys, no errors are returned for missing configuration.
 	Get(keys ...string) (any, error)
 }
 
-// ConfigSchema defines the interface for getting available configuration keys.
+// SchemaProvider defines the interface for getting available configuration keys.
 // Implementations should return all possible configuration keys with their types and descriptions.
-type ConfigSchema interface {
+type SchemaProvider interface {
 	// AvailableKeys returns all configuration keys available at this level.
 	// Keys are returned without prefixes - parent sections add prefixes when recursing.
-	AvailableKeys() []ConfigKey
+	AvailableKeys() []SchemaKey
 }
 
-// ConfigKey represents a single configuration key with metadata.
-type ConfigKey struct {
+// Validator defines the interface for validating configuration values.
+// Implementations should validate their own fields and recurse to child sections.
+type Validator interface {
+	// Validate checks the configuration for errors and returns combined validation errors.
+	// Uses errors.Join to combine multiple validation errors from child sections.
+	Validate() error
+}
+
+// SchemaKey represents a single configuration key with metadata.
+type SchemaKey struct {
 	// Path is the configuration key path (e.g., "addr", "enable", "shutdown").
 	Path string
 	// Type describes the expected value type (e.g., "string", "bool", "duration", "[]string").
