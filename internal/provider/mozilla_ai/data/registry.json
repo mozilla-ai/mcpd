@@ -472,20 +472,160 @@
     ],
     "tools": [
       {
+        "description": "Add a comment to a Confluence page",
+        "name": "confluence_add_comment"
+      },
+      {
+        "description": "Add a label to a Confluence page",
+        "name": "confluence_add_label"
+      },
+      {
         "description": "Create a new Confluence page",
-        "name": "create_confluence_page"
+        "name": "confluence_create_page"
+      },
+      {
+        "description": "Delete a Confluence page",
+        "name": "confluence_delete_page"
+      },
+      {
+        "description": "Get comments from a Confluence page",
+        "name": "confluence_get_comments"
+      },
+      {
+        "description": "Get content of a specific Confluence page",
+        "name": "confluence_get_page"
+      },
+      {
+        "description": "Get the child pages of a specific Confluence page",
+        "name": "confluence_get_page_children"
+      },
+      {
+        "description": "Get labels on a Confluence page",
+        "name": "confluence_get_labels"
+      },
+      {
+        "description": "Search Confluence content using CQL",
+        "name": "confluence_search"
+      },
+      {
+        "description": "Search Confluence users",
+        "name": "confluence_search_user"
+      },
+      {
+        "description": "Update an existing Confluence page",
+        "name": "confluence_update_page"
+      },
+      {
+        "description": "Add a comment to a Jira issue",
+        "name": "jira_add_comment"
+      },
+      {
+        "description": "Add a worklog entry to a Jira issue",
+        "name": "jira_add_worklog"
+      },
+      {
+        "description": "Create multiple Jira issues in batch",
+        "name": "jira_batch_create_issues"
+      },
+      {
+        "description": "Create multiple Jira project versions in batch",
+        "name": "jira_batch_create_versions"
       },
       {
         "description": "Create a new Jira issue",
-        "name": "create_jira_issue"
+        "name": "jira_create_issue"
       },
       {
-        "description": "Search Confluence pages",
-        "name": "search_confluence_pages"
+        "description": "Create a new Jira issue link",
+        "name": "jira_create_issue_link"
       },
       {
-        "description": "Search for Jira issues using JQL",
-        "name": "search_jira_issues"
+        "description": "Create a new Jira sprint",
+        "name": "jira_create_sprint"
+      },
+      {
+        "description": "Create a new Jira project version",
+        "name": "jira_create_version"
+      },
+      {
+        "description": "Delete a Jira issue",
+        "name": "jira_delete_issue"
+      },
+      {
+        "description": "Download attachments from a Jira issue",
+        "name": "jira_download_attachments"
+      },
+      {
+        "description": "Get all Jira agile boards",
+        "name": "jira_get_agile_boards"
+      },
+      {
+        "description": "Get all Jira projects",
+        "name": "jira_get_all_projects"
+      },
+      {
+        "description": "Get issues from a Jira board",
+        "name": "jira_get_board_issues"
+      },
+      {
+        "description": "Get details of a specific Jira issue",
+        "name": "jira_get_issue"
+      },
+      {
+        "description": "Get all Jira issue link types",
+        "name": "jira_get_issue_link_types"
+      },
+      {
+        "description": "Get details of a Jira user profile",
+        "name": "jira_get_user_profile"
+      },
+      {
+        "description": "Get versions of a Jira project",
+        "name": "jira_get_project_versions"
+      },
+      {
+        "description": "Get all issues in a Jira project",
+        "name": "jira_get_project_issues"
+      },
+      {
+        "description": "Get sprints from a Jira board",
+        "name": "jira_get_sprints_from_board"
+      },
+      {
+        "description": "Get issues from a Jira sprint",
+        "name": "jira_get_sprint_issues"
+      },
+      {
+        "description": "Get possible transitions for a Jira issue",
+        "name": "jira_get_transitions"
+      },
+      {
+        "description": "Get worklog details of a Jira issue",
+        "name": "jira_get_worklog"
+      },
+      {
+        "description": "Link a Jira issue to an epic",
+        "name": "jira_link_to_epic"
+      },
+      {
+        "description": "Remove an existing Jira issue link",
+        "name": "jira_remove_issue_link"
+      },
+      {
+        "description": "Search available Jira fields",
+        "name": "jira_search_fields"
+      },
+      {
+        "description": "Transition a Jira issue to a new status",
+        "name": "jira_transition_issue"
+      },
+      {
+        "description": "Update an existing Jira issue",
+        "name": "jira_update_issue"
+      },
+      {
+        "description": "Update an existing Jira sprint",
+        "name": "jira_update_sprint"
       }
     ],
     "transports": ["stdio"]
@@ -756,20 +896,80 @@
     "tags": ["content management", "database", "notion", "pages", "workspace"],
     "tools": [
       {
-        "description": "Create a new page in Notion",
-        "name": "create_page"
+        "description": "Retrieve a user",
+        "name": "API-get-user"
       },
       {
-        "description": "Retrieve a specific page by ID",
-        "name": "get_page"
+        "description": "List all users",
+        "name": "API-get-users"
       },
       {
-        "description": "Search for pages in the Notion workspace",
-        "name": "search_pages"
+        "description": "Retrieve your token's bot user",
+        "name": "API-get-self"
       },
       {
-        "description": "Update an existing Notion page",
-        "name": "update_page"
+        "description": "Query a database",
+        "name": "API-post-database-query"
+      },
+      {
+        "description": "Search by title",
+        "name": "API-post-search"
+      },
+      {
+        "description": "Retrieve block children",
+        "name": "API-get-block-children"
+      },
+      {
+        "description": "Append block children",
+        "name": "API-patch-block-children"
+      },
+      {
+        "description": "Retrieve a block",
+        "name": "API-retrieve-a-block"
+      },
+      {
+        "description": "Update a block",
+        "name": "API-update-a-block"
+      },
+      {
+        "description": "Delete a block",
+        "name": "API-delete-a-block"
+      },
+      {
+        "description": "Retrieve a page",
+        "name": "API-retrieve-a-page"
+      },
+      {
+        "description": "Update page properties",
+        "name": "API-patch-page"
+      },
+      {
+        "description": "Create a page",
+        "name": "API-post-page"
+      },
+      {
+        "description": "Create a database",
+        "name": "API-create-a-database"
+      },
+      {
+        "description": "Update a database",
+        "name": "API-update-a-database"
+      },
+      {
+        "description": "Retrieve a database",
+        "name": "API-retrieve-a-database"
+      },
+      {
+        "description": "Retrieve a page property item",
+        "name": "API-retrieve-a-page-property"
+      },
+      {
+        "description": "Retrieve comments",
+        "name": "API-retrieve-a-comment"
+      },
+      {
+        "description": "Create comment",
+        "name": "API-create-a-comment"
       }
     ],
     "transports": ["stdio"]
@@ -868,20 +1068,36 @@
     "tags": ["channels", "collaboration", "messaging", "slack", "workspace"],
     "tools": [
       {
+        "description": "List public or pre-defined channels in the workspace",
+        "name": "slack_list_channels"
+      },
+      {
+        "description": "Post a new message to a Slack channel",
+        "name": "slack_post_message"
+      },
+      {
+        "description": "Reply to a specific message thread",
+        "name": "slack_reply_to_thread"
+      },
+      {
         "description": "Add an emoji reaction to a message",
-        "name": "add_reaction"
+        "name": "slack_add_reaction"
       },
       {
-        "description": "Retrieve message history from a channel",
-        "name": "get_channel_history"
+        "description": "Get recent messages from a channel",
+        "name": "slack_get_channel_history"
       },
       {
-        "description": "List all channels in the Slack workspace",
-        "name": "list_channels"
+        "description": "Get all replies in a message thread",
+        "name": "slack_get_thread_replies"
       },
       {
-        "description": "Post a message to a Slack channel",
-        "name": "post_message"
+        "description": "Get list of workspace users with basic profile information",
+        "name": "slack_get_users"
+      },
+      {
+        "description": "Get detailed profile information for a specific user",
+        "name": "slack_get_user_profile"
       }
     ],
     "transports": ["stdio"]
