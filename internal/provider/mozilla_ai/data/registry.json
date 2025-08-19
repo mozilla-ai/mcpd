@@ -524,10 +524,6 @@
         "name": "jira_add_worklog"
       },
       {
-        "description": "Get changelogs for multiple Jira issues in batch - only available in Jira Cloud",
-        "name": "jira_batch_get_changelogs"
-      },
-      {
         "description": "Create multiple Jira issues in batch",
         "name": "jira_batch_create_issues"
       },
