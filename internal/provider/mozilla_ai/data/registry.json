@@ -492,7 +492,7 @@
         "name": "confluence_get_comments"
       },
       {
-        "description": "Get content of a specific page",
+        "description": "Get content of a specific Confluence page",
         "name": "confluence_get_page"
       },
       {
@@ -512,11 +512,11 @@
         "name": "confluence_search_user"
       },
       {
-        "description": "Update an existing page",
+        "description": "Update an existing Confluence page",
         "name": "confluence_update_page"
       },
       {
-        "description": "Add a comment to an issue",
+        "description": "Add a comment to a Jira issue",
         "name": "jira_add_comment"
       },
       {
@@ -616,11 +616,11 @@
         "name": "jira_search_fields"
       },
       {
-        "description": "Transition an issue to a new status",
+        "description": "Transition a Jira issue to a new status",
         "name": "jira_transition_issue"
       },
       {
-        "description": "Update an existing issue",
+        "description": "Update an existing Jira issue",
         "name": "jira_update_issue"
       },
       {
