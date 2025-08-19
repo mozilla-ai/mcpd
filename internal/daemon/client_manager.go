@@ -4,6 +4,8 @@ import (
 	"sync"
 
 	"github.com/mark3labs/mcp-go/client"
+
+	"github.com/mozilla-ai/mcpd/v2/internal/filter"
 )
 
 // ClientManager holds active client connections and their associated tool lists.
@@ -24,8 +26,11 @@ func NewClientManager() *ClientManager {
 }
 
 // Add registers a client and its tools by server name.
+// The server name and tool names are normalized (lowercase, trimmed) for consistent lookups.
 // This method is safe for concurrent use.
 func (cm *ClientManager) Add(name string, c client.MCPClient, tools []string) {
+	name = filter.NormalizeString(name)
+	tools = filter.NormalizeSlice(tools)
 	cm.mu.Lock()
 	defer cm.mu.Unlock()
 	cm.clients[name] = c
@@ -33,9 +38,11 @@ func (cm *ClientManager) Add(name string, c client.MCPClient, tools []string) {
 }
 
 // Client returns the client for the given server name.
+// The server name is normalized for case-insensitive lookup.
 // It returns a boolean to indicate whether the client was found.
 // This method is safe for concurrent use.
 func (cm *ClientManager) Client(name string) (client.MCPClient, bool) {
+	name = filter.NormalizeString(name)
 	cm.mu.RLock()
 	defer cm.mu.RUnlock()
 	c, ok := cm.clients[name]
@@ -43,9 +50,11 @@ func (cm *ClientManager) Client(name string) (client.MCPClient, bool) {
 }
 
 // Tools returns the tools for the given server name.
+// The server name is normalized for case-insensitive lookup.
 // It returns a boolean to indicate whether the tools were found.
 // This method is safe for concurrent use.
 func (cm *ClientManager) Tools(name string) ([]string, bool) {
+	name = filter.NormalizeString(name)
 	cm.mu.RLock()
 	defer cm.mu.RUnlock()
 	t, ok := cm.serverTools[name]
@@ -65,8 +74,10 @@ func (cm *ClientManager) List() []string {
 }
 
 // Remove deletes the client and its tools by server name.
+// The server name is normalized for case-insensitive lookup.
 // This method is safe for concurrent use.
 func (cm *ClientManager) Remove(name string) {
+	name = filter.NormalizeString(name)
 	cm.mu.Lock()
 	defer cm.mu.Unlock()
 	delete(cm.clients, name)

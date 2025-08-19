@@ -132,6 +132,60 @@ func TestClientManager_Add_Client_Tools(t *testing.T) {
 	require.Equal(t, tools, rt)
 }
 
+func TestClientManager_Add_ToolsNormalized(t *testing.T) {
+	t.Parallel()
+	cm := NewClientManager()
+
+	c := &mockMCPClient{}
+	tools := []string{" Tool1 ", "TOOL2", "tool3"}
+	name := "server1"
+
+	cm.Add(name, c, tools)
+
+	// Test Tools are normalized to lowercase and trimmed.
+	rt, ok := cm.Tools(name)
+	require.True(t, ok)
+	require.Equal(t, []string{"tool1", "tool2", "tool3"}, rt)
+}
+
+func TestClientManager_ServerNameNormalized(t *testing.T) {
+	t.Parallel()
+	cm := NewClientManager()
+
+	c := &mockMCPClient{}
+	tools := []string{"tool1"}
+
+	// Add with mixed case server name.
+	cm.Add(" GitHub-Server ", c, tools)
+
+	// Test retrieving with different cases should work.
+	rc, ok := cm.Client("github-server")
+	require.True(t, ok)
+	require.Equal(t, c, rc)
+
+	rc, ok = cm.Client("GITHUB-SERVER")
+	require.True(t, ok)
+	require.Equal(t, c, rc)
+
+	rc, ok = cm.Client("  GitHub-Server  ")
+	require.True(t, ok)
+	require.Equal(t, c, rc)
+
+	// Test Tools with different cases.
+	rt, ok := cm.Tools("github-server")
+	require.True(t, ok)
+	require.Equal(t, tools, rt)
+
+	rt, ok = cm.Tools("GITHUB-SERVER")
+	require.True(t, ok)
+	require.Equal(t, tools, rt)
+
+	// Test Remove with different case.
+	cm.Remove("GITHUB-SERVER")
+	_, ok = cm.Client("github-server")
+	require.False(t, ok)
+}
+
 func TestClientManager_List(t *testing.T) {
 	t.Parallel()
 	cm := NewClientManager()

@@ -12,6 +12,7 @@ import (
 
 	"github.com/mozilla-ai/mcpd/v2/internal/contracts"
 	"github.com/mozilla-ai/mcpd/v2/internal/errors"
+	"github.com/mozilla-ai/mcpd/v2/internal/filter"
 )
 
 // ServersResponse represents the wrapped API response for a list of servers.
@@ -117,7 +118,7 @@ func handleServerTools(accessor contracts.MCPClientAccessor, name string) (*Tool
 	// Only return data on allowed tools.
 	tools := make([]Tool, 0, len(result.Tools))
 	for _, tool := range result.Tools {
-		if slices.Contains(allowedTools, tool.Name) {
+		if slices.Contains(allowedTools, filter.NormalizeString(tool.Name)) {
 			data, err := DomainTool(tool).ToAPIType()
 			if err != nil {
 				return nil, err
@@ -153,7 +154,9 @@ func handleServerToolCall(
 		return nil, fmt.Errorf("%w: %s", errors.ErrToolsNotFound, server)
 	}
 
-	if !slices.Contains(allowedTools, tool) {
+	// Normalize the tool name before comparing.
+	normalizedToolName := filter.NormalizeString(tool)
+	if !slices.Contains(allowedTools, normalizedToolName) {
 		return nil, fmt.Errorf("%w: %s/%s", errors.ErrToolForbidden, server, tool)
 	}
 
