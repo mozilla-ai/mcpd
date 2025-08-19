@@ -480,7 +480,7 @@
         "name": "confluence_add_label"
       },
       {
-        "description": "Create a new page",
+        "description": "Create a new Confluence page",
         "name": "confluence_create_page"
       },
       {
