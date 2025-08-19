@@ -568,7 +568,7 @@
         "name": "jira_get_board_issues"
       },
       {
-        "description": "Get details of a specific issue",
+        "description": "Get details of a specific Jira issue",
         "name": "jira_get_issue"
       },
       {
