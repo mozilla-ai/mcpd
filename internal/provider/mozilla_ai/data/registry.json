@@ -532,7 +532,7 @@
         "name": "jira_batch_create_versions"
       },
       {
-        "description": "Create a new issue",
+        "description": "Create a new Jira issue",
         "name": "jira_create_issue"
       },
       {
