@@ -590,7 +590,12 @@ DATABASE_URL = "${UNDEFINED_DB_URL}"`
 	require.True(t, exists, "test-server should exist")
 
 	// All undefined variables should expand to empty strings
-	require.Equal(t, []string{"--token", "", "--config="}, server.Args, "Undefined vars in args should expand to empty strings")
+	require.Equal(
+		t,
+		[]string{"--token", "", "--config="},
+		server.Args,
+		"Undefined vars in args should expand to empty strings",
+	)
 	require.Equal(t, map[string]string{
 		"API_KEY":      "",
 		"DATABASE_URL": "",
