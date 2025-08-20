@@ -13,8 +13,13 @@ import (
 	"github.com/BurntSushi/toml"
 )
 
-// EnvVarXDGConfigHome is the XDG Base Directory env var name.
-const EnvVarXDGConfigHome = "XDG_CONFIG_HOME"
+const (
+	// EnvVarXDGConfigHome is the XDG Base Directory env var name for config files.
+	EnvVarXDGConfigHome = "XDG_CONFIG_HOME"
+
+	// EnvVarXDGCacheHome is the XDG Base Directory env var name for cache file.
+	EnvVarXDGCacheHome = "XDG_CACHE_HOME"
+)
 
 // ServerExecutionContext stores execution context data for an MCP server.
 type ServerExecutionContext struct {
@@ -211,10 +216,9 @@ func (c *ExecutionContextConfig) SaveConfig() error {
 		return fmt.Errorf("config file path not present")
 	}
 
-	// Ensure the directory exists before creating the file...
-	// owner: rwx, group: r--, others: ---
-	if err := os.MkdirAll(filepath.Dir(path), 0o740); err != nil {
-		return fmt.Errorf("could not ensure execution context directory exists for '%s': %w", path, err)
+	// Ensure the directory exists before creating the file.
+	if err := EnsureDirectoryExists(filepath.Dir(path)); err != nil {
+		return fmt.Errorf("could not ensure execution context directory exists: %w", err)
 	}
 
 	// owner: rw-, group: ---, others: ---
@@ -240,13 +244,21 @@ func (c *ExecutionContextConfig) SaveConfig() error {
 	return nil
 }
 
-// UserSpecificConfigDir returns the directory that should be used to store any user-specific configuration.
-// It adheres to the XDG Base Directory Specification, respecting the XDG_CONFIG_HOME environment variable.
-// When XDG_CONFIG_HOME is not set, it defaults to ~/.config/mcpd/
-// See: https://specifications.freedesktop.org/basedir-spec/latest/
-func UserSpecificConfigDir() (string, error) {
+// userSpecificDir returns a user-specific directory following XDG Base Directory Specification.
+// It respects the given environment variable, falling back to homeDir/dir/AppDirName() if not set.
+// The envVar must have XDG_ prefix to follow the specification.
+func userSpecificDir(envVar string, dir string) (string, error) {
+	envVar = strings.TrimSpace(envVar)
+	// Validate that the environment variable follows XDG naming convention.
+	if !strings.HasPrefix(envVar, "XDG_") {
+		return "", fmt.Errorf(
+			"environment variable '%s' does not follow XDG Base Directory Specification",
+			envVar,
+		)
+	}
+
 	// If the relevant environment variable is present and configured, then use it.
-	if ch, ok := os.LookupEnv(EnvVarXDGConfigHome); ok && strings.TrimSpace(ch) != "" {
+	if ch, ok := os.LookupEnv(envVar); ok && strings.TrimSpace(ch) != "" {
 		home := strings.TrimSpace(ch)
 		return filepath.Join(home, AppDirName()), nil
 	}
@@ -257,10 +269,35 @@ func UserSpecificConfigDir() (string, error) {
 		return "", fmt.Errorf("failed to get user home directory: %w", err)
 	}
 
-	return filepath.Join(homeDir, ".config", AppDirName()), nil
+	return filepath.Join(homeDir, dir, AppDirName()), nil
+}
+
+// UserSpecificConfigDir returns the directory that should be used to store any user-specific configuration.
+// It adheres to the XDG Base Directory Specification, respecting the XDG_CONFIG_HOME environment variable.
+// When XDG_CONFIG_HOME is not set, it defaults to ~/.config/mcpd/
+// See: https://specifications.freedesktop.org/basedir-spec/latest/
+func UserSpecificConfigDir() (string, error) {
+	return userSpecificDir(EnvVarXDGConfigHome, ".config")
+}
+
+// UserSpecificCacheDir returns the directory that should be used to store any user-specific cache files.
+// It adheres to the XDG Base Directory Specification, respecting the XDG_CACHE_HOME environment variable.
+// When XDG_CACHE_HOME is not set, it defaults to ~/.cache/mcpd/
+// See: https://specifications.freedesktop.org/basedir-spec/latest/
+func UserSpecificCacheDir() (string, error) {
+	return userSpecificDir(EnvVarXDGCacheHome, ".cache")
 }
 
 // AppDirName returns the name of the application directory for use in user-specific operations where data is being written.
 func AppDirName() string {
 	return "mcpd"
+}
+
+// EnsureDirectoryExists creates a directory with secure permissions if it doesn't exist.
+// The directory is created with mode 0740 (owner: rwx, group: r--, others: ---).
+func EnsureDirectoryExists(path string) error {
+	if err := os.MkdirAll(path, 0o740); err != nil {
+		return fmt.Errorf("could not ensure directory exists for '%s': %w", path, err)
+	}
+	return nil
 }

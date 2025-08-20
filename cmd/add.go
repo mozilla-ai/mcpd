@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io"
 	"strings"
+	"time"
 
 	"github.com/spf13/cobra"
 
@@ -29,6 +30,10 @@ type AddCmd struct {
 	Source          string
 	Format          internalcmd.OutputFormat
 	AllowDeprecated bool
+	CacheDisabled   bool
+	CacheRefresh    bool
+	CacheDir        string
+	CacheTTL        string
 	cfgLoader       config.Loader
 	packagePrinter  output.Printer[config.ServerEntry]
 	registryBuilder registry.Builder
@@ -100,6 +105,39 @@ func NewAddCmd(baseCmd *internalcmd.BaseCmd, opt ...cmdopts.CmdOption) (*cobra.C
 		"Optional, allows server installations marked as deprecated to be added",
 	)
 
+	cobraCommand.Flags().BoolVar(
+		&c.CacheDisabled,
+		"no-cache",
+		false,
+		"Disable registry manifest caching",
+	)
+
+	cobraCommand.Flags().BoolVar(
+		&c.CacheRefresh,
+		"refresh-cache",
+		false,
+		"Force refresh of cached registry manifests",
+	)
+
+	defaultCacheDir, err := regopts.DefaultCacheDir()
+	if err != nil {
+		return nil, fmt.Errorf("error getting default cache directory: %w", err)
+	}
+
+	cobraCommand.Flags().StringVar(
+		&c.CacheDir,
+		"cache-dir",
+		defaultCacheDir,
+		"Directory for caching registry manifests",
+	)
+
+	cobraCommand.Flags().StringVar(
+		&c.CacheTTL,
+		"cache-ttl",
+		regopts.DefaultCacheTTL().String(),
+		"Time-to-live for cached registry manifests (e.g. 1h, 30m, 24h)",
+	)
+
 	return cobraCommand, nil
 }
 
@@ -130,7 +168,17 @@ func (c *AddCmd) run(cmd *cobra.Command, args []string) error {
 		return handler.HandleError(err)
 	}
 
-	reg, err := c.registryBuilder.Build()
+	cacheTTL, err := time.ParseDuration(c.CacheTTL)
+	if err != nil {
+		return handler.HandleError(fmt.Errorf("invalid cache TTL: %w", err))
+	}
+
+	reg, err := c.registryBuilder.Build(
+		regopts.WithCaching(!c.CacheDisabled),
+		regopts.WithRefreshCache(c.CacheRefresh),
+		regopts.WithCacheDir(c.CacheDir),
+		regopts.WithCacheTTL(cacheTTL),
+	)
 	if err != nil {
 		return handler.HandleError(err)
 	}

@@ -44,8 +44,9 @@ type PackageProvider interface {
 	ID() string
 }
 
+// Builder constructs a PackageProvider with optional configurations.
 type Builder interface {
-	Build() (PackageProvider, error)
+	Build(opts ...options.BuildOption) (PackageProvider, error)
 }
 
 // Registry combines multiple PackageResolver implementations and allows searching

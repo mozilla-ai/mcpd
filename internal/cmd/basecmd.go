@@ -7,12 +7,14 @@ import (
 
 	"github.com/hashicorp/go-hclog"
 
+	"github.com/mozilla-ai/mcpd/v2/internal/cache"
 	"github.com/mozilla-ai/mcpd/v2/internal/cmd/output"
 	"github.com/mozilla-ai/mcpd/v2/internal/config"
 	"github.com/mozilla-ai/mcpd/v2/internal/flags"
 	"github.com/mozilla-ai/mcpd/v2/internal/provider/mcpm"
 	"github.com/mozilla-ai/mcpd/v2/internal/provider/mozilla_ai"
 	"github.com/mozilla-ai/mcpd/v2/internal/registry"
+	regopts "github.com/mozilla-ai/mcpd/v2/internal/registry/options"
 	"github.com/mozilla-ai/mcpd/v2/internal/runtime"
 )
 
@@ -74,8 +76,15 @@ func (c *BaseCmd) Logger() (hclog.Logger, error) {
 	return c.logger, nil
 }
 
-func (c *BaseCmd) Build() (registry.PackageProvider, error) {
+// Build creates and returns a registry provider with all configured registries.
+func (c *BaseCmd) Build(buildOpts ...regopts.BuildOption) (registry.PackageProvider, error) {
 	logger, err := c.Logger()
+	if err != nil {
+		return nil, err
+	}
+
+	// Apply build options.
+	options, err := regopts.NewBuildOptions(buildOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -84,13 +93,38 @@ func (c *BaseCmd) Build() (registry.PackageProvider, error) {
 	opts := runtime.WithSupportedRuntimes(supportedRuntimes...)
 	l := logger.Named("registry")
 
+	// Create cache with build options.
+	cacheOptions := []cache.Option{
+		cache.WithCaching(options.UseCache),
+		cache.WithRefreshCache(options.RefreshCache),
+	}
+
+	if options.CacheDir != "" {
+		cacheOptions = append(cacheOptions, cache.WithDirectory(options.CacheDir))
+	}
+
+	if options.CacheTTL != 0 {
+		cacheOptions = append(cacheOptions, cache.WithTTL(options.CacheTTL))
+	}
+
+	registryCache, err := cache.NewCache(l, cacheOptions...)
+	if err != nil {
+		return nil, err
+	}
+
 	mozillaRegistry, err := mozilla_ai.NewRegistry(l, "", opts)
 	if err != nil {
 		// TODO: Handle tolerating some failed registries, as long as we can meet a minimum requirement.
 		return nil, err
 	}
 
-	mcpmRegistry, err := mcpm.NewRegistry(l, mcpm.ManifestURL, opts)
+	// Set up MCPM registry URL (potentially using cache).
+	mcpmURL, err := registryCache.URL(mcpm.ManifestURL)
+	if err != nil {
+		return nil, err
+	}
+
+	mcpmRegistry, err := mcpm.NewRegistry(l, mcpmURL, opts)
 	if err != nil {
 		return nil, err
 	}
