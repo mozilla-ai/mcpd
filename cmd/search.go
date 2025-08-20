@@ -3,6 +3,7 @@ package cmd
 import (
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/spf13/cobra"
 
@@ -26,6 +27,10 @@ type SearchCmd struct {
 	Source          string
 	Format          internalcmd.OutputFormat
 	IsOfficial      bool
+	CacheDisabled   bool
+	CacheRefresh    bool
+	CacheDir        string
+	CacheTTL        string
 	registryBuilder registry.Builder
 	packagePrinter  output.Printer[packages.Server]
 }
@@ -117,6 +122,39 @@ func NewSearchCmd(baseCmd *internalcmd.BaseCmd, opt ...cmdopts.CmdOption) (*cobr
 		fmt.Sprintf("Specify the output format (one of: %s)", allowed.String()),
 	)
 
+	cobraCommand.Flags().BoolVar(
+		&c.CacheDisabled,
+		"no-cache",
+		false,
+		"Disable registry manifest caching",
+	)
+
+	cobraCommand.Flags().BoolVar(
+		&c.CacheRefresh,
+		"refresh-cache",
+		false,
+		"Force refresh of cached registry manifests",
+	)
+
+	defaultCacheDir, err := options.DefaultCacheDir()
+	if err != nil {
+		return nil, fmt.Errorf("error getting default cache directory: %w", err)
+	}
+
+	cobraCommand.Flags().StringVar(
+		&c.CacheDir,
+		"cache-dir",
+		defaultCacheDir,
+		"Directory for caching registry manifests",
+	)
+
+	cobraCommand.Flags().StringVar(
+		&c.CacheTTL,
+		"cache-ttl",
+		options.DefaultCacheTTL().String(),
+		"Time-to-live for cached registry manifests (e.g. 1h, 30m, 24h)",
+	)
+
 	return cobraCommand, nil
 }
 
@@ -160,7 +198,17 @@ func (c *SearchCmd) run(cmd *cobra.Command, args []string) (err error) {
 		name = strings.TrimSpace(args[0])
 	}
 
-	reg, err := c.registryBuilder.Build()
+	cacheTTL, err := time.ParseDuration(c.CacheTTL)
+	if err != nil {
+		return handler.HandleError(fmt.Errorf("invalid cache TTL: %w", err))
+	}
+
+	reg, err := c.registryBuilder.Build(
+		options.WithCaching(!c.CacheDisabled),
+		options.WithRefreshCache(c.CacheRefresh),
+		options.WithCacheDir(c.CacheDir),
+		options.WithCacheTTL(cacheTTL),
+	)
 	if err != nil {
 		return handler.HandleError(err)
 	}

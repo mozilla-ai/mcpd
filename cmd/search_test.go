@@ -6,10 +6,11 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"os"
+	"path/filepath"
 	"testing"
 
 	"github.com/spf13/cobra"
-	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"github.com/mozilla-ai/mcpd/v2/internal/cmd"
@@ -165,9 +166,9 @@ func TestSearchCmd_DefaultFormat(t *testing.T) {
 	require.NoError(t, err)
 
 	outStr := o.String()
-	assert.Contains(t, outStr, "🔎 Registry search results...")
-	assert.Contains(t, outStr, "🆔 test-server")
-	assert.Contains(t, outStr, "📦 Found 1 server")
+	require.Contains(t, outStr, "🔎 Registry search results...")
+	require.Contains(t, outStr, "🆔 test-server")
+	require.Contains(t, outStr, "📦 Found 1 server")
 }
 
 func TestSearchCmd_TextFormat(t *testing.T) {
@@ -201,9 +202,9 @@ func TestSearchCmd_TextFormat(t *testing.T) {
 	require.NoError(t, err)
 
 	outStr := o.String()
-	assert.Contains(t, outStr, "🔎 Registry search results...")
-	assert.Contains(t, outStr, "🆔 test-server")
-	assert.Contains(t, outStr, "📦 Found 1 server")
+	require.Contains(t, outStr, "🔎 Registry search results...")
+	require.Contains(t, outStr, "🆔 test-server")
+	require.Contains(t, outStr, "📦 Found 1 server")
 }
 
 func TestSearchCmd_JSONFormat(t *testing.T) {
@@ -241,14 +242,14 @@ func TestSearchCmd_JSONFormat(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, result)
 	require.NotNil(t, result.Results)
-	assert.Len(t, result.Results, 1)
-	assert.Equal(t, "test-server", result.Results[0].ID)
-	assert.Equal(t, "Test Server", result.Results[0].Name)
-	assert.Equal(t, "A test server", result.Results[0].Description)
-	assert.Equal(t, "MIT", result.Results[0].License)
-	assert.Equal(t, "mcpm", result.Results[0].Source)
-	assert.Len(t, result.Results[0].Tools, 1)
-	assert.Equal(t, "test_tool", result.Results[0].Tools[0].Name)
+	require.Len(t, result.Results, 1)
+	require.Equal(t, "test-server", result.Results[0].ID)
+	require.Equal(t, "Test Server", result.Results[0].Name)
+	require.Equal(t, "A test server", result.Results[0].Description)
+	require.Equal(t, "MIT", result.Results[0].License)
+	require.Equal(t, "mcpm", result.Results[0].Source)
+	require.Len(t, result.Results[0].Tools, 1)
+	require.Equal(t, "test_tool", result.Results[0].Tools[0].Name)
 }
 
 func TestSearchCmd_JSONFormat_EmptyResults(t *testing.T) {
@@ -271,7 +272,7 @@ func TestSearchCmd_JSONFormat_EmptyResults(t *testing.T) {
 	err = json.Unmarshal(o.Bytes(), &result)
 	require.NoError(t, err)
 
-	assert.Empty(t, result.Results)
+	require.Empty(t, result.Results)
 }
 
 func TestSearchCmd_JSONFormat_MultipleResults(t *testing.T) {
@@ -309,14 +310,14 @@ func TestSearchCmd_JSONFormat_MultipleResults(t *testing.T) {
 
 	fakeReg := &fakeRegistryMultiple{packages: []packages.Server{pkg1, pkg2}}
 
-	output := new(bytes.Buffer)
+	out := new(bytes.Buffer)
 	cmdObj, err := NewSearchCmd(
 		&cmd.BaseCmd{},
 		cmdopts.WithRegistryBuilder(&fakeBuilder{reg: fakeReg}),
 	)
 	require.NoError(t, err)
 
-	cmdObj.SetOut(output)
+	cmdObj.SetOut(out)
 	cmdObj.SetArgs([]string{"server", "--format=json"})
 
 	err = cmdObj.Execute()
@@ -325,29 +326,29 @@ func TestSearchCmd_JSONFormat_MultipleResults(t *testing.T) {
 	result := struct {
 		Results []packages.Server `json:"results"`
 	}{}
-	err = json.Unmarshal(output.Bytes(), &result)
+	err = json.Unmarshal(out.Bytes(), &result)
 	require.NoError(t, err)
 
-	assert.Len(t, result.Results, 2)
-	assert.Equal(t, "server1", result.Results[0].ID)
-	assert.Equal(t, "server2", result.Results[1].ID)
+	require.Len(t, result.Results, 2)
+	require.Equal(t, "server1", result.Results[0].ID)
+	require.Equal(t, "server2", result.Results[1].ID)
 }
 
 func TestSearchCmd_InvalidFormat(t *testing.T) {
-	output := new(bytes.Buffer)
+	out := new(bytes.Buffer)
 	cmdObj, err := NewSearchCmd(
 		&cmd.BaseCmd{},
 		cmdopts.WithRegistryBuilder(&fakeBuilder{reg: &fakeRegistry{}}),
 	)
 	require.NoError(t, err)
 
-	cmdObj.SetOut(output)
+	cmdObj.SetOut(out)
 	cmdObj.SetArgs([]string{"test-server", "--format=invalid"})
 
 	err = cmdObj.Execute()
 	require.Error(t, err)
-	assert.ErrorContains(t, err, "invalid argument \"invalid\"")
-	assert.ErrorContains(t, err, "must be one of json, text, yaml")
+	require.ErrorContains(t, err, "invalid argument \"invalid\"")
+	require.ErrorContains(t, err, "must be one of json, text, yaml")
 }
 
 func TestSearchCmd_CaseInsensitiveFormat(t *testing.T) {
@@ -398,8 +399,8 @@ func TestSearchCmd_CaseInsensitiveFormat(t *testing.T) {
 
 			if tc.shouldFail {
 				require.Error(t, err)
-				assert.ErrorContains(t, err, "invalid argument")
-				assert.ErrorContains(t, err, "invalid format ")
+				require.ErrorContains(t, err, "invalid argument")
+				require.ErrorContains(t, err, "invalid format ")
 				return
 			}
 
@@ -411,13 +412,13 @@ func TestSearchCmd_CaseInsensitiveFormat(t *testing.T) {
 				}{}
 				err = json.Unmarshal(o.Bytes(), &result)
 				require.NoError(t, err)
-				assert.Len(t, result.Results, 1)
-				assert.Equal(t, "test-server", result.Results[0].ID)
+				require.Len(t, result.Results, 1)
+				require.Equal(t, "test-server", result.Results[0].ID)
 			} else {
 				outStr := o.String()
-				assert.Contains(t, outStr, "🔎 Registry search results...")
-				assert.Contains(t, outStr, "🆔 test-server")
-				assert.Contains(t, outStr, "📦 Found 1 server")
+				require.Contains(t, outStr, "🔎 Registry search results...")
+				require.Contains(t, outStr, "🆔 test-server")
+				require.Contains(t, outStr, "📦 Found 1 server")
 			}
 		})
 	}
@@ -442,7 +443,7 @@ func TestSearchCmd_JSONFormat_RegistryError(t *testing.T) {
 	err = json.Unmarshal(o.Bytes(), &result)
 	require.NoError(t, err)
 
-	assert.Equal(t, "registry build failed", result.Error)
+	require.Equal(t, "registry build failed", result.Error)
 }
 
 func TestSearchCmd_JSONFormat_SearchError(t *testing.T) {
@@ -465,7 +466,7 @@ func TestSearchCmd_JSONFormat_SearchError(t *testing.T) {
 	err = json.Unmarshal(o.Bytes(), &result)
 	require.NoError(t, err)
 
-	assert.Equal(t, "search failed", result.Error)
+	require.Equal(t, "search failed", result.Error)
 }
 
 func TestSearchCmd_TextFormat_NoResults(t *testing.T) {
@@ -485,7 +486,7 @@ func TestSearchCmd_TextFormat_NoResults(t *testing.T) {
 	require.NoError(t, err)
 
 	outStr := o.String()
-	assert.Contains(t, outStr, "No items found")
+	require.Contains(t, outStr, "No items found")
 }
 
 func TestSearchCmd_FlagsWithJSONFormat(t *testing.T) {
@@ -524,8 +525,8 @@ func TestSearchCmd_FlagsWithJSONFormat(t *testing.T) {
 	err = json.Unmarshal(o.Bytes(), &result)
 	require.NoError(t, err)
 
-	assert.Len(t, result.Results, 1)
-	assert.Equal(t, "test-server", result.Results[0].ID)
+	require.Len(t, result.Results, 1)
+	require.Equal(t, "test-server", result.Results[0].ID)
 }
 
 func TestSearchCmd_WildcardSearch(t *testing.T) {
@@ -564,8 +565,8 @@ func TestSearchCmd_WildcardSearch(t *testing.T) {
 	err = json.Unmarshal(o.Bytes(), &result)
 	require.NoError(t, err)
 
-	assert.Len(t, result.Results, 1)
-	assert.Equal(t, "test-server", result.Results[0].ID)
+	require.Len(t, result.Results, 1)
+	require.Equal(t, "test-server", result.Results[0].ID)
 }
 
 // fakeRegistryMultiple supports returning multiple packages
@@ -632,11 +633,184 @@ func TestParseOutputFormat(t *testing.T) {
 
 			if tc.expectError {
 				require.Error(t, err)
-				assert.ErrorContains(t, err, "invalid argument")
+				require.ErrorContains(t, err, "invalid argument")
 			} else {
 				require.NoError(t, err)
-				assert.Equal(t, tc.expectedFormat.String(), cobraCmd.Flag("format").Value.String())
+				require.Equal(t, tc.expectedFormat.String(), cobraCmd.Flag("format").Value.String())
 			}
 		})
 	}
+}
+
+func TestSearchCmd_CacheTTL(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name          string
+		ttl           string
+		expectedError string
+	}{
+		{
+			name: "valid cache TTL",
+			ttl:  "1h",
+		},
+		{
+			name:          "invalid cache TTL",
+			ttl:           "invalid",
+			expectedError: "invalid cache TTL: time: invalid duration \"invalid\"",
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			pkg := packages.Server{
+				ID:   "testserver",
+				Name: "testserver",
+				Tools: []packages.Tool{
+					{Name: "tool1"},
+				},
+				Installations: map[runtime.Runtime]packages.Installation{
+					runtime.UVX: {
+						Runtime:     "uvx",
+						Package:     "mcp-server-testserver",
+						Version:     "latest",
+						Recommended: true,
+					},
+				},
+			}
+
+			cmdObj, err := NewSearchCmd(
+				&cmd.BaseCmd{},
+				cmdopts.WithRegistryBuilder(&fakeBuilder{reg: &fakeRegistry{pkg: pkg}}),
+			)
+			require.NoError(t, err)
+
+			cmdObj.SetOut(io.Discard)
+			cmdObj.SetErr(io.Discard)
+			cmdObj.SetArgs([]string{"testserver", "--cache-ttl", tc.ttl})
+
+			err = cmdObj.Execute()
+			if tc.expectedError != "" {
+				require.Error(t, err)
+				require.EqualError(t, err, tc.expectedError)
+			} else {
+				require.NoError(t, err)
+			}
+		})
+	}
+}
+
+func TestSearchCmd_CacheFlagsWithTempDir(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name     string
+		setupCmd func(t *testing.T, tempDir string) []string
+	}{
+		{
+			name: "custom cache directory",
+			setupCmd: func(t *testing.T, tempDir string) []string {
+				return []string{"testserver", "--cache-dir", tempDir}
+			},
+		},
+		{
+			name: "both custom cache flags",
+			setupCmd: func(t *testing.T, tempDir string) []string {
+				return []string{"testserver", "--cache-dir", tempDir, "--cache-ttl", "30m"}
+			},
+		},
+		{
+			name: "cache disabled with custom settings",
+			setupCmd: func(t *testing.T, tempDir string) []string {
+				return []string{"testserver", "--no-cache", "--cache-dir", tempDir, "--cache-ttl", "2h"}
+			},
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			tempDir := t.TempDir()
+			args := tc.setupCmd(t, tempDir)
+
+			pkg := packages.Server{
+				ID:   "testserver",
+				Name: "testserver",
+				Tools: []packages.Tool{
+					{Name: "tool1"},
+				},
+				Installations: map[runtime.Runtime]packages.Installation{
+					runtime.UVX: {
+						Runtime:     "uvx",
+						Package:     "mcp-server-testserver",
+						Version:     "latest",
+						Recommended: true,
+					},
+				},
+			}
+
+			cmdObj, err := NewSearchCmd(
+				&cmd.BaseCmd{},
+				cmdopts.WithRegistryBuilder(&fakeBuilder{reg: &fakeRegistry{pkg: pkg}}),
+			)
+			require.NoError(t, err)
+
+			cmdObj.SetOut(io.Discard)
+			cmdObj.SetErr(io.Discard)
+			cmdObj.SetArgs(args)
+
+			err = cmdObj.Execute()
+			require.NoError(t, err)
+
+			// tempDir is available here for any cache directory verification
+		})
+	}
+}
+
+func TestSearchCmd_NoCacheDirectoryCreatedWhenDisabled(t *testing.T) {
+	t.Parallel()
+
+	tempDir := t.TempDir()
+	cacheSubDir := filepath.Join(tempDir, "should-not-be-created")
+
+	// Verify the cache directory doesn't exist initially.
+	_, err := os.Stat(cacheSubDir)
+	require.True(t, os.IsNotExist(err), "Cache directory should not exist initially")
+
+	pkg := packages.Server{
+		ID:   "testserver",
+		Name: "testserver",
+		Tools: []packages.Tool{
+			{Name: "tool1"},
+		},
+		Installations: map[runtime.Runtime]packages.Installation{
+			runtime.UVX: {
+				Runtime:     "uvx",
+				Package:     "mcp-server-testserver",
+				Version:     "latest",
+				Recommended: true,
+			},
+		},
+	}
+
+	cmdObj, err := NewSearchCmd(
+		&cmd.BaseCmd{},
+		cmdopts.WithRegistryBuilder(&fakeBuilder{reg: &fakeRegistry{pkg: pkg}}),
+	)
+	require.NoError(t, err)
+
+	cmdObj.SetOut(io.Discard)
+	cmdObj.SetErr(io.Discard)
+	// Use --no-cache with custom cache directory - directory should NOT be created.
+	cmdObj.SetArgs([]string{"testserver", "--no-cache", "--cache-dir", cacheSubDir})
+
+	err = cmdObj.Execute()
+	require.NoError(t, err)
+
+	// Verify the cache directory was never created.
+	_, err = os.Stat(cacheSubDir)
+	require.True(t, os.IsNotExist(err), "Cache directory should not be created when --no-cache is used")
 }

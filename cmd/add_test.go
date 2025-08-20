@@ -4,9 +4,10 @@ import (
 	"bytes"
 	"errors"
 	"io"
+	"os"
+	"path/filepath"
 	"testing"
 
-	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"github.com/mozilla-ai/mcpd/v2/internal/cmd"
@@ -72,7 +73,7 @@ type fakeBuilder struct {
 	err error
 }
 
-func (f *fakeBuilder) Build() (registry.PackageProvider, error) {
+func (f *fakeBuilder) Build(_ ...options.BuildOption) (registry.PackageProvider, error) {
 	return f.reg, f.err
 }
 
@@ -115,10 +116,10 @@ func TestAddCmd_Success(t *testing.T) {
 
 	err = cmdObj.Execute()
 	require.NoError(t, err)
-	assert.Contains(t, buf.String(), "✓ Added server")
-	assert.True(t, cfg.addCalled)
-	assert.Equal(t, "server1", cfg.entry.Name)
-	assert.Equal(t, "uvx::mcp-server-1@1.2.3", cfg.entry.Package)
+	require.Contains(t, buf.String(), "✓ Added server")
+	require.True(t, cfg.addCalled)
+	require.Equal(t, "server1", cfg.entry.Name)
+	require.Equal(t, "uvx::mcp-server-1@1.2.3", cfg.entry.Package)
 }
 
 func TestAddCmd_MissingArgs(t *testing.T) {
@@ -132,7 +133,7 @@ func TestAddCmd_MissingArgs(t *testing.T) {
 
 	err = cmdObj.Execute()
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "server name is required")
+	require.Contains(t, err.Error(), "server name is required")
 }
 
 func TestAddCmd_RegistryFails(t *testing.T) {
@@ -145,7 +146,7 @@ func TestAddCmd_RegistryFails(t *testing.T) {
 	cmdObj.SetArgs([]string{"server1"})
 	err = cmdObj.Execute()
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "registry error")
+	require.Contains(t, err.Error(), "registry error")
 }
 
 func TestAddCmd_BasicServerAdd(t *testing.T) {
@@ -187,14 +188,14 @@ func TestAddCmd_BasicServerAdd(t *testing.T) {
 
 	// Output assertions
 	outStr := o.String()
-	assert.Contains(t, outStr, "✓ Added server 'testserver'")
-	assert.Contains(t, outStr, "version: latest")
+	require.Contains(t, outStr, "✓ Added server 'testserver'")
+	require.Contains(t, outStr, "version: latest")
 
 	// Config assertions
 	require.True(t, cfg.addCalled)
-	assert.Equal(t, "testserver", cfg.entry.Name)
-	assert.Equal(t, "uvx::mcp-server-testserver@latest", cfg.entry.Package)
-	assert.ElementsMatch(t, []string{"tool1", "tool2", "tool3"}, cfg.entry.Tools)
+	require.Equal(t, "testserver", cfg.entry.Name)
+	require.Equal(t, "uvx::mcp-server-testserver@latest", cfg.entry.Package)
+	require.ElementsMatch(t, []string{"tool1", "tool2", "tool3"}, cfg.entry.Tools)
 }
 
 func TestAddCmd_ServerWithArguments(t *testing.T) {
@@ -396,11 +397,11 @@ func TestAddCmd_ServerWithArguments(t *testing.T) {
 
 			// Verify config was called with correct arguments
 			require.True(t, cfg.addCalled)
-			assert.Equal(t, tc.pkg.ID, cfg.entry.Name)
-			assert.ElementsMatch(t, tc.expectedRequiredEnvs, cfg.entry.RequiredEnvVars)
-			assert.ElementsMatch(t, tc.expectedRequiredPositionals, cfg.entry.RequiredPositionalArgs)
-			assert.ElementsMatch(t, tc.expectedRequiredValues, cfg.entry.RequiredValueArgs)
-			assert.ElementsMatch(t, tc.expectedRequiredBools, cfg.entry.RequiredBoolArgs)
+			require.Equal(t, tc.pkg.ID, cfg.entry.Name)
+			require.ElementsMatch(t, tc.expectedRequiredEnvs, cfg.entry.RequiredEnvVars)
+			require.ElementsMatch(t, tc.expectedRequiredPositionals, cfg.entry.RequiredPositionalArgs)
+			require.ElementsMatch(t, tc.expectedRequiredValues, cfg.entry.RequiredValueArgs)
+			require.ElementsMatch(t, tc.expectedRequiredBools, cfg.entry.RequiredBoolArgs)
 		})
 	}
 }
@@ -476,7 +477,7 @@ func TestSelectRuntime(t *testing.T) {
 				require.EqualError(t, err, "no supported runtimes found")
 			} else {
 				require.NoError(t, err)
-				assert.Equal(t, tc.expectedRuntime, got)
+				require.Equal(t, tc.expectedRuntime, got)
 			}
 		})
 	}
@@ -760,4 +761,189 @@ func TestParseServerEntry(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestAddCmd_CacheTTL(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name          string
+		ttl           string
+		expectedError string
+	}{
+		{
+			name: "valid cache TTL",
+			ttl:  "1h",
+		},
+		{
+			name:          "invalid cache TTL",
+			ttl:           "invalid",
+			expectedError: "invalid cache TTL: time: invalid duration \"invalid\"",
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			pkg := packages.Server{
+				ID:   "testserver",
+				Name: "testserver",
+				Tools: []packages.Tool{
+					{Name: "tool1"},
+				},
+				Installations: map[runtime.Runtime]packages.Installation{
+					runtime.UVX: {
+						Runtime:     "uvx",
+						Package:     "mcp-server-testserver",
+						Version:     "latest",
+						Recommended: true,
+					},
+				},
+			}
+
+			cfg := &fakeConfig{}
+			cmdObj, err := NewAddCmd(
+				&cmd.BaseCmd{},
+				cmdopts.WithConfigLoader(&fakeLoader{cfg: cfg}),
+				cmdopts.WithRegistryBuilder(&fakeBuilder{reg: &fakeRegistry{pkg: pkg}}),
+			)
+			require.NoError(t, err)
+
+			cmdObj.SetOut(io.Discard)
+			cmdObj.SetErr(io.Discard)
+			cmdObj.SetArgs([]string{"testserver", "--cache-ttl", tc.ttl})
+
+			err = cmdObj.Execute()
+			if tc.expectedError != "" {
+				require.Error(t, err)
+				require.EqualError(t, err, tc.expectedError)
+			} else {
+				require.NoError(t, err)
+				require.True(t, cfg.addCalled)
+				require.Equal(t, "testserver", cfg.entry.Name)
+			}
+		})
+	}
+}
+
+func TestAddCmd_CacheFlagsWithTempDir(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name     string
+		setupCmd func(t *testing.T, tempDir string) []string
+	}{
+		{
+			name: "custom cache directory",
+			setupCmd: func(t *testing.T, tempDir string) []string {
+				return []string{"testserver", "--cache-dir", tempDir}
+			},
+		},
+		{
+			name: "both custom cache flags",
+			setupCmd: func(t *testing.T, tempDir string) []string {
+				return []string{"testserver", "--cache-dir", tempDir, "--cache-ttl", "30m"}
+			},
+		},
+		{
+			name: "cache disabled with custom settings",
+			setupCmd: func(t *testing.T, tempDir string) []string {
+				return []string{"testserver", "--no-cache", "--cache-dir", tempDir, "--cache-ttl", "2h"}
+			},
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			tempDir := t.TempDir()
+			args := tc.setupCmd(t, tempDir)
+
+			pkg := packages.Server{
+				ID:   "testserver",
+				Name: "testserver",
+				Tools: []packages.Tool{
+					{Name: "tool1"},
+				},
+				Installations: map[runtime.Runtime]packages.Installation{
+					runtime.UVX: {
+						Runtime:     "uvx",
+						Package:     "mcp-server-testserver",
+						Version:     "latest",
+						Recommended: true,
+					},
+				},
+			}
+
+			cfg := &fakeConfig{}
+			cmdObj, err := NewAddCmd(
+				&cmd.BaseCmd{},
+				cmdopts.WithConfigLoader(&fakeLoader{cfg: cfg}),
+				cmdopts.WithRegistryBuilder(&fakeBuilder{reg: &fakeRegistry{pkg: pkg}}),
+			)
+			require.NoError(t, err)
+
+			cmdObj.SetOut(io.Discard)
+			cmdObj.SetErr(io.Discard)
+			cmdObj.SetArgs(args)
+
+			err = cmdObj.Execute()
+			require.NoError(t, err)
+			require.True(t, cfg.addCalled)
+			require.Equal(t, "testserver", cfg.entry.Name)
+
+			// tempDir is available here for any cache directory verification
+		})
+	}
+}
+
+func TestAddCmd_NoCacheDirectoryCreatedWhenDisabled(t *testing.T) {
+	t.Parallel()
+
+	tempDir := t.TempDir()
+	cacheSubDir := filepath.Join(tempDir, "should-not-be-created")
+
+	// Verify the cache directory doesn't exist initially.
+	_, err := os.Stat(cacheSubDir)
+	require.True(t, os.IsNotExist(err), "Cache directory should not exist initially")
+
+	pkg := packages.Server{
+		ID:   "testserver",
+		Name: "testserver",
+		Tools: []packages.Tool{
+			{Name: "tool1"},
+		},
+		Installations: map[runtime.Runtime]packages.Installation{
+			runtime.UVX: {
+				Runtime:     "uvx",
+				Package:     "mcp-server-testserver",
+				Version:     "latest",
+				Recommended: true,
+			},
+		},
+	}
+
+	cfg := &fakeConfig{}
+	cmdObj, err := NewAddCmd(
+		&cmd.BaseCmd{},
+		cmdopts.WithConfigLoader(&fakeLoader{cfg: cfg}),
+		cmdopts.WithRegistryBuilder(&fakeBuilder{reg: &fakeRegistry{pkg: pkg}}),
+	)
+	require.NoError(t, err)
+
+	cmdObj.SetOut(io.Discard)
+	cmdObj.SetErr(io.Discard)
+	// Use --no-cache with custom cache directory - directory should NOT be created.
+	cmdObj.SetArgs([]string{"testserver", "--no-cache", "--cache-dir", cacheSubDir})
+
+	err = cmdObj.Execute()
+	require.NoError(t, err)
+	require.True(t, cfg.addCalled)
+	require.Equal(t, "testserver", cfg.entry.Name)
+
+	// Verify the cache directory was never created.
+	_, err = os.Stat(cacheSubDir)
+	require.True(t, os.IsNotExist(err), "Cache directory should not be created when --no-cache is used")
 }

@@ -163,14 +163,96 @@ func TestContext_UserSpecificConfigDir(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			original := os.Getenv(EnvVarXDGConfigHome)
-			t.Cleanup(func() {
-				require.NoError(t, os.Setenv(EnvVarXDGConfigHome, original))
-			})
-
 			t.Setenv(EnvVarXDGConfigHome, tc.xdgValue)
 
 			result, err := UserSpecificConfigDir()
+			require.NoError(t, err)
+			require.Equal(t, tc.expectedDir(t), result)
+		})
+	}
+}
+
+func TestUserSpecificDir_InvalidEnvVar(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name   string
+		envVar string
+		dir    string
+	}{
+		{
+			name:   "environment variable without XDG_ prefix",
+			envVar: "CONFIG_HOME",
+			dir:    ".config",
+		},
+		{
+			name:   "empty environment variable name",
+			envVar: "",
+			dir:    ".cache",
+		},
+		{
+			name:   "environment variable with wrong prefix",
+			envVar: "CACHE_HOME",
+			dir:    ".cache",
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			_, err := userSpecificDir(tc.envVar, tc.dir)
+			require.Error(t, err)
+			require.Contains(t, err.Error(), "does not follow XDG Base Directory Specification")
+		})
+	}
+}
+
+func TestContext_UserSpecificCacheDir(t *testing.T) {
+	tests := []struct {
+		name        string
+		xdgValue    string
+		expectedDir func(t *testing.T) string
+	}{
+		{
+			name:     "XDG_CACHE_HOME is set and used",
+			xdgValue: "/custom/cache/path",
+			expectedDir: func(t *testing.T) string {
+				return filepath.Join("/custom/cache/path", AppDirName())
+			},
+		},
+		{
+			name:     "XDG_CACHE_HOME is set with whitespace and trimmed",
+			xdgValue: "  /trimmed/cache/path  ",
+			expectedDir: func(t *testing.T) string {
+				return filepath.Join("/trimmed/cache/path", AppDirName())
+			},
+		},
+		{
+			name:     "XDG_CACHE_HOME is empty, fall back to default",
+			xdgValue: "",
+			expectedDir: func(t *testing.T) string {
+				home, err := os.UserHomeDir()
+				require.NoError(t, err)
+				return filepath.Join(home, ".cache", AppDirName())
+			},
+		},
+		{
+			name:     "XDG_CACHE_HOME is only whitespace, fall back to default",
+			xdgValue: "   ",
+			expectedDir: func(t *testing.T) string {
+				home, err := os.UserHomeDir()
+				require.NoError(t, err)
+				return filepath.Join(home, ".cache", AppDirName())
+			},
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Setenv(EnvVarXDGCacheHome, tc.xdgValue)
+
+			result, err := UserSpecificCacheDir()
 			require.NoError(t, err)
 			require.Equal(t, tc.expectedDir(t), result)
 		})
