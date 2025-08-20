@@ -21,6 +21,51 @@ import (
 	"github.com/mozilla-ai/mcpd/v2/internal/runtime"
 )
 
+// fakeRegistryMultiple supports returning multiple packages
+type fakeRegistryMultiple struct {
+	packages []packages.Server
+	err      error
+}
+
+func (f *fakeRegistryMultiple) Resolve(_ string, _ ...options.ResolveOption) (packages.Server, error) {
+	if len(f.packages) > 0 {
+		return f.packages[0], f.err
+	}
+	return packages.Server{}, f.err
+}
+
+func (f *fakeRegistryMultiple) Search(
+	_ string,
+	_ map[string]string,
+	_ ...options.SearchOption,
+) ([]packages.Server, error) {
+	return f.packages, f.err
+}
+
+func (f *fakeRegistryMultiple) ID() string {
+	return "fake-multiple"
+}
+
+// testServer creates a packages.Server with sensible defaults for testing.
+func testServer(t *testing.T) packages.Server {
+	t.Helper()
+	return packages.Server{
+		ID:          "test-server",
+		Name:        "Test Server",
+		Description: "A test server",
+		License:     "MIT",
+		Source:      "mozilla-ai",
+		Tools: []packages.Tool{
+			{Name: "test_tool"},
+		},
+		Installations: packages.Installations{
+			runtime.UVX: packages.Installation{
+				Runtime: "test-server",
+			},
+		},
+	}
+}
+
 func TestSearchCmd_Filters(t *testing.T) {
 	t.Parallel()
 
@@ -136,21 +181,7 @@ func TestSearchCmd_Run_UnexpectedFormat(t *testing.T) {
 }
 
 func TestSearchCmd_DefaultFormat(t *testing.T) {
-	pkg := packages.Server{
-		ID:          "test-server",
-		Name:        "Test Server",
-		Description: "A test server",
-		License:     "MIT",
-		Source:      "mcpm",
-		Tools: []packages.Tool{
-			{Name: "test_tool"},
-		},
-		Installations: packages.Installations{
-			runtime.UVX: packages.Installation{
-				Runtime: "test-server",
-			},
-		},
-	}
+	pkg := testServer(t)
 
 	o := new(bytes.Buffer)
 	cmdObj, err := NewSearchCmd(
@@ -172,21 +203,7 @@ func TestSearchCmd_DefaultFormat(t *testing.T) {
 }
 
 func TestSearchCmd_TextFormat(t *testing.T) {
-	pkg := packages.Server{
-		ID:          "test-server",
-		Name:        "Test Server",
-		Description: "A test server",
-		License:     "MIT",
-		Source:      "mcpm",
-		Tools: []packages.Tool{
-			{Name: "test_tool"},
-		},
-		Installations: packages.Installations{
-			runtime.UVX: packages.Installation{
-				Runtime: "test-server",
-			},
-		},
-	}
+	pkg := testServer(t)
 
 	o := new(bytes.Buffer)
 	cmdObj, err := NewSearchCmd(
@@ -208,21 +225,7 @@ func TestSearchCmd_TextFormat(t *testing.T) {
 }
 
 func TestSearchCmd_JSONFormat(t *testing.T) {
-	pkg := packages.Server{
-		ID:          "test-server",
-		Name:        "Test Server",
-		Description: "A test server",
-		License:     "MIT",
-		Source:      "mcpm",
-		Tools: []packages.Tool{
-			{Name: "test_tool"},
-		},
-		Installations: packages.Installations{
-			runtime.UVX: packages.Installation{
-				Runtime: "test-server",
-			},
-		},
-	}
+	pkg := testServer(t)
 
 	o := new(bytes.Buffer)
 	cmdObj, err := NewSearchCmd(
@@ -247,7 +250,7 @@ func TestSearchCmd_JSONFormat(t *testing.T) {
 	require.Equal(t, "Test Server", result.Results[0].Name)
 	require.Equal(t, "A test server", result.Results[0].Description)
 	require.Equal(t, "MIT", result.Results[0].License)
-	require.Equal(t, "mcpm", result.Results[0].Source)
+	require.Equal(t, "mozilla-ai", result.Results[0].Source)
 	require.Len(t, result.Results[0].Tools, 1)
 	require.Equal(t, "test_tool", result.Results[0].Tools[0].Name)
 }
@@ -276,35 +279,21 @@ func TestSearchCmd_JSONFormat_EmptyResults(t *testing.T) {
 }
 
 func TestSearchCmd_JSONFormat_MultipleResults(t *testing.T) {
-	pkg1 := packages.Server{
-		ID:          "server1",
-		Name:        "Server 1",
-		Description: "First server",
-		License:     "MIT",
-		Source:      "mcpm",
-		Tools: []packages.Tool{
-			{Name: "tool1"},
-		},
-		Installations: packages.Installations{
-			runtime.UVX: packages.Installation{
-				Runtime: "test-server",
-			},
-		},
-	}
+	pkg1 := testServer(t)
+	pkg1.ID = "server1"
+	pkg1.Name = "Server 1"
+	pkg1.Description = "First server"
+	pkg1.Tools = []packages.Tool{{Name: "tool1"}}
 
-	pkg2 := packages.Server{
-		ID:          "server2",
-		Name:        "Server 2",
-		Description: "Second server",
-		License:     "Apache-2.0",
-		Source:      "mcpm",
-		Tools: []packages.Tool{
-			{Name: "tool2"},
-		},
-		Installations: packages.Installations{
-			runtime.Docker: packages.Installation{
-				Runtime: "test-server",
-			},
+	pkg2 := testServer(t)
+	pkg2.ID = "server2"
+	pkg2.Name = "Server 2"
+	pkg2.Description = "Second server"
+	pkg2.License = "Apache-2.0"
+	pkg2.Tools = []packages.Tool{{Name: "tool2"}}
+	pkg2.Installations = packages.Installations{
+		runtime.Docker: packages.Installation{
+			Runtime: "test-server",
 		},
 	}
 
@@ -352,21 +341,7 @@ func TestSearchCmd_InvalidFormat(t *testing.T) {
 }
 
 func TestSearchCmd_CaseInsensitiveFormat(t *testing.T) {
-	pkg := packages.Server{
-		ID:          "test-server",
-		Name:        "Test Server",
-		Description: "A test server",
-		License:     "MIT",
-		Source:      "mcpm",
-		Tools: []packages.Tool{
-			{Name: "test_tool"},
-		},
-		Installations: packages.Installations{
-			runtime.UVX: packages.Installation{
-				Runtime: "test-server",
-			},
-		},
-	}
+	pkg := testServer(t)
 
 	testCases := []struct {
 		name       string
@@ -490,21 +465,7 @@ func TestSearchCmd_TextFormat_NoResults(t *testing.T) {
 }
 
 func TestSearchCmd_FlagsWithJSONFormat(t *testing.T) {
-	pkg := packages.Server{
-		ID:          "test-server",
-		Name:        "Test Server",
-		Description: "A test server",
-		License:     "MIT",
-		Source:      "mcpm",
-		Tools: []packages.Tool{
-			{Name: "test_tool"},
-		},
-		Installations: packages.Installations{
-			runtime.UVX: packages.Installation{
-				Runtime: "test-server",
-			},
-		},
-	}
+	pkg := testServer(t)
 
 	o := new(bytes.Buffer)
 	cmdObj, err := NewSearchCmd(
@@ -530,21 +491,7 @@ func TestSearchCmd_FlagsWithJSONFormat(t *testing.T) {
 }
 
 func TestSearchCmd_WildcardSearch(t *testing.T) {
-	pkg := packages.Server{
-		ID:          "test-server",
-		Name:        "Test Server",
-		Description: "A test server",
-		License:     "MIT",
-		Source:      "mcpm",
-		Tools: []packages.Tool{
-			{Name: "test_tool"},
-		},
-		Installations: packages.Installations{
-			runtime.UVX: packages.Installation{
-				Runtime: "test-server",
-			},
-		},
-	}
+	pkg := testServer(t)
 
 	o := new(bytes.Buffer)
 	cmdObj, err := NewSearchCmd(
@@ -567,31 +514,6 @@ func TestSearchCmd_WildcardSearch(t *testing.T) {
 
 	require.Len(t, result.Results, 1)
 	require.Equal(t, "test-server", result.Results[0].ID)
-}
-
-// fakeRegistryMultiple supports returning multiple packages
-type fakeRegistryMultiple struct {
-	packages []packages.Server
-	err      error
-}
-
-func (f *fakeRegistryMultiple) Resolve(_ string, _ ...options.ResolveOption) (packages.Server, error) {
-	if len(f.packages) > 0 {
-		return f.packages[0], f.err
-	}
-	return packages.Server{}, f.err
-}
-
-func (f *fakeRegistryMultiple) Search(
-	_ string,
-	_ map[string]string,
-	_ ...options.SearchOption,
-) ([]packages.Server, error) {
-	return f.packages, f.err
-}
-
-func (f *fakeRegistryMultiple) ID() string {
-	return "fake-multiple"
 }
 
 func TestParseOutputFormat(t *testing.T) {
@@ -665,19 +587,16 @@ func TestSearchCmd_CacheTTL(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
-			pkg := packages.Server{
-				ID:   "testserver",
-				Name: "testserver",
-				Tools: []packages.Tool{
-					{Name: "tool1"},
-				},
-				Installations: map[runtime.Runtime]packages.Installation{
-					runtime.UVX: {
-						Runtime:     "uvx",
-						Package:     "mcp-server-testserver",
-						Version:     "latest",
-						Recommended: true,
-					},
+			pkg := testServer(t)
+			pkg.ID = "testserver"
+			pkg.Name = "testserver"
+			pkg.Tools = []packages.Tool{{Name: "tool1"}}
+			pkg.Installations = map[runtime.Runtime]packages.Installation{
+				runtime.UVX: {
+					Runtime:     "uvx",
+					Package:     "mcp-server-testserver",
+					Version:     "latest",
+					Recommended: true,
 				},
 			}
 
@@ -736,19 +655,16 @@ func TestSearchCmd_CacheFlagsWithTempDir(t *testing.T) {
 			tempDir := t.TempDir()
 			args := tc.setupCmd(t, tempDir)
 
-			pkg := packages.Server{
-				ID:   "testserver",
-				Name: "testserver",
-				Tools: []packages.Tool{
-					{Name: "tool1"},
-				},
-				Installations: map[runtime.Runtime]packages.Installation{
-					runtime.UVX: {
-						Runtime:     "uvx",
-						Package:     "mcp-server-testserver",
-						Version:     "latest",
-						Recommended: true,
-					},
+			pkg := testServer(t)
+			pkg.ID = "testserver"
+			pkg.Name = "testserver"
+			pkg.Tools = []packages.Tool{{Name: "tool1"}}
+			pkg.Installations = map[runtime.Runtime]packages.Installation{
+				runtime.UVX: {
+					Runtime:     "uvx",
+					Package:     "mcp-server-testserver",
+					Version:     "latest",
+					Recommended: true,
 				},
 			}
 
@@ -780,19 +696,16 @@ func TestSearchCmd_NoCacheDirectoryCreatedWhenDisabled(t *testing.T) {
 	_, err := os.Stat(cacheSubDir)
 	require.True(t, os.IsNotExist(err), "Cache directory should not exist initially")
 
-	pkg := packages.Server{
-		ID:   "testserver",
-		Name: "testserver",
-		Tools: []packages.Tool{
-			{Name: "tool1"},
-		},
-		Installations: map[runtime.Runtime]packages.Installation{
-			runtime.UVX: {
-				Runtime:     "uvx",
-				Package:     "mcp-server-testserver",
-				Version:     "latest",
-				Recommended: true,
-			},
+	pkg := testServer(t)
+	pkg.ID = "testserver"
+	pkg.Name = "testserver"
+	pkg.Tools = []packages.Tool{{Name: "tool1"}}
+	pkg.Installations = map[runtime.Runtime]packages.Installation{
+		runtime.UVX: {
+			Runtime:     "uvx",
+			Package:     "mcp-server-testserver",
+			Version:     "latest",
+			Recommended: true,
 		},
 	}
 
