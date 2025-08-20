@@ -90,22 +90,3 @@ func WithRefreshCache(refreshCache bool) Option {
 		return nil
 	}
 }
-
-// defaultCacheOptions returns cache options with sensible defaults.
-//func defaultCacheOptions() Options {
-//	// Get default cache directory, falling back to temp if config dir fails.
-//	var cacheDir string
-//	if configDir, err := context.UserSpecificConfigDir(); err == nil {
-//		cacheDir = filepath.Join(configDir, "registries")
-//	} else {
-//		// Fallback to temp directory if user config dir is unavailable.
-//		cacheDir = filepath.Join(os.TempDir(), "mcpd", "registries")
-//	}
-//
-//	return Options{
-//		dir:          cacheDir,
-//		ttl:          24 * time.Hour,
-//		enabled:      true,
-//		refreshCache: false,
-//	}
-//}

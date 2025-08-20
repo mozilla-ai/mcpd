@@ -87,7 +87,7 @@ func DefaultCacheDir() (string, error) {
 	if err != nil {
 		return "", err
 	}
-	return filepath.Join(configDir, "registries"), nil
+	return filepath.Join(cacheDir, "registries"), nil
 }
 
 // DefaultCacheTTL returns the default cache time-to-live.
