@@ -11,6 +11,8 @@ import (
 	"strings"
 
 	"github.com/BurntSushi/toml"
+
+	"github.com/mozilla-ai/mcpd/v2/internal/perms"
 )
 
 const (
@@ -217,12 +219,12 @@ func (c *ExecutionContextConfig) SaveConfig() error {
 	}
 
 	// Ensure the directory exists before creating the file.
-	if err := EnsureDirectoryExists(filepath.Dir(path)); err != nil {
+	if err := EnsureSecureDir(filepath.Dir(path)); err != nil {
 		return fmt.Errorf("could not ensure execution context directory exists: %w", err)
 	}
 
 	// owner: rw-, group: ---, others: ---
-	f, err := os.OpenFile(path, os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0o600)
+	f, err := os.OpenFile(path, os.O_RDWR|os.O_CREATE|os.O_TRUNC, perms.SecureFile)
 	if err != nil {
 		return fmt.Errorf("could not create file '%s': %w", path, err)
 	}
@@ -293,11 +295,20 @@ func AppDirName() string {
 	return "mcpd"
 }
 
-// EnsureDirectoryExists creates a directory with secure permissions if it doesn't exist.
-// The directory is created with mode 0740 (owner: rwx, group: r--, others: ---).
-func EnsureDirectoryExists(path string) error {
-	if err := os.MkdirAll(path, 0o740); err != nil {
-		return fmt.Errorf("could not ensure directory exists for '%s': %w", path, err)
+// EnsureSecureDir creates a directory with secure permissions if it doesn't exist.
+// Used for directories containing sensitive data like execution context.
+func EnsureSecureDir(path string) error {
+	if err := os.MkdirAll(path, perms.SecureDir); err != nil {
+		return fmt.Errorf("could not ensure secure directory exists for '%s': %w", path, err)
+	}
+	return nil
+}
+
+// EnsureRegularDir creates a directory with standard permissions if it doesn't exist.
+// Used for cache directories, data directories, and documentation.
+func EnsureRegularDir(path string) error {
+	if err := os.MkdirAll(path, perms.RegularDir); err != nil {
+		return fmt.Errorf("could not ensure regular directory exists for '%s': %w", path, err)
 	}
 	return nil
 }
