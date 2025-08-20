@@ -83,7 +83,7 @@ func WithCacheTTL(ttl time.Duration) BuildOption {
 
 // DefaultCacheDir returns the default cache directory for registry manifests.
 func DefaultCacheDir() (string, error) {
-	configDir, err := context.UserSpecificCacheDir()
+	cacheDir, err := context.UserSpecificCacheDir()
 	if err != nil {
 		return "", err
 	}
