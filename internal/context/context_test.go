@@ -7,6 +7,8 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
+
+	"github.com/mozilla-ai/mcpd/v2/internal/perms"
 )
 
 func TestLoadOrInitExecutionContext(t *testing.T) {
@@ -646,6 +648,354 @@ DEBUG = "true"`
 	}
 
 	require.Equal(t, expected, cfg.Servers)
+}
+
+func TestEnsureSecureDir(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name    string
+		setup   func(t *testing.T) string
+		wantErr bool
+		errMsg  string
+	}{
+		{
+			name: "creates directory when it doesn't exist",
+			setup: func(t *testing.T) string {
+				return filepath.Join(t.TempDir(), "new-secure-dir")
+			},
+			wantErr: false,
+		},
+		{
+			name: "succeeds when directory exists with correct permissions",
+			setup: func(t *testing.T) string {
+				dir := filepath.Join(t.TempDir(), "existing-secure-dir")
+				err := os.MkdirAll(dir, perms.SecureDir)
+				require.NoError(t, err)
+				return dir
+			},
+			wantErr: false,
+		},
+		{
+			name: "fails when directory exists with wrong permissions (0755)",
+			setup: func(t *testing.T) string {
+				dir := filepath.Join(t.TempDir(), "wrong-perms-755")
+				err := os.MkdirAll(dir, 0o755)
+				require.NoError(t, err)
+				return dir
+			},
+			wantErr: true,
+			errMsg:  "incorrect permissions",
+		},
+		{
+			name: "fails when directory exists with wrong permissions (0644)",
+			setup: func(t *testing.T) string {
+				dir := filepath.Join(t.TempDir(), "wrong-perms-644")
+				err := os.MkdirAll(dir, 0o644)
+				require.NoError(t, err)
+				return dir
+			},
+			wantErr: true,
+			errMsg:  "incorrect permissions",
+		},
+		{
+			name: "fails when directory exists with overly permissive settings (0777)",
+			setup: func(t *testing.T) string {
+				dir := filepath.Join(t.TempDir(), "wrong-perms-777")
+				err := os.MkdirAll(dir, 0o777)
+				require.NoError(t, err)
+				return dir
+			},
+			wantErr: true,
+			errMsg:  "incorrect permissions",
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			path := tc.setup(t)
+			err := EnsureSecureDir(path)
+
+			if tc.wantErr {
+				require.Error(t, err)
+				if tc.errMsg != "" {
+					require.Contains(t, err.Error(), tc.errMsg)
+				}
+			} else {
+				require.NoError(t, err)
+
+				// Verify the directory exists and has correct permissions.
+				info, statErr := os.Stat(path)
+				require.NoError(t, statErr)
+				require.True(t, info.IsDir())
+				require.Equal(t, perms.SecureDir, info.Mode().Perm(), "Directory should have secure permissions (0700)")
+			}
+		})
+	}
+}
+
+func TestEnsureSecureDirWithNestedPaths(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name         string
+		relativePath string
+		setup        func(t *testing.T, basePath string) string
+		wantErr      bool
+		errMsg       string
+	}{
+		{
+			name:         "creates nested path when none exists",
+			relativePath: "a/b/c/secure",
+			setup: func(t *testing.T, basePath string) string {
+				return filepath.Join(basePath, "a/b/c/secure")
+			},
+			wantErr: false,
+		},
+		{
+			name:         "succeeds when parent directories have correct permissions",
+			relativePath: "parent/child",
+			setup: func(t *testing.T, basePath string) string {
+				parentPath := filepath.Join(basePath, "parent")
+				err := os.MkdirAll(parentPath, perms.SecureDir)
+				require.NoError(t, err)
+				return filepath.Join(parentPath, "child")
+			},
+			wantErr: false,
+		},
+		{
+			name:         "creates child even when parent has different permissions",
+			relativePath: "regular-parent/secure-child",
+			setup: func(t *testing.T, basePath string) string {
+				parentPath := filepath.Join(basePath, "regular-parent")
+				err := os.MkdirAll(parentPath, perms.RegularDir)
+				require.NoError(t, err)
+				return filepath.Join(parentPath, "secure-child")
+			},
+			wantErr: false,
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			baseDir := t.TempDir()
+			path := tc.setup(t, baseDir)
+			err := EnsureSecureDir(path)
+
+			if tc.wantErr {
+				require.Error(t, err)
+				if tc.errMsg != "" {
+					require.Contains(t, err.Error(), tc.errMsg)
+				}
+			} else {
+				require.NoError(t, err)
+
+				// Verify the target directory has secure permissions.
+				info, statErr := os.Stat(path)
+				require.NoError(t, statErr)
+				require.True(t, info.IsDir())
+				require.Equal(t, perms.SecureDir, info.Mode().Perm())
+			}
+		})
+	}
+}
+
+func TestEnsureSecureDirErrorMessages(t *testing.T) {
+	t.Parallel()
+
+	t.Run("permission error shows expected vs actual permissions", func(t *testing.T) {
+		t.Parallel()
+
+		dir := filepath.Join(t.TempDir(), "test-dir")
+		err := os.MkdirAll(dir, 0o755)
+		require.NoError(t, err)
+
+		err = EnsureSecureDir(dir)
+		require.Error(t, err)
+
+		// Check that error message contains both actual and expected permissions in octal format.
+		require.Contains(t, err.Error(), "0755", "Error should show actual permissions")
+		require.Contains(t, err.Error(), "0700", "Error should show expected permissions")
+		require.Contains(t, err.Error(), dir, "Error should include the path")
+	})
+}
+
+func TestEnsureRegularDir(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name    string
+		setup   func(t *testing.T) string
+		wantErr bool
+		errMsg  string
+	}{
+		{
+			name: "creates directory when it doesn't exist",
+			setup: func(t *testing.T) string {
+				return filepath.Join(t.TempDir(), "new-regular-dir")
+			},
+			wantErr: false,
+		},
+		{
+			name: "succeeds when directory exists with correct permissions",
+			setup: func(t *testing.T) string {
+				dir := filepath.Join(t.TempDir(), "existing-regular-dir")
+				err := os.MkdirAll(dir, perms.RegularDir)
+				require.NoError(t, err)
+				return dir
+			},
+			wantErr: false,
+		},
+		{
+			name: "fails when directory exists with wrong permissions (0700)",
+			setup: func(t *testing.T) string {
+				dir := filepath.Join(t.TempDir(), "wrong-perms-700")
+				err := os.MkdirAll(dir, 0o700)
+				require.NoError(t, err)
+				return dir
+			},
+			wantErr: true,
+			errMsg:  "incorrect permissions",
+		},
+		{
+			name: "fails when directory exists with wrong permissions (0711)",
+			setup: func(t *testing.T) string {
+				dir := filepath.Join(t.TempDir(), "wrong-perms-711")
+				err := os.MkdirAll(dir, 0o711)
+				require.NoError(t, err)
+				return dir
+			},
+			wantErr: true,
+			errMsg:  "incorrect permissions",
+		},
+		{
+			name: "fails when directory exists with restrictive permissions (0644)",
+			setup: func(t *testing.T) string {
+				dir := filepath.Join(t.TempDir(), "wrong-perms-644")
+				err := os.MkdirAll(dir, 0o644)
+				require.NoError(t, err)
+				return dir
+			},
+			wantErr: true,
+			errMsg:  "incorrect permissions",
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			path := tc.setup(t)
+			err := EnsureRegularDir(path)
+
+			if tc.wantErr {
+				require.Error(t, err)
+				if tc.errMsg != "" {
+					require.Contains(t, err.Error(), tc.errMsg)
+				}
+			} else {
+				require.NoError(t, err)
+
+				// Verify the directory exists and has correct permissions.
+				info, statErr := os.Stat(path)
+				require.NoError(t, statErr)
+				require.True(t, info.IsDir())
+				require.Equal(t, perms.RegularDir, info.Mode().Perm(), "Directory should have regular permissions (0755)")
+			}
+		})
+	}
+}
+
+func TestEnsureRegularDirWithNestedPaths(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name         string
+		relativePath string
+		setup        func(t *testing.T, basePath string) string
+		wantErr      bool
+		errMsg       string
+	}{
+		{
+			name:         "creates nested path when none exists",
+			relativePath: "cache/registry/manifests/nested",
+			setup: func(t *testing.T, basePath string) string {
+				return filepath.Join(basePath, "cache/registry/manifests/nested")
+			},
+			wantErr: false,
+		},
+		{
+			name:         "succeeds when parent directories have correct permissions",
+			relativePath: "parent/child",
+			setup: func(t *testing.T, basePath string) string {
+				parentPath := filepath.Join(basePath, "parent")
+				err := os.MkdirAll(parentPath, perms.RegularDir)
+				require.NoError(t, err)
+				return filepath.Join(parentPath, "child")
+			},
+			wantErr: false,
+		},
+		{
+			name:         "creates child even when parent has different permissions",
+			relativePath: "secure-parent/regular-child",
+			setup: func(t *testing.T, basePath string) string {
+				parentPath := filepath.Join(basePath, "secure-parent")
+				err := os.MkdirAll(parentPath, perms.SecureDir)
+				require.NoError(t, err)
+				return filepath.Join(parentPath, "regular-child")
+			},
+			wantErr: false,
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			baseDir := t.TempDir()
+			path := tc.setup(t, baseDir)
+			err := EnsureRegularDir(path)
+
+			if tc.wantErr {
+				require.Error(t, err)
+				if tc.errMsg != "" {
+					require.Contains(t, err.Error(), tc.errMsg)
+				}
+			} else {
+				require.NoError(t, err)
+
+				// Verify the target directory has regular permissions.
+				info, statErr := os.Stat(path)
+				require.NoError(t, statErr)
+				require.True(t, info.IsDir())
+				require.Equal(t, perms.RegularDir, info.Mode().Perm())
+			}
+		})
+	}
+}
+
+func TestEnsureRegularDirErrorMessages(t *testing.T) {
+	t.Parallel()
+
+	t.Run("permission error shows expected vs actual permissions", func(t *testing.T) {
+		t.Parallel()
+
+		dir := filepath.Join(t.TempDir(), "test-dir")
+		err := os.MkdirAll(dir, 0o700)
+		require.NoError(t, err)
+
+		err = EnsureRegularDir(dir)
+		require.Error(t, err)
+
+		// Check that error message contains both actual and expected permissions in octal format.
+		require.Contains(t, err.Error(), "0700", "Error should show actual permissions")
+		require.Contains(t, err.Error(), "0755", "Error should show expected permissions")
+		require.Contains(t, err.Error(), dir, "Error should include the path")
+	})
 }
 
 // TestLoadExecutionContextConfig_UndefinedVariables tests that undefined environment variables expand to empty strings.

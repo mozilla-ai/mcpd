@@ -295,20 +295,42 @@ func AppDirName() string {
 	return "mcpd"
 }
 
-// EnsureSecureDir creates a directory with secure permissions if it doesn't exist.
-// Used for directories containing sensitive data like execution context.
-func EnsureSecureDir(path string) error {
-	if err := os.MkdirAll(path, perms.SecureDir); err != nil {
-		return fmt.Errorf("could not ensure secure directory exists for '%s': %w", path, err)
+// ensureDir creates a directory with the specified permissions if it doesn't exist,
+// and verifies that it has the expected permissions if it already exists.
+// It does not attempt to repair ownership or permissions: if they are wrong, it returns an error.
+func ensureDir(path string, perm os.FileMode) error {
+	if err := os.MkdirAll(path, perm); err != nil {
+		return fmt.Errorf("could not ensure directory exists for '%s': %w", path, err)
 	}
+
+	info, err := os.Stat(path)
+	if err != nil {
+		return fmt.Errorf("could not stat directory '%s': %w", path, err)
+	}
+
+	if info.Mode().Perm() != perm {
+		return fmt.Errorf(
+			"incorrect permissions for directory '%s' (%#o, want %#o)",
+			path, info.Mode().Perm(),
+			perm,
+		)
+	}
+
 	return nil
 }
 
-// EnsureRegularDir creates a directory with standard permissions if it doesn't exist.
+// EnsureSecureDir creates a directory with secure permissions if it doesn't exist,
+// and verifies that it has the expected permissions if it already exists.
+// It does not attempt to repair ownership or permissions: if they are wrong,
+// it returns an error.
+func EnsureSecureDir(path string) error {
+	return ensureDir(path, perms.SecureDir)
+}
+
+// EnsureRegularDir creates a directory with standard permissions if it doesn't exist,
+// and verifies that it has the expected permissions if it already exists.
+// It does not attempt to repair ownership or permissions: if they are wrong, it returns an error.
 // Used for cache directories, data directories, and documentation.
 func EnsureRegularDir(path string) error {
-	if err := os.MkdirAll(path, perms.RegularDir); err != nil {
-		return fmt.Errorf("could not ensure regular directory exists for '%s': %w", path, err)
-	}
-	return nil
+	return ensureDir(path, perms.RegularDir)
 }
