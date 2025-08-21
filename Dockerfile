@@ -37,13 +37,17 @@ RUN apk add --no-cache tini=0.19.0-r3
 #  - Adds a dedicated non-root group and user for security (using the ARG).
 #  - Creates necessary directories for configs, logs, and user data.
 #  - Sets correct ownership for the non-root user.
+# Note: ~/.cache/mcpd is created on-demand by the application when needed
+# (e.g. ~/.cache/mcpd/registries during 'mcpd add' or 'mcpd search' commands)
+# but not during normal daemon operation.
 RUN addgroup -S $MCPD_USER && \
     adduser -D -S -h $MCPD_HOME -G $MCPD_USER $MCPD_USER && \
     mkdir -p \
       $MCPD_HOME/.config/mcpd \
       /var/log/mcpd \
       /etc/mcpd && \
-    chown -R $MCPD_USER:$MCPD_USER $MCPD_HOME /var/log/mcpd
+    chmod 700 $MCPD_HOME/.config/mcpd && \
+    chown -R $MCPD_USER:$MCPD_USER $MCPD_HOME /var/log/mcpd \
 
 # Copy uv/uvx binaries from image.
 COPY --from=ghcr.io/astral-sh/uv:0.8.4 /uv /uvx /usr/local/bin/
