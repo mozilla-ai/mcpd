@@ -15,6 +15,188 @@ import (
 	"github.com/mozilla-ai/mcpd/v2/internal/errors"
 )
 
+func TestHealthTracker_Add(t *testing.T) {
+	t.Parallel()
+
+	t.Run("add new server", func(t *testing.T) {
+		t.Parallel()
+		tracker := NewHealthTracker([]string{"existing"})
+
+		// Add a new server.
+		tracker.Add("new-server")
+
+		// Verify it was added.
+		health, err := tracker.Status("new-server")
+		require.NoError(t, err)
+		require.Equal(t, "new-server", health.Name)
+		require.Equal(t, domain.HealthStatusUnknown, health.Status)
+		require.Nil(t, health.LastChecked)
+		require.Nil(t, health.LastSuccessful)
+	})
+
+	t.Run("add existing server (no-op)", func(t *testing.T) {
+		t.Parallel()
+		tracker := NewHealthTracker([]string{"server1"})
+
+		// Update the server's health.
+		latency := 100 * time.Millisecond
+		err := tracker.Update("server1", domain.HealthStatusOK, &latency)
+		require.NoError(t, err)
+
+		// Get the current state.
+		healthBefore, err := tracker.Status("server1")
+		require.NoError(t, err)
+
+		// Try to add the same server again.
+		tracker.Add("server1")
+
+		// Verify the health data is preserved.
+		healthAfter, err := tracker.Status("server1")
+		require.NoError(t, err)
+		require.Equal(t, healthBefore, healthAfter)
+		require.NotNil(t, healthAfter.LastChecked)
+		require.NotNil(t, healthAfter.LastSuccessful)
+	})
+
+	t.Run("concurrent adds", func(t *testing.T) {
+		t.Parallel()
+		tracker := NewHealthTracker([]string{})
+
+		var wg sync.WaitGroup
+		for i := 0; i < 10; i++ {
+			wg.Add(1)
+			go func(i int) {
+				defer wg.Done()
+				tracker.Add(fmt.Sprintf("server-%d", i))
+			}(i)
+		}
+		wg.Wait()
+
+		// Verify all servers were added.
+		servers := tracker.List()
+		require.Len(t, servers, 10)
+	})
+}
+
+func TestHealthTracker_Remove(t *testing.T) {
+	t.Parallel()
+
+	t.Run("remove existing server", func(t *testing.T) {
+		t.Parallel()
+		tracker := NewHealthTracker([]string{"server1", "server2", "server3"})
+
+		// Remove a server.
+		tracker.Remove("server2")
+
+		// Verify it was removed.
+		_, err := tracker.Status("server2")
+		require.Error(t, err)
+		require.True(t, stdErrors.Is(err, errors.ErrHealthNotTracked))
+
+		// Verify other servers remain.
+		servers := tracker.List()
+		require.Len(t, servers, 2)
+		serverNames := make([]string, len(servers))
+		for i, s := range servers {
+			serverNames[i] = s.Name
+		}
+		require.Contains(t, serverNames, "server1")
+		require.Contains(t, serverNames, "server3")
+		require.NotContains(t, serverNames, "server2")
+	})
+
+	t.Run("remove non-existent server (no-op)", func(t *testing.T) {
+		t.Parallel()
+		tracker := NewHealthTracker([]string{"server1"})
+
+		// Remove a non-existent server.
+		tracker.Remove("non-existent")
+
+		// Verify existing server remains.
+		servers := tracker.List()
+		require.Len(t, servers, 1)
+		require.Equal(t, "server1", servers[0].Name)
+	})
+
+	t.Run("concurrent removes", func(t *testing.T) {
+		t.Parallel()
+		serverNames := make([]string, 20)
+		for i := 0; i < 20; i++ {
+			serverNames[i] = fmt.Sprintf("server-%d", i)
+		}
+		tracker := NewHealthTracker(serverNames)
+
+		var wg sync.WaitGroup
+		// Remove even-numbered servers.
+		for i := 0; i < 20; i += 2 {
+			wg.Add(1)
+			go func(i int) {
+				defer wg.Done()
+				tracker.Remove(fmt.Sprintf("server-%d", i))
+			}(i)
+		}
+		wg.Wait()
+
+		// Verify only odd-numbered servers remain.
+		servers := tracker.List()
+		require.Len(t, servers, 10)
+		for _, s := range servers {
+			var num int
+			_, err := fmt.Sscanf(s.Name, "server-%d", &num)
+			require.NoError(t, err)
+			require.Equal(t, 1, num%2, "Expected only odd-numbered servers")
+		}
+	})
+}
+
+func TestHealthTracker_AddRemoveIntegration(t *testing.T) {
+	t.Parallel()
+
+	tracker := NewHealthTracker([]string{"initial"})
+
+	// Add servers.
+	tracker.Add("server1")
+	tracker.Add("server2")
+
+	// Update health for server1.
+	latency := 50 * time.Millisecond
+	err := tracker.Update("server1", domain.HealthStatusOK, &latency)
+	require.NoError(t, err)
+
+	// Remove initial server.
+	tracker.Remove("initial")
+
+	// Add another server.
+	tracker.Add("server3")
+
+	// Remove server2.
+	tracker.Remove("server2")
+
+	// Verify final state.
+	servers := tracker.List()
+	require.Len(t, servers, 2)
+
+	serverMap := make(map[string]domain.ServerHealth)
+	for _, s := range servers {
+		serverMap[s.Name] = s
+	}
+
+	// Verify server1 preserved its health data.
+	require.Contains(t, serverMap, "server1")
+	require.Equal(t, domain.HealthStatusOK, serverMap["server1"].Status)
+	require.NotNil(t, serverMap["server1"].LastChecked)
+	require.NotNil(t, serverMap["server1"].LastSuccessful)
+
+	// Verify server3 is in unknown state.
+	require.Contains(t, serverMap, "server3")
+	require.Equal(t, domain.HealthStatusUnknown, serverMap["server3"].Status)
+	require.Nil(t, serverMap["server3"].LastChecked)
+
+	// Verify removed servers are gone.
+	require.NotContains(t, serverMap, "initial")
+	require.NotContains(t, serverMap, "server2")
+}
+
 func TestNewHealthTracker(t *testing.T) {
 	t.Parallel()
 
