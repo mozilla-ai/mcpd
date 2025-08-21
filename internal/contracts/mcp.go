@@ -18,6 +18,12 @@ type MCPHealthMonitor interface {
 
 	// Update records a health check for a tracked server.
 	Update(name string, status domain.HealthStatus, latency *time.Duration) error
+
+	// Add registers a new server for health tracking.
+	Add(name string)
+
+	// Remove stops tracking health for a server and removes its health data.
+	Remove(name string)
 }
 
 // MCPClientAccessor provides a way to interact with MCP servers through a client.

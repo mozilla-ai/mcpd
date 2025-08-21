@@ -47,6 +47,14 @@ func (m *mockHealthTracker) Update(name string, status domain.HealthStatus, late
 	return nil
 }
 
+func (m *mockHealthTracker) Add(name string) {
+	// Mock implementation.
+}
+
+func (m *mockHealthTracker) Remove(name string) {
+	// Mock implementation.
+}
+
 func TestDaemon_APIDependencies_Validate(t *testing.T) {
 	t.Parallel()
 
