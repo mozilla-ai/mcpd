@@ -101,7 +101,7 @@ func (c *Cmd) run(cmd *cobra.Command, _ []string) error {
 func (c *Cmd) handleExport() error {
 	cfg, err := c.cfgLoader.Load(flags.ConfigFile)
 	if err != nil {
-		return fmt.Errorf("failed to load config: %w", err)
+		return err
 	}
 
 	rtCtx, err := c.ctxLoader.Load(flags.RuntimeFile)

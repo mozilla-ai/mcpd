@@ -32,28 +32,33 @@ func (d *DefaultLoader) Init(path string) error {
 func (d *DefaultLoader) Load(path string) (Modifier, error) {
 	path = strings.TrimSpace(path)
 	if path == "" {
-		return nil, fmt.Errorf("path cannot be empty")
+		return nil, fmt.Errorf("%w: path cannot be empty", ErrConfigLoadFailed)
 	}
 
 	_, err := os.Stat(path)
 	if err != nil {
 		if os.IsNotExist(err) {
-			return nil, fmt.Errorf("config file cannot be found, run: 'mcpd init'")
+			return nil, fmt.Errorf("%w: config file cannot be found, run: 'mcpd init'", ErrConfigLoadFailed)
 		}
-		return nil, fmt.Errorf("failed to stat config file (%s): %w", path, err)
+		return nil, fmt.Errorf("%w: failed to stat config file (%s): %w", ErrConfigLoadFailed, path, err)
 	}
 
 	var cfg *Config
 	_, err = toml.DecodeFile(path, &cfg)
 	if err != nil {
-		return nil, fmt.Errorf("failed to decode config from file (%s): %w", flags.DefaultConfigFile, err)
+		return nil, fmt.Errorf(
+			"%w: failed to decode config from file (%s): %w",
+			ErrConfigLoadFailed,
+			flags.DefaultConfigFile,
+			err,
+		)
 	}
 	if cfg == nil {
-		return nil, fmt.Errorf("config file is empty (%s)", path)
+		return nil, fmt.Errorf("%w: config file is empty (%s)", ErrConfigLoadFailed, path)
 	}
 
 	if err := cfg.validate(); err != nil {
-		return nil, fmt.Errorf("failed to validate existing config (%s): %w", path, err)
+		return nil, fmt.Errorf("%w: failed to validate existing config (%s): %w", ErrConfigLoadFailed, path, err)
 	}
 
 	// Update the path that loaded this file to track it.
