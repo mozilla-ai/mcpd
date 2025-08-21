@@ -650,7 +650,111 @@ DEBUG = "true"`
 	require.Equal(t, expected, cfg.Servers)
 }
 
-func TestEnsureSecureDir(t *testing.T) {
+func TestIsPermissionAcceptable(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name     string
+		actual   os.FileMode
+		required os.FileMode
+		want     bool
+	}{
+		// Exact matches should always be acceptable
+		{
+			name:     "exact match 0755",
+			actual:   0o755,
+			required: 0o755,
+			want:     true,
+		},
+		{
+			name:     "exact match 0700",
+			actual:   0o700,
+			required: 0o700,
+			want:     true,
+		},
+		{
+			name:     "exact match 0644",
+			actual:   0o644,
+			required: 0o644,
+			want:     true,
+		},
+		// More restrictive should be acceptable
+		{
+			name:     "0700 is acceptable when 0755 is required",
+			actual:   0o700,
+			required: 0o755,
+			want:     true,
+		},
+		{
+			name:     "0600 is acceptable when 0644 is required",
+			actual:   0o600,
+			required: 0o644,
+			want:     true,
+		},
+		{
+			name:     "0000 is acceptable for any requirement (most restrictive)",
+			actual:   0o000,
+			required: 0o755,
+			want:     true,
+		},
+		// Less restrictive should NOT be acceptable
+		{
+			name:     "0755 is not acceptable when 0700 is required",
+			actual:   0o755,
+			required: 0o700,
+			want:     false,
+		},
+		{
+			name:     "0777 is not acceptable when 0755 is required",
+			actual:   0o777,
+			required: 0o755,
+			want:     false,
+		},
+		{
+			name:     "0666 is not acceptable when 0644 is required",
+			actual:   0o666,
+			required: 0o644,
+			want:     false,
+		},
+		// Different permission patterns
+		{
+			name:     "0711 is acceptable when 0755 is required (more restrictive for group/others)",
+			actual:   0o711,
+			required: 0o755,
+			want:     true,
+		},
+		{
+			name:     "0750 is acceptable when 0755 is required (more restrictive for others)",
+			actual:   0o750,
+			required: 0o755,
+			want:     true,
+		},
+		{
+			name:     "0705 is acceptable when 0755 is required (more restrictive for group)",
+			actual:   0o705,
+			required: 0o755,
+			want:     true,
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			got := isPermissionAcceptable(tc.actual, tc.required)
+			require.Equal(
+				t,
+				tc.want,
+				got,
+				"isPermissionAcceptable(%#o, %#o) should return %v",
+				tc.actual,
+				tc.required,
+				tc.want,
+			)
+		})
+	}
+}
+
+func TestEnsureAtLeastSecureDir(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
@@ -716,7 +820,7 @@ func TestEnsureSecureDir(t *testing.T) {
 			t.Parallel()
 
 			path := tc.setup(t)
-			err := EnsureSecureDir(path)
+			err := EnsureAtLeastSecureDir(path)
 
 			if tc.wantErr {
 				require.Error(t, err)
@@ -726,17 +830,20 @@ func TestEnsureSecureDir(t *testing.T) {
 			} else {
 				require.NoError(t, err)
 
-				// Verify the directory exists and has correct permissions.
+				// Verify the directory exists and has acceptable permissions.
 				info, statErr := os.Stat(path)
 				require.NoError(t, statErr)
 				require.True(t, info.IsDir())
-				require.Equal(t, perms.SecureDir, info.Mode().Perm(), "Directory should have secure permissions (0700)")
+				// For secure directories, we typically get exactly what we asked for
+				require.True(t, isPermissionAcceptable(info.Mode().Perm(), perms.SecureDir),
+					"Directory permissions %#o should be acceptable for secure requirement %#o",
+					info.Mode().Perm(), perms.SecureDir)
 			}
 		})
 	}
 }
 
-func TestEnsureSecureDirWithNestedPaths(t *testing.T) {
+func TestEnsureAtLeastSecureDirWithNestedPaths(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
@@ -784,7 +891,7 @@ func TestEnsureSecureDirWithNestedPaths(t *testing.T) {
 
 			baseDir := t.TempDir()
 			path := tc.setup(t, baseDir)
-			err := EnsureSecureDir(path)
+			err := EnsureAtLeastSecureDir(path)
 
 			if tc.wantErr {
 				require.Error(t, err)
@@ -794,17 +901,19 @@ func TestEnsureSecureDirWithNestedPaths(t *testing.T) {
 			} else {
 				require.NoError(t, err)
 
-				// Verify the target directory has secure permissions.
+				// Verify the target directory has acceptable secure permissions.
 				info, statErr := os.Stat(path)
 				require.NoError(t, statErr)
 				require.True(t, info.IsDir())
-				require.Equal(t, perms.SecureDir, info.Mode().Perm())
+				require.True(t, isPermissionAcceptable(info.Mode().Perm(), perms.SecureDir),
+					"Directory permissions %#o should be acceptable for secure requirement %#o",
+					info.Mode().Perm(), perms.SecureDir)
 			}
 		})
 	}
 }
 
-func TestEnsureSecureDirErrorMessages(t *testing.T) {
+func TestEnsureAtLeastSecureDirErrorMessages(t *testing.T) {
 	t.Parallel()
 
 	t.Run("permission error shows expected vs actual permissions", func(t *testing.T) {
@@ -814,7 +923,7 @@ func TestEnsureSecureDirErrorMessages(t *testing.T) {
 		err := os.MkdirAll(dir, 0o755)
 		require.NoError(t, err)
 
-		err = EnsureSecureDir(dir)
+		err = EnsureAtLeastSecureDir(dir)
 		require.Error(t, err)
 
 		// Check that error message contains both actual and expected permissions in octal format.
@@ -824,7 +933,7 @@ func TestEnsureSecureDirErrorMessages(t *testing.T) {
 	})
 }
 
-func TestEnsureRegularDir(t *testing.T) {
+func TestEnsureAtLeastRegularDir(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
@@ -851,37 +960,60 @@ func TestEnsureRegularDir(t *testing.T) {
 			wantErr: false,
 		},
 		{
-			name: "fails when directory exists with wrong permissions (0700)",
+			name: "succeeds when directory exists with more restrictive permissions (0700)",
 			setup: func(t *testing.T) string {
-				dir := filepath.Join(t.TempDir(), "wrong-perms-700")
+				dir := filepath.Join(t.TempDir(), "more-restrictive-700")
 				err := os.MkdirAll(dir, 0o700)
 				require.NoError(t, err)
 				return dir
 			},
+			wantErr: false,
+		},
+		{
+			name: "fails when directory exists with less restrictive permissions (0777)",
+			setup: func(t *testing.T) string {
+				dir := filepath.Join(t.TempDir(), "wrong-perms-777")
+				err := os.MkdirAll(dir, 0o777)
+				require.NoError(t, err)
+				// Create directory and explicitly set permissions to override umask.
+				// Without chmod, umask (typically 022) would convert 0777 -> 0755.
+				// For tests that need exact permissions, we must use os.Chmod() after creation.
+				err = os.Chmod(dir, 0o777)
+				require.NoError(t, err)
+				return dir
+			},
 			wantErr: true,
 			errMsg:  "incorrect permissions",
 		},
 		{
-			name: "fails when directory exists with wrong permissions (0711)",
+			name: "succeeds when directory exists with more restrictive permissions (0711)",
 			setup: func(t *testing.T) string {
-				dir := filepath.Join(t.TempDir(), "wrong-perms-711")
+				dir := filepath.Join(t.TempDir(), "more-restrictive-711")
 				err := os.MkdirAll(dir, 0o711)
 				require.NoError(t, err)
 				return dir
 			},
-			wantErr: true,
-			errMsg:  "incorrect permissions",
+			wantErr: false,
 		},
 		{
-			name: "fails when directory exists with restrictive permissions (0644)",
+			name: "succeeds when directory exists with more restrictive permissions (0750)",
 			setup: func(t *testing.T) string {
-				dir := filepath.Join(t.TempDir(), "wrong-perms-644")
+				dir := filepath.Join(t.TempDir(), "more-restrictive-750")
+				err := os.MkdirAll(dir, 0o750)
+				require.NoError(t, err)
+				return dir
+			},
+			wantErr: false,
+		},
+		{
+			name: "succeeds when directory exists with more restrictive permissions (0644)",
+			setup: func(t *testing.T) string {
+				dir := filepath.Join(t.TempDir(), "more-restrictive-644")
 				err := os.MkdirAll(dir, 0o644)
 				require.NoError(t, err)
 				return dir
 			},
-			wantErr: true,
-			errMsg:  "incorrect permissions",
+			wantErr: false,
 		},
 	}
 
@@ -890,7 +1022,7 @@ func TestEnsureRegularDir(t *testing.T) {
 			t.Parallel()
 
 			path := tc.setup(t)
-			err := EnsureRegularDir(path)
+			err := EnsureAtLeastRegularDir(path)
 
 			if tc.wantErr {
 				require.Error(t, err)
@@ -900,17 +1032,20 @@ func TestEnsureRegularDir(t *testing.T) {
 			} else {
 				require.NoError(t, err)
 
-				// Verify the directory exists and has correct permissions.
+				// Verify the directory exists and has acceptable permissions.
 				info, statErr := os.Stat(path)
 				require.NoError(t, statErr)
 				require.True(t, info.IsDir())
-				require.Equal(t, perms.RegularDir, info.Mode().Perm(), "Directory should have regular permissions (0755)")
+				// Permissions should be at least as restrictive as required
+				require.True(t, isPermissionAcceptable(info.Mode().Perm(), perms.RegularDir),
+					"Directory permissions %#o should be acceptable for requirement %#o",
+					info.Mode().Perm(), perms.RegularDir)
 			}
 		})
 	}
 }
 
-func TestEnsureRegularDirWithNestedPaths(t *testing.T) {
+func TestEnsureAtLeastRegularDirWithNestedPaths(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
@@ -958,7 +1093,7 @@ func TestEnsureRegularDirWithNestedPaths(t *testing.T) {
 
 			baseDir := t.TempDir()
 			path := tc.setup(t, baseDir)
-			err := EnsureRegularDir(path)
+			err := EnsureAtLeastRegularDir(path)
 
 			if tc.wantErr {
 				require.Error(t, err)
@@ -968,31 +1103,39 @@ func TestEnsureRegularDirWithNestedPaths(t *testing.T) {
 			} else {
 				require.NoError(t, err)
 
-				// Verify the target directory has regular permissions.
+				// Verify the target directory exists and has acceptable permissions.
 				info, statErr := os.Stat(path)
 				require.NoError(t, statErr)
 				require.True(t, info.IsDir())
-				require.Equal(t, perms.RegularDir, info.Mode().Perm())
+				// Permissions should be at least as restrictive as required
+				require.True(t, isPermissionAcceptable(info.Mode().Perm(), perms.RegularDir),
+					"Directory permissions %#o should be acceptable for requirement %#o",
+					info.Mode().Perm(), perms.RegularDir)
 			}
 		})
 	}
 }
 
-func TestEnsureRegularDirErrorMessages(t *testing.T) {
+func TestEnsureAtLeastRegularDirErrorMessages(t *testing.T) {
 	t.Parallel()
 
 	t.Run("permission error shows expected vs actual permissions", func(t *testing.T) {
 		t.Parallel()
 
 		dir := filepath.Join(t.TempDir(), "test-dir")
-		err := os.MkdirAll(dir, 0o700)
+		err := os.MkdirAll(dir, 0o777)
+		require.NoError(t, err)
+		// Create directory and explicitly set permissions to override umask.
+		// Without chmod, umask (typically 022) would convert 0777 -> 0755.
+		// For tests that need exact permissions, we must use os.Chmod() after creation.
+		err = os.Chmod(dir, 0o777)
 		require.NoError(t, err)
 
-		err = EnsureRegularDir(dir)
+		err = EnsureAtLeastRegularDir(dir)
 		require.Error(t, err)
 
 		// Check that error message contains both actual and expected permissions in octal format.
-		require.Contains(t, err.Error(), "0700", "Error should show actual permissions")
+		require.Contains(t, err.Error(), "0777", "Error should show actual permissions")
 		require.Contains(t, err.Error(), "0755", "Error should show expected permissions")
 		require.Contains(t, err.Error(), dir, "Error should include the path")
 	})
