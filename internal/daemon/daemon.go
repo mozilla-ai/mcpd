@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"net"
+	"slices"
 	"strconv"
 	"strings"
 	"sync"
@@ -20,6 +21,7 @@ import (
 	"github.com/mozilla-ai/mcpd/v2/internal/cmd"
 	"github.com/mozilla-ai/mcpd/v2/internal/contracts"
 	"github.com/mozilla-ai/mcpd/v2/internal/domain"
+	"github.com/mozilla-ai/mcpd/v2/internal/filter"
 	"github.com/mozilla-ai/mcpd/v2/internal/runtime"
 )
 
@@ -237,8 +239,9 @@ func (d *Daemon) startMCPServer(ctx context.Context, server runtime.Server) erro
 	packageNameAndVersion = fmt.Sprintf("%s@%s", initResult.ServerInfo.Name, initResult.ServerInfo.Version)
 	logger.Info(fmt.Sprintf("Initialized: '%s'", packageNameAndVersion))
 
-	// Store the client.
+	// Store and track the client.
 	d.clientManager.Add(server.Name(), stdioClient, server.Tools)
+	d.healthTracker.Add(server.Name())
 
 	logger.Info("Ready!")
 
@@ -437,7 +440,7 @@ func (d *Daemon) closeAllClients() {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			d.closeClientWithTimeout(name, c, timeout)
+			_ = d.closeClientWithTimeout(name, c, timeout) // Ignore return value - leaks are acceptable during shutdown
 		}()
 	}
 
@@ -445,7 +448,8 @@ func (d *Daemon) closeAllClients() {
 }
 
 // closeClientWithTimeout closes a single client with a timeout.
-func (d *Daemon) closeClientWithTimeout(name string, c client.MCPClient, timeout time.Duration) {
+// Returns true if the client closed successfully, false if it timed out.
+func (d *Daemon) closeClientWithTimeout(name string, c client.MCPClient, timeout time.Duration) bool {
 	d.logger.Info(fmt.Sprintf("Closing client %s", name))
 
 	done := make(chan struct{})
@@ -456,17 +460,132 @@ func (d *Daemon) closeClientWithTimeout(name string, c client.MCPClient, timeout
 			// we still log the error but only for debugging purposes.
 			d.logger.Debug("Closing client", "client", name, "error", err)
 		}
-		d.logger.Info(fmt.Sprintf("Closed client %s", name))
 		close(done)
 	}()
 
 	// Wait for this specific client to close or timeout.
-	// NOTE: this could leak if we just time out clients,
-	// but since we're exiting mcpd it isn't an issue.
 	select {
 	case <-done:
-		// Closed successfully.
+		d.logger.Info(fmt.Sprintf("Closed client %s", name))
+		return true
 	case <-time.After(timeout):
-		d.logger.Warn(fmt.Sprintf("Timeout (%s) closing client %s", timeout.String(), name))
+		d.logger.Warn(
+			fmt.Sprintf("Timeout (%s) closing client %s - process may still be running", timeout.String(), name),
+		)
+		return false
 	}
+}
+
+// ReloadServers reloads the daemon's MCP servers based on a new configuration.
+// It compares the current servers with the new configuration and:
+// - Stops servers that have been removed
+// - Starts servers that have been added
+// - Preserves servers that remain unchanged (keeping their client connections, tools, and health history intact)
+func (d *Daemon) ReloadServers(ctx context.Context, newServers []runtime.Server) error {
+	d.logger.Info("Starting server reload")
+
+	// Validate all new servers before making any changes.
+	var validateErrs error
+	for _, srv := range newServers {
+		if err := srv.Validate(); err != nil {
+			srvErr := fmt.Errorf("invalid server configuration '%s': %w", srv.Name(), err)
+			validateErrs = errors.Join(validateErrs, srvErr)
+		}
+	}
+	if validateErrs != nil {
+		return fmt.Errorf("server validation failed: %w", validateErrs)
+	}
+
+	// Get current server names (already normalized by ClientManager).
+	names := d.clientManager.List()
+
+	// Extract names from new server list (normalize to match ClientManager).
+	newNames := make(map[string]runtime.Server, len(newServers))
+	for _, srv := range newServers {
+		normalizedName := filter.NormalizeString(srv.Name())
+		newNames[normalizedName] = srv
+	}
+
+	// Find servers to remove (in current but not in new).
+	var toRemove []string
+	for _, name := range names {
+		if _, exists := newNames[name]; !exists {
+			toRemove = append(toRemove, name)
+		}
+	}
+
+	// Find servers to add (in new but not in current).
+	var toAdd []runtime.Server
+	for name, srv := range newNames {
+		if !slices.Contains(names, name) {
+			toAdd = append(toAdd, srv)
+		}
+	}
+
+	d.logger.Info("Server configuration changes",
+		"removed", len(toRemove),
+		"added", len(toAdd),
+		"unchanged", len(names)-len(toRemove))
+
+	// Stop removed servers.
+	for _, name := range toRemove {
+		if err := d.stopMCPServer(name); err != nil {
+			// Log the error that a server may not have closed correctly (could be leaky) but carry on.
+			d.logger.Error("Failed to stop server", "server", name, "error", err)
+		}
+	}
+
+	// Start new servers.
+	var startErrs []error
+	for _, srv := range toAdd {
+		if err := d.startMCPServer(ctx, srv); err != nil {
+			startErrs = append(startErrs, fmt.Errorf("%s: %w", srv.Name(), err))
+		}
+	}
+
+	if len(startErrs) > 0 {
+		d.logger.Error("Server reload completed with errors",
+			"failed", len(startErrs),
+			"removed", len(toRemove),
+			"added", len(toAdd)-len(startErrs))
+		return errors.Join(append([]error{fmt.Errorf("failed to start some servers")}, startErrs...)...)
+	}
+
+	// Update stored runtime servers after successful reload.
+	d.runtimeServers = newServers
+
+	d.logger.Info("Server reload completed successfully")
+	return nil
+}
+
+// stopMCPServer gracefully stops a single MCP server and removes it from tracking.
+func (d *Daemon) stopMCPServer(name string) error {
+	d.logger.Info("Stopping MCP server", "server", name)
+
+	c, ok := d.clientManager.Client(name)
+	if !ok {
+		return fmt.Errorf("server '%s' not found", name)
+	}
+
+	// Always remove from managers to maintain consistency.
+	d.clientManager.Remove(name)
+	d.healthTracker.Remove(name)
+
+	// Close the client with timeout.
+	if closed := d.closeClientWithTimeout(name, c, d.clientShutdownTimeout); !closed {
+		d.logger.Error(
+			"MCP server stop timed out - process may still be running and could be leaked",
+			"server", name,
+			"timeout", d.clientShutdownTimeout,
+		)
+
+		return fmt.Errorf(
+			"server '%s' failed to stop within timeout %v - process may be leaked",
+			name,
+			d.clientShutdownTimeout,
+		)
+	}
+
+	d.logger.Info("MCP server stopped successfully", "server", name)
+	return nil
 }

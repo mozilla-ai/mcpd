@@ -6,8 +6,9 @@ import (
 )
 
 var (
-	ErrInvalidValue = errors.New("config value invalid")
-	ErrInvalidKey   = errors.New("config key invalid")
+	ErrInvalidValue     = errors.New("config value invalid")
+	ErrInvalidKey       = errors.New("config key invalid")
+	ErrConfigLoadFailed = errors.New("failed to load configuration")
 )
 
 // NewErrInvalidValue returns an error for an invalid configuration value.

@@ -1,6 +1,7 @@
 package export
 
 import (
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
@@ -114,6 +115,9 @@ func TestExportCommand_Integration(t *testing.T) {
 
 			exportCmd, err := NewCmd(&cmd.BaseCmd{})
 			require.NoError(t, err)
+
+			// Mute the terminal output.
+			exportCmd.SetOut(io.Discard)
 
 			// Set command-specific flags
 			require.NoError(t, exportCmd.Flags().Set("context-output", contextOutput))

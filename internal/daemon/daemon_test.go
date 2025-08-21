@@ -862,3 +862,163 @@ func TestDaemon_CloseClientWithTimeout_Direct(t *testing.T) {
 		})
 	}
 }
+
+// TestDaemon_CloseClientWithTimeout_ReturnValue tests the return value behavior of closeClientWithTimeout
+func TestDaemon_CloseClientWithTimeout_ReturnValue(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name           string
+		clientDelay    time.Duration
+		timeout        time.Duration
+		expectedResult bool
+	}{
+		{
+			name:           "successful close returns true",
+			clientDelay:    50 * time.Millisecond,
+			timeout:        200 * time.Millisecond,
+			expectedResult: true,
+		},
+		{
+			name:           "timeout returns false",
+			clientDelay:    500 * time.Millisecond,
+			timeout:        100 * time.Millisecond,
+			expectedResult: false,
+		},
+	}
+
+	for _, tc := range tests {
+		tc := tc
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			logger := hclog.NewNullLogger()
+			servers := []runtime.Server{
+				{
+					ServerEntry:            config.ServerEntry{},
+					ServerExecutionContext: configcontext.ServerExecutionContext{},
+				},
+			}
+			deps, err := NewDependencies(logger, ":8085", servers)
+			require.NoError(t, err)
+			daemon, err := NewDaemon(deps)
+			require.NoError(t, err)
+
+			testClient := newMockMCPClientWithBehavior(tc.clientDelay, nil)
+
+			result := daemon.closeClientWithTimeout("test-client", testClient, tc.timeout)
+			assert.Equal(t, tc.expectedResult, result)
+		})
+	}
+}
+
+// TestDaemon_StopMCPServer tests the stopMCPServer method
+func TestDaemon_StopMCPServer(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name           string
+		serverExists   bool
+		clientDelay    time.Duration
+		timeout        time.Duration
+		expectError    bool
+		expectedErrMsg string
+	}{
+		{
+			name:         "successful stop",
+			serverExists: true,
+			clientDelay:  50 * time.Millisecond,
+			timeout:      200 * time.Millisecond,
+			expectError:  false,
+		},
+		{
+			name:           "server not found",
+			serverExists:   false,
+			expectError:    true,
+			expectedErrMsg: "server 'nonexistent' not found",
+		},
+		{
+			name:           "timeout during stop",
+			serverExists:   true,
+			clientDelay:    500 * time.Millisecond,
+			timeout:        100 * time.Millisecond,
+			expectError:    true,
+			expectedErrMsg: "failed to stop within timeout",
+		},
+	}
+
+	for _, tc := range tests {
+		tc := tc
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			customSink := &testLoggerSink{}
+			logger := hclog.NewInterceptLogger(&hclog.LoggerOptions{
+				Name:  "test-daemon",
+				Level: hclog.Debug,
+			})
+			logger.RegisterSink(customSink)
+
+			clientManager := NewClientManager()
+			healthTracker := NewHealthTracker([]string{})
+			daemon := &Daemon{
+				logger:                logger,
+				clientManager:         clientManager,
+				healthTracker:         healthTracker,
+				clientShutdownTimeout: tc.timeout,
+			}
+
+			serverName := "test-server"
+			if !tc.serverExists {
+				serverName = "nonexistent"
+			}
+
+			if tc.serverExists {
+				testClient := newMockMCPClientWithBehavior(tc.clientDelay, nil)
+				clientManager.Add("test-server", testClient, []string{"tool1"})
+				healthTracker.Add("test-server")
+			}
+
+			err := daemon.stopMCPServer(serverName)
+
+			if tc.expectError {
+				require.Error(t, err)
+				if tc.expectedErrMsg != "" {
+					assert.Contains(t, err.Error(), tc.expectedErrMsg)
+				}
+			} else {
+				require.NoError(t, err)
+
+				// Verify server was removed from managers
+				_, exists := clientManager.Client("test-server")
+				assert.False(t, exists, "Client should be removed from manager")
+
+				_, err := healthTracker.Status("test-server")
+				assert.Error(t, err, "Server should be removed from health tracker")
+			}
+
+			// Verify appropriate logs
+			if tc.serverExists && !tc.expectError {
+				// Should have success log
+				found := false
+				for _, log := range customSink.messages {
+					if strings.Contains(log.message, "stopped successfully") {
+						found = true
+						break
+					}
+				}
+				assert.True(t, found, "Should have success log")
+			} else if tc.serverExists && tc.expectError {
+				// Should have error log for timeout
+				found := false
+				for _, log := range customSink.messages {
+					if log.level == hclog.Error && strings.Contains(log.message, "timed out") {
+						found = true
+						break
+					}
+				}
+				assert.True(t, found, "Should have timeout error log")
+			}
+		})
+	}
+}

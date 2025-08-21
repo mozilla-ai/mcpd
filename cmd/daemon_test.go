@@ -4,6 +4,8 @@ import (
 	"bytes"
 	"fmt"
 	"io"
+	"os"
+	"syscall"
 	"testing"
 	"time"
 
@@ -183,11 +185,11 @@ func TestDaemon_NewDaemonCmd_WithOptions(t *testing.T) {
 
 			if tc.wantErr != "" {
 				require.Error(t, err)
-				assert.Contains(t, err.Error(), tc.wantErr)
-				assert.Nil(t, cobraCmd)
+				require.EqualError(t, err, tc.wantErr)
+				require.Nil(t, cobraCmd)
 			} else {
 				require.NoError(t, err)
-				assert.NotNil(t, cobraCmd)
+				require.NotNil(t, cobraCmd)
 			}
 		})
 	}
@@ -251,7 +253,7 @@ func TestDaemon_DaemonCmd_FlagMutualExclusion(t *testing.T) {
 
 	err = cobraCmd.Execute()
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "if any flags in the group [dev addr] are set none of the others can be")
+	require.Contains(t, err.Error(), "if any flags in the group [dev addr] are set none of the others can be")
 }
 
 func TestDaemon_DaemonCmd_ValidateFlags(t *testing.T) {
@@ -288,7 +290,7 @@ func TestDaemon_DaemonCmd_ValidateFlags(t *testing.T) {
 					maxAge:  "invalid-duration",
 				},
 			},
-			expectError: "invalid --cors-max-age duration",
+			expectError: "invalid --cors-max-age duration: time: invalid duration \"invalid-duration\"",
 		},
 		{
 			name: "invalid API shutdown timeout",
@@ -297,7 +299,7 @@ func TestDaemon_DaemonCmd_ValidateFlags(t *testing.T) {
 					apiShutdown: "not-a-duration",
 				},
 			},
-			expectError: "invalid --timeout-api-shutdown duration",
+			expectError: "invalid --timeout-api-shutdown duration: time: invalid duration \"not-a-duration\"",
 		},
 		{
 			name: "invalid MCP init timeout",
@@ -306,7 +308,7 @@ func TestDaemon_DaemonCmd_ValidateFlags(t *testing.T) {
 					mcpInit: "invalid",
 				},
 			},
-			expectError: "invalid --timeout-mcp-init duration",
+			expectError: "invalid --timeout-mcp-init duration: time: invalid duration \"invalid\"",
 		},
 		{
 			name: "invalid health check timeout",
@@ -315,7 +317,7 @@ func TestDaemon_DaemonCmd_ValidateFlags(t *testing.T) {
 					healthCheck: "bad-format",
 				},
 			},
-			expectError: "invalid --timeout-mcp-health duration",
+			expectError: "invalid --timeout-mcp-health duration: time: invalid duration \"bad-format\"",
 		},
 		{
 			name: "invalid health check interval",
@@ -324,7 +326,7 @@ func TestDaemon_DaemonCmd_ValidateFlags(t *testing.T) {
 					healthCheck: "not-valid",
 				},
 			},
-			expectError: "invalid --interval-mcp-health duration",
+			expectError: "invalid --interval-mcp-health duration: time: invalid duration \"not-valid\"",
 		},
 	}
 
@@ -352,7 +354,7 @@ func TestDaemon_DaemonCmd_ValidateFlags(t *testing.T) {
 
 			if tc.expectError != "" {
 				require.Error(t, err)
-				assert.Contains(t, err.Error(), tc.expectError)
+				require.EqualError(t, err, tc.expectError)
 			} else {
 				require.NoError(t, err)
 			}
@@ -469,7 +471,7 @@ func TestDaemon_DaemonCmd_BuildAPIOptions(t *testing.T) {
 					maxAge:  "invalid",
 				},
 			},
-			expectError: "invalid cors-max-age",
+			expectError: "invalid cors-max-age: time: invalid duration \"invalid\"",
 		},
 		{
 			name: "invalid API shutdown timeout",
@@ -478,7 +480,7 @@ func TestDaemon_DaemonCmd_BuildAPIOptions(t *testing.T) {
 					apiShutdown: "not-valid",
 				},
 			},
-			expectError: "invalid timeout-api-shutdown",
+			expectError: "invalid timeout-api-shutdown: time: invalid duration \"not-valid\"",
 		},
 	}
 
@@ -494,7 +496,7 @@ func TestDaemon_DaemonCmd_BuildAPIOptions(t *testing.T) {
 
 			if tc.expectError != "" {
 				require.Error(t, err)
-				assert.Contains(t, err.Error(), tc.expectError)
+				require.EqualError(t, err, tc.expectError)
 			} else {
 				require.NoError(t, err)
 				if tc.validateResult != nil {
@@ -540,7 +542,7 @@ func TestDaemon_DaemonCmd_BuildDaemonOptions(t *testing.T) {
 					mcpInit: "invalid",
 				},
 			},
-			expectError: "invalid timeout-mcp-init",
+			expectError: "invalid timeout-mcp-init: time: invalid duration \"invalid\"",
 		},
 		{
 			name: "invalid health check timeout",
@@ -549,7 +551,7 @@ func TestDaemon_DaemonCmd_BuildDaemonOptions(t *testing.T) {
 					healthCheck: "bad-format",
 				},
 			},
-			expectError: "invalid timeout-mcp-health",
+			expectError: "invalid timeout-mcp-health: time: invalid duration \"bad-format\"",
 		},
 		{
 			name: "invalid health check interval",
@@ -558,7 +560,7 @@ func TestDaemon_DaemonCmd_BuildDaemonOptions(t *testing.T) {
 					healthCheck: "not-valid",
 				},
 			},
-			expectError: "invalid interval-mcp-health",
+			expectError: "invalid interval-mcp-health: time: invalid duration \"not-valid\"",
 		},
 	}
 
@@ -577,7 +579,7 @@ func TestDaemon_DaemonCmd_BuildDaemonOptions(t *testing.T) {
 
 			if tc.expectError != "" {
 				require.Error(t, err)
-				assert.Contains(t, err.Error(), tc.expectError)
+				require.EqualError(t, err, tc.expectError)
 			} else {
 				require.NoError(t, err)
 				if tc.validateResult != nil {
@@ -1473,13 +1475,13 @@ func TestDaemon_LoadConfigurationLayers(t *testing.T) {
 		},
 		{
 			name:        "config file error",
-			configError: fmt.Errorf("failed to load config"),
-			expectError: "failed to load config",
+			configError: fmt.Errorf("failed - sad times"),
+			expectError: "failed - sad times",
 		},
 		{
 			name:        "invalid config structure",
 			configData:  nil, // This will cause type assertion to fail
-			expectError: "config file contains invalid configuration structure",
+			expectError: "config data not present, cannot apply configuration layers",
 		},
 		{
 			name: "daemon config without flags - uses config values",
@@ -1588,6 +1590,8 @@ func TestDaemon_LoadConfigurationLayers(t *testing.T) {
 				config:    daemonFlagConfig{},
 			}
 
+			// Note: Config data will be passed directly to loadConfigurationLayers
+
 			// Create command and bind flags to struct fields (using the actual production code)
 			command := newDaemonCobraCmd(daemonCmd)
 
@@ -1598,11 +1602,18 @@ func TestDaemon_LoadConfigurationLayers(t *testing.T) {
 			}
 
 			logger := hclog.NewNullLogger()
-			warnings, err := daemonCmd.loadConfigurationLayers(logger, command)
+
+			if tc.configError != nil {
+				_, err := daemonCmd.LoadConfig(daemonCmd.cfgLoader)
+				require.Error(t, err)
+				require.EqualError(t, err, tc.expectError)
+				return
+			}
+
+			warnings, err := daemonCmd.loadConfigurationLayers(logger, command, tc.configData)
 
 			if tc.expectError != "" {
-				require.Error(t, err)
-				assert.Contains(t, err.Error(), tc.expectError)
+				require.EqualError(t, err, tc.expectError)
 				return
 			}
 
@@ -1648,6 +1659,7 @@ func TestDaemon_LoadConfigurationLayers_Integration(t *testing.T) {
 		daemonCmd := &DaemonCmd{
 			cfgLoader: mockLoader,
 			config:    daemonFlagConfig{},
+			// Note: Config data will be passed directly to loadConfigurationLayers
 		}
 
 		command := newDaemonCobraCmd(daemonCmd)
@@ -1661,7 +1673,7 @@ func TestDaemon_LoadConfigurationLayers_Integration(t *testing.T) {
 		require.NoError(t, err)
 
 		logger := hclog.NewNullLogger()
-		warnings, err := daemonCmd.loadConfigurationLayers(logger, command)
+		warnings, err := daemonCmd.loadConfigurationLayers(logger, command, configData)
 
 		require.NoError(t, err)
 
@@ -1731,7 +1743,7 @@ func (t testInvalidConfigType) RemoveServer(name string) error           { retur
 func (t testInvalidConfigType) ListServers() []config.ServerEntry        { return nil }
 func (t testInvalidConfigType) SaveConfig() error                        { return nil }
 
-func (m *testMockConfigLoader) Load(path string) (config.Modifier, error) {
+func (m *testMockConfigLoader) Load(_ string) (config.Modifier, error) {
 	if m.err != nil {
 		return nil, m.err
 	}
@@ -1740,4 +1752,204 @@ func (m *testMockConfigLoader) Load(path string) (config.Modifier, error) {
 		return testInvalidConfigType{}, nil
 	}
 	return m.config, nil
+}
+
+func TestDaemon_DaemonCmd_HandleSignals(t *testing.T) {
+	t.Parallel()
+
+	createDaemonCmd := func(t *testing.T) *DaemonCmd {
+		t.Helper()
+		baseCmd := &cmd.BaseCmd{}
+		mockLoader := &mockConfigLoader{entries: []config.ServerEntry{}}
+		contextLoader := &configcontext.DefaultLoader{}
+		daemonCmd, err := newDaemonCmd(baseCmd, mockLoader, contextLoader)
+		require.NoError(t, err)
+		return daemonCmd
+	}
+
+	createLogger := func() hclog.Logger {
+		return hclog.New(&hclog.LoggerOptions{
+			Name:   "test",
+			Level:  hclog.Off,
+			Output: io.Discard,
+		})
+	}
+
+	t.Run("SIGHUP triggers reload", func(t *testing.T) {
+		t.Parallel()
+
+		daemonCmd := createDaemonCmd(t)
+		logger := createLogger()
+
+		sigChan := make(chan os.Signal, 1)
+		reloadChan := make(chan struct{}, 1)
+		shutdownCancel := func() {}
+
+		// Start handleSignals in goroutine.
+		go daemonCmd.handleSignals(logger, sigChan, reloadChan, shutdownCancel)
+
+		// Send SIGHUP.
+		sigChan <- syscall.SIGHUP
+
+		// Verify reload signal received.
+		select {
+		case <-reloadChan:
+			// Expected
+		case <-time.After(100 * time.Millisecond):
+			t.Fatal("Expected reload signal not received")
+		}
+
+		close(sigChan)
+	})
+
+	t.Run("duplicate SIGHUP signals are handled gracefully", func(t *testing.T) {
+		t.Parallel()
+
+		daemonCmd := createDaemonCmd(t)
+		logger := createLogger()
+
+		sigChan := make(chan os.Signal, 2)
+		reloadChan := make(chan struct{}) // No buffer - will block second send
+		shutdownCancel := func() {}
+
+		// Start handleSignals in goroutine.
+		go daemonCmd.handleSignals(logger, sigChan, reloadChan, shutdownCancel)
+
+		// Send two SIGHUP signals quickly.
+		sigChan <- syscall.SIGHUP
+		sigChan <- syscall.SIGHUP
+
+		// Verify first reload signal received.
+		select {
+		case <-reloadChan:
+			// Expected - first signal processed
+		case <-time.After(100 * time.Millisecond):
+			t.Fatal("Expected first reload signal not received")
+		}
+
+		// Second signal should be dropped (non-blocking send).
+		// We can't directly verify the drop, but the function should not hang.
+
+		close(sigChan)
+	})
+
+	t.Run("SIGTERM triggers shutdown", func(t *testing.T) {
+		t.Parallel()
+
+		daemonCmd := createDaemonCmd(t)
+		logger := createLogger()
+
+		sigChan := make(chan os.Signal, 1)
+		reloadChan := make(chan struct{}, 1)
+		shutdownCalled := false
+		shutdownCancel := func() { shutdownCalled = true }
+
+		// Start handleSignals in goroutine.
+		done := make(chan struct{})
+		go func() {
+			daemonCmd.handleSignals(logger, sigChan, reloadChan, shutdownCancel)
+			close(done)
+		}()
+
+		// Send SIGTERM.
+		sigChan <- syscall.SIGTERM
+
+		// Verify function returns and shutdown is called.
+		select {
+		case <-done:
+			assert.True(t, shutdownCalled, "shutdown function should be called")
+		case <-time.After(100 * time.Millisecond):
+			t.Fatal("handleSignals should return after shutdown signal")
+		}
+	})
+
+	t.Run("SIGINT triggers shutdown", func(t *testing.T) {
+		t.Parallel()
+
+		daemonCmd := createDaemonCmd(t)
+		logger := createLogger()
+
+		sigChan := make(chan os.Signal, 1)
+		reloadChan := make(chan struct{}, 1)
+		shutdownCalled := false
+		shutdownCancel := func() { shutdownCalled = true }
+
+		// Start handleSignals in goroutine.
+		done := make(chan struct{})
+		go func() {
+			daemonCmd.handleSignals(logger, sigChan, reloadChan, shutdownCancel)
+			close(done)
+		}()
+
+		// Send SIGINT.
+		sigChan <- syscall.SIGINT
+
+		// Verify function returns and shutdown is called.
+		select {
+		case <-done:
+			assert.True(t, shutdownCalled, "shutdown function should be called")
+		case <-time.After(100 * time.Millisecond):
+			t.Fatal("handleSignals should return after shutdown signal")
+		}
+	})
+
+	t.Run("os.Interrupt triggers shutdown", func(t *testing.T) {
+		t.Parallel()
+
+		daemonCmd := createDaemonCmd(t)
+		logger := createLogger()
+
+		sigChan := make(chan os.Signal, 1)
+		reloadChan := make(chan struct{}, 1)
+		shutdownCalled := false
+		shutdownCancel := func() { shutdownCalled = true }
+
+		// Start handleSignals in goroutine.
+		done := make(chan struct{})
+		go func() {
+			daemonCmd.handleSignals(logger, sigChan, reloadChan, shutdownCancel)
+			close(done)
+		}()
+
+		// Send os.Interrupt.
+		sigChan <- os.Interrupt
+
+		// Verify function returns and shutdown is called.
+		select {
+		case <-done:
+			assert.True(t, shutdownCalled, "shutdown function should be called")
+		case <-time.After(100 * time.Millisecond):
+			t.Fatal("handleSignals should return after shutdown signal")
+		}
+	})
+
+	t.Run("channel closure terminates function", func(t *testing.T) {
+		t.Parallel()
+
+		daemonCmd := createDaemonCmd(t)
+		logger := createLogger()
+
+		sigChan := make(chan os.Signal)
+		reloadChan := make(chan struct{}, 1)
+		shutdownCalled := false
+		shutdownCancel := func() { shutdownCalled = true }
+
+		// Start handleSignals in goroutine.
+		done := make(chan struct{})
+		go func() {
+			daemonCmd.handleSignals(logger, sigChan, reloadChan, shutdownCancel)
+			close(done)
+		}()
+
+		// Close signal channel.
+		close(sigChan)
+
+		// Verify function returns without calling shutdown.
+		select {
+		case <-done:
+			assert.False(t, shutdownCalled, "shutdown should not be called on channel closure")
+		case <-time.After(100 * time.Millisecond):
+			t.Fatal("handleSignals should return after channel closure")
+		}
+	})
 }

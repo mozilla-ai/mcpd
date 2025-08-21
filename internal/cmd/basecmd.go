@@ -186,7 +186,7 @@ func FormatHandler[T any](w io.Writer, format OutputFormat, p output.Printer[T])
 func (c *BaseCmd) LoadConfig(loader config.Loader) (*config.Config, error) {
 	cfgModifier, err := loader.Load(flags.ConfigFile)
 	if err != nil {
-		return nil, fmt.Errorf("failed to load config: %w", err)
+		return nil, err
 	}
 
 	cfg, ok := cfgModifier.(*config.Config)
