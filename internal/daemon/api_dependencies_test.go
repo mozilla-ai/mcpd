@@ -30,6 +30,10 @@ func (m *mockClientManager) List() []string {
 	return nil
 }
 
+func (m *mockClientManager) UpdateTools(name string, tools []string) error {
+	return nil
+}
+
 func (m *mockClientManager) Remove(name string) {
 }
 
@@ -45,6 +49,14 @@ func (m *mockHealthTracker) List() []domain.ServerHealth {
 
 func (m *mockHealthTracker) Update(name string, status domain.HealthStatus, latency *time.Duration) error {
 	return nil
+}
+
+func (m *mockHealthTracker) Add(name string) {
+	// Mock implementation.
+}
+
+func (m *mockHealthTracker) Remove(name string) {
+	// Mock implementation.
 }
 
 func TestDaemon_APIDependencies_Validate(t *testing.T) {

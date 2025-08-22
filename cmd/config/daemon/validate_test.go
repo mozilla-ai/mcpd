@@ -19,7 +19,7 @@ type mockValidateConfigLoader struct {
 	err          error
 }
 
-func (m *mockValidateConfigLoader) Load(path string) (config.Modifier, error) {
+func (m *mockValidateConfigLoader) Load(_ string) (config.Modifier, error) {
 	if m.err != nil {
 		return nil, m.err
 	}
@@ -159,7 +159,7 @@ func TestValidateCmd_ConfigLoadError(t *testing.T) {
 
 	// Assertions
 	require.Error(t, err)
-	require.Contains(t, err.Error(), "failed to load config")
+	require.EqualError(t, err, "mock config load error")
 }
 
 func TestValidateCmd_MultipleValidationErrors(t *testing.T) {

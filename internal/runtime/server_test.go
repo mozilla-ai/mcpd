@@ -1362,3 +1362,219 @@ func TestEnvVarsToContract(t *testing.T) {
 		})
 	}
 }
+
+func TestServer_Equal(t *testing.T) {
+	t.Parallel()
+
+	baseServer := func() *Server {
+		return &Server{
+			ServerEntry: config.ServerEntry{
+				Name:                   "test-server",
+				Package:                "uvx::test-server@1.0.0",
+				Tools:                  []string{"tool1", "tool2"},
+				RequiredEnvVars:        []string{"API_KEY", "SECRET"},
+				RequiredPositionalArgs: []string{"pos1", "pos2"},
+				RequiredValueArgs:      []string{"--arg1", "--arg2"},
+				RequiredBoolArgs:       []string{"--flag1", "--flag2"},
+			},
+			ServerExecutionContext: context.ServerExecutionContext{
+				Name: "test-server",
+				Args: []string{"--test=value"},
+				Env:  map[string]string{"TEST": "value"},
+			},
+		}
+	}
+
+	testCases := []struct {
+		name     string
+		server1  *Server
+		server2  *Server
+		expected bool
+	}{
+		{
+			name:     "identical servers",
+			server1:  baseServer(),
+			server2:  baseServer(),
+			expected: true,
+		},
+		{
+			name:     "nil comparison",
+			server1:  baseServer(),
+			server2:  nil,
+			expected: false,
+		},
+		{
+			name:    "different static config - tools",
+			server1: baseServer(),
+			server2: func() *Server {
+				srv := baseServer()
+				srv.Tools = []string{"tool1", "tool3"}
+				return srv
+			}(),
+			expected: false,
+		},
+		{
+			name:    "different static config - package",
+			server1: baseServer(),
+			server2: func() *Server {
+				srv := baseServer()
+				srv.Package = "uvx::test-server@2.0.0"
+				return srv
+			}(),
+			expected: false,
+		},
+		{
+			name:    "different execution context - args",
+			server1: baseServer(),
+			server2: func() *Server {
+				srv := baseServer()
+				srv.Args = []string{"--test=different"}
+				return srv
+			}(),
+			expected: false,
+		},
+		{
+			name:    "different execution context - env",
+			server1: baseServer(),
+			server2: func() *Server {
+				srv := baseServer()
+				srv.Env = map[string]string{"TEST": "different"}
+				return srv
+			}(),
+			expected: false,
+		},
+		{
+			name:    "different execution context - name",
+			server1: baseServer(),
+			server2: func() *Server {
+				srv := baseServer()
+				srv.ServerExecutionContext.Name = "different-name"
+				return srv
+			}(),
+			expected: false,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			result := tc.server1.Equals(tc.server2)
+			require.Equal(t, tc.expected, result)
+		})
+	}
+}
+
+func TestServer_EqualExceptTools(t *testing.T) {
+	t.Parallel()
+
+	baseServer := func() *Server {
+		return &Server{
+			ServerEntry: config.ServerEntry{
+				Name:                   "test-server",
+				Package:                "uvx::test-server@1.0.0",
+				Tools:                  []string{"tool1", "tool2"},
+				RequiredEnvVars:        []string{"API_KEY", "SECRET"},
+				RequiredPositionalArgs: []string{"pos1", "pos2"},
+				RequiredValueArgs:      []string{"--arg1", "--arg2"},
+				RequiredBoolArgs:       []string{"--flag1", "--flag2"},
+			},
+			ServerExecutionContext: context.ServerExecutionContext{
+				Name: "test-server",
+				Args: []string{"--test=value"},
+				Env:  map[string]string{"TEST": "value"},
+			},
+		}
+	}
+
+	testCases := []struct {
+		name     string
+		server1  *Server
+		server2  *Server
+		expected bool
+	}{
+		{
+			name:     "identical servers",
+			server1:  baseServer(),
+			server2:  baseServer(),
+			expected: false, // No change at all
+		},
+		{
+			name:     "nil comparison",
+			server1:  baseServer(),
+			server2:  nil,
+			expected: false,
+		},
+		{
+			name:    "only tools changed",
+			server1: baseServer(),
+			server2: func() *Server {
+				srv := baseServer()
+				srv.Tools = []string{"tool1", "tool3"} // Different tools (tool3)
+				return srv
+			}(),
+			expected: true,
+		},
+		{
+			name:    "tools changed with different order but same content",
+			server1: baseServer(),
+			server2: func() *Server {
+				srv := baseServer()
+				srv.Tools = []string{"tool2", "tool1"} // Different order, same tools.
+				return srv
+			}(),
+			expected: false, // Same tools, different order = no real change
+		},
+		{
+			name:    "package changed",
+			server1: baseServer(),
+			server2: func() *Server {
+				srv := baseServer()
+				srv.Package = "uvx::test-server@2.0.0" // Different package version
+				return srv
+			}(),
+			expected: false, // Package changed = not tools-only
+		},
+		{
+			name:    "tools added",
+			server1: baseServer(),
+			server2: func() *Server {
+				srv := baseServer()
+				srv.Tools = []string{"tool1", "tool2", "tool3"} // Added tool3
+				return srv
+			}(),
+			expected: true,
+		},
+		{
+			name:    "execution context args changed",
+			server1: baseServer(),
+			server2: func() *Server {
+				srv := baseServer()
+				srv.Tools = []string{"tool1", "tool3"}  // Different tools
+				srv.Args = []string{"--test=different"} // Different args
+				return srv
+			}(),
+			expected: false, // Not only tools differ (args also differ)
+		},
+		{
+			name:    "execution context env changed",
+			server1: baseServer(),
+			server2: func() *Server {
+				srv := baseServer()
+				srv.Tools = []string{"tool1", "tool3"}           // Different tools
+				srv.Env = map[string]string{"TEST": "different"} // Different env
+				return srv
+			}(),
+			expected: false, // Not only tools differ (env also differs)
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			result := tc.server1.EqualsExceptTools(tc.server2)
+			require.Equal(t, tc.expected, result)
+		})
+	}
+}
