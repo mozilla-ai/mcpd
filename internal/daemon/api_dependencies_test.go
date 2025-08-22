@@ -30,6 +30,10 @@ func (m *mockClientManager) List() []string {
 	return nil
 }
 
+func (m *mockClientManager) UpdateTools(name string, tools []string) error {
+	return nil
+}
+
 func (m *mockClientManager) Remove(name string) {
 }
 

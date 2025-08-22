@@ -1,6 +1,7 @@
 package config
 
 import (
+	"slices"
 	"strings"
 
 	"github.com/mozilla-ai/mcpd/v2/internal/context"
@@ -118,9 +119,15 @@ type serverKey struct {
 	Package string // NOTE: without version
 }
 
-func (e *ServerEntry) PackageVersion() string {
+// argEntry represents a parsed command line argument.
+type argEntry struct {
+	key   string
+	value string
+}
+
+func (s *ServerEntry) PackageVersion() string {
 	versionDelim := "@"
-	pkg := stripPrefix(e.Package)
+	pkg := stripPrefix(s.Package)
 
 	if idx := strings.LastIndex(pkg, versionDelim); idx != -1 {
 		return pkg[idx+len(versionDelim):]
@@ -128,19 +135,8 @@ func (e *ServerEntry) PackageVersion() string {
 	return pkg
 }
 
-func (e *ServerEntry) PackageName() string {
-	return stripPrefix(stripVersion(e.Package))
-}
-
-// argEntry represents a parsed command line argument.
-type argEntry struct {
-	key   string
-	value string
-}
-
-// hasValue is used to determine if an argEntry is a bool flag or contains a value.
-func (e *argEntry) hasValue() bool {
-	return strings.TrimSpace(e.value) != ""
+func (s *ServerEntry) PackageName() string {
+	return stripPrefix(stripVersion(s.Package))
 }
 
 func (e *argEntry) String() string {
@@ -152,13 +148,102 @@ func (e *argEntry) String() string {
 
 // RequiredArguments returns all required CLI arguments, including positional, value-based and boolean flags.
 // NOTE: The order of these arguments matters, so positional arguments appear first.
-func (e *ServerEntry) RequiredArguments() []string {
-	out := make([]string, 0, len(e.RequiredPositionalArgs)+len(e.RequiredValueArgs)+len(e.RequiredBoolArgs))
+func (s *ServerEntry) RequiredArguments() []string {
+	out := make([]string, 0, len(s.RequiredPositionalArgs)+len(s.RequiredValueArgs)+len(s.RequiredBoolArgs))
 
 	// Add positional args first.
-	out = append(out, e.RequiredPositionalArgs...)
-	out = append(out, e.RequiredValueArgs...)
-	out = append(out, e.RequiredBoolArgs...)
+	out = append(out, s.RequiredPositionalArgs...)
+	out = append(out, s.RequiredValueArgs...)
+	out = append(out, s.RequiredBoolArgs...)
 
 	return out
+}
+
+// Equals compares two ServerEntry instances for equality.
+// Returns true if all fields are equal.
+// RequiredPositionalArgs order matters (positional), all other slices are order-independent.
+func (s *ServerEntry) Equals(other *ServerEntry) bool {
+	if other == nil {
+		return false
+	}
+
+	// Compare basic fields.
+	if s.Name != other.Name {
+		return false
+	}
+
+	if s.Package != other.Package {
+		return false
+	}
+
+	// RequiredPositionalArgs order matters since they're positional.
+	if !slices.Equal(s.RequiredPositionalArgs, other.RequiredPositionalArgs) {
+		return false
+	}
+
+	// All other slices are flags, so order doesn't matter.
+	// NOTE: We are assuming that tools are always already normalized, ready for comparison.
+	if !equalStringSlicesUnordered(s.Tools, other.Tools) {
+		return false
+	}
+
+	if !equalStringSlicesUnordered(s.RequiredEnvVars, other.RequiredEnvVars) {
+		return false
+	}
+
+	if !equalStringSlicesUnordered(s.RequiredValueArgs, other.RequiredValueArgs) {
+		return false
+	}
+
+	if !equalStringSlicesUnordered(s.RequiredBoolArgs, other.RequiredBoolArgs) {
+		return false
+	}
+
+	return true
+}
+
+// EqualExceptTools compares this server with another and returns true if only the Tools field differs.
+// All other configuration fields must be identical for this to return true.
+func (s *ServerEntry) EqualExceptTools(other *ServerEntry) bool {
+	if other == nil {
+		return false
+	}
+
+	// Create copies with identical Tools to compare everything else.
+	a := s
+	b := other
+
+	// Temporarily set tools to be identical for comparison.
+	bTools := b.Tools
+	b.Tools = a.Tools
+
+	// If everything else is equal, then only tools differ.
+	equalIgnoringTools := a.Equals(b)
+
+	// Restore original tools.
+	b.Tools = bTools
+
+	// Return true only if everything else is equal AND tools actually differ.
+	// NOTE: We are assuming that tools are always already normalized, ready for comparison.
+	return equalIgnoringTools && !equalStringSlicesUnordered(s.Tools, other.Tools)
+}
+
+// equalStringSlicesUnordered compares two string slices for equality, ignoring order.
+func equalStringSlicesUnordered(a []string, b []string) bool {
+	if len(a) != len(b) {
+		return false
+	}
+
+	x := slices.Clone(a)
+	y := slices.Clone(b)
+
+	slices.Sort(x)
+	slices.Sort(y)
+
+	return slices.Equal(x, y)
+}
+
+// hasValue is used to determine if an argEntry is a bool flag or contains a value.
+func (e *argEntry) hasValue() bool {
+	return strings.TrimSpace(e.value) != ""
 }
