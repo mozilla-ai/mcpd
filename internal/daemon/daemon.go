@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"io"
 	"net"
-	"slices"
 	"strconv"
 	"strings"
 	"sync"
@@ -480,6 +479,8 @@ func (d *Daemon) closeClientWithTimeout(name string, c client.MCPClient, timeout
 // It compares the current servers with the new configuration and:
 // - Stops servers that have been removed
 // - Starts servers that have been added
+// - Updates tools for servers where only tools changed
+// - Restarts servers with other configuration changes
 // - Preserves servers that remain unchanged (keeping their client connections, tools, and health history intact)
 func (d *Daemon) ReloadServers(ctx context.Context, newServers []runtime.Server) error {
 	d.logger.Info("Starting server reload")
@@ -496,63 +497,115 @@ func (d *Daemon) ReloadServers(ctx context.Context, newServers []runtime.Server)
 		return fmt.Errorf("server validation failed: %w", validateErrs)
 	}
 
-	// Get current server names (already normalized by ClientManager).
-	names := d.clientManager.List()
-
-	// Extract names from new server list (normalize to match ClientManager).
-	newNames := make(map[string]runtime.Server, len(newServers))
-	for _, srv := range newServers {
+	existing := make(map[string]*runtime.Server)
+	for _, srv := range d.runtimeServers {
 		normalizedName := filter.NormalizeString(srv.Name())
-		newNames[normalizedName] = srv
+		srvCopy := srv // Create a copy to get pointer
+		srv.ServerEntry.Name = normalizedName
+		existing[normalizedName] = &srvCopy
 	}
 
-	// Find servers to remove (in current but not in new).
+	incoming := make(map[string]*runtime.Server, len(newServers))
+	for _, srv := range newServers {
+		normalizedName := filter.NormalizeString(srv.Name())
+		srvCopy := srv // Create a copy to get pointer
+		srv.ServerEntry.Name = normalizedName
+		incoming[normalizedName] = &srvCopy
+	}
+
+	// Categorize changes.
 	var toRemove []string
-	for _, name := range names {
-		if _, exists := newNames[name]; !exists {
+	var toAdd []*runtime.Server
+	var toUpdateTools []*runtime.Server
+	var toRestart []*runtime.Server
+	var unchangedCount int
+
+	// Find servers to remove (in current but not in new).
+	for name := range existing {
+		if _, exists := incoming[name]; !exists {
 			toRemove = append(toRemove, name)
 		}
 	}
 
-	// Find servers to add (in new but not in current).
-	var toAdd []runtime.Server
-	for name, srv := range newNames {
-		if !slices.Contains(names, name) {
+	// Find servers to add or modify (in new).
+	for name, srv := range incoming {
+		existingSrv, exists := existing[name]
+		switch {
+		case !exists:
+			// New server
 			toAdd = append(toAdd, srv)
+		case existingSrv.Equals(srv):
+			// No changes
+			unchangedCount++
+		case existingSrv.EqualsExceptTools(srv):
+			// Only tools changed
+			toUpdateTools = append(toUpdateTools, srv)
+		default:
+			// Other configuration changed - requires restart
+			toRestart = append(toRestart, srv)
 		}
 	}
 
 	d.logger.Info("Server configuration changes",
 		"removed", len(toRemove),
 		"added", len(toAdd),
-		"unchanged", len(names)-len(toRemove))
+		"tools_updated", len(toUpdateTools),
+		"restarted", len(toRestart),
+		"unchanged", unchangedCount)
+
+	var errs []error
 
 	// Stop removed servers.
 	for _, name := range toRemove {
 		if err := d.stopMCPServer(name); err != nil {
-			// Log the error that a server may not have closed correctly (could be leaky) but carry on.
 			d.logger.Error("Failed to stop server", "server", name, "error", err)
+			errs = append(errs, fmt.Errorf("stop %s: %w", name, err))
+		}
+	}
+
+	// Update tools for servers with tools-only changes.
+	for _, srv := range toUpdateTools {
+		if err := d.clientManager.UpdateTools(srv.Name(), srv.Tools); err != nil {
+			d.logger.Error("Failed to update tools", "server", srv.Name(), "error", err)
+			errs = append(errs, fmt.Errorf("update-tools %s: %w", srv.Name(), err))
+		} else {
+			d.logger.Info("Updated tools", "server", srv.Name(), "tools", srv.Tools)
+		}
+	}
+
+	// Restart servers with configuration changes.
+	for _, srv := range toRestart {
+		d.logger.Info("Restarting server due to configuration changes", "server", srv.Name())
+
+		// Stop the existing server.
+		if err := d.stopMCPServer(srv.Name()); err != nil {
+			d.logger.Error("Failed to stop server for restart", "server", srv.Name(), "error", err)
+			errs = append(errs, fmt.Errorf("restart-stop %s: %w", srv.Name(), err))
+			continue
+		}
+
+		// Start the server with new configuration.
+		if err := d.startMCPServer(ctx, *srv); err != nil {
+			d.logger.Error("Failed to start server after restart", "server", srv.Name(), "error", err)
+			errs = append(errs, fmt.Errorf("restart-start %s: %w", srv.Name(), err))
 		}
 	}
 
 	// Start new servers.
-	var startErrs []error
 	for _, srv := range toAdd {
-		if err := d.startMCPServer(ctx, srv); err != nil {
-			startErrs = append(startErrs, fmt.Errorf("%s: %w", srv.Name(), err))
+		if err := d.startMCPServer(ctx, *srv); err != nil {
+			d.logger.Error("Failed to start new server", "server", srv.Name(), "error", err)
+			errs = append(errs, fmt.Errorf("add %s: %w", srv.Name(), err))
 		}
 	}
 
-	if len(startErrs) > 0 {
-		d.logger.Error("Server reload completed with errors",
-			"failed", len(startErrs),
-			"removed", len(toRemove),
-			"added", len(toAdd)-len(startErrs))
-		return errors.Join(append([]error{fmt.Errorf("failed to start some servers")}, startErrs...)...)
-	}
-
-	// Update stored runtime servers after successful reload.
+	// Update stored runtime servers after reload (even if some operations failed).
 	d.runtimeServers = newServers
+
+	if len(errs) > 0 {
+		d.logger.Error("Server reload completed with errors", "error_count", len(errs))
+		return errors.Join(append([]error{fmt.Errorf("server reload had %d errors", len(errs))}, errs...)...)
+	}
 
 	d.logger.Info("Server reload completed successfully")
 	return nil

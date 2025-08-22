@@ -2,6 +2,7 @@ package api
 
 import (
 	"context"
+	"fmt"
 	"testing"
 
 	"github.com/mark3labs/mcp-go/client"
@@ -46,6 +47,14 @@ func (m *mockMCPClientAccessor) List() []string {
 		names = append(names, name)
 	}
 	return names
+}
+
+func (m *mockMCPClientAccessor) UpdateTools(name string, tools []string) error {
+	if _, ok := m.clients[name]; !ok {
+		return fmt.Errorf("server '%s' not found", name)
+	}
+	m.tools[name] = tools
+	return nil
 }
 
 func (m *mockMCPClientAccessor) Remove(name string) {

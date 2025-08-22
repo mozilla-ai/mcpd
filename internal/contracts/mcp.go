@@ -39,6 +39,10 @@ type MCPClientAccessor interface {
 	// It returns a boolean to indicate whether the tools were found.
 	Tools(name string) ([]string, bool)
 
+	// UpdateTools updates the tools list for an existing server without restarting the client.
+	// Returns an error if the server is not found.
+	UpdateTools(name string, tools []string) error
+
 	// List returns all known server names.
 	List() []string
 
