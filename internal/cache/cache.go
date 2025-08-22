@@ -42,7 +42,7 @@ func NewCache(logger hclog.Logger, opts ...Option) (*Cache, error) {
 
 	// Only create cache directory if caching is enabled.
 	if options.enabled {
-		if err := context.EnsureDirectoryExists(options.dir); err != nil {
+		if err := context.EnsureAtLeastRegularDir(options.dir); err != nil {
 			return nil, fmt.Errorf("failed to create cache directory: %w", err)
 		}
 	}

@@ -336,7 +336,7 @@ func (s *Servers) Export(path string) (map[string]string, error) {
 	}
 
 	// Save the fully formed portable execution context.
-	err := pec.SaveConfig()
+	err := pec.SaveExportedConfig()
 	if err != nil {
 		return nil, fmt.Errorf("export error, failed to save portable execution config: %v", err)
 	}

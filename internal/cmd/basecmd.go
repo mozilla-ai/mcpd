@@ -11,6 +11,7 @@ import (
 	"github.com/mozilla-ai/mcpd/v2/internal/cmd/output"
 	"github.com/mozilla-ai/mcpd/v2/internal/config"
 	"github.com/mozilla-ai/mcpd/v2/internal/flags"
+	"github.com/mozilla-ai/mcpd/v2/internal/perms"
 	"github.com/mozilla-ai/mcpd/v2/internal/provider/mcpm"
 	"github.com/mozilla-ai/mcpd/v2/internal/provider/mozilla_ai"
 	"github.com/mozilla-ai/mcpd/v2/internal/registry"
@@ -59,7 +60,7 @@ func (c *BaseCmd) Logger() (hclog.Logger, error) {
 	// Configure logger output based on the log file path
 	output := io.Discard // Default to discarding log output.
 	if logPath != "" {
-		f, err := os.OpenFile(logPath, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0o644)
+		f, err := os.OpenFile(logPath, os.O_CREATE|os.O_APPEND|os.O_WRONLY, perms.RegularFile)
 		if err != nil {
 			return nil, fmt.Errorf("failed to open log file (%s): %w", logPath, err)
 		} else {

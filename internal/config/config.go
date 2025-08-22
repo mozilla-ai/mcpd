@@ -9,6 +9,7 @@ import (
 	"github.com/BurntSushi/toml"
 
 	"github.com/mozilla-ai/mcpd/v2/internal/flags"
+	"github.com/mozilla-ai/mcpd/v2/internal/perms"
 )
 
 // Init creates the base skeleton configuration file for the mcpd project.
@@ -21,7 +22,7 @@ func (d *DefaultLoader) Init(path string) error {
 
 	content := `servers = []`
 
-	if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
+	if err := os.WriteFile(path, []byte(content), perms.RegularFile); err != nil {
 		return fmt.Errorf("failed to write %s: %w", path, err)
 	}
 
@@ -158,7 +159,7 @@ func (c *Config) saveConfig() error {
 		return err
 	}
 
-	return os.WriteFile(c.configFilePath, data, 0o644)
+	return os.WriteFile(c.configFilePath, data, perms.RegularFile)
 }
 
 // validate orchestrates validation of all aspects of the configuration.

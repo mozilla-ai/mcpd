@@ -13,6 +13,7 @@ import (
 	"github.com/mozilla-ai/mcpd/v2/internal/config"
 	"github.com/mozilla-ai/mcpd/v2/internal/context"
 	"github.com/mozilla-ai/mcpd/v2/internal/flags"
+	"github.com/mozilla-ai/mcpd/v2/internal/perms"
 	"github.com/mozilla-ai/mcpd/v2/internal/runtime"
 )
 
@@ -141,5 +142,5 @@ func writeDotenvFile(path string, data map[string]string) error {
 		}
 	}
 
-	return os.WriteFile(path, []byte(b.String()), 0o644)
+	return os.WriteFile(path, []byte(b.String()), perms.RegularFile)
 }
