@@ -42,7 +42,7 @@ Following [AGNTCY Identity Spec](https://spec.identity.agntcy.org/docs/id/defini
     "service": [{
       "id": "did:agntcy:dev:MyOrg:github-server#mcp",
       "type": "MCPService",
-      "serviceEndpoint": "http://localhost:8090/servers/github-server"
+      "serviceEndpoint": "/servers/github-server"
     }]
   }
 }

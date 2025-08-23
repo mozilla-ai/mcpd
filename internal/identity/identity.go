@@ -87,7 +87,7 @@ func (m *Manager) InitServer(serverName, organization string) error {
 				{
 					"id": id + "#mcp",
 					"type": "MCPService",
-					"serviceEndpoint": fmt.Sprintf("http://localhost:8090/servers/%s", serverName),
+					"serviceEndpoint": fmt.Sprintf("/servers/%s", serverName),
 				},
 			},
 		},
