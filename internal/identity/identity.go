@@ -55,7 +55,7 @@ func (m *Manager) VerifyServer(ctx context.Context, serverName string) error {
 	return nil
 }
 
-// InitServer creates a basic identity credential for a server
+// InitServer creates AGNTCY-spec identity with ResolverMetadata
 func (m *Manager) InitServer(serverName, organization string) error {
 	if !m.enabled {
 		return fmt.Errorf("identity not enabled (set MCPD_IDENTITY_ENABLED=true)")
@@ -67,27 +67,37 @@ func (m *Manager) InitServer(serverName, organization string) error {
 		return fmt.Errorf("failed to create identity directory: %w", err)
 	}
 	
-	// Simple AGNTCY-compatible credential
-	cred := map[string]interface{}{
-		"@context": []string{
-			"https://www.w3.org/2018/credentials/v1",
-			"https://agntcy.org/contexts/mcp-server-badge/v1",
+	// AGNTCY identity format with ResolverMetadata
+	id := fmt.Sprintf("did:agntcy:dev:%s:%s", organization, serverName)
+	identity := map[string]interface{}{
+		"id": id,
+		"resolverMetadata": map[string]interface{}{
+			"id": id,
+			"assertionMethod": []map[string]interface{}{
+				{
+					"id": id + "#key-1",
+					"publicKeyJwk": map[string]interface{}{
+						"kty": "OKP",
+						"crv": "Ed25519",
+						"x":   "development-key-placeholder",
+					},
+				},
+			},
+			"service": []map[string]interface{}{
+				{
+					"id": id + "#mcp",
+					"type": "MCPService",
+					"serviceEndpoint": fmt.Sprintf("http://localhost:8090/servers/%s", serverName),
+				},
+			},
 		},
-		"type": []string{"VerifiableCredential", "MCPServerBadge"},
-		"issuer": fmt.Sprintf("did:dev:%s:mcpd", organization),
-		"credentialSubject": map[string]interface{}{
-			"id": serverName,
-			"server": serverName,
-			"organization": organization,
-		},
-		"issuanceDate": time.Now().Format(time.RFC3339),
 	}
 	
-	data, _ := json.MarshalIndent(cred, "", "  ")
+	data, _ := json.MarshalIndent(identity, "", "  ")
 	credPath := filepath.Join(identityDir, serverName+".json")
 	
 	if err := os.WriteFile(credPath, data, 0600); err != nil {
-		return fmt.Errorf("failed to write credential: %w", err)
+		return fmt.Errorf("failed to write identity: %w", err)
 	}
 	
 	return nil

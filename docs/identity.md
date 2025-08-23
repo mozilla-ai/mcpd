@@ -1,6 +1,6 @@
 # Identity Support
 
-mcpd includes optional support for AGNTCY Identity standards, enabling verifiable identities for MCP servers.
+mcpd includes optional support for AGNTCY Identity specifications, enabling verifiable identities for MCP servers.
 
 ## Quick Start
 
@@ -22,18 +22,33 @@ mcpd daemon
 ## How It Works
 
 When enabled, mcpd:
-- Creates AGNTCY-compatible Verifiable Credentials for servers
-- Stores credentials locally in `~/.config/mcpd/identity/`
-- Verifies server identities on startup (optional, non-blocking)
+- Creates AGNTCY-spec identities with ResolverMetadata
+- Uses DID format: `did:agntcy:dev:{org}:{server}`
+- Stores in `~/.config/mcpd/identity/`
+- Verifies on startup (optional, non-blocking)
+
+## Identity Format
+
+Following [AGNTCY Identity Spec](https://spec.identity.agntcy.org/docs/id/definitions):
+```json
+{
+  "id": "did:agntcy:dev:MyOrg:github-server",
+  "resolverMetadata": {
+    "id": "did:agntcy:dev:MyOrg:github-server",
+    "assertionMethod": [{
+      "id": "did:agntcy:dev:MyOrg:github-server#key-1",
+      "publicKeyJwk": {...}
+    }],
+    "service": [{
+      "id": "did:agntcy:dev:MyOrg:github-server#mcp",
+      "type": "MCPService",
+      "serviceEndpoint": "http://localhost:8090/servers/github-server"
+    }]
+  }
+}
+```
 
 ## Configuration
 
 Identity is disabled by default. Enable with:
 - Environment variable: `MCPD_IDENTITY_ENABLED=true`
-
-## Future
-
-This minimal implementation provides a foundation for:
-- Integration with AGNTCY Identity Nodes
-- Agent-to-Agent (A2A) secure communication
-- Cross-organizational trust networks
