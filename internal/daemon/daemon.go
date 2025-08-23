@@ -20,6 +20,7 @@ import (
 	"github.com/mozilla-ai/mcpd/v2/internal/cmd"
 	"github.com/mozilla-ai/mcpd/v2/internal/contracts"
 	"github.com/mozilla-ai/mcpd/v2/internal/domain"
+	"github.com/mozilla-ai/mcpd/v2/internal/identity"
 	"github.com/mozilla-ai/mcpd/v2/internal/runtime"
 )
 
@@ -32,6 +33,7 @@ type Daemon struct {
 	healthTracker     contracts.MCPHealthMonitor
 	supportedRuntimes map[runtime.Runtime]struct{}
 	runtimeServers    []runtime.Server
+	identityManager   *identity.Manager
 
 	// clientInitTimeout is the time allowed for MCP servers to initialize.
 	clientInitTimeout time.Duration
@@ -100,6 +102,7 @@ func NewDaemon(deps Dependencies, opt ...Option) (*Daemon, error) {
 		apiServer:                 apiServer,
 		supportedRuntimes:         runtime.DefaultSupportedRuntimes(),
 		runtimeServers:            deps.RuntimeServers,
+		identityManager:           identity.NewManager(deps.Logger),
 		clientInitTimeout:         opts.ClientInitTimeout,
 		clientShutdownTimeout:     opts.ClientShutdownTimeout,
 		clientHealthCheckTimeout:  opts.ClientHealthCheckTimeout,
@@ -236,6 +239,14 @@ func (d *Daemon) startMCPServer(ctx context.Context, server runtime.Server) erro
 
 	packageNameAndVersion = fmt.Sprintf("%s@%s", initResult.ServerInfo.Name, initResult.ServerInfo.Version)
 	logger.Info(fmt.Sprintf("Initialized: '%s'", packageNameAndVersion))
+	
+	// Optional identity verification
+	if d.identityManager != nil && d.identityManager.IsEnabled() {
+		if err := d.identityManager.VerifyServer(ctx, server.Name()); err != nil {
+			logger.Warn("Identity verification failed", "error", err)
+			// Don't fail - identity is optional
+		}
+	}
 
 	// Store the client.
 	d.clientManager.Add(server.Name(), stdioClient, server.Tools)
