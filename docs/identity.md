@@ -48,7 +48,25 @@ Following [AGNTCY Identity Spec](https://spec.identity.agntcy.org/docs/id/defini
 }
 ```
 
+## Example Workflow
+
+```bash
+# 1. Enable identity
+export MCPD_IDENTITY_ENABLED=true
+
+# 2. Create identity for your server
+mcpd identity init github-server --org "AcmeCorp"
+
+# 3. Start daemon - it will verify identity on startup
+mcpd daemon --dev
+# Look for: "Identity verified server=github-server"
+```
+
 ## Configuration
 
 Identity is disabled by default. Enable with:
 - Environment variable: `MCPD_IDENTITY_ENABLED=true`
+
+## Integration with .mcpd.toml
+
+While identity configuration isn't in the TOML file yet, servers with identities are automatically verified on startup when identity is enabled.
