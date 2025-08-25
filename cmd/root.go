@@ -70,6 +70,7 @@ func NewRootCmd(c *RootCmd) (*cobra.Command, error) {
 		NewRemoveCmd,
 		NewDaemonCmd,
 		config.NewConfigCmd,
+		NewInspectorCmd,
 	}
 
 	for _, fn := range fns {
