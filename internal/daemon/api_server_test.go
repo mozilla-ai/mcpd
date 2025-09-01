@@ -1,12 +1,15 @@
 package daemon
 
 import (
+	"fmt"
 	"testing"
 	"time"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/hashicorp/go-hclog"
 	"github.com/stretchr/testify/require"
+
+	"github.com/mozilla-ai/mcpd/v2/internal/errors"
 )
 
 func TestNewAPIServer_AppliesDefaults(t *testing.T) {
@@ -283,4 +286,71 @@ func TestAPIServer_CORSIntegration(t *testing.T) {
 func testNewChiMux(t *testing.T) *chi.Mux {
 	t.Helper()
 	return chi.NewMux()
+}
+
+func TestMapError(t *testing.T) {
+	t.Parallel()
+
+	logger := hclog.NewNullLogger()
+
+	tests := []struct {
+		name           string
+		err            error
+		expectedStatus int
+	}{
+		{
+			name:           "ErrBadRequest maps to 400",
+			err:            errors.ErrBadRequest,
+			expectedStatus: 400,
+		},
+		{
+			name:           "ErrServerNotFound maps to 404",
+			err:            errors.ErrServerNotFound,
+			expectedStatus: 404,
+		},
+		{
+			name:           "ErrToolsNotFound maps to 404",
+			err:            errors.ErrToolsNotFound,
+			expectedStatus: 404,
+		},
+		{
+			name:           "ErrHealthNotTracked maps to 404",
+			err:            errors.ErrHealthNotTracked,
+			expectedStatus: 404,
+		},
+		{
+			name:           "ErrToolForbidden maps to 403",
+			err:            errors.ErrToolForbidden,
+			expectedStatus: 403,
+		},
+		{
+			name:           "ErrToolListFailed maps to 502",
+			err:            errors.ErrToolListFailed,
+			expectedStatus: 502,
+		},
+		{
+			name:           "ErrToolCallFailed maps to 502",
+			err:            errors.ErrToolCallFailed,
+			expectedStatus: 502,
+		},
+		{
+			name:           "ErrToolCallFailedUnknown maps to 502",
+			err:            errors.ErrToolCallFailedUnknown,
+			expectedStatus: 502,
+		},
+		{
+			name:           "Unknown error maps to 500",
+			err:            fmt.Errorf("unknown error"),
+			expectedStatus: 500,
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			statusErr := mapError(logger, tc.err)
+			require.Equal(t, tc.expectedStatus, statusErr.GetStatus())
+		})
+	}
 }

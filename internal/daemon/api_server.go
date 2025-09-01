@@ -153,12 +153,34 @@ func (a *APIServer) applyCORS(mux *chi.Mux) {
 	mux.Use(cors.Handler(corsOptions))
 }
 
-// mapError maps application domain errors to API errors.
+// mapError maps application domain errors to appropriate HTTP status codes.
+//
+// This function is the central place where domain errors from internal/errors are converted to HTTP responses.
+// When adding new errors to internal/errors/errors.go, you MUST add them here to prevent them from falling
+// through to the default case which returns HTTP 500.
+//
+// NOTE: Keep this function in sync with internal/errors/errors.go.
+// Every error defined there should have an explicit case here otherwise it will default to 500.
+//
+// Mapping guidelines:
+//   - 400: Client errors (bad input, invalid requests)
+//   - 403: Authorization/permission errors
+//   - 404: Resource not found errors
+//   - 502: External service/dependency failures
+//   - 500: Unexpected internal errors (default case)
+//
+// Don't forget to:
+// 1. Add test cases to TestMapError (internal/daemon/api_server_test.go)
+// 2. Update the documentation in internal/errors/errors.go
 func mapError(logger hclog.Logger, err error) huma.StatusError {
 	switch {
 	case stdErrors.Is(err, errors.ErrBadRequest):
 		return huma.Error400BadRequest(err.Error())
 	case stdErrors.Is(err, errors.ErrServerNotFound):
+		return huma.Error404NotFound(err.Error())
+	case stdErrors.Is(err, errors.ErrToolsNotFound):
+		return huma.Error404NotFound(err.Error())
+	case stdErrors.Is(err, errors.ErrHealthNotTracked):
 		return huma.Error404NotFound(err.Error())
 	case stdErrors.Is(err, errors.ErrToolForbidden):
 		return huma.Error403Forbidden(err.Error())
