@@ -1168,5 +1168,105 @@
       }
     ],
     "transports": ["stdio"]
+  },
+  "zim": {
+    "arguments": {
+      "DIRECTORY_PATH": {
+        "description": "The directory path where the ZIM files are stored",
+        "example": "/path/to/zimfiles/directory",
+        "name": "DIRECTORY_PATH",
+        "position": 1,
+        "required": true,
+        "type": "argument_positional"
+      }
+    },
+    "categories": ["Knowledge Base"],
+    "description": "Enable AI models to access and search ZIM format knowledge bases offline ",
+    "displayName": "ZIM",
+    "homepage": "https://github.com/aittalam/zim-mcp-server",
+    "id": "zim",
+    "installations": {
+      "uvx": {
+        "description": "Run with Python uvx",
+        "package": "zim-mcp-server",
+        "recommended": true,
+        "runtime": "uvx",
+        "version": "0.1.0"
+      }
+    },
+    "isOfficial": false,
+    "license": "MIT",
+    "name": "zim",
+    "publisher": {
+      "name": "Davide Eynard",
+      "url": "https://github.com/aittalam"
+    },
+    "tags": [
+      "knowledge base",
+      "wikipedia"
+    ],
+    "tools": [
+      {
+        "description": "List all ZIM files in allowed directories",
+        "name": "list_zim_files"
+      },
+      {
+        "description": "Search within ZIM file content",
+        "name": "search_zim_file"
+      },
+      {
+        "description": "Get detailed content of a specific entry in a ZIM file",
+        "name": "get_zim_entry"
+      }
+    ],
+    "transports": ["stdio"]
+  },
+  "searxng": {
+    "arguments": {
+      "SEARXNG_URL": {
+        "description": "URL of the SearXNG instance you want to send your search queries to",
+        "example": "http://127.0.0.1:8080",
+        "name": "SEARXNG_URL",
+        "required": true,
+        "type": "environment"
+      }
+    },
+    "categories": ["Web Services"],
+    "description": "Provides Web Search capabilities using the SearXNG API",
+    "displayName": "SearXNG",
+    "homepage": "https://github.com/ihor-sokoliuk/mcp-searxng",
+    "id": "searxng",
+    "installations": {
+      "npx": {
+        "description": "Run with npx",
+        "package": "mcp-searxng",
+        "recommended": true,
+        "runtime": "npx",
+        "version": "0.6.0"
+      }
+    },
+    "isOfficial": false,
+    "license": "MIT",
+    "name": "searxng",
+    "publisher": {
+      "name": "ihor-sokoliuk",
+      "url": "https://github.com/ihor-sokoliuk"
+    },
+    "tags": [
+      "search engine",
+      "web search",
+      "content fetching"
+    ],
+    "tools": [
+      {
+        "description": "Performs a web search using the SearXNG API, ideal for general queries, news, articles, and online content. Use this for broad information gathering, recent events, or when you need diverse web sources.",
+        "name": "searxng_web_search"
+      },
+      {
+        "description": "Read the content from an URL. Use this for further information retrieving to understand the content of each URL.",
+        "name": "web_url_read"
+      }
+    ],
+    "transports": ["stdio"]
   }
 }
