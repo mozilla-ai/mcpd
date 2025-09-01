@@ -55,6 +55,21 @@ The `mcpd` project includes a `Makefile` to streamline common developer tasks.
 
 ---
 
+### ✅ Validation
+
+- **Validate Mozilla AI registry against JSON schema**
+    ```bash
+    make validate-registry
+    ```
+
+    !!! note "When to use"
+        Run this command before submitting PRs that modify:
+        
+        * `internal/provider/mozilla_ai/data/registry.json`
+        * `internal/provider/mozilla_ai/data/schema.json`
+
+---
+
 ### 🐳 Run
 
 - **Start `mcpd` in a container**
@@ -109,7 +124,7 @@ These commands manage the [MkDocs](https://www.mkdocs.org) developer documentati
 
 ## 🧭 Target Reference
 
-Here’s a complete list of Makefile targets:
+Here's a complete list of Makefile targets:
 
 | Target              | Description                                   |
 |---------------------|-----------------------------------------------|
@@ -120,6 +135,7 @@ Here’s a complete list of Makefile targets:
 | `uninstall`         | Remove installed binary                       |
 | `clean`             | Remove compiled binary from working directory |
 | `test`              | Run all Go tests                              |
+| `validate-registry` | Validate Mozilla AI registry JSON schema      |
 | `local-up`          | Start `mcpd` in a Docker container            |
 | `local-down`        | Stop a running `mcpd` Docker container        |
 | `docs-cli`          | Generate Markdown CLI reference docs          |

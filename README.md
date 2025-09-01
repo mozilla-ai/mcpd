@@ -185,6 +185,11 @@ Run tests:
 make test
 ```
 
+Validate Mozilla AI registry (when modifying registry files):
+```bash
+make validate-registry
+```
+
 Run the local documentation site (requires `uv`), dynamically generates command line documentation:
 ```bash
 make docs
