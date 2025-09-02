@@ -1,4 +1,4 @@
-.PHONY: build build-dev build-linux build-linux-arm64 clean docs docs-cli docs-local docs-nav install local-down local-up test uninstall
+.PHONY: build build-dev build-linux build-linux-arm64 clean docs docs-cli docs-local docs-nav install local-down local-up test uninstall validate-registry
 
 MODULE_PATH := github.com/mozilla-ai/mcpd/v2
 
@@ -28,6 +28,12 @@ BUILDFLAGS := -trimpath
 
 test:
 	go test ./...
+
+validate-registry:
+	@echo "Validating Mozilla AI registry against schema..."
+	@go run -tags=validate_registry ./tools/validate/registry.go \
+		internal/provider/mozilla_ai/data/schema.json \
+		internal/provider/mozilla_ai/data/registry.json
 
 build:
 	@echo "building mcpd (version: $(VERSION), commit: $(COMMIT))..."

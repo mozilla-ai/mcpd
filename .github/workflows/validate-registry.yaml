@@ -1,0 +1,37 @@
+name: Validate Mozilla AI Registry
+
+on:
+  pull_request:
+    paths:
+      - 'internal/provider/mozilla_ai/data/registry.json'
+      - 'internal/provider/mozilla_ai/data/schema.json'
+      - '.github/workflows/validate-registry.yaml'
+  push:
+    branches:
+      - main
+    paths:
+      - 'internal/provider/mozilla_ai/data/registry.json'
+      - 'internal/provider/mozilla_ai/data/schema.json'
+      - '.github/workflows/validate-registry.yaml'
+  workflow_dispatch:
+
+jobs:
+  validate:
+    name: Validate Registry JSON Schema
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      
+      - name: Setup Go (from go.mod)
+        uses: actions/setup-go@d35c59abb061a4a6fb18e82ac0862c26744d6ab5 # v5.5.0
+        with:
+          go-version-file: go.mod
+
+      - name: Validate registry.json against schema
+        run: make validate-registry
+      
+      - name: Success message
+        if: success()
+        run: echo "✅ Registry validation passed!"

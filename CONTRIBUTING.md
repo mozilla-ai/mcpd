@@ -50,9 +50,16 @@ We encourage contributions via GitHub pull requests. Before you start, please re
    ```bash
    make test
    ```
-7. **Commit your changes** with a clear and descriptive message.
-8. **Push your branch** to your forked repository.
-9. **Open a Pull Request** from your branch to the `main` branch of the upstream `mozilla-ai/mcpd` repository, 
+7. **Validate Registry (if applicable):** If you've modified the Mozilla AI registry, validate your changes:
+   ```bash
+   make validate-registry
+   ```
+   This applies to changes in:
+   - `internal/provider/mozilla_ai/data/registry.json`
+   - `internal/provider/mozilla_ai/data/schema.json`
+8. **Commit your changes** with a clear and descriptive message.
+9. **Push your branch** to your forked repository.
+10. **Open a Pull Request** from your branch to the `main` branch of the upstream `mozilla-ai/mcpd` repository, 
   reference the relevant GitHub issue in your PR summary.
 
 ## Security Vulnerabilities
