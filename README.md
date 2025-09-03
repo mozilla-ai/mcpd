@@ -5,9 +5,7 @@
   </picture>
 </p>
 
-<div align="center">
-
-> **Run your agents, not your infrastructure.**
+<div align="center">**Run your agents, not your infrastructure.**</div>
 
 **mcpd** is a tool to declaratively manage [Model Context Protocol](https://modelcontextprotocol.io/overview) (MCP) servers, providing a consistent interface to define and run tools across environments, from local development to containerized cloud deployments.
 
