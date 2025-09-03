@@ -1,4 +1,11 @@
-# <img src="docs/assets/mcpd-logo.png" alt="mcpd" width="300"/>
+
+<p align="center">
+  <picture>
+    <img src="docs/assets/mcpd-logo.png" alt="mcpd" width="200"/>
+  </picture>
+</p>
+
+<div align="center">
 
 > **Run your agents, not your infrastructure.**
 
