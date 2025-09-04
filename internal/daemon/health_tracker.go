@@ -79,3 +79,26 @@ func (h *HealthTracker) Update(name string, status domain.HealthStatus, latency 
 
 	return nil
 }
+
+// Add registers a new server for health tracking.
+// If the server is already being tracked, this is a no-op.
+func (h *HealthTracker) Add(name string) {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+
+	// Only add if not already tracked.
+	if _, exists := h.statuses[name]; !exists {
+		h.statuses[name] = domain.ServerHealth{
+			Name:   name,
+			Status: domain.HealthStatusUnknown,
+		}
+	}
+}
+
+// Remove stops tracking health for a server and removes its health data.
+func (h *HealthTracker) Remove(name string) {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+
+	delete(h.statuses, name)
+}

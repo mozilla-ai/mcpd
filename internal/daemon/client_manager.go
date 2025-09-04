@@ -1,6 +1,7 @@
 package daemon
 
 import (
+	"fmt"
 	"sync"
 
 	"github.com/mark3labs/mcp-go/client"
@@ -71,6 +72,26 @@ func (cm *ClientManager) List() []string {
 		names = append(names, name)
 	}
 	return names
+}
+
+// UpdateTools updates the tools list for an existing server without restarting the client.
+// The server name and tool names are normalized for consistent lookups.
+// Returns an error if the server is not found.
+// This method is safe for concurrent use.
+func (cm *ClientManager) UpdateTools(name string, tools []string) error {
+	name = filter.NormalizeString(name)
+	tools = filter.NormalizeSlice(tools)
+	cm.mu.Lock()
+	defer cm.mu.Unlock()
+
+	// Check if the server exists.
+	if _, ok := cm.clients[name]; !ok {
+		return fmt.Errorf("server '%s' not found", name)
+	}
+
+	// Update the tools list.
+	cm.serverTools[name] = tools
+	return nil
 }
 
 // Remove deletes the client and its tools by server name.

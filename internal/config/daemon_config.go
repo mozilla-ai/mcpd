@@ -1260,15 +1260,6 @@ func parseBool(value string) (bool, error) {
 	}
 
 	return v, nil
-
-	//switch strings.ToLower(strings.TrimSpace(value)) {
-	//case "true", "t", "1", "yes", "y":
-	//	return true, nil
-	//case "false", "f", "0", "no", "n":
-	//	return false, nil
-	//default:
-	//	return false, fmt.Errorf("invalid boolean value: %s", value)
-	//}
 }
 
 // parseDuration parses a string into a Duration value.

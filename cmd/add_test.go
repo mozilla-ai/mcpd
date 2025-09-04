@@ -142,7 +142,7 @@ func TestAddCmd_RegistryFails(t *testing.T) {
 		cmdopts.WithRegistryBuilder(&fakeBuilder{err: errors.New("registry error")}),
 	)
 	require.NoError(t, err)
-
+	cmdObj.SetOut(io.Discard)
 	cmdObj.SetArgs([]string{"server1"})
 	err = cmdObj.Execute()
 	require.Error(t, err)
