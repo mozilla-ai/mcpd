@@ -37,7 +37,7 @@ You can also restrict access to allow only specific tools:
 mcpd add time --tool get_current_time
 ```
 
-!!! note "Experiment with MCP servers"
+!!! tip "Experiment with MCP servers"
     You can quickly experiment with MCP servers before properly adding them to
     the `mcpd` configuration, by running the inspector tool:
     ```bash
