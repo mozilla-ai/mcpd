@@ -37,6 +37,15 @@ You can also restrict access to allow only specific tools:
 mcpd add time --tool get_current_time
 ```
 
+!!! tip "Experiment with MCP servers"
+    You can quickly experiment with MCP servers before properly adding them to
+    the `mcpd` configuration, by running the inspector tool:
+    ```bash
+    mcpd inspector
+    ```
+    For more information, please refer to the [official documentation](https://modelcontextprotocol.io/docs/tools/inspector)
+    of the tool.
+
 ---
 
 ## 4. Set Startup Arguments
