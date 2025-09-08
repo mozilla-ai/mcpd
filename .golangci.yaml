@@ -56,7 +56,6 @@ issues:
 output:
   formats:
     text:
-      # Default: stdout
       path: stderr
   sort-order:
     - severity
