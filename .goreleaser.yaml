@@ -57,8 +57,6 @@ homebrew_casks:
       providing a consistent interface to define and run tools across environments,
       from local development to containerized cloud deployments.
     directory: Casks
-    conflicts:
-      - formula: mcpd
     # Only build for macOS and Linux (Homebrew standard)
     ids:
       - default
