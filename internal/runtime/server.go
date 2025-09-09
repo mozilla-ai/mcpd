@@ -58,7 +58,7 @@ func (s *Server) EqualsExceptTools(other *Server) bool {
 	}
 
 	// Then check if only tools differ in ServerEntry.
-	return s.ServerEntry.EqualExceptTools(&other.ServerEntry)
+	return s.EqualExceptTools(&other.ServerEntry)
 }
 
 // Runtime returns the runtime (e.g. python, node) portion of the package string.
