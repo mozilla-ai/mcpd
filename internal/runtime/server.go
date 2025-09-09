@@ -25,6 +25,42 @@ func (s *Server) Name() string {
 	return s.ServerEntry.Name
 }
 
+// Equals compares two Server instances for complete equality.
+// Returns true if both ServerEntry and ServerExecutionContext are equal.
+func (s *Server) Equals(other *Server) bool {
+	if other == nil {
+		return false
+	}
+
+	// Compare static configuration.
+	if !s.ServerEntry.Equals(&other.ServerEntry) {
+		return false
+	}
+
+	// Compare runtime execution context.
+	if !s.ServerExecutionContext.Equals(other.ServerExecutionContext) {
+		return false
+	}
+
+	return true
+}
+
+// EqualsExceptTools compares this server with another and returns true if only the Tools field differs.
+// All other configuration fields (including execution context) must be identical for this to return true.
+func (s *Server) EqualsExceptTools(other *Server) bool {
+	if other == nil {
+		return false
+	}
+
+	// First check if execution context is identical.
+	if !s.ServerExecutionContext.Equals(other.ServerExecutionContext) {
+		return false
+	}
+
+	// Then check if only tools differ in ServerEntry.
+	return s.EqualExceptTools(&other.ServerEntry)
+}
+
 // Runtime returns the runtime (e.g. python, node) portion of the package string.
 func (s *Server) Runtime() string {
 	parts := strings.Split(s.Package, "::")

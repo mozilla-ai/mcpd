@@ -65,6 +65,16 @@ type mockHealthMonitor struct {
 	servers map[string]domain.ServerHealth
 }
 
+func (m *mockHealthMonitor) Add(name string) {
+	// TODO implement MCPHealthMonitor 'Add' when needed.
+	panic("implement me")
+}
+
+func (m *mockHealthMonitor) Remove(name string) {
+	// TODO implement MCPHealthMonitor 'Remove' when needed.
+	panic("implement me")
+}
+
 func newMockHealthMonitor() *mockHealthMonitor {
 	return &mockHealthMonitor{
 		servers: make(map[string]domain.ServerHealth),

@@ -282,7 +282,7 @@ func newDaemonCobraCmd(daemonCmd *DaemonCmd) *cobra.Command {
 
 	cobraCommand.MarkFlagsMutuallyExclusive("dev", flagAddr)
 
-	// Note: Additional CORS validation required to check CORS flags are present alongside --cors-enable.
+	// NOTE: Additional CORS validation required to check CORS flags are present alongside --cors-enable.
 	cobraCommand.MarkFlagsRequiredTogether(flagCORSEnable, flagCORSOrigin)
 
 	return cobraCommand
@@ -315,10 +315,16 @@ func (c *DaemonCmd) run(cmd *cobra.Command, _ []string) error {
 		return err
 	}
 
-	// Load configuration layers (config file, then flag overrides).
-	warnings, err := c.loadConfigurationLayers(logger, cmd)
+	// Load the new configuration.
+	cfg, err := c.LoadConfig(c.cfgLoader)
 	if err != nil {
-		return fmt.Errorf("failed to load configuration: %w", err)
+		return fmt.Errorf("%w: %w", config.ErrConfigLoadFailed, err)
+	}
+
+	// Load configuration layers (config file, then flag overrides).
+	warnings, err := c.loadConfigurationLayers(logger, cmd, cfg)
+	if err != nil {
+		return err
 	}
 
 	if c.dev && len(warnings) > 0 {
@@ -342,10 +348,14 @@ func (c *DaemonCmd) run(cmd *cobra.Command, _ []string) error {
 		return err
 	}
 
-	// Load runtime servers from config and context.
-	runtimeServers, err := c.loadRuntimeServers()
+	execCtx, err := c.ctxLoader.Load(flags.RuntimeFile)
 	if err != nil {
-		return fmt.Errorf("error loading runtime servers: %w", err)
+		return fmt.Errorf("failed to load runtime context: %w", err)
+	}
+
+	runtimeServers, err := runtime.AggregateConfigs(cfg, execCtx)
+	if err != nil {
+		return fmt.Errorf("failed to aggregate configs: %w", err)
 	}
 
 	deps, err := daemon.NewDependencies(logger, addr, runtimeServers)
@@ -368,16 +378,22 @@ func (c *DaemonCmd) run(cmd *cobra.Command, _ []string) error {
 		return fmt.Errorf("failed to create mcpd daemon instance: %w", err)
 	}
 
-	daemonCtx, daemonCtxCancel := signal.NotifyContext(
-		context.Background(),
-		os.Interrupt,
-		syscall.SIGTERM, syscall.SIGINT,
-	)
-	defer daemonCtxCancel()
+	// Create signal contexts for shutdown and reload.
+	shutdownCtx, shutdownCancel := context.WithCancel(context.Background())
+	defer shutdownCancel()
+
+	// Setup signal handling.
+	sigChan := make(chan os.Signal, 1)
+	signal.Notify(sigChan, os.Interrupt, syscall.SIGTERM, syscall.SIGINT, syscall.SIGHUP)
+	defer signal.Stop(sigChan)
+
+	// Create reload channel for SIGHUP handling.
+	reloadChan := make(chan struct{}, 1)
+	defer close(reloadChan) // Ensure channel is closed on function exit
 
 	runErr := make(chan error, 1)
 	go func() {
-		if err := d.StartAndManage(daemonCtx); err != nil && !errors.Is(err, context.Canceled) {
+		if err := d.StartAndManage(shutdownCtx); err != nil && !errors.Is(err, context.Canceled) {
 			runErr <- err
 		}
 		close(runErr)
@@ -387,15 +403,36 @@ func (c *DaemonCmd) run(cmd *cobra.Command, _ []string) error {
 		c.printDevBanner(cmd.OutOrStdout(), logger, addr)
 	}
 
-	select {
-	case <-daemonCtx.Done():
-		logger.Info("Shutting down daemon...")
-		err := <-runErr // Wait for cleanup and deferred logging
-		logger.Info("Shutdown complete")
-		return err // Graceful Ctrl+C / SIGTERM
-	case err := <-runErr:
-		logger.Error("daemon exited with error", "error", err)
-		return err // Propagate daemon failure
+	// Start signal handling in background.
+	go c.handleSignals(logger, sigChan, reloadChan, shutdownCancel)
+
+	// Start the daemon's main loop which responds to reloads, shutdowns and startup errors.
+	for {
+		select {
+		case <-reloadChan:
+			logger.Info("Reloading servers...")
+			if err := c.reloadServers(shutdownCtx, d); err != nil {
+				logger.Error("Failed to reload servers, exiting to prevent inconsistent state", "error", err)
+				// Signal shutdown to exit cleanly.
+				shutdownCancel()
+				return fmt.Errorf("configuration reload failed with unrecoverable error: %w", err)
+			}
+
+			logger.Info("Configuration reloaded successfully")
+		case <-shutdownCtx.Done():
+			logger.Info("Shutting down daemon...")
+			err := <-runErr // Wait for cleanup and deferred logging
+			logger.Info("Shutdown complete")
+
+			return err // Graceful shutdown
+		case err := <-runErr:
+			if err != nil {
+				logger.Error("daemon exited with error", "error", err)
+				return err // Propagate daemon failure
+			}
+
+			return nil
+		}
 	}
 }
 
@@ -428,19 +465,17 @@ func formatValue(value any) string {
 // It follows the precedence order: flags > config file > defaults.
 // CLI flags override config file values when explicitly set.
 // Returns warnings for each flag override and any error encountered.
-func (c *DaemonCmd) loadConfigurationLayers(logger hclog.Logger, cmd *cobra.Command) ([]string, error) {
-	cfgModifier, err := c.cfgLoader.Load(flags.ConfigFile)
-	if err != nil {
-		return nil, err
+func (c *DaemonCmd) loadConfigurationLayers(
+	logger hclog.Logger,
+	cmd *cobra.Command,
+	cfg *config.Config,
+) ([]string, error) {
+	if cfg == nil {
+		return nil, fmt.Errorf("config data not present, cannot apply configuration layers")
 	}
 
-	cfg, ok := cfgModifier.(*config.Config)
-	if !ok {
-		return nil, fmt.Errorf("config file contains invalid configuration structure")
-	}
-
+	// No daemon config section - flags and defaults will be used.
 	if cfg.Daemon == nil {
-		// No daemon config section - flags and defaults will be used.
 		return nil, nil
 	}
 
@@ -728,24 +763,62 @@ func (c *DaemonCmd) loadConfigCORS(cors *config.CORSConfigSection, logger hclog.
 	return warnings
 }
 
-// loadRuntimeServers loads the configuration and aggregates it with runtime context to produce runtime servers.
-func (c *DaemonCmd) loadRuntimeServers() ([]runtime.Server, error) {
-	cfgModifier, err := c.cfgLoader.Load(flags.ConfigFile)
+// handleSignals processes OS signals for daemon lifecycle management.
+// This function is intended to be called in a dedicated goroutine.
+//
+// SIGHUP signals trigger configuration reloads via reloadChan.
+// Termination signals (SIGTERM, SIGINT, os.Interrupt) trigger graceful shutdown via shutdownCancel.
+// The function runs until a shutdown signal is received or sigChan is closed.
+// Non-blocking sends to reloadChan prevent duplicate reload requests.
+func (c *DaemonCmd) handleSignals(
+	logger hclog.Logger,
+	sigChan <-chan os.Signal,
+	reloadChan chan<- struct{},
+	shutdownCancel context.CancelFunc,
+) {
+	for sig := range sigChan {
+		switch sig {
+		case syscall.SIGHUP:
+			logger.Info("Received SIGHUP, triggering config reload")
+			select {
+			case reloadChan <- struct{}{}:
+				// Reload signal sent.
+			default:
+				// Reload already pending, skip.
+				logger.Warn("Config reload already in progress, skipping")
+			}
+		case os.Interrupt, syscall.SIGTERM, syscall.SIGINT:
+			logger.Info("Received shutdown signal", "signal", sig)
+			shutdownCancel()
+			return
+		}
+	}
+}
+
+// reloadServers reloads server configuration from config files.
+// This method only reloads runtime servers; daemon config changes require a restart.
+func (c *DaemonCmd) reloadServers(ctx context.Context, d *daemon.Daemon) error {
+	cfg, err := c.LoadConfig(c.cfgLoader)
 	if err != nil {
-		return nil, fmt.Errorf("failed to load config: %w", err)
+		return fmt.Errorf("%w: %w", config.ErrConfigLoadFailed, err)
 	}
 
 	execCtx, err := c.ctxLoader.Load(flags.RuntimeFile)
 	if err != nil {
-		return nil, fmt.Errorf("failed to load runtime context: %w", err)
+		return fmt.Errorf("failed to load runtime context: %w", err)
 	}
 
-	servers, err := runtime.AggregateConfigs(cfgModifier, execCtx)
+	newServers, err := runtime.AggregateConfigs(cfg, execCtx)
 	if err != nil {
-		return nil, fmt.Errorf("failed to aggregate configs: %w", err)
+		return fmt.Errorf("failed to aggregate configs: %w", err)
 	}
 
-	return servers, nil
+	// Reload the servers in the daemon.
+	if err := d.ReloadServers(ctx, newServers); err != nil {
+		return fmt.Errorf("failed to reload servers: %w", err)
+	}
+
+	return nil
 }
 
 // validateFlags validates the command flags and their relationships.

@@ -20,6 +20,7 @@ import (
 	"github.com/mozilla-ai/mcpd/v2/internal/cmd"
 	"github.com/mozilla-ai/mcpd/v2/internal/contracts"
 	"github.com/mozilla-ai/mcpd/v2/internal/domain"
+	"github.com/mozilla-ai/mcpd/v2/internal/filter"
 	"github.com/mozilla-ai/mcpd/v2/internal/runtime"
 )
 
@@ -237,8 +238,9 @@ func (d *Daemon) startMCPServer(ctx context.Context, server runtime.Server) erro
 	packageNameAndVersion = fmt.Sprintf("%s@%s", initResult.ServerInfo.Name, initResult.ServerInfo.Version)
 	logger.Info(fmt.Sprintf("Initialized: '%s'", packageNameAndVersion))
 
-	// Store the client.
+	// Store and track the client.
 	d.clientManager.Add(server.Name(), stdioClient, server.Tools)
+	d.healthTracker.Add(server.Name())
 
 	logger.Info("Ready!")
 
@@ -437,7 +439,7 @@ func (d *Daemon) closeAllClients() {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			d.closeClientWithTimeout(name, c, timeout)
+			_ = d.closeClientWithTimeout(name, c, timeout) // Ignore return value - leaks are acceptable during shutdown
 		}()
 	}
 
@@ -445,7 +447,8 @@ func (d *Daemon) closeAllClients() {
 }
 
 // closeClientWithTimeout closes a single client with a timeout.
-func (d *Daemon) closeClientWithTimeout(name string, c client.MCPClient, timeout time.Duration) {
+// Returns true if the client closed successfully, false if it timed out.
+func (d *Daemon) closeClientWithTimeout(name string, c client.MCPClient, timeout time.Duration) bool {
 	d.logger.Info(fmt.Sprintf("Closing client %s", name))
 
 	done := make(chan struct{})
@@ -456,17 +459,186 @@ func (d *Daemon) closeClientWithTimeout(name string, c client.MCPClient, timeout
 			// we still log the error but only for debugging purposes.
 			d.logger.Debug("Closing client", "client", name, "error", err)
 		}
-		d.logger.Info(fmt.Sprintf("Closed client %s", name))
 		close(done)
 	}()
 
 	// Wait for this specific client to close or timeout.
-	// NOTE: this could leak if we just time out clients,
-	// but since we're exiting mcpd it isn't an issue.
 	select {
 	case <-done:
-		// Closed successfully.
+		d.logger.Info(fmt.Sprintf("Closed client %s", name))
+		return true
 	case <-time.After(timeout):
-		d.logger.Warn(fmt.Sprintf("Timeout (%s) closing client %s", timeout.String(), name))
+		d.logger.Warn(
+			fmt.Sprintf("Timeout (%s) closing client %s - process may still be running", timeout.String(), name),
+		)
+		return false
 	}
+}
+
+// ReloadServers reloads the daemon's MCP servers based on a new configuration.
+// It compares the current servers with the new configuration and:
+// - Stops servers that have been removed
+// - Starts servers that have been added
+// - Updates tools for servers where only tools changed
+// - Restarts servers with other configuration changes
+// - Preserves servers that remain unchanged (keeping their client connections, tools, and health history intact)
+func (d *Daemon) ReloadServers(ctx context.Context, newServers []runtime.Server) error {
+	d.logger.Info("Starting server reload")
+
+	// Validate all new servers before making any changes.
+	var validateErrs error
+	for _, srv := range newServers {
+		if err := srv.Validate(); err != nil {
+			srvErr := fmt.Errorf("invalid server configuration '%s': %w", srv.Name(), err)
+			validateErrs = errors.Join(validateErrs, srvErr)
+		}
+	}
+	if validateErrs != nil {
+		return fmt.Errorf("server validation failed: %w", validateErrs)
+	}
+
+	existing := make(map[string]*runtime.Server)
+	for _, srv := range d.runtimeServers {
+		normalizedName := filter.NormalizeString(srv.Name())
+		srvCopy := srv // Create a copy to get pointer
+		srv.ServerEntry.Name = normalizedName
+		existing[normalizedName] = &srvCopy
+	}
+
+	incoming := make(map[string]*runtime.Server, len(newServers))
+	for _, srv := range newServers {
+		normalizedName := filter.NormalizeString(srv.Name())
+		srvCopy := srv // Create a copy to get pointer
+		srv.ServerEntry.Name = normalizedName
+		incoming[normalizedName] = &srvCopy
+	}
+
+	// Categorize changes.
+	var toRemove []string
+	var toAdd []*runtime.Server
+	var toUpdateTools []*runtime.Server
+	var toRestart []*runtime.Server
+	var unchangedCount int
+
+	// Find servers to remove (in current but not in new).
+	for name := range existing {
+		if _, exists := incoming[name]; !exists {
+			toRemove = append(toRemove, name)
+		}
+	}
+
+	// Find servers to add or modify (in new).
+	for name, srv := range incoming {
+		existingSrv, exists := existing[name]
+		switch {
+		case !exists:
+			// New server
+			toAdd = append(toAdd, srv)
+		case existingSrv.Equals(srv):
+			// No changes
+			unchangedCount++
+		case existingSrv.EqualsExceptTools(srv):
+			// Only tools changed
+			toUpdateTools = append(toUpdateTools, srv)
+		default:
+			// Other configuration changed - requires restart
+			toRestart = append(toRestart, srv)
+		}
+	}
+
+	d.logger.Info("Server configuration changes",
+		"removed", len(toRemove),
+		"added", len(toAdd),
+		"tools_updated", len(toUpdateTools),
+		"restarted", len(toRestart),
+		"unchanged", unchangedCount)
+
+	var errs []error
+
+	// Stop removed servers.
+	for _, name := range toRemove {
+		if err := d.stopMCPServer(name); err != nil {
+			d.logger.Error("Failed to stop server", "server", name, "error", err)
+			errs = append(errs, fmt.Errorf("stop %s: %w", name, err))
+		}
+	}
+
+	// Update tools for servers with tools-only changes.
+	for _, srv := range toUpdateTools {
+		if err := d.clientManager.UpdateTools(srv.Name(), srv.Tools); err != nil {
+			d.logger.Error("Failed to update tools", "server", srv.Name(), "error", err)
+			errs = append(errs, fmt.Errorf("update-tools %s: %w", srv.Name(), err))
+		} else {
+			d.logger.Info("Updated tools", "server", srv.Name(), "tools", srv.Tools)
+		}
+	}
+
+	// Restart servers with configuration changes.
+	for _, srv := range toRestart {
+		d.logger.Info("Restarting server due to configuration changes", "server", srv.Name())
+
+		// Stop the existing server.
+		if err := d.stopMCPServer(srv.Name()); err != nil {
+			d.logger.Error("Failed to stop server for restart", "server", srv.Name(), "error", err)
+			errs = append(errs, fmt.Errorf("restart-stop %s: %w", srv.Name(), err))
+			continue
+		}
+
+		// Start the server with new configuration.
+		if err := d.startMCPServer(ctx, *srv); err != nil {
+			d.logger.Error("Failed to start server after restart", "server", srv.Name(), "error", err)
+			errs = append(errs, fmt.Errorf("restart-start %s: %w", srv.Name(), err))
+		}
+	}
+
+	// Start new servers.
+	for _, srv := range toAdd {
+		if err := d.startMCPServer(ctx, *srv); err != nil {
+			d.logger.Error("Failed to start new server", "server", srv.Name(), "error", err)
+			errs = append(errs, fmt.Errorf("add %s: %w", srv.Name(), err))
+		}
+	}
+
+	// Update stored runtime servers after reload (even if some operations failed).
+	d.runtimeServers = newServers
+
+	if len(errs) > 0 {
+		d.logger.Error("Server reload completed with errors", "error_count", len(errs))
+		return errors.Join(append([]error{fmt.Errorf("server reload had %d errors", len(errs))}, errs...)...)
+	}
+
+	d.logger.Info("Server reload completed successfully")
+	return nil
+}
+
+// stopMCPServer gracefully stops a single MCP server and removes it from tracking.
+func (d *Daemon) stopMCPServer(name string) error {
+	d.logger.Info("Stopping MCP server", "server", name)
+
+	c, ok := d.clientManager.Client(name)
+	if !ok {
+		return fmt.Errorf("server '%s' not found", name)
+	}
+
+	// Always remove from managers to maintain consistency.
+	d.clientManager.Remove(name)
+	d.healthTracker.Remove(name)
+
+	// Close the client with timeout.
+	if closed := d.closeClientWithTimeout(name, c, d.clientShutdownTimeout); !closed {
+		d.logger.Error(
+			"MCP server stop timed out - process may still be running and could be leaked",
+			"server", name,
+			"timeout", d.clientShutdownTimeout,
+		)
+
+		return fmt.Errorf(
+			"server '%s' failed to stop within timeout %v - process may be leaked",
+			name,
+			d.clientShutdownTimeout,
+		)
+	}
+
+	d.logger.Info("MCP server stopped successfully", "server", name)
+	return nil
 }
