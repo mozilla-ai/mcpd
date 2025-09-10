@@ -23,7 +23,7 @@ func NewCmd(baseCmd *cmd.BaseCmd, opt ...options.CmdOption) (*cobra.Command, err
 	fns := []func(baseCmd *cmd.BaseCmd, opt ...options.CmdOption) (*cobra.Command, error){
 		// NewSetCmd,    // set
 		NewRemoveCmd, // remove
-		// NewListCmd,   // list
+		NewListCmd,   // list
 	}
 
 	for _, fn := range fns {
