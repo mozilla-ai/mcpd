@@ -805,7 +805,6 @@ func TestDaemon_CloseClientWithTimeout_Direct(t *testing.T) {
 	}
 
 	for _, tc := range tests {
-		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
@@ -888,7 +887,6 @@ func TestDaemon_CloseClientWithTimeout_ReturnValue(t *testing.T) {
 	}
 
 	for _, tc := range tests {
-		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
@@ -948,7 +946,6 @@ func TestDaemon_StopMCPServer(t *testing.T) {
 	}
 
 	for _, tc := range tests {
-		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
