@@ -15,7 +15,8 @@ import (
 
 type SetCmd struct {
 	*cmd.BaseCmd
-	ctxLoader context.Loader
+	ctxLoader  context.Loader
+	mergeFlags bool
 }
 
 func NewSetCmd(baseCmd *cmd.BaseCmd, opt ...cmdopts.CmdOption) (*cobra.Command, error) {
@@ -30,10 +31,16 @@ func NewSetCmd(baseCmd *cmd.BaseCmd, opt ...cmdopts.CmdOption) (*cobra.Command, 
 	}
 
 	cobraCmd := &cobra.Command{
-		Use:   "set <server-name> -- --arg=value [--arg=value ...]",
-		Short: "Set startup command line arguments for an MCP server",
-		Long: "Set startup command line arguments for an MCP server in the " +
-			"runtime context configuration file (e.g. `~/.config/mcpd/secrets.dev.toml`)",
+		Use:   "set <server-name> -- [positional-args...] [--flag=value...] [--bool-flag...]",
+		Short: "Set or replace startup command line arguments for an MCP server",
+		Long: `Set startup command line arguments for an MCP server in the runtime context 
+configuration file (e.g. ` + "`~/.config/mcpd/secrets.dev.toml`" + `).
+
+By default, this command completely replaces all existing arguments with the new ones provided.
+
+Use the --merge-flags option to preserve existing flags while updating: it replaces all positional 
+arguments with the new ones and merges flags (new flags override existing ones, 
+non-conflicting flags are preserved).`,
 		RunE: c.run,
 		Args: func(cmd *cobra.Command, args []string) error {
 			if cmd.ArgsLenAtDash() < 1 || strings.TrimSpace(args[0]) == "" {
@@ -46,6 +53,9 @@ func NewSetCmd(baseCmd *cmd.BaseCmd, opt ...cmdopts.CmdOption) (*cobra.Command, 
 			return nil
 		},
 	}
+
+	cobraCmd.Flags().BoolVar(&c.mergeFlags, "merge-flags", false,
+		"Replace positional args but merge flags (new flags override, others preserved)")
 
 	return cobraCmd, nil
 }
@@ -67,9 +77,11 @@ func (c *SetCmd) run(cmd *cobra.Command, args []string) error {
 		server.Name = serverName
 	}
 
-	newArgs := config.MergeArgs(server.Args, normalizedArgs)
+	newArgs := normalizedArgs
+	if c.mergeFlags {
+		newArgs = config.MergeArgsWithPositionalHandling(server.Args, normalizedArgs)
+	}
 
-	// Update...
 	server.Args = newArgs
 	if len(server.Env) == 0 {
 		server.Env = map[string]string{}
@@ -80,9 +92,14 @@ func (c *SetCmd) run(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("error setting arguments for server '%s': %w", serverName, err)
 	}
 
+	operation := "replaced"
+	if c.mergeFlags {
+		operation = "merged (flags only)"
+	}
+
 	if _, err := fmt.Fprintf(
 		cmd.OutOrStdout(),
-		"✓ Startup arguments set for server '%s' (operation: %s): %v\n", serverName, string(res), normalizedArgs,
+		"✓ Startup arguments %s for server '%s' (operation: %s): %v\n", operation, serverName, string(res), normalizedArgs,
 	); err != nil {
 		return err
 	}
