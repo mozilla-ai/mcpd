@@ -61,15 +61,6 @@ func (s *Server) EqualsExceptTools(other *Server) bool {
 	return s.EqualExceptTools(&other.ServerEntry)
 }
 
-// Runtime returns the runtime (e.g. python, node) portion of the package string.
-func (s *Server) Runtime() string {
-	parts := strings.Split(s.Package, "::")
-	if len(parts) > 0 {
-		return parts[0]
-	}
-	return ""
-}
-
 // Environ returns the server's effective environment with overrides applied
 // and irrelevant variables stripped. Environment variables are already expanded at load time.
 func (s *Server) Environ() []string {
