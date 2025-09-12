@@ -486,6 +486,131 @@ func TestArgEntry_String(t *testing.T) {
 	}
 }
 
+func TestSeparatePositionalAndFlags(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name               string
+		input              []string
+		expectedPositional []string
+		expectedFlags      []string
+	}{
+		{
+			name:               "empty input",
+			input:              []string{},
+			expectedPositional: []string{},
+			expectedFlags:      []string{},
+		},
+		{
+			name:               "only positional args",
+			input:              []string{"pos1", "pos2", "pos3"},
+			expectedPositional: []string{"pos1", "pos2", "pos3"},
+			expectedFlags:      []string{},
+		},
+		{
+			name:               "only flags",
+			input:              []string{"--flag", "--verbose", "-x", "--foo=bar"},
+			expectedPositional: []string{},
+			expectedFlags:      []string{"--flag", "--verbose", "-x", "--foo=bar"},
+		},
+		{
+			name:               "mixed positional and flags",
+			input:              []string{"pos1", "--flag=value", "pos2", "-v", "--verbose", "pos3"},
+			expectedPositional: []string{"pos1", "pos2", "pos3"},
+			expectedFlags:      []string{"--flag=value", "-v", "--verbose"},
+		},
+		{
+			name:               "flags with embedded equals",
+			input:              []string{"--env=KEY=VALUE", "pos1", "--flag=val=ue"},
+			expectedPositional: []string{"pos1"},
+			expectedFlags:      []string{"--env=KEY=VALUE", "--flag=val=ue"},
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			positional, flags := separatePositionalAndFlags(tc.input)
+			require.Equal(t, tc.expectedPositional, positional, "positional args should match")
+			require.Equal(t, tc.expectedFlags, flags, "flags should match")
+		})
+	}
+}
+
+func TestMergeArgsWithPositionalHandling(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name     string
+		existing []string
+		new      []string
+		expected []string
+	}{
+		{
+			name:     "replace positional, merge flags",
+			existing: []string{"pos1", "--foo=old", "--bar=val"},
+			new:      []string{"pos2", "pos3", "--foo=new", "--baz=val"},
+			expected: []string{"pos2", "pos3", "--foo=new", "--bar=val", "--baz=val"},
+		},
+		{
+			name:     "no existing positional",
+			existing: []string{"--foo=old", "--bar=val"},
+			new:      []string{"pos1", "pos2", "--foo=new"},
+			expected: []string{"pos1", "pos2", "--foo=new", "--bar=val"},
+		},
+		{
+			name:     "no new positional",
+			existing: []string{"pos1", "--foo=old", "--bar=val"},
+			new:      []string{"--foo=new", "--baz=val"},
+			expected: []string{"--foo=new", "--bar=val", "--baz=val"},
+		},
+		{
+			name:     "bool flags",
+			existing: []string{"pos1", "--verbose", "--debug=true"},
+			new:      []string{"pos2", "--debug", "--quiet"},
+			expected: []string{"pos2", "--verbose", "--debug", "--quiet"},
+		},
+		{
+			name:     "empty existing",
+			existing: []string{},
+			new:      []string{"pos1", "--flag=val"},
+			expected: []string{"pos1", "--flag=val"},
+		},
+		{
+			name:     "empty new",
+			existing: []string{"pos1", "--flag=val"},
+			new:      []string{},
+			expected: []string{"--flag=val"},
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			actual := MergeArgsWithPositionalHandling(tc.existing, tc.new)
+			require.Equal(t, tc.expected, actual)
+		})
+	}
+}
+
+func TestMergeArgsWithPositionalHandling_RegressionIssue153(t *testing.T) {
+	t.Parallel()
+
+	// Regression test from GitHub issue #153.
+	// The original MergeArgs function incorrectly handles positional arguments,
+	// treating them as flags and potentially placing them in wrong positions.
+	// MergeArgsWithPositionalHandling fixes this by handling positional args separately.
+	existing := []string{"posArg1", "--foo=qwerty", "--bar=val2", "--baz=val3"}
+	new := []string{"posArg1", "posArg2", "--foo=val1"}
+
+	// Verify MergeArgsWithPositionalHandling produces the correct result.
+	expected := []string{"posArg1", "posArg2", "--foo=val1", "--bar=val2", "--baz=val3"}
+	actual := MergeArgsWithPositionalHandling(existing, new)
+	require.Equal(t, expected, actual)
+}
+
 func TestProcessAllArgs(t *testing.T) {
 	t.Parallel()
 
