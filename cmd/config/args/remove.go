@@ -31,15 +31,23 @@ func NewRemoveCmd(baseCmd *cmd.BaseCmd, opt ...options.CmdOption) (*cobra.Comman
 		ctxLoader: opts.ContextLoader,
 	}
 
-	// mcpd config args remove time -- --arg [--arg ...]
+	// mcpd config args remove time -- [arg ...] [--arg ...]
 	cobraCmd := &cobra.Command{
-		Use:     "remove <server-name> -- --arg [--arg ...]",
+		Use:     "remove <server-name> -- [arg ...] [--arg ...]",
 		Example: "remove time -- --local-timezone",
-		Short:   "Remove command line arguments for an MCP server",
-		Long: "Remove command line arguments for a specified MCP server in the " +
-			"runtime context configuration file (e.g. `~/.config/mcpd/secrets.dev.toml`)",
+		Short:   "Remove arguments from an MCP server's configuration",
+		Long: "Remove arguments from a specified MCP server in the runtime context " +
+			"configuration file (e.g. `~/.config/mcpd/secrets.dev.toml`).\n\n" +
+			"This command removes ALL occurrences of each specified argument, whether they are:\n" +
+			"  - Flags (e.g., --verbose, -v)\n" +
+			"  - Flags with values (e.g., --config=file.json)\n" +
+			"  - Positional arguments (e.g., /path/to/file)\n\n" +
+			"Matching behavior:\n" +
+			"  - Specifying '--verbose' removes ALL '--verbose' variants (--verbose, --verbose=true, etc.)\n" +
+			"  - Specifying '--port=8080' removes ONLY exact matches of '--port=8080'\n" +
+			"  - If an argument appears multiple times, all instances are removed",
 		RunE: c.run,
-		Args: cobra.MinimumNArgs(2), // server-name + --arg ...
+		Args: cobra.MinimumNArgs(2), // server-name + args ...
 	}
 
 	return cobraCmd, nil
