@@ -139,6 +139,15 @@ func (s *ServerEntry) PackageName() string {
 	return stripPrefix(stripVersion(s.Package))
 }
 
+// Runtime returns the runtime (e.g. uvx, npx) portion of the package string.
+func (s *ServerEntry) Runtime() string {
+	parts := strings.Split(s.Package, "::")
+	if len(parts) > 0 {
+		return parts[0]
+	}
+	return ""
+}
+
 func (e *argEntry) String() string {
 	if e.hasValue() {
 		return e.key + FlagValueSeparator + e.value

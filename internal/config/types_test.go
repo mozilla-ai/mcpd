@@ -223,3 +223,65 @@ func TestEqualStringSlicesUnordered(t *testing.T) {
 		})
 	}
 }
+
+func TestServerEntry_Runtime(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name     string
+		entry    ServerEntry
+		expected string
+	}{
+		{
+			name: "uvx runtime, package, version",
+			entry: ServerEntry{
+				Package: "uvx::test-server@1.0.0",
+			},
+			expected: "uvx",
+		},
+		{
+			name: "npx runtime, package, no version (latest)",
+			entry: ServerEntry{
+				Package: "npx::another-server@latest",
+			},
+			expected: "npx",
+		},
+		{
+			name: "no runtime or separator",
+			entry: ServerEntry{
+				Package: "just-package-name@1.0.0",
+			},
+			expected: "just-package-name@1.0.0",
+		},
+		{
+			name: "empty package",
+			entry: ServerEntry{
+				Package: "",
+			},
+			expected: "",
+		},
+		{
+			name: "only runtime separator",
+			entry: ServerEntry{
+				Package: "::",
+			},
+			expected: "",
+		},
+		{
+			name: "runtime separator at start",
+			entry: ServerEntry{
+				Package: "::package@1.0.0",
+			},
+			expected: "",
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			result := tc.entry.Runtime()
+			require.Equal(t, tc.expected, result)
+		})
+	}
+}

@@ -3,6 +3,7 @@ package tools
 import (
 	"bytes"
 	"errors"
+	"fmt"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -10,6 +11,9 @@ import (
 	internalcmd "github.com/mozilla-ai/mcpd/v2/internal/cmd"
 	"github.com/mozilla-ai/mcpd/v2/internal/cmd/options"
 	"github.com/mozilla-ai/mcpd/v2/internal/config"
+	"github.com/mozilla-ai/mcpd/v2/internal/packages"
+	"github.com/mozilla-ai/mcpd/v2/internal/registry"
+	registryopts "github.com/mozilla-ai/mcpd/v2/internal/registry/options"
 )
 
 type mockConfigLoader struct {
@@ -42,6 +46,60 @@ func (m *mockConfig) ListServers() []config.ServerEntry {
 
 func (m *mockConfig) SaveConfig() error {
 	return nil
+}
+
+type mockPackageProvider struct {
+	servers []packages.Server
+	err     error
+}
+
+func (m *mockPackageProvider) Search(
+	name string,
+	filters map[string]string,
+	opts ...registryopts.SearchOption,
+) ([]packages.Server, error) {
+	if m.err != nil {
+		return nil, m.err
+	}
+
+	// Simple mock implementation that returns servers matching the name.
+	var results []packages.Server
+	for _, server := range m.servers {
+		if server.Name == name {
+			results = append(results, server)
+		}
+	}
+	return results, nil
+}
+
+func (m *mockPackageProvider) Resolve(name string, opts ...registryopts.ResolveOption) (packages.Server, error) {
+	if m.err != nil {
+		return packages.Server{}, m.err
+	}
+
+	// Simple mock implementation that returns the first server matching the name.
+	for _, server := range m.servers {
+		if server.Name == name {
+			return server, nil
+		}
+	}
+	return packages.Server{}, fmt.Errorf("server '%s' not found", name)
+}
+
+func (m *mockPackageProvider) ID() string {
+	return "mock"
+}
+
+type mockRegistryBuilder struct {
+	provider registry.PackageProvider
+	err      error
+}
+
+func (m *mockRegistryBuilder) Build(opts ...registryopts.BuildOption) (registry.PackageProvider, error) {
+	if m.err != nil {
+		return nil, m.err
+	}
+	return m.provider, nil
 }
 
 func TestListCmd_Run(t *testing.T) {
@@ -284,13 +342,18 @@ func TestNewListCmd(t *testing.T) {
 		require.NotNil(t, cmd)
 
 		require.Equal(t, "list <server-name>", cmd.Use)
-		require.Equal(t, "Lists the configured tools for a specific MCP server", cmd.Short)
+		require.Equal(t, "Lists the configured (allowed) tools for a specific MCP server", cmd.Short)
 		require.NotNil(t, cmd.RunE)
 
 		// Check format flag exists
 		flag := cmd.Flag("format")
 		require.NotNil(t, flag)
 		require.Equal(t, "format", flag.Name)
+
+		// Check all flag exists
+		allFlag := cmd.Flag("all")
+		require.NotNil(t, allFlag)
+		require.Equal(t, "all", allFlag.Name)
 	})
 
 	t.Run("validates exactly one argument", func(t *testing.T) {
@@ -312,4 +375,107 @@ func TestNewListCmd(t *testing.T) {
 		err = cmd.Args(cmd, []string{"server1", "server2"})
 		require.Error(t, err)
 	})
+}
+
+func TestListCmd_AllFlag(t *testing.T) {
+	t.Parallel()
+
+	// Create mock packages.Server with tools.
+	mockServer := packages.Server{
+		Name: "test-server",
+		Tools: packages.Tools{
+			{Name: "available_tool_1"},
+			{Name: "available_tool_2"},
+			{Name: "available_tool_3"},
+		},
+	}
+
+	tests := []struct {
+		name             string
+		serverName       string
+		configuredServer config.ServerEntry
+		registryServers  []packages.Server
+		expectedOutput   string
+		expectError      bool
+		registryError    error
+	}{
+		{
+			name:       "lists all available tools from registry",
+			serverName: "test-server",
+			configuredServer: config.ServerEntry{
+				Name:    "test-server",
+				Package: "uvx::test-server@1.0.0",
+				Tools:   []string{"configured_tool_1"}, // Only one configured tool.
+			},
+			registryServers: []packages.Server{mockServer},
+			expectedOutput:  "Tools for 'test-server' (3 total):\n  available_tool_1\n  available_tool_2\n  available_tool_3\n",
+			expectError:     false,
+		},
+		{
+			name:       "server not found in registry",
+			serverName: "missing-server",
+			configuredServer: config.ServerEntry{
+				Name:    "missing-server",
+				Package: "uvx::missing-server@1.0.0",
+				Tools:   []string{"tool1"},
+			},
+			registryServers: []packages.Server{}, // Empty registry.
+			expectError:     true,
+		},
+		{
+			name:       "registry search error",
+			serverName: "test-server",
+			configuredServer: config.ServerEntry{
+				Name:    "test-server",
+				Package: "uvx::test-server@1.0.0",
+				Tools:   []string{"tool1"},
+			},
+			registryServers: []packages.Server{},
+			registryError:   errors.New("registry connection failed"),
+			expectError:     true,
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			var buf bytes.Buffer
+
+			// Set up mocks.
+			loader := &mockConfigLoader{
+				servers: []config.ServerEntry{tc.configuredServer},
+			}
+
+			provider := &mockPackageProvider{
+				servers: tc.registryServers,
+				err:     tc.registryError,
+			}
+
+			registryBuilder := &mockRegistryBuilder{
+				provider: provider,
+			}
+
+			baseCmd := &internalcmd.BaseCmd{}
+			cmd, err := NewListCmd(
+				baseCmd,
+				options.WithConfigLoader(loader),
+				options.WithRegistryBuilder(registryBuilder),
+			)
+			require.NoError(t, err)
+
+			cmd.SetOut(&buf)
+			cmd.SetErr(&buf)
+			cmd.SetArgs([]string{tc.serverName, "--all"})
+
+			err = cmd.Execute()
+
+			if tc.expectError {
+				require.Error(t, err)
+			} else {
+				require.NoError(t, err)
+				require.Equal(t, tc.expectedOutput, buf.String())
+			}
+		})
+	}
 }

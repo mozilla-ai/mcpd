@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"sort"
 	"strings"
+	"time"
 
 	"github.com/spf13/cobra"
 
@@ -11,17 +12,30 @@ import (
 	cmdopts "github.com/mozilla-ai/mcpd/v2/internal/cmd/options"
 	"github.com/mozilla-ai/mcpd/v2/internal/cmd/output"
 	"github.com/mozilla-ai/mcpd/v2/internal/config"
+	"github.com/mozilla-ai/mcpd/v2/internal/filter"
 	"github.com/mozilla-ai/mcpd/v2/internal/flags"
 	"github.com/mozilla-ai/mcpd/v2/internal/printer"
+	"github.com/mozilla-ai/mcpd/v2/internal/registry"
+	"github.com/mozilla-ai/mcpd/v2/internal/registry/options"
+	"github.com/mozilla-ai/mcpd/v2/internal/runtime"
 )
 
+// ListCmd represents the command for listing tools for MCP servers.
+// Use NewListCmd to create instances of ListCmd.
 type ListCmd struct {
 	*internalcmd.BaseCmd
-	cfgLoader    config.Loader
-	Format       internalcmd.OutputFormat
-	toolsPrinter output.Printer[printer.ToolsListResult]
+	cfgLoader       config.Loader
+	toolsPrinter    output.Printer[printer.ToolsListResult]
+	registryBuilder registry.Builder
+	format          internalcmd.OutputFormat
+	allTools        bool
+	cacheDisabled   bool
+	cacheRefresh    bool
+	cacheDir        string
+	cacheTTL        string
 }
 
+// NewListCmd creates a new list command for displaying MCP server tools.
 func NewListCmd(baseCmd *internalcmd.BaseCmd, opt ...cmdopts.CmdOption) (*cobra.Command, error) {
 	opts, err := cmdopts.NewOptions(opt...)
 	if err != nil {
@@ -29,33 +43,124 @@ func NewListCmd(baseCmd *internalcmd.BaseCmd, opt ...cmdopts.CmdOption) (*cobra.
 	}
 
 	c := &ListCmd{
-		BaseCmd:      baseCmd,
-		cfgLoader:    opts.ConfigLoader,
-		Format:       internalcmd.FormatText, // Default to plain text
-		toolsPrinter: &printer.ToolsListPrinter{},
+		BaseCmd:         baseCmd,
+		cfgLoader:       opts.ConfigLoader,
+		registryBuilder: opts.RegistryBuilder,
+		toolsPrinter:    &printer.ToolsListPrinter{},
+		format:          internalcmd.FormatText, // Default to plain text
 	}
 
 	cobraCmd := &cobra.Command{
 		Use:   "list <server-name>",
-		Short: "Lists the configured tools for a specific MCP server",
-		Long:  "Lists the configured tools for a specific MCP server from the .mcpd.toml configuration file",
+		Short: "Lists the configured (allowed) tools for a specific MCP server",
+		Long:  "Lists the configured (allowed) tools for a specific MCP server from the .mcpd.toml configuration file",
 		RunE:  c.run,
 		Args:  cobra.ExactArgs(1),
 	}
 
-	// Add format flag
 	allowed := internalcmd.AllowedOutputFormats()
 	cobraCmd.Flags().Var(
-		&c.Format,
+		&c.format,
 		"format",
 		fmt.Sprintf("Specify the output format (one of: %s)", allowed.String()),
+	)
+
+	cobraCmd.Flags().BoolVar(
+		&c.allTools,
+		"all",
+		false,
+		"List all available tools from the registry instead of only allowed tools in config file "+
+			"(supports caching flags)",
+	)
+
+	// Cache configuration flags (not used for standard configuration listing)
+	cobraCmd.Flags().BoolVar(
+		&c.cacheDisabled,
+		"no-cache",
+		false,
+		"Disable registry manifest caching",
+	)
+
+	cobraCmd.Flags().BoolVar(
+		&c.cacheRefresh,
+		"refresh-cache",
+		false,
+		"Force refresh of cached registry manifests",
+	)
+
+	defaultCacheDir, err := options.DefaultCacheDir()
+	if err != nil {
+		return nil, fmt.Errorf("error getting default cache directory: %w", err)
+	}
+
+	cobraCmd.Flags().StringVar(
+		&c.cacheDir,
+		"cache-dir",
+		defaultCacheDir,
+		"Directory for caching registry manifests",
+	)
+
+	cobraCmd.Flags().StringVar(
+		&c.cacheTTL,
+		"cache-ttl",
+		options.DefaultCacheTTL().String(),
+		"Time-to-live for cached registry manifests (e.g. 1h, 30m, 24h)",
 	)
 
 	return cobraCmd, nil
 }
 
+// resolveServerTools queries the registry for all available tools for the given server.
+func (c *ListCmd) resolveServerTools(s *config.ServerEntry) ([]string, error) {
+	serverRuntime := s.Runtime()
+	if serverRuntime == "" {
+		return nil, fmt.Errorf("invalid package format in configuration: %s", s.Package)
+	}
+
+	version := s.PackageVersion()
+
+	// Parse cache TTL.
+	cacheTTL, err := time.ParseDuration(c.cacheTTL)
+	if err != nil {
+		return nil, fmt.Errorf("invalid cache TTL: %w", err)
+	}
+
+	// Build registry with caching options.
+	reg, err := c.registryBuilder.Build(
+		options.WithCaching(!c.cacheDisabled),
+		options.WithRefreshCache(c.cacheRefresh),
+		options.WithCacheDir(c.cacheDir),
+		options.WithCacheTTL(cacheTTL),
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to build registry: %w", err)
+	}
+
+	// Build resolve options with runtime and version.
+	resolveOpts := []options.ResolveOption{
+		options.WithResolveRuntime(runtime.Runtime(serverRuntime)),
+	}
+	if version != "" && version != "latest" {
+		resolveOpts = append(resolveOpts, options.WithResolveVersion(version))
+	}
+
+	// Resolve the specific server from the registry.
+	serverResult, err := reg.Resolve(s.Name, resolveOpts...)
+	if err != nil {
+		return nil, fmt.Errorf("failed to resolve server '%s': %w", s.Name, err)
+	}
+
+	// Extract and normalize all available tools.
+	allTools := make([]string, len(serverResult.Tools))
+	for i, tool := range serverResult.Tools {
+		allTools[i] = filter.NormalizeString(tool.Name)
+	}
+
+	return allTools, nil
+}
+
 func (c *ListCmd) run(cmd *cobra.Command, args []string) error {
-	handler, err := internalcmd.FormatHandler(cmd.OutOrStdout(), c.Format, c.toolsPrinter)
+	handler, err := internalcmd.FormatHandler(cmd.OutOrStdout(), c.format, c.toolsPrinter)
 	if err != nil {
 		return err
 	}
@@ -70,24 +175,36 @@ func (c *ListCmd) run(cmd *cobra.Command, args []string) error {
 		return handler.HandleError(err)
 	}
 
+	// Find the server in the configuration.
+	var foundServer *config.ServerEntry
 	for _, srv := range cfg.ListServers() {
-		if srv.Name != serverName {
-			continue
+		if srv.Name == serverName {
+			foundServer = &srv
+			break
 		}
-
-		// Sort tools alphabetically for consistent output.
-		tools := make([]string, len(srv.Tools))
-		copy(tools, srv.Tools)
-		sort.Strings(tools)
-
-		result := printer.ToolsListResult{
-			Server: serverName,
-			Tools:  tools,
-			Count:  len(tools),
-		}
-
-		return handler.HandleResult(result)
 	}
 
-	return handler.HandleError(fmt.Errorf("server '%s' not found in configuration", serverName))
+	if foundServer == nil {
+		return handler.HandleError(fmt.Errorf("server '%s' not found in configuration", serverName))
+	}
+
+	tools := foundServer.Tools
+	if c.allTools {
+		tools, err = c.resolveServerTools(foundServer)
+		if err != nil {
+			return handler.HandleError(err)
+		}
+	}
+
+	// Sort tools alphabetically for consistent output.
+	sort.Strings(tools)
+
+	// Create and handle result.
+	result := printer.ToolsListResult{
+		Server: foundServer.Name,
+		Tools:  tools,
+		Count:  len(tools),
+	}
+
+	return handler.HandleResult(result)
 }
