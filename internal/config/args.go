@@ -219,3 +219,41 @@ func parseArg(arg string) argEntry {
 
 	return entry
 }
+
+// separatePositionalAndFlags separates a slice of arguments into positional arguments and flags.
+// Positional arguments are those that don't start with "-" or "--".
+// Flags are arguments that start with "-" or "--".
+func separatePositionalAndFlags(args []string) (positional []string, flags []string) {
+	positional = make([]string, 0)
+	flags = make([]string, 0)
+
+	for _, arg := range args {
+		if strings.HasPrefix(arg, FlagPrefixShort) || strings.HasPrefix(arg, FlagPrefixLong) {
+			flags = append(flags, arg)
+		} else {
+			positional = append(positional, arg)
+		}
+	}
+
+	return positional, flags
+}
+
+// MergeArgsWithPositionalHandling implements Option 1 behavior:
+// - Replaces all positional arguments from 'existing' with those from 'new'
+// - Merges flags from 'new' into 'existing' (new flags override existing ones)
+// Returns the combined result with positional args first, then merged flags.
+func MergeArgsWithPositionalHandling(existing, new []string) []string {
+	// Separate positional args and flags for both existing and new
+	_, existingFlags := separatePositionalAndFlags(existing)
+	newPositional, newFlags := separatePositionalAndFlags(new)
+
+	// Merge the flags using existing MergeArgs logic
+	mergedFlags := MergeArgs(existingFlags, newFlags)
+
+	// Combine: new positional args + merged flags
+	result := make([]string, 0, len(newPositional)+len(mergedFlags))
+	result = append(result, newPositional...)
+	result = append(result, mergedFlags...)
+
+	return result
+}
