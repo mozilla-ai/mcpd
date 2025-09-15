@@ -21,7 +21,7 @@ func NewCmd(baseCmd *cmd.BaseCmd, opt ...options.CmdOption) (*cobra.Command, err
 
 	// Sub-commands for: mcpd config env
 	fns := []func(baseCmd *cmd.BaseCmd, opt ...options.CmdOption) (*cobra.Command, error){
-		// NewSetCmd,    // set
+		NewSetCmd,    // set
 		NewRemoveCmd, // remove
 		NewListCmd,   // list
 	}
