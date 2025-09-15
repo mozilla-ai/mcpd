@@ -27,12 +27,12 @@ type ListCmd struct {
 	cfgLoader       config.Loader
 	toolsPrinter    output.Printer[printer.ToolsListResult]
 	registryBuilder registry.Builder
-	Format          internalcmd.OutputFormat
-	All             bool
-	CacheDisabled   bool
-	CacheRefresh    bool
-	CacheDir        string
-	CacheTTL        string
+	format          internalcmd.OutputFormat
+	allTools        bool
+	cacheDisabled   bool
+	cacheRefresh    bool
+	cacheDir        string
+	cacheTTL        string
 }
 
 // NewListCmd creates a new list command for displaying MCP server tools.
@@ -47,7 +47,7 @@ func NewListCmd(baseCmd *internalcmd.BaseCmd, opt ...cmdopts.CmdOption) (*cobra.
 		cfgLoader:       opts.ConfigLoader,
 		registryBuilder: opts.RegistryBuilder,
 		toolsPrinter:    &printer.ToolsListPrinter{},
-		Format:          internalcmd.FormatText, // Default to plain text
+		format:          internalcmd.FormatText, // Default to plain text
 	}
 
 	cobraCmd := &cobra.Command{
@@ -60,13 +60,13 @@ func NewListCmd(baseCmd *internalcmd.BaseCmd, opt ...cmdopts.CmdOption) (*cobra.
 
 	allowed := internalcmd.AllowedOutputFormats()
 	cobraCmd.Flags().Var(
-		&c.Format,
+		&c.format,
 		"format",
 		fmt.Sprintf("Specify the output format (one of: %s)", allowed.String()),
 	)
 
 	cobraCmd.Flags().BoolVar(
-		&c.All,
+		&c.allTools,
 		"all",
 		false,
 		"List all available tools from the registry instead of only allowed tools in config file "+
@@ -75,14 +75,14 @@ func NewListCmd(baseCmd *internalcmd.BaseCmd, opt ...cmdopts.CmdOption) (*cobra.
 
 	// Cache configuration flags (not used for standard configuration listing)
 	cobraCmd.Flags().BoolVar(
-		&c.CacheDisabled,
+		&c.cacheDisabled,
 		"no-cache",
 		false,
 		"Disable registry manifest caching",
 	)
 
 	cobraCmd.Flags().BoolVar(
-		&c.CacheRefresh,
+		&c.cacheRefresh,
 		"refresh-cache",
 		false,
 		"Force refresh of cached registry manifests",
@@ -94,14 +94,14 @@ func NewListCmd(baseCmd *internalcmd.BaseCmd, opt ...cmdopts.CmdOption) (*cobra.
 	}
 
 	cobraCmd.Flags().StringVar(
-		&c.CacheDir,
+		&c.cacheDir,
 		"cache-dir",
 		defaultCacheDir,
 		"Directory for caching registry manifests",
 	)
 
 	cobraCmd.Flags().StringVar(
-		&c.CacheTTL,
+		&c.cacheTTL,
 		"cache-ttl",
 		options.DefaultCacheTTL().String(),
 		"Time-to-live for cached registry manifests (e.g. 1h, 30m, 24h)",
@@ -120,16 +120,16 @@ func (c *ListCmd) resolveServerTools(s *config.ServerEntry) ([]string, error) {
 	version := s.PackageVersion()
 
 	// Parse cache TTL.
-	cacheTTL, err := time.ParseDuration(c.CacheTTL)
+	cacheTTL, err := time.ParseDuration(c.cacheTTL)
 	if err != nil {
 		return nil, fmt.Errorf("invalid cache TTL: %w", err)
 	}
 
 	// Build registry with caching options.
 	reg, err := c.registryBuilder.Build(
-		options.WithCaching(!c.CacheDisabled),
-		options.WithRefreshCache(c.CacheRefresh),
-		options.WithCacheDir(c.CacheDir),
+		options.WithCaching(!c.cacheDisabled),
+		options.WithRefreshCache(c.cacheRefresh),
+		options.WithCacheDir(c.cacheDir),
 		options.WithCacheTTL(cacheTTL),
 	)
 	if err != nil {
@@ -160,7 +160,7 @@ func (c *ListCmd) resolveServerTools(s *config.ServerEntry) ([]string, error) {
 }
 
 func (c *ListCmd) run(cmd *cobra.Command, args []string) error {
-	handler, err := internalcmd.FormatHandler(cmd.OutOrStdout(), c.Format, c.toolsPrinter)
+	handler, err := internalcmd.FormatHandler(cmd.OutOrStdout(), c.format, c.toolsPrinter)
 	if err != nil {
 		return err
 	}
@@ -189,7 +189,7 @@ func (c *ListCmd) run(cmd *cobra.Command, args []string) error {
 	}
 
 	tools := foundServer.Tools
-	if c.All {
+	if c.allTools {
 		tools, err = c.resolveServerTools(foundServer)
 		if err != nil {
 			return handler.HandleError(err)
