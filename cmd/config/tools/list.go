@@ -2,7 +2,6 @@ package tools
 
 import (
 	"fmt"
-	"slices"
 	"sort"
 	"strings"
 	"time"
@@ -111,11 +110,11 @@ func NewListCmd(baseCmd *internalcmd.BaseCmd, opt ...cmdopts.CmdOption) (*cobra.
 	return cobraCmd, nil
 }
 
-// listAll queries the registry for all available tools for the given server.
-func (c *ListCmd) listAll(h output.Handler[printer.ToolsListResult], s *config.ServerEntry) error {
+// resolveServerTools queries the registry for all available tools for the given server.
+func (c *ListCmd) resolveServerTools(s *config.ServerEntry) ([]string, error) {
 	serverRuntime := s.Runtime()
 	if serverRuntime == "" {
-		return h.HandleError(fmt.Errorf("invalid package format in configuration: %s", s.Package))
+		return nil, fmt.Errorf("invalid package format in configuration: %s", s.Package)
 	}
 
 	version := s.PackageVersion()
@@ -123,7 +122,7 @@ func (c *ListCmd) listAll(h output.Handler[printer.ToolsListResult], s *config.S
 	// Parse cache TTL.
 	cacheTTL, err := time.ParseDuration(c.CacheTTL)
 	if err != nil {
-		return h.HandleError(fmt.Errorf("invalid cache TTL: %w", err))
+		return nil, fmt.Errorf("invalid cache TTL: %w", err)
 	}
 
 	// Build registry with caching options.
@@ -134,7 +133,7 @@ func (c *ListCmd) listAll(h output.Handler[printer.ToolsListResult], s *config.S
 		options.WithCacheTTL(cacheTTL),
 	)
 	if err != nil {
-		return h.HandleError(fmt.Errorf("failed to build registry: %w", err))
+		return nil, fmt.Errorf("failed to build registry: %w", err)
 	}
 
 	// Build resolve options with runtime and version.
@@ -148,7 +147,7 @@ func (c *ListCmd) listAll(h output.Handler[printer.ToolsListResult], s *config.S
 	// Resolve the specific server from the registry.
 	serverResult, err := reg.Resolve(s.Name, resolveOpts...)
 	if err != nil {
-		return h.HandleError(fmt.Errorf("failed to resolve server '%s': %w", s.Name, err))
+		return nil, fmt.Errorf("failed to resolve server '%s': %w", s.Name, err)
 	}
 
 	// Extract and normalize all available tools.
@@ -157,31 +156,7 @@ func (c *ListCmd) listAll(h output.Handler[printer.ToolsListResult], s *config.S
 		allTools[i] = filter.NormalizeString(tool.Name)
 	}
 
-	// Sort tools alphabetically for consistent output.
-	sort.Strings(allTools)
-
-	result := printer.ToolsListResult{
-		Server: s.Name,
-		Tools:  allTools,
-		Count:  len(allTools),
-	}
-
-	return h.HandleResult(result)
-}
-
-// list outputs the configured tools for the given server.
-func (c *ListCmd) list(h output.Handler[printer.ToolsListResult], s *config.ServerEntry) error {
-	// Sort tools alphabetically for consistent output.
-	tools := slices.Clone(s.Tools)
-	sort.Strings(tools)
-
-	result := printer.ToolsListResult{
-		Server: s.Name,
-		Tools:  tools,
-		Count:  len(tools),
-	}
-
-	return h.HandleResult(result)
+	return allTools, nil
 }
 
 func (c *ListCmd) run(cmd *cobra.Command, args []string) error {
@@ -213,11 +188,23 @@ func (c *ListCmd) run(cmd *cobra.Command, args []string) error {
 		return handler.HandleError(fmt.Errorf("server '%s' not found in configuration", serverName))
 	}
 
-	// If --all flag is set, query the registry for all available tools.
+	tools := foundServer.Tools
 	if c.All {
-		return c.listAll(handler, foundServer)
+		tools, err = c.resolveServerTools(foundServer)
+		if err != nil {
+			return handler.HandleError(err)
+		}
 	}
 
-	// Otherwise, list the configured tools.
-	return c.list(handler, foundServer)
+	// Sort tools alphabetically for consistent output.
+	sort.Strings(tools)
+
+	// Create and handle result.
+	result := printer.ToolsListResult{
+		Server: foundServer.Name,
+		Tools:  tools,
+		Count:  len(tools),
+	}
+
+	return handler.HandleResult(result)
 }
