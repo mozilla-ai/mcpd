@@ -862,6 +862,67 @@ func TestDaemon_CloseClientWithTimeout_Direct(t *testing.T) {
 	}
 }
 
+// TestDaemon_StartMCPServer_NoTools tests that servers without tools are rejected
+func TestDaemon_StartMCPServer_NoTools(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name          string
+		serverName    string
+		tools         []string
+		expectedError string
+	}{
+		{
+			name:          "server with no tools should fail",
+			serverName:    "test-no-tools",
+			tools:         []string{},
+			expectedError: "server 'test-no-tools' has no tools configured - MCP servers require at least one tool to function",
+		},
+		{
+			name:          "server with empty tools list should fail",
+			serverName:    "test-empty-tools",
+			tools:         []string{},
+			expectedError: "server 'test-empty-tools' has no tools configured - MCP servers require at least one tool to function",
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+			t.Cleanup(cancel)
+
+			logger := hclog.NewNullLogger()
+
+			// Create a daemon with a dummy server to satisfy validation.
+			dummyServer := runtime.Server{
+				ServerEntry: config.ServerEntry{
+					Name:    "dummy",
+					Package: "uvx::dummy",
+				},
+			}
+			deps, err := NewDependencies(logger, ":8085", []runtime.Server{dummyServer})
+			require.NoError(t, err)
+			daemon, err := NewDaemon(deps)
+			require.NoError(t, err)
+
+			// Create server with specified tools.
+			server := runtime.Server{
+				ServerEntry: config.ServerEntry{
+					Name:    tc.serverName,
+					Package: "uvx::test-package",
+					Tools:   tc.tools,
+				},
+				ServerExecutionContext: configcontext.ServerExecutionContext{},
+			}
+
+			err = daemon.startMCPServer(ctx, server)
+			require.EqualError(t, err, tc.expectedError)
+		})
+	}
+}
+
 // TestDaemon_CloseClientWithTimeout_ReturnValue tests the return value behavior of closeClientWithTimeout
 func TestDaemon_CloseClientWithTimeout_ReturnValue(t *testing.T) {
 	t.Parallel()

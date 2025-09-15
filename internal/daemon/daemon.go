@@ -158,7 +158,17 @@ func (d *Daemon) startMCPServers(ctx context.Context) error {
 	return nil
 }
 
+// startMCPServer starts a single MCP server and registers it with the daemon.
+// It validates that the server has tools and a supported runtime before initializing.
 func (d *Daemon) startMCPServer(ctx context.Context, server runtime.Server) error {
+	// Validate that the server has tools configured.
+	if len(server.Tools) == 0 {
+		return fmt.Errorf(
+			"server '%s' has no tools configured - MCP servers require at least one tool to function",
+			server.Name(),
+		)
+	}
+
 	runtimeBinary := server.Runtime()
 	if _, supported := d.supportedRuntimes[runtime.Runtime(runtimeBinary)]; !supported {
 		return fmt.Errorf(

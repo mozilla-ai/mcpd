@@ -76,6 +76,12 @@ func (c *RemoveCmd) run(cmd *cobra.Command, args []string) error {
 			}
 		}
 
+		// Validate that at least one tool remains.
+		if len(srv.Tools) == 0 {
+			return fmt.Errorf("cannot remove all tools from server '%s'\n"+
+				"To remove the server instead use: mcpd remove %s", serverName, serverName)
+		}
+
 		// Update server in config by removing and re-adding.
 		err = cfg.RemoveServer(serverName)
 		if err != nil {

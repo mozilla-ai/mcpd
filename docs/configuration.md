@@ -201,6 +201,7 @@ The reload process maintains strict consistency - any error causes the daemon to
 
 - **Configuration errors**: Invalid configuration files or loading failures cause the daemon to exit
 - **Validation errors**: Invalid server configurations cause the daemon to exit  
+- **No tools configured**: If a server configuration has no tools (empty tools list or manually removed from config), the daemon will exit with an error
 - **Server operation failures**: Any failure to start, stop, or restart a server causes the daemon to exit
 
 This ensures the daemon never runs in an inconsistent or partially-failed state, matching the behavior during initial startup where any server failure prevents the daemon from running.
