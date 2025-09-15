@@ -678,6 +678,40 @@ func TestParseServerEntry(t *testing.T) {
 			expectedErrorMessage: "installation server name is missing for runtime 'docker'",
 		},
 		{
+			name: "server with no tools available",
+			installations: map[runtime.Runtime]packages.Installation{
+				runtime.UVX: {
+					Package:     "mcp-server-no-tools",
+					Recommended: true,
+				},
+			},
+			supportedRuntimes:    []runtime.Runtime{runtime.UVX},
+			pkgName:              "no-tools",
+			pkgID:                "no-tools",
+			availableTools:       []string{}, // No tools available
+			requestedTools:       []string{},
+			arguments:            packages.Arguments{},
+			isErrorExpected:      true,
+			expectedErrorMessage: "tools not available",
+		},
+		{
+			name: "server with requested tools not available",
+			installations: map[runtime.Runtime]packages.Installation{
+				runtime.UVX: {
+					Package:     "mcp-server-limited",
+					Recommended: true,
+				},
+			},
+			supportedRuntimes:    []runtime.Runtime{runtime.UVX},
+			pkgName:              "limited",
+			pkgID:                "limited",
+			availableTools:       []string{"toolA", "toolB"},
+			requestedTools:       []string{"toolC", "toolD"}, // Requesting unavailable tools
+			arguments:            packages.Arguments{},
+			isErrorExpected:      true,
+			expectedErrorMessage: "error matching requested tools: none of the requested values were found",
+		},
+		{
 			name: "requested tool not found",
 			installations: map[runtime.Runtime]packages.Installation{
 				runtime.UVX: {

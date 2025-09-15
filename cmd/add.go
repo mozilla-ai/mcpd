@@ -283,6 +283,9 @@ func parseServerEntry(pkg packages.Server, opts serverEntryOptions) (config.Serv
 	if err != nil {
 		return config.ServerEntry{}, fmt.Errorf("error matching requested tools: %w", err)
 	}
+	if len(requestedTools) == 0 {
+		return config.ServerEntry{}, fmt.Errorf("tools not available")
+	}
 
 	selectedRuntime, err := selectRuntime(pkg.Installations, opts.Runtime, opts.SupportedRuntimes)
 	if err != nil {
