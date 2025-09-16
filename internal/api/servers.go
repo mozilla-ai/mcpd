@@ -93,10 +93,6 @@ func handleServers(accessor contracts.MCPClientAccessor) (*ServersResponse, erro
 
 // handleServerTools returns the schemas for the allowed tools that exist for a given server.
 func handleServerTools(accessor contracts.MCPClientAccessor, name string) (*ToolsResponse, error) {
-	// TODO: How to get context from Huma/request for the instance of the request without passing it in?
-	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
-	defer cancel()
-
 	mcpClient, clientOk := accessor.Client(name)
 	if !clientOk {
 		return nil, fmt.Errorf("%w: %s", errors.ErrServerNotFound, name)
@@ -106,6 +102,10 @@ func handleServerTools(accessor contracts.MCPClientAccessor, name string) (*Tool
 	if !toolsOk || len(allowedTools) == 0 {
 		return nil, fmt.Errorf("%w: %s", errors.ErrToolsNotFound, name)
 	}
+
+	// TODO: How to get context from Huma/request for the instance of the request without passing it in?
+	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	defer cancel()
 
 	result, err := mcpClient.ListTools(ctx, mcp.ListToolsRequest{})
 	if err != nil {
@@ -140,10 +140,6 @@ func handleServerToolCall(
 	tool string,
 	data map[string]any,
 ) (*ToolCallResponse, error) {
-	// TODO: How to get context from Huma/request for the instance of the request without passing it in?
-	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
-	defer cancel()
-
 	mcpClient, clientOk := accessor.Client(server)
 	if !clientOk {
 		return nil, fmt.Errorf("%w: %s", errors.ErrServerNotFound, server)
@@ -159,6 +155,10 @@ func handleServerToolCall(
 	if !slices.Contains(allowedTools, normalizedToolName) {
 		return nil, fmt.Errorf("%w: %s/%s", errors.ErrToolForbidden, server, tool)
 	}
+
+	// TODO: How to get context from Huma/request for the instance of the request without passing it in?
+	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	defer cancel()
 
 	result, err := mcpClient.CallTool(ctx, mcp.CallToolRequest{
 		Params: mcp.CallToolParams{

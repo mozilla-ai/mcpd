@@ -288,6 +288,13 @@ func (d *Daemon) healthCheckLoop(ctx context.Context, interval time.Duration, ma
 
 // pingServer attempts to ping a named registered MCP server and updates the MCPHealthMonitor with the result.
 func (d *Daemon) pingServer(ctx context.Context, name string) error {
+	// Early exit if context is already cancelled.
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	default:
+	}
+
 	c, ok := d.clientManager.Client(name)
 	if !ok {
 		return fmt.Errorf("server '%s' not found", name)
@@ -324,8 +331,15 @@ func (d *Daemon) pingServer(ctx context.Context, name string) error {
 	return nil
 }
 
-// pingServers attempts to ping all registered MCP server and updates the MCPHealthMonitor with the results.
+// pingAllServers attempts to ping all registered MCP servers and updates the MCPHealthMonitor with the results.
 func (d *Daemon) pingAllServers(ctx context.Context, maxTimeout time.Duration) error {
+	// Early exit if context is already cancelled.
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	default:
+	}
+
 	// Ensure the maximum timeout is set (will be lower, if the context has less time left on it already).
 	timeoutCtx, timeoutCancel := context.WithTimeout(ctx, maxTimeout)
 	defer timeoutCancel()
