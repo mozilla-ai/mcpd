@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"os"
 	"path/filepath"
 	"testing"
@@ -1233,4 +1234,52 @@ func TestRegistry_ExtractArgumentMetadata_ObsidianParsingFix(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestNewRegistry_NormalizationIntegration(t *testing.T) {
+	t.Parallel()
+
+	// Create file URL for test data with mixed case server and tool names.
+	abs, err := filepath.Abs(filepath.Join("testdata", "registry_normalization.json"))
+	require.NoError(t, err)
+	fileURL := url.URL{Scheme: "file", Path: filepath.ToSlash(abs)}
+
+	logger := newTestLogger(t)
+	registry, err := NewRegistry(logger, fileURL.String())
+	require.NoError(t, err)
+	require.NotNil(t, registry)
+
+	// Search for the test server, we should find it with normalized name.
+	results, err := registry.Search("test-github-server", nil)
+	require.NoError(t, err)
+	require.Len(t, results, 1)
+
+	server := results[0]
+
+	// Verify server name and ID are normalized.
+	require.Equal(t, "test-github-server", server.ID)
+	require.Equal(t, "test-github-server", server.Name)
+	require.Equal(t, "Test GitHub Integration Server", server.DisplayName)
+
+	// Verify tool names are normalized.
+	require.Len(t, server.Tools, 3)
+	expectedToolNames := []string{"create_repository", "list_issues", "get current user"}
+	actualToolNames := make([]string, len(server.Tools))
+	for i, tool := range server.Tools {
+		actualToolNames[i] = tool.Name
+	}
+	require.ElementsMatch(t, expectedToolNames, actualToolNames)
+
+	// Also test direct resolve by normalized name.
+	resolved, err := registry.Resolve("test-github-server")
+	require.NoError(t, err)
+	require.Equal(t, server.ID, resolved.ID)
+	require.Equal(t, server.Name, resolved.Name)
+	require.ElementsMatch(t, expectedToolNames, func() []string {
+		names := make([]string, len(resolved.Tools))
+		for i, tool := range resolved.Tools {
+			names[i] = tool.Name
+		}
+		return names
+	}())
 }

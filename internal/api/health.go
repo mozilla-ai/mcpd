@@ -12,6 +12,7 @@ import (
 
 	"github.com/mozilla-ai/mcpd/v2/internal/contracts"
 	"github.com/mozilla-ai/mcpd/v2/internal/domain"
+	"github.com/mozilla-ai/mcpd/v2/internal/filter"
 )
 
 const (
@@ -71,7 +72,7 @@ func (d DomainServerHealth) ToAPIType() (ServerHealth, error) {
 		latency = &s
 	}
 	return ServerHealth{
-		Name:           d.Name,
+		Name:           filter.NormalizeString(d.Name),
 		Status:         status,
 		Latency:        latency,
 		LastChecked:    d.LastChecked,

@@ -243,11 +243,11 @@ func (r *Registry) serverForID(pkgKey string) (packages.Server, bool) {
 		Description:   sd.Description,
 		DisplayName:   sd.DisplayName,
 		Homepage:      sd.Homepage,
-		ID:            pkgKey,
+		ID:            sd.Name,
 		Installations: installations,
 		IsOfficial:    sd.IsOfficial,
 		License:       sd.License,
-		Name:          pkgKey,
+		Name:          sd.Name,
 		Publisher: packages.Publisher{
 			Name: sd.Author.Name,
 		},
