@@ -1,5 +1,11 @@
 package mozilla_ai
 
+import (
+	"encoding/json"
+
+	"github.com/mozilla-ai/mcpd/v2/internal/filter"
+)
+
 const (
 	ArgumentEnv        ArgumentType = "environment"
 	ArgumentValue      ArgumentType = "argument"
@@ -196,4 +202,53 @@ type ToolAnnotations struct {
 	// For example, the world of a web search tool is open, whereas that
 	// of a memory tool is not.
 	OpenWorldHint *bool `json:"openWorldHint,omitempty"`
+}
+
+// UnmarshalJSON implements custom JSON unmarshalling for MCPRegistry to normalize map keys.
+func (m *MCPRegistry) UnmarshalJSON(data []byte) error {
+	raw := map[string]Server{}
+	if err := json.Unmarshal(data, &raw); err != nil {
+		return err
+	}
+
+	normalized := make(MCPRegistry, len(raw))
+	for k, v := range raw {
+		normalized[filter.NormalizeString(k)] = v
+	}
+	*m = normalized
+	return nil
+}
+
+// UnmarshalJSON implements custom JSON unmarshaling for Server to normalize the Name field.
+func (s *Server) UnmarshalJSON(data []byte) error {
+	// Create a temporary struct with the same fields to avoid infinite recursion.
+	type serverAlias Server
+	var alias serverAlias
+	if err := json.Unmarshal(data, &alias); err != nil {
+		return err
+	}
+
+	// Normalize the name field.
+	alias.Name = filter.NormalizeString(alias.Name)
+
+	// Assign the normalized values to the receiver.
+	*s = Server(alias)
+	return nil
+}
+
+// UnmarshalJSON implements custom JSON unmarshaling for Tool to normalize the Name field.
+func (t *Tool) UnmarshalJSON(data []byte) error {
+	// Create a temporary struct with the same fields to avoid infinite recursion.
+	type toolAlias Tool
+	var alias toolAlias
+	if err := json.Unmarshal(data, &alias); err != nil {
+		return err
+	}
+
+	// Normalize the name field.
+	alias.Name = filter.NormalizeString(alias.Name)
+
+	// Assign the normalized values to the receiver.
+	*t = Tool(alias)
+	return nil
 }

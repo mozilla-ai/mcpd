@@ -238,8 +238,8 @@ func (r *Registry) serverForID(pkgKey string) (packages.Server, bool) {
 
 	return packages.Server{
 		Source:        RegistryName,
-		ID:            pkgKey,
-		Name:          pkgKey,
+		ID:            sd.Name,
+		Name:          sd.Name,
 		DisplayName:   sd.DisplayName,
 		Description:   sd.Description,
 		License:       sd.License,

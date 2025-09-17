@@ -2,6 +2,7 @@ package mozilla_ai
 
 import (
 	"encoding/json"
+	"net/url"
 	"os"
 	"path/filepath"
 	"testing"
@@ -664,4 +665,33 @@ func TestRegistry_BuildPackageResult_WithOptionalArguments(t *testing.T) {
 			tc.checkFunc(t, pkg)
 		})
 	}
+}
+
+func TestNewRegistry_NormalizationIntegration(t *testing.T) {
+	t.Parallel()
+
+	// Test NewRegistry with file URL pointing to our test data.
+	abs, err := filepath.Abs(filepath.Join("testdata", "registry_normalization.json"))
+	require.NoError(t, err)
+	fileURL := url.URL{Scheme: "file", Path: filepath.ToSlash(abs)}
+
+	logger := newTestLogger(t)
+	registry, err := NewRegistry(logger, fileURL.String(), runtime.WithSupportedRuntimes(runtime.UVX))
+	require.NoError(t, err)
+
+	// Test search to verify normalization happened during registry loading.
+	results, err := registry.Search("github", map[string]string{})
+	require.NoError(t, err)
+	require.Len(t, results, 1)
+
+	// Verify server name (and ID) was normalized.
+	result := results[0]
+	require.Equal(t, "github-server", result.Name)
+	require.Equal(t, "github-server", result.ID)
+
+	// Verify tool names were normalized.
+	require.Len(t, result.Tools, 3)
+	require.Equal(t, "create_repository", result.Tools[0].Name)
+	require.Equal(t, "list_issues", result.Tools[1].Name)
+	require.Equal(t, "get current user", result.Tools[2].Name)
 }

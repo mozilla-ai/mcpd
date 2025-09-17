@@ -1,0 +1,40 @@
+{
+  "GitHub-Server": {
+    "id": "GitHub-Server",
+    "name": "GitHub-Server",
+    "displayName": "GitHub Integration Server",
+    "description": "Test server with mixed case names for normalization testing",
+    "license": "MIT",
+    "categories": [
+      "git",
+      "github"
+    ],
+    "tags": [
+      "server",
+      "git",
+      "github"
+    ],
+    "tools": [
+      {
+        "name": "Create_Repository",
+        "description": "Create a new repository"
+      },
+      {
+        "name": "LIST_ISSUES",
+        "description": "List all issues"
+      },
+      {
+        "name": "Get Current User",
+        "description": "Get the current user"
+      }
+    ],
+    "installations": {
+      "uvx": {
+        "runtime": "uvx",
+        "package": "github-mcp-server",
+        "version": "1.0.0",
+        "recommended": true
+      }
+    }
+  }
+}
