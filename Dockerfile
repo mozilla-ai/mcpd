@@ -47,7 +47,7 @@ RUN addgroup -S $MCPD_USER && \
       /var/log/mcpd \
       /etc/mcpd && \
     chmod 700 $MCPD_HOME/.config/mcpd && \
-    chown -R $MCPD_USER:$MCPD_USER $MCPD_HOME /var/log/mcpd \
+    chown -R $MCPD_USER:$MCPD_USER $MCPD_HOME /var/log/mcpd
 
 # Copy uv/uvx binaries from image.
 COPY --from=ghcr.io/astral-sh/uv:0.8.4 /uv /uvx /usr/local/bin/
