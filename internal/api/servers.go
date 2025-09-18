@@ -81,6 +81,9 @@ func RegisterServerRoutes(routerAPI huma.API, accessor contracts.MCPClientAccess
 
 	// Register prompt routes.
 	RegisterPromptRoutes(serversAPI, accessor)
+
+	// Register resource routes.
+	RegisterResourceRoutes(serversAPI, accessor)
 }
 
 // handleServers returns the list of configured MCP servers.
