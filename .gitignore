@@ -51,5 +51,8 @@ docs/commands/
 # Added by goreleaser init:
 dist/
 
+# Node.js dependencies
+node_modules/
+
 # Image thumbnails
 .DS_Store
