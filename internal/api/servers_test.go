@@ -64,10 +64,16 @@ func (m *mockMCPClientAccessor) Remove(name string) {
 
 // mockMCPClient implements the client.MCPClient interface for testing.
 type mockMCPClient struct {
-	listToolsResult *mcp.ListToolsResult
-	listToolsError  error
-	callToolResult  *mcp.CallToolResult
-	callToolError   error
+	listToolsResult     *mcp.ListToolsResult
+	listToolsError      error
+	callToolResult      *mcp.CallToolResult
+	callToolError       error
+	listResourcesResult *mcp.ListResourcesResult
+	listResourcesError  error
+	listTemplatesResult *mcp.ListResourceTemplatesResult
+	listTemplatesError  error
+	readResourceResult  *mcp.ReadResourceResult
+	readResourceError   error
 }
 
 func (m *mockMCPClient) Initialize(_ context.Context, _ mcp.InitializeRequest) (*mcp.InitializeResult, error) {
@@ -89,7 +95,7 @@ func (m *mockMCPClient) ListResources(
 	_ context.Context,
 	_ mcp.ListResourcesRequest,
 ) (*mcp.ListResourcesResult, error) {
-	return nil, nil
+	return m.listResourcesResult, m.listResourcesError
 }
 
 func (m *mockMCPClient) ListResourceTemplatesByPage(
@@ -103,14 +109,14 @@ func (m *mockMCPClient) ListResourceTemplates(
 	_ context.Context,
 	_ mcp.ListResourceTemplatesRequest,
 ) (*mcp.ListResourceTemplatesResult, error) {
-	return nil, nil
+	return m.listTemplatesResult, m.listTemplatesError
 }
 
 func (m *mockMCPClient) ReadResource(
 	_ context.Context,
 	_ mcp.ReadResourceRequest,
 ) (*mcp.ReadResourceResult, error) {
-	return nil, nil
+	return m.readResourceResult, m.readResourceError
 }
 
 func (m *mockMCPClient) Subscribe(_ context.Context, _ mcp.SubscribeRequest) error {
