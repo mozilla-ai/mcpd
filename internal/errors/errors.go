@@ -82,4 +82,29 @@ var (
 	// This occurs when calling prompt methods on servers that only implement tools.
 	// Recommended to map to HTTP 501 Not Implemented.
 	ErrPromptsNotImplemented = errors.New("prompts not implemented by server")
+
+	// ErrResourceListFailed indicates that listing resources from an MCP server failed.
+	// This represents a communication or protocol error with the external MCP server.
+	// Recommended to map to HTTP 502 Bad Gateway.
+	ErrResourceListFailed = errors.New("resource list failed")
+
+	// ErrResourceReadFailed indicates that reading a resource from an MCP server failed.
+	// This represents a communication or protocol error with the external MCP server.
+	// Recommended to map to HTTP 502 Bad Gateway.
+	ErrResourceReadFailed = errors.New("resource read failed")
+
+	// ErrResourceNotFound indicates that the requested resource does not exist.
+	// This occurs when trying to read a resource that hasn't been defined.
+	// Recommended to map to HTTP 404 Not Found.
+	ErrResourceNotFound = errors.New("resource not found")
+
+	// ErrResourceForbidden indicates that the requested resource exists but is not allowed to be accessed.
+	// This occurs when a resource is not in the server's allowed resources list.
+	// Recommended to map to HTTP 403 Forbidden.
+	ErrResourceForbidden = errors.New("resource access forbidden")
+
+	// ErrResourcesNotImplemented indicates that the MCP server does not implement the resources feature.
+	// This occurs when calling resource methods on servers that only implement tools.
+	// Recommended to map to HTTP 501 Not Implemented.
+	ErrResourcesNotImplemented = errors.New("resources not implemented by server")
 )
