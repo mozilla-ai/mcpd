@@ -210,9 +210,6 @@ func (d *Daemon) startMCPServer(ctx context.Context, server runtime.Server) erro
 		// Docker doesn't need environ passed - env vars are handled via -e flags
 		environ = nil
 
-		// Override the binary name to "docker"
-		runtimeBinary = "docker"
-
 	default:
 		// Default case (UVX and others)
 		args = append(args, packageNameAndVersion)
