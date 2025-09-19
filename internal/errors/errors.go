@@ -57,4 +57,29 @@ var (
 	// This occurs when trying to get health status for a server that isn't being monitored.
 	// Recommended to map to HTTP 404 Not Found.
 	ErrHealthNotTracked = errors.New("server health is not being tracked")
+
+	// ErrPromptListFailed indicates that listing prompts from an MCP server failed.
+	// This represents a communication or protocol error with the external MCP server.
+	// Recommended to map to HTTP 502 Bad Gateway.
+	ErrPromptListFailed = errors.New("prompt list failed")
+
+	// ErrPromptGetFailed indicates that getting a prompt from an MCP server failed.
+	// This represents a communication or protocol error with the external MCP server.
+	// Recommended to map to HTTP 502 Bad Gateway.
+	ErrPromptGetFailed = errors.New("prompt get failed")
+
+	// ErrPromptNotFound indicates that the requested prompt does not exist.
+	// This occurs when trying to get a prompt that hasn't been defined.
+	// Recommended to map to HTTP 404 Not Found.
+	ErrPromptNotFound = errors.New("prompt not found")
+
+	// ErrPromptForbidden indicates that the requested prompt exists but is not allowed to be accessed.
+	// This occurs when a prompt is not in the server's allowed prompts list.
+	// Recommended to map to HTTP 403 Forbidden.
+	ErrPromptForbidden = errors.New("prompt access forbidden")
+
+	// ErrPromptsNotImplemented indicates that the MCP server does not implement the prompts feature.
+	// This occurs when calling prompt methods on servers that only implement tools.
+	// Recommended to map to HTTP 501 Not Implemented.
+	ErrPromptsNotImplemented = errors.New("prompts not implemented by server")
 )
