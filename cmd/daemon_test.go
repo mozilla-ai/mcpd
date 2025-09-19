@@ -1815,6 +1815,9 @@ func TestDaemon_DaemonCmd_HandleSignals(t *testing.T) {
 		// Start handleSignals in goroutine.
 		go daemonCmd.handleSignals(logger, sigChan, reloadChan, shutdownCancel)
 
+		// Give the goroutine time to start
+		time.Sleep(10 * time.Millisecond)
+
 		// Send two SIGHUP signals quickly.
 		sigChan <- syscall.SIGHUP
 		sigChan <- syscall.SIGHUP

@@ -32,8 +32,9 @@ func NewOptions(opt ...Option) (Options, error) {
 
 func DefaultSupportedRuntimes() map[Runtime]struct{} {
 	return map[Runtime]struct{}{
-		NPX: {},
-		UVX: {},
+		NPX:    {},
+		UVX:    {},
+		Docker: {},
 	}
 }
 

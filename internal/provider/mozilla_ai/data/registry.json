@@ -1337,5 +1337,63 @@
       }
     ],
     "transports": ["stdio"]
+  },
+  "redis": {
+    "arguments": {
+      "REDIS_URL": {
+        "description": "Redis connection URL",
+        "example": "redis://localhost:6379",
+        "name": "REDIS_URL",
+        "required": false,
+        "type": "environment"
+      }
+    },
+    "categories": ["Databases"],
+    "description": "Redis database operations for caching, data storage, and key-value operations",
+    "displayName": "Redis",
+    "homepage": "https://github.com/modelcontextprotocol/servers/tree/main/src/redis",
+    "id": "redis",
+    "installations": {
+      "docker": {
+        "description": "Run with Docker",
+        "package": "mcp/redis",
+        "recommended": true,
+        "runtime": "docker",
+        "version": "latest"
+      }
+    },
+    "isOfficial": true,
+    "license": "MIT",
+    "name": "redis",
+    "publisher": {
+      "name": "Anthropic",
+      "url": "https://github.com/modelcontextprotocol"
+    },
+    "tags": [
+      "redis",
+      "database",
+      "cache",
+      "key-value",
+      "storage"
+    ],
+    "tools": [
+      {
+        "description": "Get value from Redis by key",
+        "name": "get"
+      },
+      {
+        "description": "Set key-value pair in Redis",
+        "name": "set"
+      },
+      {
+        "description": "Delete key from Redis",
+        "name": "del"
+      },
+      {
+        "description": "List all keys matching pattern",
+        "name": "keys"
+      }
+    ],
+    "transports": ["stdio"]
   }
 }

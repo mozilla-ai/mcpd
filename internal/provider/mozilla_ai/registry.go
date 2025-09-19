@@ -100,6 +100,7 @@ func registrySupportedRuntimes() []runtime.Runtime {
 	return []runtime.Runtime{
 		runtime.NPX,
 		runtime.UVX,
+		runtime.Docker,
 	}
 }
 

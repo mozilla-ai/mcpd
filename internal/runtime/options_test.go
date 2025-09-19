@@ -8,9 +8,10 @@ import (
 
 func TestDefaultSupportedRuntimes(t *testing.T) {
 	runtimes := DefaultSupportedRuntimes()
-	require.Len(t, runtimes, 2)
+	require.Len(t, runtimes, 3)
 	require.Contains(t, runtimes, NPX)
 	require.Contains(t, runtimes, UVX)
+	require.Contains(t, runtimes, Docker)
 }
 
 func TestNewOptions_Defaults(t *testing.T) {
@@ -19,6 +20,7 @@ func TestNewOptions_Defaults(t *testing.T) {
 	require.NotNil(t, opts.SupportedRuntimes)
 	require.Contains(t, opts.SupportedRuntimes, NPX)
 	require.Contains(t, opts.SupportedRuntimes, UVX)
+	require.Contains(t, opts.SupportedRuntimes, Docker)
 }
 
 func TestWithSupportedRuntimes_Valid(t *testing.T) {
