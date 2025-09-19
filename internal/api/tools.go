@@ -1,6 +1,10 @@
 package api
 
-import "github.com/mark3labs/mcp-go/mcp"
+import (
+	"github.com/mark3labs/mcp-go/mcp"
+
+	"github.com/mozilla-ai/mcpd/v2/internal/filter"
+)
 
 type DomainTool mcp.Tool
 
@@ -112,7 +116,7 @@ func (d DomainTool) ToAPIType() (Tool, error) {
 	}
 
 	return Tool{
-		Name:        d.Name,
+		Name:        filter.NormalizeString(d.Name),
 		Description: d.Description,
 		InputSchema: schema,
 		Annotations: annotations,

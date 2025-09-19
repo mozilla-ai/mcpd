@@ -205,6 +205,9 @@ func (r *Registry) Search(
 // serverForID attempts to convert the Server associated with the specified ID, into a packages.Server.
 // Returns the packages.Server and a boolean value indicating success.
 func (r *Registry) serverForID(pkgKey string) (packages.Server, bool) {
+	// Normalize pkgKey to ensure consistency with map keys.
+	pkgKey = filter.NormalizeString(pkgKey)
+
 	// Sanity check to ensure things work when a random ID gets supplied.
 	sd, foundServer := r.mcpServers[pkgKey]
 	if !foundServer {
@@ -239,8 +242,8 @@ func (r *Registry) serverForID(pkgKey string) (packages.Server, bool) {
 
 	return packages.Server{
 		Source:        RegistryName,
-		ID:            pkgKey,
-		Name:          pkgKey,
+		ID:            sd.ID,
+		Name:          sd.Name,
 		DisplayName:   sd.DisplayName,
 		Description:   sd.Description,
 		License:       sd.License,

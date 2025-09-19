@@ -206,6 +206,9 @@ func (r *Registry) Search(
 // Returns the transformed result, and a flag to indicate if the transformation was successful.
 // If the server cannot be transformed due to unsupported or malformed runtime installations, false is returned.
 func (r *Registry) serverForID(pkgKey string) (packages.Server, bool) {
+	// Normalize pkgKey to ensure consistency with map keys.
+	pkgKey = filter.NormalizeString(pkgKey)
+
 	// Sanity check to ensure things work when a random ID gets supplied.
 	sd, foundServer := r.mcpServers[pkgKey]
 	if !foundServer {
@@ -248,7 +251,7 @@ func (r *Registry) serverForID(pkgKey string) (packages.Server, bool) {
 		Installations: installations,
 		IsOfficial:    sd.IsOfficial,
 		License:       sd.License,
-		Name:          pkgKey,
+		Name:          sd.Name,
 		Publisher: packages.Publisher{
 			Name: sd.Author.Name,
 		},

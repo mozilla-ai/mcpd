@@ -139,7 +139,8 @@ func (s *ServerEntry) PackageName() string {
 	return stripPrefix(stripVersion(s.Package))
 }
 
-// Runtime returns the runtime (e.g. uvx, npx) portion of the package string.
+// Runtime returns the runtime (e.g. uvx, npx) portion of the package string,
+// or an empty string when the runtime cannot be identified.
 func (s *ServerEntry) Runtime() string {
 	parts := strings.Split(s.Package, "::")
 	if len(parts) > 0 {

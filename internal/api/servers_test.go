@@ -200,9 +200,9 @@ func TestHandleServerTools_CaseInsensitiveFiltering(t *testing.T) {
 		toolNames[i] = tool.Name
 	}
 
-	// Verify the correct tools are returned.
-	assert.Contains(t, toolNames, "GetTime")
-	assert.Contains(t, toolNames, "SET_ALARM")
+	// Verify the correct tools are returned (normalized).
+	assert.Contains(t, toolNames, "gettime")
+	assert.Contains(t, toolNames, "set_alarm")
 	assert.NotContains(t, toolNames, "list_events")
 }
 

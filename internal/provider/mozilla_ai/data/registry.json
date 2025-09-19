@@ -729,41 +729,54 @@
     ],
     "transports": ["stdio"]
   },
-  "monday-com": {
+  "monday-api-mcp": {
     "arguments": {
-      "MONDAY_API_KEY": {
+      "--token": {
         "description": "API key for authenticating with the Monday.com API.",
         "example": "your-monday-api-key",
-        "name": "MONDAY_API_KEY",
+        "name": "--token",
         "required": true,
-        "type": "environment"
+        "type": "argument"
       },
-      "MONDAY_WORKSPACE_NAME": {
-        "description": "The name of the Monday.com workspace you are working with.",
-        "name": "MONDAY_WORKSPACE_NAME",
-        "required": true,
-        "type": "environment"
+      "--version": {
+        "description": "monday.com API version",
+        "example": "current",
+        "name": "--version",
+        "required": false,
+        "type": "argument"
+      },
+      "--read-only": {
+        "description": "Enable read-only mode",
+        "name": "--read-only",
+        "required": false,
+        "type": "argument_bool"
+      },
+      "--enable-dynamic-api-tools": {
+        "description": "Enable dynamic API tools",
+        "name": "--enable-dynamic-api-tools",
+        "required": false,
+        "type": "argument_bool"
       }
     },
     "categories": ["Productivity"],
-    "description": "MCP Server to interact with Monday.com boards and items.",
-    "displayName": "Monday.com API",
-    "homepage": "https://github.com/mondaycom/monday-ai/tree/master/packages/monday-api-mcp",
+    "description": "A server implementation for the Model Context Protocol (MCP) that provides an interface to interact with Monday.com API.",
+    "displayName": "Monday.com API MCP Server",
+    "homepage": "https://github.com/mondaycom/mcp",
     "id": "monday-api-mcp",
     "installations": {
-      "uvx": {
+      "npx": {
         "description": "Run with npm and dynamic API tools",
-        "package": "mcp-server-monday",
+        "package": "@mondaydotcomorg/monday-api-mcp",
         "recommended": true,
-        "runtime": "uvx",
-        "version": "0.2.9",
+        "runtime": "npx",
+        "version": "1.4.2",
         "repository": {
           "type": "git",
-          "url": "https://github.com/sakce/mcp-server-monday"
+          "url": "https://github.com/mondaycom/mcp/tree/master/packages/monday-api-mcp"
         }
       }
     },
-    "isOfficial": false,
+    "isOfficial": true,
     "license": "MIT",
     "name": "monday-api-mcp",
     "publisher": {
@@ -776,88 +789,144 @@
     ],
     "tools": [
       {
-        "name": "monday-create-item",
-        "description": "Create a new item in a Monday.com Board. Optionally, specify the parent Item ID to create a Sub-item."
+        "name": "all_widgets_schema",
+        "description": "Fetch complete JSON Schema 7 definitions for all available widget types in monday.com. This tool is essential before creating widgets as it provides: - Complete schema definitions for all supported widgets - Required and optional fields for each widget type - Data type specifications and validation rules - Detailed descriptions of widget capabilities Use this tool when you need to: - Understand widget configuration requirements before creating widgets - Validate widget settings against official schemas - Plan widget implementations with proper data structures The response includes JSON Schema 7 definitions that describe exactly what settings each widget type accepts."
       },
       {
-        "name": "monday-get-items-by-id",
-        "description": "Fetch specific Monday.com item by its ID"
+        "name": "change_item_column_values",
+        "description": "Change the column values of an item in a monday.com board"
       },
       {
-        "name": "monday-update-item",
-        "description": "Update a Monday.com item's or sub-item's column values."
+        "name": "create_board",
+        "description": "Create a monday.com board"
       },
       {
-        "name": "monday-get-board-columns",
-        "description": "Get the Columns of a Monday.com Board."
+        "name": "create_column",
+        "description": "Create a new column in a monday.com board"
       },
       {
-        "name": "monday-get-board-groups",
-        "description": "Get the Groups of a Monday.com Board."
+        "name": "create_custom_activity",
+        "description": "Create a new custom activity in the E&A app"
       },
       {
-        "name": "monday-create-update",
-        "description": "Create an update (comment) on a Monday.com Item or Sub-item."
+        "name": "create_dashboard",
+        "description": "Use this tool to create a new monday.com dashboard that aggregates data from one or more boards. Dashboards provide visual representations of board data through widgets and charts. Use this tool when users want to: - Create a dashboard to visualize board data - Aggregate information from multiple boards - Set up a data visualization container for widgets"
       },
       {
-        "name": "monday-list-boards",
-        "description": "Get all Boards from Monday.com"
+        "name": "create_doc",
+        "description": "Create a new monday.com doc either inside a workspace or attached to an item (via a doc column). After creation, the provided markdown will be appended to the document. LOCATION TYPES: - workspace: Creates a document in a workspace (requires workspace_id, optional doc_kind, optional folder_id) - item: Creates a document attached to an item (requires item_id, optional column_id) USAGE EXAMPLES: - Workspace doc: { location: { type: \"workspace\", workspace_id: 123, doc_kind: \"private\" }, markdown: \"...\" } - Workspace doc in folder: { location: { type: \"workspace\", workspace_id: 123, folder_id: 17264196 }, markdown: \"...\" } - Item doc: { location: { type: \"item\", item_id: 456, column_id: \"doc_col_1\" }, markdown: \"...\" }"
       },
       {
-        "name": "monday-list-items-in-groups",
-        "description": "List all items in the specified groups of a Monday.com board"
+        "name": "create_folder",
+        "description": "Create a new folder in a monday.com workspace"
       },
       {
-        "name": "monday-list-subitems-in-items",
-        "description": "List all Sub-items of a list of Monday.com Items"
+        "name": "create_form",
+        "description": "Create a monday.com form. This will create a new form as well as a new board for which the form’s responses will be stored. The returned board_id is the ID of the board that was created while the returned formToken can be used for all future queries and mutations to continue editing the form."
       },
       {
-        "name": "monday-create-board",
-        "description": "Create a new Monday.com board"
+        "name": "create_group",
+        "description": "Create a new group in a monday.com board. Groups are sections that organize related items. Use when users want to add structure, categorize items, or create workflow phases. Groups can be positioned relative to existing groups and assigned predefined colors. Items will always be created in the top group and so the top group should be the most relevant one for new item creation"
       },
       {
-        "name": "monday-create-board-group",
-        "description": "Create a new group in a Monday.com board"
+        "name": "create_item",
+        "description": "Create a new item in a monday.com board"
       },
       {
-        "name": "monday-move-item-to-group",
-        "description": "Move an item to a group in a Monday.com board"
+        "name": "create_update",
+        "description": "Create a new update in a monday.com board"
       },
       {
-        "name": "monday-delete-item",
-        "description": "Delete an item from a Monday.com board"
+        "name": "create_timeline_item",
+        "description": "Create a new timeline item in the E&A app"
       },
       {
-        "name": "monday-archive-item",
-        "description": "Archive an item from a Monday.com board"
+        "name": "create_widget",
+        "description": "Create a new widget in a dashboard or board view with specific configuration settings. This tool creates data visualization widgets that display information from monday.com boards: **Parent Containers:** - **DASHBOARD**: Place widget in a dashboard (most common use case) - **BOARD_VIEW**: Place widget in a specific board view **Critical Requirements:** 1. **Schema Compliance**: Widget settings MUST conform to the JSON schema for the specific widget type 2. **Use all_widgets_schema first**: Always fetch widget schemas before creating widgets 3. **Validate settings**: Ensure all required fields are provided and data types match **Workflow:** 1. Use 'all_widgets_schema' to get schema definitions 2. Prepare widget settings according to the schema 3. Use this tool to create the widget"
       },
       {
-        "name": "monday-get-item-updates",
-        "description": "Get updates for a specific item in Monday.com"
+        "name": "create_workspace",
+        "description": "Create a new workspace in monday.com"
       },
       {
-        "name": "monday-get-docs",
-        "description": "Get a list of documents from Monday.com, optionally filtered by folder"
+        "name": "delete_column",
+        "description": "Delete a column from a monday.com board"
       },
       {
-        "name": "monday-get-doc-content",
-        "description": "Get the content of a specific document by ID"
+        "name": "delete_item",
+        "description": "Delete an item"
       },
       {
-        "name": "monday-create-doc",
-        "description": "Create a new document in Monday.com"
+        "name": "fetch_custom_activity",
+        "description": "Get custom activities from the E&A app"
       },
       {
-        "name": "monday-add-doc-block",
-        "description": "Add a block to a document"
+        "name": "form_questions_editor",
+        "description": "Create, update, or delete a question in a monday.com form"
       },
       {
-        "name": "monday-get-item-files",
-        "description": "Get files (PDFs, documents, images, etc.) attached to a Monday.com item"
+        "name": "get_board_activity",
+        "description": "Get board activity logs for a specified time range (defaults to last 30 days)"
       },
       {
-        "name": "monday-get-update-files",
-        "description": "Get files (PDFs, documents, images, etc.) attached to a specific update in Monday.com"
+        "name": "get_board_info",
+        "description": "Get comprehensive board information including metadata, structure, owners, and configuration"
+      },
+      {
+        "name": "get_board_items_by_name",
+        "description": "Get items by board id and term"
+      },
+      {
+        "name": "get_board_schema",
+        "description": "Get board schema (columns and groups) by board id"
+      },
+      {
+        "name": "get_column_type_info",
+        "description": "Retrieves comprehensive information about a specific column type, including JSON schema definition and other metadata. Use this before creating columns with the create_column tool to understand the structure, validation rules, and available properties for column settings."
+      },
+      {
+        "name": "get_form",
+        "description": "Get a monday.com form by its form token. Form tokens can be extracted from the form’s url. Given a form url, such as https://forms.monday.com/forms/abc123def456ghi789?r=use1, the token is the alphanumeric string that appears right after /forms/ and before the ?. In the example, the token is abc123def456ghi789."
+      },
+      {
+        "name": "get_users_by_name",
+        "description": "Get users, can be filtered by name or partial name"
+      },
+      {
+        "name": "list_users_and_teams",
+        "description": "PRECISION-FIRST user and team retrieval tool. AI agents MUST prioritize specific queries over broad searches. MANDATORY BEST PRACTICES: 1. ALWAYS use specific IDs when available (userIds, teamIds) - highest precision and performance 2. ALWAYS use name search when you have user names but no IDs 3. ALWAYS use boolean getMe: true when requesting current user information 4. AVOID broad queries (no parameters) - use only as absolute last resort 5. COMBINE parameters strategically to minimize API calls REQUIRED PARAMETER PRIORITY (use in this order): 1. getMe: true (when requesting current user) - STANDALONE ONLY 2. name=\"exact_name\" (when searching by name) - STANDALONE ONLY 3. userIds=[\"id1\",\"id2\"] (when you have specific user IDs) 4. teamIds=[\"id1\",\"id2\"] + teamsOnly: true (when you have specific team IDs) 5. No parameters (LAST RESORT - fetches up to 1000 users, avoid unless absolutely necessary) CRITICAL USAGE RULES: • getMe and name parameters CANNOT be combined with any other parameters • userIds + teamIds requires explicit includeTeams: true flag • teamsOnly: true prevents user data fetching (teams-only queries) • includeTeamMembers: true adds detailed member data to teams • includeTeams: true fetches both users and teams, do not use this to fetch a specific user's teams rather fetch that user by id and you will get their team memberships. OPTIMIZATION DIRECTIVES: • NEVER fetch all users when specific IDs are available • NEVER use broad queries for single user/team lookups • ALWAYS prefer name search over ID-less queries for individual users • SET includeTeamMembers: false for team lists, true only for member analysis • AVOID includeTeams: true unless you specifically need both users AND teams • AVOID broad queries for single user/team, if you have specific IDs, use them. For example getting a user's teams, use that user's ID and fetch their team using the includeTeams flag. RESPONSE CONTENT: • Users: id, name, email, title, permissions, contact details, team memberships • Teams: id, name, owners, members (when includeTeamMembers: true) • Current user: id, name, title, enabled, is_admin, is_guest (basic profile only)"
+      },
+      {
+        "name": "list_workspaces",
+        "description": "List all workspaces available to the user. Returns up to 500 workspaces with their ID, name, and description."
+      },
+      {
+        "name": "move_item_to_group",
+        "description": "Move an item to a group in a monday.com board"
+      },
+      {
+        "name": "move_object",
+        "description": "Move a folder, board, or overview in monday.com. Use `position` for relative placement based on another object, `parentFolderId` for folder changes, `workspaceId` for workspace moves, and `accountProductId` for account product changes."
+      },
+      {
+        "name": "read_docs",
+        "description": "Get a collection of monday.com documents with their content as markdown. PAGINATION: - Default limit is 25 documents per page - Use 'page' parameter to get additional pages (starts at 1) - Check response for 'has_more_pages' to know if you should continue paginating - If user asks for \"all documents\" and you get exactly 25 results, continue with page 2, 3, etc. FILTERING: Provide an ID filter object with: - type: 'ids' for specific document IDs - type: 'object_ids' for specific document object IDs - type: 'workspace_ids' for all docs in specific workspaces - values: array of ID strings (at least 1 required) Examples: - { type: 'ids', values: ['123', '456'] } - { type: 'object_ids', values: ['123'] } - { type: 'workspace_ids', values: ['ws_101'] } USAGE PATTERNS: - For specific documents: use type 'ids' or 'object_ids' (A monday doc has two unique identifiers) - For workspace exploration: use type 'workspace_ids' with pagination - For large searches: start with page 1, then paginate if has_more_pages=true"
+      },
+      {
+        "name": "update_folder",
+        "description": "Update an existing folder in monday.com"
+      },
+      {
+        "name": "update_form",
+        "description": "Update a monday.com form. Handles the following form update actions that can only be done one at a time using the correct \"action\" input: - update form's feature settings with the action \"updateFeatures\", - update form's appearance settings with the action \"updateAppearance\", - update form's accessibility settings with the action \"updateAccessibility\", - update form's title with the action \"updateFormHeader\", - update form's description with the action \"updateFormHeader\", - update form's question order with the action \"updateQuestionOrder\", - create a new form tag with the action \"createTag\", - delete a form tag with the action \"deleteTag\", - update a form tag with the action \"updateTag\", - set or update the form's password with the action \"setFormPassword\" - shorten form's url with the action \"shortenFormUrl\" - deactivate form with the action \"deactivateForm\" - reactivate form with the action \"activateForm\""
+      },
+      {
+        "name": "update_workspace",
+        "description": "Update an existing workspace in monday.com"
+      },
+      {
+        "name": "workspace_info",
+        "description": "This tool returns the boards, docs and folders in a workspace and which folder they are in. It returns up to 100 of each object type, if you receive 100 assume there are additional objects of that type in the workspace."
       }
     ],
     "transports": ["stdio"]
