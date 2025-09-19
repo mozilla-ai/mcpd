@@ -156,7 +156,7 @@ func TestRegistry_Search(t *testing.T) {
 			expectedArgs:  map[string][]string{"time": {"--local-timezone"}},
 		},
 		{
-			name:          "docker runtime now supported",
+			name:          "finds servers with docker runtime",
 			queryName:     "Time",
 			filters:       nil,
 			expectedCount: 1,
