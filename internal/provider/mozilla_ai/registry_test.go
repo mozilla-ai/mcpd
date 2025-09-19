@@ -301,7 +301,7 @@ func TestRegistry_BuildPackageResult_ValidServer(t *testing.T) {
 	// Test building package result
 	pkg, ok := registry.serverForID(validServerKey)
 	require.True(t, ok, "Should successfully build package result")
-	require.Equal(t, validServerKey, pkg.Name)
+	require.Equal(t, validServerKey, pkg.ID)
 	require.Equal(t, RegistryName, pkg.Source)
 }
 
@@ -684,9 +684,9 @@ func TestNewRegistry_NormalizationIntegration(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, results, 1)
 
-	// Verify server name (and ID) was normalized.
+	// Verify server ID was normalized, name kept original.
 	result := results[0]
-	require.Equal(t, "github-server", result.Name)
+	require.Equal(t, "GitHub-Server", result.Name)
 	require.Equal(t, "github-server", result.ID)
 
 	// Verify tool names were normalized.
