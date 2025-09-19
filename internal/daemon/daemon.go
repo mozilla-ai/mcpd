@@ -179,21 +179,48 @@ func (d *Daemon) startMCPServer(ctx context.Context, server runtime.Server) erro
 	}
 
 	logger := d.logger.Named("mcp").Named(server.Name())
+	logger.Info("Starting MCP server", "runtime", runtimeBinary, "package", server.Package)
 
 	// Strip arbitrary package prefix (e.g. uvx::)
 	packageNameAndVersion := strings.TrimPrefix(server.Package, runtimeBinary+"::")
 
 	var args []string
-	// TODO: npx requires '-y' before the package name
-	if runtime.Runtime(runtimeBinary) == runtime.NPX {
+	var environ []string
+
+	// Handle runtime-specific setup
+	switch runtime.Runtime(runtimeBinary) {
+	case runtime.NPX:
+		// NPX requires '-y' before the package name
 		args = append(args, "-y")
+		args = append(args, packageNameAndVersion)
+		environ = server.Environ()
+
+	case runtime.Docker:
+		// Docker requires special handling for environment variables
+		args = []string{"run", "-i", "--rm", "--network", "host"}
+
+		// Pass environment variables as Docker -e flags
+		for k, v := range server.Env {
+			args = append(args, "-e", fmt.Sprintf("%s=%s", k, v))
+		}
+
+		// Add the image name
+		args = append(args, packageNameAndVersion)
+
+		// Docker doesn't need environ passed - env vars are handled via -e flags
+		environ = nil
+
+	default:
+		// Default case (UVX and others)
+		args = append(args, packageNameAndVersion)
+		environ = server.Environ()
 	}
-	args = append(args, packageNameAndVersion)
+
 	args = append(args, server.Args...)
 
-	logger.Debug("attempting to start server", "binary", runtimeBinary)
+	logger.Debug("attempting to start server", "binary", runtimeBinary, "args", args)
 
-	stdioClient, err := client.NewStdioMCPClient(runtimeBinary, server.Environ(), args...)
+	stdioClient, err := client.NewStdioMCPClient(runtimeBinary, environ, args...)
 	if err != nil {
 		return fmt.Errorf("error starting MCP server: '%s': %w", server.Name(), err)
 	}

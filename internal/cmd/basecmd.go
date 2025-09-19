@@ -149,6 +149,7 @@ func (c *BaseCmd) MCPDSupportedRuntimes() []runtime.Runtime {
 	return []runtime.Runtime{
 		runtime.NPX,
 		runtime.UVX,
+		runtime.Docker,
 	}
 }
 

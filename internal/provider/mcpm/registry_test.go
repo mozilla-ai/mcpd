@@ -156,12 +156,13 @@ func TestRegistry_Search(t *testing.T) {
 			expectedArgs:  map[string][]string{"time": {"--local-timezone"}},
 		},
 		{
-			name:          "unsupported runtime filtered out",
-			queryName:     "GitHub",
+			name:          "finds servers with docker runtime",
+			queryName:     "Time",
 			filters:       nil,
-			expectedCount: 0,
-			expectedIDs:   nil,
-			expectedEnv:   nil,
+			expectedCount: 1,
+			expectedIDs:   []string{"time"},
+			expectedEnv:   map[string][]string{"time": {}},
+			expectedArgs:  map[string][]string{"time": {"--local-timezone"}},
 		},
 		{
 			name:          "search by display name",
