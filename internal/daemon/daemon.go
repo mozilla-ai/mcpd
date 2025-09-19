@@ -196,8 +196,7 @@ func (d *Daemon) startMCPServer(ctx context.Context, server runtime.Server) erro
 		environ = server.SafeEnv()
 
 	case runtime.Docker:
-		// Docker requires special handling for stdio and environment variables
-		// Note: Docker stderr (pull messages, startup logs) is redirected to prevent MCP protocol interference
+		// Docker requires special handling for environment variables
 		args = []string{"run", "-i", "--rm", "--network", "host"}
 
 		// Pass environment variables as Docker -e flags
