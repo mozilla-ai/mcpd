@@ -193,7 +193,6 @@ func (d *Daemon) startMCPServer(ctx context.Context, server runtime.Server) erro
 		// NPX requires '-y' before the package name
 		args = append(args, "-y")
 		args = append(args, packageNameAndVersion)
-		args = append(args, server.Args...)
 		environ = server.SafeEnv()
 
 	case runtime.Docker:
@@ -209,9 +208,6 @@ func (d *Daemon) startMCPServer(ctx context.Context, server runtime.Server) erro
 		// Add the image name
 		args = append(args, packageNameAndVersion)
 
-		// Add MCP server args
-		args = append(args, server.Args...)
-
 		// Docker doesn't need environ passed - env vars are handled via -e flags
 		environ = nil
 
@@ -221,9 +217,10 @@ func (d *Daemon) startMCPServer(ctx context.Context, server runtime.Server) erro
 	default:
 		// Default case (UVX and others)
 		args = append(args, packageNameAndVersion)
-		args = append(args, server.Args...)
 		environ = server.SafeEnv()
 	}
+
+	args = append(args, server.Args...)
 
 	logger.Debug("attempting to start server", "binary", runtimeBinary, "args", args)
 
