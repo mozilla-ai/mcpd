@@ -301,7 +301,7 @@ func TestRegistry_BuildPackageResult_ValidServer(t *testing.T) {
 	// Test building package result
 	pkg, ok := registry.serverForID(validServerKey)
 	require.True(t, ok, "Should successfully build package result")
-	require.Equal(t, validServerKey, pkg.Name)
+	require.Equal(t, validServerKey, pkg.ID)
 	require.Equal(t, RegistryName, pkg.Source)
 }
 
