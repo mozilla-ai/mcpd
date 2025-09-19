@@ -8,8 +8,9 @@ const (
 )
 
 const (
-	NPX Runtime = "npx"
-	UVX Runtime = "uvx"
+	NPX    Runtime = "npx"
+	UVX    Runtime = "uvx"
+	Docker Runtime = "docker"
 )
 
 type ArgumentType string
