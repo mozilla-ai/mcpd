@@ -1811,11 +1811,16 @@ func TestDaemon_DaemonCmd_HandleSignals(t *testing.T) {
 		sigChan := make(chan os.Signal, 2)
 		reloadChan := make(chan struct{}) // No buffer - will block second send
 		shutdownCancel := func() {}
+		started := make(chan struct{})
 
 		// Start handleSignals in goroutine.
-		go daemonCmd.handleSignals(logger, sigChan, reloadChan, shutdownCancel)
+		go func() {
+			close(started) // Signal that goroutine has started
+			daemonCmd.handleSignals(logger, sigChan, reloadChan, shutdownCancel)
+		}()
 
-		// Give the goroutine time to start
+		// Wait for goroutine to start and give it time to enter the channel loop
+		<-started
 		time.Sleep(10 * time.Millisecond)
 
 		// Send two SIGHUP signals quickly.

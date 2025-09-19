@@ -131,7 +131,8 @@
           "type": "string",
           "enum": [
             "npx",
-            "uvx"
+            "uvx",
+            "docker"
           ],
           "description": "Runtime type for this installation method"
         },
