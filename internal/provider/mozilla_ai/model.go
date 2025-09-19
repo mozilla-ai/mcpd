@@ -219,7 +219,7 @@ func (m *MCPRegistry) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
-// UnmarshalJSON implements custom JSON unmarshaling for Server to normalize the Name field.
+// UnmarshalJSON implements custom JSON unmarshaling for Server to normalize the ID field.
 func (s *Server) UnmarshalJSON(data []byte) error {
 	// Create a temporary struct with the same fields to avoid infinite recursion.
 	type serverAlias Server
@@ -228,10 +228,10 @@ func (s *Server) UnmarshalJSON(data []byte) error {
 		return err
 	}
 
-	// Normalize the name field.
-	alias.Name = filter.NormalizeString(alias.Name)
+	// Normalize the ID field.
+	alias.ID = filter.NormalizeString(alias.ID)
 
-	// Assign the normalized values to the receiver.
+	// Assign the values to the receiver.
 	*s = Server(alias)
 	return nil
 }

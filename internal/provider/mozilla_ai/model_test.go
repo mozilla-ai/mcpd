@@ -11,29 +11,34 @@ func TestServer_UnmarshalJSON(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
-		name     string
-		input    string
-		expected string
+		name         string
+		input        string
+		expectedID   string
+		expectedName string
 	}{
 		{
-			name:     "Normalize mixed case name",
-			input:    `{"name": "GitHub-Server", "description": "Test server"}`,
-			expected: "github-server",
+			name:         "Normalize mixed case ID, keep original name",
+			input:        `{"id": "GitHub-Server", "name": "GitHub Server", "description": "Test server"}`,
+			expectedID:   "github-server",
+			expectedName: "GitHub Server",
 		},
 		{
-			name:     "Normalize uppercase name",
-			input:    `{"name": "TIME_SERVER", "description": "Test server"}`,
-			expected: "time_server",
+			name:         "Normalize uppercase ID, keep original name",
+			input:        `{"id": "TIME_SERVER", "name": "Time Server", "description": "Test server"}`,
+			expectedID:   "time_server",
+			expectedName: "Time Server",
 		},
 		{
-			name:     "Normalize name with spaces",
-			input:    `{"name": " Mixed Case Server ", "description": "Test server"}`,
-			expected: "mixed case server",
+			name:         "Normalize ID with spaces, keep original name",
+			input:        `{"id": " Mixed Case Server ", "name": "Mixed Case Server", "description": "Test server"}`,
+			expectedID:   "mixed case server",
+			expectedName: "Mixed Case Server",
 		},
 		{
-			name:     "Already normalized name unchanged",
-			input:    `{"name": "simple-server", "description": "Test server"}`,
-			expected: "simple-server",
+			name:         "Already normalized ID unchanged, keep original name",
+			input:        `{"id": "simple-server", "name": "Simple Server", "description": "Test server"}`,
+			expectedID:   "simple-server",
+			expectedName: "Simple Server",
 		},
 	}
 
@@ -44,7 +49,8 @@ func TestServer_UnmarshalJSON(t *testing.T) {
 			var server Server
 			err := json.Unmarshal([]byte(tc.input), &server)
 			require.NoError(t, err)
-			require.Equal(t, tc.expected, server.Name)
+			require.Equal(t, tc.expectedID, server.ID)
+			require.Equal(t, tc.expectedName, server.Name)
 			require.Equal(t, "Test server", server.Description)
 		})
 	}

@@ -684,9 +684,9 @@ func TestNewRegistry_NormalizationIntegration(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, results, 1)
 
-	// Verify server name (and ID) was normalized.
+	// Verify server ID was normalized, name kept original.
 	result := results[0]
-	require.Equal(t, "github-server", result.Name)
+	require.Equal(t, "GitHub-Server", result.Name)
 	require.Equal(t, "github-server", result.ID)
 
 	// Verify tool names were normalized.
