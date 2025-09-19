@@ -14,6 +14,9 @@ LABEL org.opencontainers.image.version="dev"
 
 ARG MCPD_USER=mcpd
 ARG MCPD_HOME=/home/$MCPD_USER
+# TARGETPLATFORM is set by Docker buildx for multi-platform builds (e.g., linux/amd64, linux/arm64)
+# For local builds, it's passed via docker-compose build args
+ARG TARGETPLATFORM
 
 # Sensible defaults but can be easily overridden by the user with `docker run -e KEY=VALUE`.
 ENV MCPD_API_PORT=8090
@@ -54,7 +57,7 @@ COPY --from=ghcr.io/astral-sh/uv:0.8.4 /uv /uvx /usr/local/bin/
 
 # Copy application binary and set ownership to the non-root user.
 # IMPORTANT: Config/secrets are NOT copied. They should be mounted at runtime.
-COPY --chown=$MCPD_USER:$MCPD_USER mcpd /usr/local/bin/mcpd
+COPY --chown=$MCPD_USER:$MCPD_USER $TARGETPLATFORM/mcpd /usr/local/bin/mcpd
 
 # Switch to the non-root user before execution.
 USER $MCPD_USER

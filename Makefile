@@ -5,6 +5,9 @@ MODULE_PATH := github.com/mozilla-ai/mcpd/v2
 # /usr/local/bin is a common default for user-installed binaries
 INSTALL_DIR := /usr/local/bin
 
+# Target platform for local Docker builds (matches Docker buildx platform format)
+TARGET_PLATFORM := linux/amd64
+
 # Get the version string dynamically
 # This will be:
 #   - e.g., "v1.0.0" if on a tag
@@ -65,6 +68,7 @@ clean:
 	@# Remove the built executable and any temporary files
 	@echo "cleaning up local build artifacts..."
 	@rm -f mcpd # The executable itself
+	@rm -rf $(TARGET_PLATFORM) # Remove any orphaned Docker build directories
 
 uninstall:
 	@# Remove the installed executable from the system
@@ -93,8 +97,13 @@ docs-nav: docs-cli
 	@echo "navigation updated for MkDocs site"
 
 local-up: build-linux
+	@echo "organizing binary for docker build"
+	@mkdir -p $(TARGET_PLATFORM)
+	@cp mcpd $(TARGET_PLATFORM)/mcpd
 	@echo "starting mcpd container in detached state"
-	@docker compose up -d --build
+	@TARGETPLATFORM=$(TARGET_PLATFORM) docker compose up -d --build
+	@echo "cleaning up temporary platform directory"
+	@rm -rf $(TARGET_PLATFORM)
 
 local-down:
 	@echo "stopping mcpd container"
