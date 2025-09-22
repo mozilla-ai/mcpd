@@ -216,7 +216,7 @@ func (d *Daemon) startMCPServer(ctx context.Context, server runtime.Server) erro
 
 	args = append(args, server.Args...)
 
-	logger.Debug("attempting to start server", "binary", runtimeBinary, "args", args)
+	logger.Debug("attempting to start server", "binary", runtimeBinary)
 
 	stdioClient, err := client.NewStdioMCPClient(runtimeBinary, environ, args...)
 	if err != nil {
