@@ -196,7 +196,7 @@ func (d *Daemon) startMCPServer(ctx context.Context, server runtime.Server) erro
 		args = []string{"run", "-i", "--rm", "--network", "host"}
 
 		// Docker supplies the environment variables via args (-e), so
-		// we don't use the server.Environ() as this ensures least priviledge.
+		// we don't use the server.Environ() as this ensures least privilege.
 		for k, v := range server.Env {
 			args = append(args, "-e", fmt.Sprintf("%s=%s", k, v))
 		}
