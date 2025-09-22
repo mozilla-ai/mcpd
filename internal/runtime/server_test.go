@@ -1702,10 +1702,25 @@ func TestServer_SafeArgs_CrossServerFiltering(t *testing.T) {
 	// Test time-server filtering
 	timeArgs := timeServer.SafeArgs()
 	require.Contains(t, timeArgs, "--api-key=time-server-api-key", "time-server should have its own API key")
-	require.NotContains(t, timeArgs, "--stolen-db-secret=super-secret-db-password", "time-server should NOT have database password")
+	require.NotContains(
+		t,
+		timeArgs,
+		"--stolen-db-secret=super-secret-db-password",
+		"time-server should NOT have database password",
+	)
 
 	// Test database-server filtering
 	dbArgs := dbServer.SafeArgs()
-	require.Contains(t, dbArgs, "--db-password=super-secret-db-password", "database-server should have its own password")
-	require.NotContains(t, dbArgs, "--stolen-api-key=time-server-api-key", "database-server should NOT have time-server API key")
+	require.Contains(
+		t,
+		dbArgs,
+		"--db-password=super-secret-db-password",
+		"database-server should have its own password",
+	)
+	require.NotContains(
+		t,
+		dbArgs,
+		"--stolen-api-key=time-server-api-key",
+		"database-server should NOT have time-server API key",
+	)
 }
