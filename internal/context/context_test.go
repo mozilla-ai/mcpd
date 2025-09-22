@@ -102,9 +102,11 @@ func TestSaveAndLoadExecutionContextConfig(t *testing.T) {
 	original := NewExecutionContextConfig(path)
 	original.Servers = map[string]ServerExecutionContext{
 		"alpha": {
-			Name: "alpha",
-			Args: []string{"--debug"},
-			Env:  map[string]string{"KEY": "VALUE"},
+			Name:    "alpha",
+			Args:    []string{"--debug"},
+			RawArgs: []string{"--debug"},
+			Env:     map[string]string{"KEY": "VALUE"},
+			RawEnv:  map[string]string{"KEY": "VALUE"},
 		},
 	}
 
@@ -638,9 +640,14 @@ DEBUG = "true"`
 
 	expected := map[string]ServerExecutionContext{
 		"simple-server": {
-			Name: "simple-server",
-			Args: []string{"--port", "3000", "--debug"},
+			Name:    "simple-server",
+			Args:    []string{"--port", "3000", "--debug"},
+			RawArgs: []string{"--port", "3000", "--debug"},
 			Env: map[string]string{
+				"NODE_ENV": "development",
+				"DEBUG":    "true",
+			},
+			RawEnv: map[string]string{
 				"NODE_ENV": "development",
 				"DEBUG":    "true",
 			},

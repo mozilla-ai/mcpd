@@ -395,8 +395,10 @@ func AggregateConfigs(
 		// Update with execution context if we have any for this server.
 		if executionCtx, ok := executionContextCfg.Get(s.Name); ok {
 			runtimeServer.ServerExecutionContext = context.ServerExecutionContext{
-				Args: executionCtx.Args,
-				Env:  executionCtx.Env,
+				Args:    executionCtx.Args,
+				Env:     executionCtx.Env,
+				RawEnv:  executionCtx.RawEnv,
+				RawArgs: executionCtx.RawArgs,
 			}
 		}
 
