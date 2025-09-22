@@ -189,11 +189,11 @@ func (d *Daemon) startMCPServer(ctx context.Context, server runtime.Server) erro
 		args = append(args, "-y")
 	}
 	args = append(args, packageNameAndVersion)
-	args = append(args, server.Args...)
+	args = append(args, server.SafeArgs()...)
 
 	logger.Debug("attempting to start server", "binary", runtimeBinary)
 
-	stdioClient, err := client.NewStdioMCPClient(runtimeBinary, server.Environ(), args...)
+	stdioClient, err := client.NewStdioMCPClient(runtimeBinary, server.SafeEnv(), args...)
 	if err != nil {
 		return fmt.Errorf("error starting MCP server: '%s': %w", server.Name(), err)
 	}

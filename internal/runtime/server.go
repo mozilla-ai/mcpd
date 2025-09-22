@@ -61,9 +61,15 @@ func (s *Server) EqualsExceptTools(other *Server) bool {
 	return s.EqualExceptTools(&other.ServerEntry)
 }
 
-// Environ returns the server's effective environment with overrides applied
-// and irrelevant variables stripped. Environment variables are already expanded at load time.
-func (s *Server) Environ() []string {
+// SafeArgs returns the server's command-line arguments with cross-server references filtered out.
+// Arguments are already expanded at load time.
+func (s *Server) SafeArgs() []string {
+	return s.filterArgs(s.Args)
+}
+
+// SafeEnv returns the server's environment variables with cross-server references filtered out
+// and server-specific overrides applied. Environment variables are already expanded at load time.
+func (s *Server) SafeEnv() []string {
 	baseEnvs := os.Environ()
 
 	overrideEnvs := make([]string, 0, len(s.Env))
