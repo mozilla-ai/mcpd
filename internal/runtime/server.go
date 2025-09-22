@@ -290,8 +290,11 @@ func (s *Server) exportRuntimeArgs(
 ) []string {
 	var args []string
 
-	for i := 0; i < len(s.Args); i++ {
-		rawArg := s.Args[i]
+	// Filter out args with cross-server references.
+	filteredArgs := s.filterArgs(s.Args)
+
+	for i := 0; i < len(filteredArgs); i++ {
+		rawArg := filteredArgs[i]
 
 		// Sanity check for arg.
 		if !strings.HasPrefix(rawArg, "--") {
@@ -313,7 +316,7 @@ func (s *Server) exportRuntimeArgs(
 		}
 
 		// --arg val case
-		if rawArg == arg && i+1 < len(s.Args) && !strings.HasPrefix(s.Args[i+1], "--") {
+		if rawArg == arg && i+1 < len(filteredArgs) && !strings.HasPrefix(filteredArgs[i+1], "--") {
 			t := transformValueArg(appName, s.Name(), rawArg)
 			args = append(args, t.FormattedArg)
 			recordContractFunc(t.EnvVarName, t.EnvVarReference)
@@ -570,5 +573,33 @@ func (s *Server) filterEnv(env []string) []string {
 	}
 
 	slices.Sort(filtered)
+	return filtered
+}
+
+// filterArgs filters the given args slice to remove any args that contain cross-server references.
+func (s *Server) filterArgs(args []string) []string {
+	if len(args) == 0 {
+		return []string{}
+	}
+
+	srvName := strings.ReplaceAll(strings.ToUpper(s.Name()), "-", "_")
+	var filtered []string
+
+	for i, arg := range args {
+		// Check for cross-server references using raw (unexpanded) values when available.
+		var rawArg string
+		if i < len(s.RawArgs) {
+			rawArg = s.RawArgs[i]
+		} else {
+			rawArg = arg // Fallback to expanded value if no raw version
+		}
+
+		if containsIllegalReference(srvName, rawArg) {
+			continue // Ignored - raw value contains cross-server reference
+		}
+
+		filtered = append(filtered, arg)
+	}
+
 	return filtered
 }
