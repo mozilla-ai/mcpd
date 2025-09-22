@@ -1815,9 +1815,6 @@ func TestDaemon_DaemonCmd_HandleSignals(t *testing.T) {
 		// Start handleSignals in goroutine.
 		go daemonCmd.handleSignals(logger, sigChan, reloadChan, shutdownCancel)
 
-		// Give the goroutine time to start
-		time.Sleep(150 * time.Millisecond)
-
 		// Send two SIGHUP signals quickly.
 		sigChan <- syscall.SIGHUP
 		sigChan <- syscall.SIGHUP
@@ -1826,7 +1823,7 @@ func TestDaemon_DaemonCmd_HandleSignals(t *testing.T) {
 		select {
 		case <-reloadChan:
 			// Expected - first signal processed
-		case <-time.After(100 * time.Millisecond):
+		case <-time.After(200 * time.Millisecond):
 			t.Fatal("Expected first reload signal not received")
 		}
 

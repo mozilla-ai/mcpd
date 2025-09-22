@@ -658,7 +658,7 @@ func TestParseServerEntry(t *testing.T) {
 			availableTools:       []string{"get_current_time", "convert_time"},
 			requestedTools:       []string{"get_current_time"},
 			arguments:            packages.Arguments{},
-			expectedPackageValue: "docker::mcp/time:latest",
+			expectedPackageValue: "docker::mcp/time@latest",
 		},
 		{
 			name: "missing runtime-specific package name should error",

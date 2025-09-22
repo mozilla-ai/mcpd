@@ -320,14 +320,8 @@ func parseServerEntry(pkg packages.Server, opts serverEntryOptions) (config.Serv
 		version = installation.Version
 	}
 
-	// Use appropriate version separator based on runtime type
-	var versionSeparator string
-	if selectedRuntime == runtime.Docker {
-		versionSeparator = ":" // Docker uses : for tags
-	} else {
-		versionSeparator = "@" // npm/uvx use @ for versions
-	}
-	runtimePackageVersion := fmt.Sprintf("%s::%s%s%s", selectedRuntime, installation.Package, versionSeparator, version)
+	runtimePackageVersion := fmt.Sprintf("%s::%s@%s", selectedRuntime, installation.Package, version)
+
 	envs := pkg.Arguments.FilterBy(packages.Required, packages.EnvVar).Names()
 	positionalArgs := pkg.Arguments.FilterBy(packages.Required, packages.PositionalArgument).Ordered().Names()
 	valueArgs := pkg.Arguments.FilterBy(packages.Required, packages.ValueArgument).Ordered().Names()
