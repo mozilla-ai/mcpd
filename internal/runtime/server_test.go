@@ -244,7 +244,10 @@ func TestServer_filterEnv(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			result := filterEnv(tc.input, tc.serverName)
+			server := &Server{
+				ServerEntry: config.ServerEntry{Name: tc.serverName},
+			}
+			result := server.filterEnv(tc.input)
 
 			require.Equal(t, tc.expected, result)
 		})
@@ -308,7 +311,10 @@ func TestServer_filterEnv_EdgeCases(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			result := filterEnv(tc.input, tc.serverName)
+			server := &Server{
+				ServerEntry: config.ServerEntry{Name: tc.serverName},
+			}
+			result := server.filterEnv(tc.input)
 
 			require.Equal(t, tc.expected, result)
 		})
@@ -370,7 +376,10 @@ func TestServer_filterEnv_RegexPatterns(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			result := filterEnv(tc.input, tc.serverName)
+			server := &Server{
+				ServerEntry: config.ServerEntry{Name: tc.serverName},
+			}
+			result := server.filterEnv(tc.input)
 
 			switch {
 			case len(tc.expected) == 0:

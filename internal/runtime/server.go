@@ -75,7 +75,7 @@ func (s *Server) Environ() []string {
 	mergedEnvs := mergeEnvs(baseEnvs, overrideEnvs)
 
 	// Filter the environment to remove vars for other MCP servers or mcpd itself.
-	filteredEnvs := filterEnv(mergedEnvs, s.Name())
+	filteredEnvs := s.filterEnv(mergedEnvs)
 
 	// No expansion needed - env vars are already expanded at load time.
 	return filteredEnvs
@@ -513,15 +513,18 @@ func containsIllegalReference(serverName string, value string) bool {
 //   - Value: partial${MCPD__OTHER_SERVER__TOKEN}reference
 //   - Malformed: VAR_WITHOUT_EQUALS
 //
+// The method uses RawEnv (unexpanded environment variables) to detect cross-server references
+// that would be missed after environment variable expansion.
+//
 // Returns a sorted slice of allowed environment variables in "KEY=VALUE" format.
 // Returns an empty slice if env is nil.
-func filterEnv(env []string, serverName string) []string {
+func (s *Server) filterEnv(env []string) []string {
 	if len(env) == 0 {
 		return []string{}
 	}
 
 	appName := "MCPD" // TODO: Fix import cycle that occurs if we use strings.ToUpper(cmd.AppName())
-	srvName := strings.ReplaceAll(strings.ToUpper(serverName), "-", "_")
+	srvName := strings.ReplaceAll(strings.ToUpper(s.Name()), "-", "_")
 
 	// MCP server specific naming
 	appPrefix := fmt.Sprintf("%s__", appName)                 // "MCPD__"
@@ -538,7 +541,8 @@ func filterEnv(env []string, serverName string) []string {
 			continue // Probably a malformed entry, ignore.
 		}
 
-		key, value := strings.ToUpper(kv[:idx]), strings.ToUpper(kv[idx+1:])
+		key := strings.ToUpper(kv[:idx])
+		value := kv[idx+1:]
 
 		// Specifically for another server (drop).
 		if strings.HasPrefix(key, appPrefix) && !strings.HasPrefix(key, serverPrefix) {
@@ -550,9 +554,16 @@ func filterEnv(env []string, serverName string) []string {
 			continue // Ignored
 		}
 
-		// Value references a different MCP server variable (drop).
-		if containsIllegalReference(srvName, value) {
-			continue // Ignored
+		// Check for cross-server references, preferring raw (unexpanded) values when available.
+		// This catches both:
+		// 1. Server config vars that reference other servers (checked via RawEnv)
+		// 2. Any env var whose value contains cross-server references
+		checkValue := value
+		if rawValue, exists := s.RawEnv[key]; exists {
+			checkValue = rawValue // Use raw value if this var came from server config
+		}
+		if containsIllegalReference(srvName, checkValue) {
+			continue // Ignored - contains cross-server reference
 		}
 
 		filtered = append(filtered, kv)
