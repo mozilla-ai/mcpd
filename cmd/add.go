@@ -321,7 +321,6 @@ func parseServerEntry(pkg packages.Server, opts serverEntryOptions) (config.Serv
 	}
 
 	runtimePackageVersion := fmt.Sprintf("%s::%s@%s", selectedRuntime, installation.Package, version)
-
 	envs := pkg.Arguments.FilterBy(packages.Required, packages.EnvVar).Names()
 	positionalArgs := pkg.Arguments.FilterBy(packages.Required, packages.PositionalArgument).Ordered().Names()
 	valueArgs := pkg.Arguments.FilterBy(packages.Required, packages.ValueArgument).Ordered().Names()
