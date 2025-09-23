@@ -2,6 +2,8 @@ services:
   mcpd:
     build:
       context: .
+      args:
+        TARGETPLATFORM: ${TARGETPLATFORM:-linux/amd64}
     container_name: mcpd
     environment:
       MCPD_API_PORT: ${MCPD_API_PORT:-8090}

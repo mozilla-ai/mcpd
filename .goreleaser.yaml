@@ -67,35 +67,19 @@ homebrew_casks:
             system_command "/usr/bin/xattr", args: ["-dr", "com.apple.quarantine", "#{staged_path}/mcpd"]
           end
 
-dockers:
-  - goarch: amd64
-    use: buildx
-    image_templates:
-    - "mzdotai/mcpd:{{ .Tag }}-amd64"
-    - "mzdotai/mcpd:latest-amd64"
-    build_flag_templates:
+dockers_v2:
+  - images:
+      - "mzdotai/mcpd"
+    tags:
+      - "{{ .Tag }}"
+      - "latest"
+    platforms:
+      - "linux/amd64"
+      - "linux/arm64"
+    flags:
       - "--pull"
-      - "--platform=linux/amd64"
-      - "--label=org.opencontainers.image.version={{ .Tag }}"
-  - goarch: arm64
-    use: buildx
-    image_templates:
-      - "mzdotai/mcpd:{{ .Tag }}-arm64"
-      - "mzdotai/mcpd:latest-arm64"
-    build_flag_templates:
-      - "--pull"
-      - "--platform=linux/arm64"
-      - "--label=org.opencontainers.image.version={{ .Tag }}"
-
-docker_manifests:
-  - name_template: "mzdotai/mcpd:{{ .Tag }}"
-    image_templates:
-      - "mzdotai/mcpd:{{ .Tag }}-amd64"
-      - "mzdotai/mcpd:{{ .Tag }}-arm64"
-  - name_template: "mzdotai/mcpd:latest"
-    image_templates:
-      - "mzdotai/mcpd:latest-amd64"
-      - "mzdotai/mcpd:latest-arm64"
+    labels:
+      "org.opencontainers.image.version": "{{ .Tag }}"
 
 changelog:
   disable: true
