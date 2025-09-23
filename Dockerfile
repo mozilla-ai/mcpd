@@ -37,14 +37,25 @@ RUN apk add --no-cache \
 # Installs 'tini', a lightweight init system to properly manage processes.
 RUN apk add --no-cache tini=0.19.0-r3
 
+# Install Docker CLI for running MCP servers as Docker containers
+# Using static binary that works on Alpine Linux
+RUN wget -q -O /tmp/docker.tgz https://download.docker.com/linux/static/stable/x86_64/docker-27.3.1.tgz && \
+    tar xzf /tmp/docker.tgz -C /tmp && \
+    mv /tmp/docker/docker /usr/local/bin/docker && \
+    chmod +x /usr/local/bin/docker && \
+    rm -rf /tmp/docker*
+
 #  - Adds a dedicated non-root group and user for security (using the ARG).
 #  - Creates necessary directories for configs, logs, and user data.
 #  - Sets correct ownership for the non-root user.
+#  - Adds mcpd user to docker group for Docker socket access
 # Note: ~/.cache/mcpd is created on-demand by the application when needed
 # (e.g. ~/.cache/mcpd/registries during 'mcpd add' or 'mcpd search' commands)
 # but not during normal daemon operation.
 RUN addgroup -S $MCPD_USER && \
     adduser -D -S -h $MCPD_HOME -G $MCPD_USER $MCPD_USER && \
+    addgroup -S docker && \
+    adduser $MCPD_USER docker && \
     mkdir -p \
       $MCPD_HOME/.config/mcpd \
       /var/log/mcpd \

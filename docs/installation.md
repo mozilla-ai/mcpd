@@ -99,3 +99,19 @@ docker run  -p 8090:8090 \
             -e MCPD_LOG_LEVEL=debug \
             mzdotai/mcpd:v0.0.5
 ```
+
+### Running Docker-based MCP servers from containerized mcpd
+
+If your MCP servers use the Docker runtime, mount the host's Docker socket to allow mcpd to manage containers on the host:
+
+```bash
+docker run  -p 8090:8090 \
+            -v /var/run/docker.sock:/var/run/docker.sock \
+            -v $PWD/.mcpd.toml:/etc/mcpd/.mcpd.toml \
+            -v $HOME/.config/mcpd/secrets.dev.toml:/home/mcpd/.config/mcpd/secrets.prd.toml \
+            -e MCPD_LOG_LEVEL=debug \
+            mzdotai/mcpd:v0.0.5
+```
+
+!!! warning "Security Note"
+    Mounting the Docker socket grants the container full access to the host's Docker daemon. Only use this with trusted images.
