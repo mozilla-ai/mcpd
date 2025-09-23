@@ -72,7 +72,7 @@ dockers_v2:
       - "mzdotai/mcpd"
     tags:
       - "{{ .Tag }}"
-      - "{{ if not .IsNightly }}latest{{ end }}"
+      - "latest"
     platforms:
       - "linux/amd64"
       - "linux/arm64"
