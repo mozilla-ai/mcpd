@@ -1093,7 +1093,7 @@ func TestDaemon_DockerRuntimeSupport(t *testing.T) {
 	dockerServer := runtime.Server{
 		ServerEntry: config.ServerEntry{
 			Name:    "docker-test",
-			Package: "docker::test/mcp-server:latest",
+			Package: "docker::test/mcp-server@latest",
 			Tools:   []string{"test-tool"},
 		},
 		ServerExecutionContext: configcontext.ServerExecutionContext{
