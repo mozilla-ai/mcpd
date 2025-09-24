@@ -88,6 +88,11 @@ var (
 	// Recommended to map to HTTP 502 Bad Gateway.
 	ErrResourceListFailed = errors.New("resource list failed")
 
+	// ErrResourceTemplateListFailed indicates that listing resource templates from an MCP server failed.
+	// This represents a communication or protocol error with the external MCP server.
+	// Recommended to map to HTTP 502 Bad Gateway.
+	ErrResourceTemplateListFailed = errors.New("resource template list failed")
+
 	// ErrResourceReadFailed indicates that reading a resource from an MCP server failed.
 	// This represents a communication or protocol error with the external MCP server.
 	// Recommended to map to HTTP 502 Bad Gateway.

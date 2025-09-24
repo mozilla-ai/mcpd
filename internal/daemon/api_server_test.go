@@ -378,6 +378,11 @@ func TestMapError(t *testing.T) {
 			expectedStatus: 502,
 		},
 		{
+			name:           "ErrResourceTemplateListFailed maps to 502",
+			err:            errors.ErrResourceTemplateListFailed,
+			expectedStatus: 502,
+		},
+		{
 			name:           "ErrResourceReadFailed maps to 502",
 			err:            errors.ErrResourceReadFailed,
 			expectedStatus: 502,

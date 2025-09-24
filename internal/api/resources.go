@@ -283,10 +283,10 @@ func handleServerResourceTemplates(
 		if strings.Contains(err.Error(), methodNotFoundMessage) {
 			return nil, fmt.Errorf("%w: %s", errors.ErrResourcesNotImplemented, name)
 		}
-		return nil, fmt.Errorf("%w: %s: %w", errors.ErrResourceListFailed, name, err)
+		return nil, fmt.Errorf("%w: %s: %w", errors.ErrResourceTemplateListFailed, name, err)
 	}
 	if result == nil {
-		return nil, fmt.Errorf("%w: %s: no result", errors.ErrResourceListFailed, name)
+		return nil, fmt.Errorf("%w: %s: no result", errors.ErrResourceTemplateListFailed, name)
 	}
 
 	templates := make([]ResourceTemplate, 0, len(result.ResourceTemplates))

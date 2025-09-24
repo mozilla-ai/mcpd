@@ -212,6 +212,9 @@ func mapError(logger hclog.Logger, err error) huma.StatusError {
 	case stdErrors.Is(err, errors.ErrResourceListFailed):
 		logger.Error("Resource list failed", "error", err)
 		return huma.Error502BadGateway("MCP server error listing resources", err)
+	case stdErrors.Is(err, errors.ErrResourceTemplateListFailed):
+		logger.Error("Resource template list failed", "error", err)
+		return huma.Error502BadGateway("MCP server error listing resource templates", err)
 	case stdErrors.Is(err, errors.ErrResourceReadFailed):
 		logger.Error("Resource read failed", "error", err)
 		return huma.Error502BadGateway("MCP server error reading resource", err)

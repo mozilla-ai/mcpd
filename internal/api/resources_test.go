@@ -196,6 +196,23 @@ func TestAPI_HandleServerResourceTemplates_ServerNotFound(t *testing.T) {
 	require.True(t, errors.Is(err, internalerrors.ErrServerNotFound))
 }
 
+func TestAPI_HandleServerResourceTemplates_ListError(t *testing.T) {
+	t.Parallel()
+
+	mockClient := &mockMCPClient{
+		listTemplatesError: errors.New("template list failed"),
+	}
+
+	accessor := newMockMCPClientAccessor()
+	accessor.Add("test-server", mockClient, []string{})
+
+	result, err := handleServerResourceTemplates(accessor, "test-server", "")
+
+	require.Error(t, err)
+	require.Nil(t, result)
+	require.True(t, errors.Is(err, internalerrors.ErrResourceTemplateListFailed))
+}
+
 func TestAPI_HandleServerResourceContent_TextContent(t *testing.T) {
 	t.Parallel()
 
