@@ -100,7 +100,7 @@ docker run  -p 8090:8090 \
             mzdotai/mcpd:v0.0.5
 ```
 
-### Running Docker-based MCP servers from containerized mcpd
+### Running Docker-based MCP servers from containerized `mcpd`
 
 If your MCP servers use the Docker runtime, mount the host's Docker socket to allow mcpd to manage containers on the host:
 
