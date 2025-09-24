@@ -74,41 +74,38 @@ type PromptMessage struct {
 	Content interface{} `json:"content"`
 }
 
-// GetPromptResponse represents the result of getting a specific prompt.
-type GetPromptResponse struct {
-	// Description for the prompt.
-	Description string `json:"description,omitempty"`
-
-	// Messages that make up the prompt.
-	Messages []PromptMessage `json:"messages"`
-}
-
-// ServerPromptsRequest represents the incoming API request for listing prompts.
-type ServerPromptsRequest struct {
+// ServerPromptsListRequest represents the incoming API request for listing prompts.
+type ServerPromptsListRequest struct {
 	Name   string `doc:"Name of the server" path:"name"`
 	Cursor string `doc:"Pagination cursor"              query:"cursor"`
 }
 
-// ServerPromptGetRequest represents the incoming API request for getting a prompt.
-type ServerPromptGetRequest struct {
-	Name string        `doc:"Name of the server"    path:"name"`
-	Body GetPromptBody `doc:"Prompt get parameters"`
+// ServerPromptGenerateRequest represents the incoming API request for generating a prompt.
+type ServerPromptGenerateRequest struct {
+	ServerName string                  `doc:"Name of the server" path:"name"`
+	PromptName string                  `doc:"Name of the prompt" path:"promptName"`
+	Body       PromptGenerateArguments `doc:"Prompt arguments"`
 }
 
-// GetPromptBody contains parameters for getting a prompt.
-type GetPromptBody struct {
-	Name      string            `doc:"Name of the prompt to get"         json:"name"`
-	Arguments map[string]string `doc:"Optional arguments for the prompt" json:"arguments,omitempty"`
+// PromptGenerateArguments contains arguments for generating a prompt from a template.
+type PromptGenerateArguments struct {
+	Arguments map[string]string `doc:"Arguments for templating the prompt" json:"arguments,omitempty"`
 }
 
-// PromptsResponse represents the wrapped API response for Prompts.
-type PromptsResponse struct {
+// PromptsListResponse represents the wrapped API response for listing Prompts.
+type PromptsListResponse struct {
 	Body Prompts
 }
 
-// GetPromptResponseWrapper represents the wrapped API response for getting a prompt.
-type GetPromptResponseWrapper struct {
-	Body GetPromptResponse
+// GeneratePromptResponse represents the API response for generating a prompt from a template.
+type GeneratePromptResponse struct {
+	Body struct {
+		// Description for the prompt.
+		Description string `json:"description,omitempty"`
+
+		// Messages that make up the prompt.
+		Messages []PromptMessage `json:"messages"`
+	}
 }
 
 // ToAPIType converts a domain meta to an API meta type.
@@ -185,7 +182,7 @@ func handleServerPrompts(
 	accessor contracts.MCPClientAccessor,
 	name string,
 	cursor string,
-) (*PromptsResponse, error) {
+) (*PromptsListResponse, error) {
 	mcpClient, clientOk := accessor.Client(name)
 	if !clientOk {
 		return nil, fmt.Errorf("%w: %s", errors.ErrServerNotFound, name)
@@ -224,7 +221,7 @@ func handleServerPrompts(
 		prompts = append(prompts, apiPrompt)
 	}
 
-	resp := &PromptsResponse{}
+	resp := &PromptsListResponse{}
 	resp.Body = Prompts{
 		Prompts:    prompts,
 		NextCursor: string(result.NextCursor),
@@ -233,15 +230,16 @@ func handleServerPrompts(
 	return resp, nil
 }
 
-// handleServerPromptGet gets a specific prompt from a server.
-func handleServerPromptGet(
+// handleServerPromptGenerate generates a prompt from a template on a server.
+func handleServerPromptGenerate(
 	accessor contracts.MCPClientAccessor,
-	name string,
-	body GetPromptBody,
-) (*GetPromptResponseWrapper, error) {
-	mcpClient, clientOk := accessor.Client(name)
+	serverName string,
+	promptName string,
+	arguments map[string]string,
+) (*GeneratePromptResponse, error) {
+	mcpClient, clientOk := accessor.Client(serverName)
 	if !clientOk {
-		return nil, fmt.Errorf("%w: %s", errors.ErrServerNotFound, name)
+		return nil, fmt.Errorf("%w: %s", errors.ErrServerNotFound, serverName)
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
@@ -249,8 +247,8 @@ func handleServerPromptGet(
 
 	result, err := mcpClient.GetPrompt(ctx, mcp.GetPromptRequest{
 		Params: mcp.GetPromptParams{
-			Name:      body.Name,
-			Arguments: body.Arguments,
+			Name:      promptName,
+			Arguments: arguments,
 		},
 	})
 	if err != nil {
@@ -258,12 +256,12 @@ func handleServerPromptGet(
 		// Once mcp-go preserves JSON-RPC error codes, use errors.Is(err, mcp.ErrMethodNotFound) instead.
 		// See: https://github.com/mark3labs/mcp-go/issues/593
 		if strings.Contains(err.Error(), methodNotFoundMessage) {
-			return nil, fmt.Errorf("%w: %s", errors.ErrPromptsNotImplemented, name)
+			return nil, fmt.Errorf("%w: %s", errors.ErrPromptsNotImplemented, serverName)
 		}
-		return nil, fmt.Errorf("%w: %s: %s: %w", errors.ErrPromptGetFailed, name, body.Name, err)
+		return nil, fmt.Errorf("%w: %s: %s: %w", errors.ErrPromptGetFailed, serverName, promptName, err)
 	}
 	if result == nil {
-		return nil, fmt.Errorf("%w: %s: %s: no result", errors.ErrPromptGetFailed, name, body.Name)
+		return nil, fmt.Errorf("%w: %s: %s: no result", errors.ErrPromptGetFailed, serverName, promptName)
 	}
 
 	messages := make([]PromptMessage, 0, len(result.Messages))
@@ -275,11 +273,9 @@ func handleServerPromptGet(
 		messages = append(messages, apiMessage)
 	}
 
-	resp := &GetPromptResponseWrapper{}
-	resp.Body = GetPromptResponse{
-		Description: result.Description,
-		Messages:    messages,
-	}
+	resp := &GeneratePromptResponse{}
+	resp.Body.Description = result.Description
+	resp.Body.Messages = messages
 
 	return resp, nil
 }
@@ -294,10 +290,10 @@ func RegisterPromptRoutes(serversAPI huma.API, accessor contracts.MCPClientAcces
 			OperationID: "listPrompts",
 			Method:      "GET",
 			Path:        "/{name}/prompts",
-			Summary:     "List server prompts",
+			Summary:     "List server prompt templates",
 			Tags:        tags,
 		},
-		func(ctx context.Context, input *ServerPromptsRequest) (*PromptsResponse, error) {
+		func(ctx context.Context, input *ServerPromptsListRequest) (*PromptsListResponse, error) {
 			return handleServerPrompts(accessor, input.Name, input.Cursor)
 		},
 	)
@@ -305,14 +301,15 @@ func RegisterPromptRoutes(serversAPI huma.API, accessor contracts.MCPClientAcces
 	huma.Register(
 		serversAPI,
 		huma.Operation{
-			OperationID: "getPrompt",
+			OperationID: "generatePrompt",
 			Method:      "POST",
-			Path:        "/{name}/prompts/get",
-			Summary:     "Get a prompt from a server",
+			Path:        "/{name}/prompts/{promptName}",
+			Summary:     "Generate a prompt from a server template",
+			Description: "Generates a prompt by filling in a template with the provided arguments",
 			Tags:        tags,
 		},
-		func(ctx context.Context, input *ServerPromptGetRequest) (*GetPromptResponseWrapper, error) {
-			return handleServerPromptGet(accessor, input.Name, input.Body)
+		func(ctx context.Context, input *ServerPromptGenerateRequest) (*GeneratePromptResponse, error) {
+			return handleServerPromptGenerate(accessor, input.ServerName, input.PromptName, input.Body.Arguments)
 		},
 	)
 }
