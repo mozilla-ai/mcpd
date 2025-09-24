@@ -3,6 +3,7 @@ package runtime
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -244,7 +245,10 @@ func TestServer_filterEnv(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			result := filterEnv(tc.input, tc.serverName)
+			server := &Server{
+				ServerEntry: config.ServerEntry{Name: tc.serverName},
+			}
+			result := server.filterEnv(tc.input)
 
 			require.Equal(t, tc.expected, result)
 		})
@@ -308,7 +312,10 @@ func TestServer_filterEnv_EdgeCases(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			result := filterEnv(tc.input, tc.serverName)
+			server := &Server{
+				ServerEntry: config.ServerEntry{Name: tc.serverName},
+			}
+			result := server.filterEnv(tc.input)
 
 			require.Equal(t, tc.expected, result)
 		})
@@ -370,7 +377,10 @@ func TestServer_filterEnv_RegexPatterns(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			result := filterEnv(tc.input, tc.serverName)
+			server := &Server{
+				ServerEntry: config.ServerEntry{Name: tc.serverName},
+			}
+			result := server.filterEnv(tc.input)
 
 			switch {
 			case len(tc.expected) == 0:
@@ -1577,4 +1587,140 @@ func TestServer_EqualExceptTools(t *testing.T) {
 			require.Equal(t, tc.expected, result)
 		})
 	}
+}
+
+// TestServer_SafeEnv_CrossServerFiltering tests that environment variables
+// referencing other servers are properly filtered out to maintain security isolation.
+func TestServer_SafeEnv_CrossServerFiltering(t *testing.T) {
+	testdataDir := filepath.Join("testdata", "cross_server_env_filtering")
+
+	// Set up environment variables that will be referenced in the config
+	t.Setenv("MCPD__TIME_SERVER__API_KEY", "time-secret-123")
+	t.Setenv("MCPD__DATABASE_SERVER__DB_HOST", "db.example.com")
+	t.Setenv("MCPD__DATABASE_SERVER__DB_PORT", "5432")
+	t.Setenv("MCPD__AUTH_SERVER__AUTH_TOKEN", "auth-token-789")
+
+	// Load configs
+	configLoader := &config.DefaultLoader{}
+	configModifier, err := configLoader.Load(filepath.Join(testdataDir, "config.toml"))
+	require.NoError(t, err)
+
+	contextLoader := &context.DefaultLoader{}
+	contextModifier, err := contextLoader.Load(filepath.Join(testdataDir, "runtime.toml"))
+	require.NoError(t, err)
+
+	tests := []struct {
+		name          string
+		serverName    string
+		shouldHave    []string
+		shouldNotHave []string
+	}{
+		{
+			name:          "time-server should only access its own variables",
+			serverName:    "time-server",
+			shouldHave:    []string{"API_KEY"},
+			shouldNotHave: []string{"DB_HOST", "DB_PORT"},
+		},
+		{
+			name:          "auth-server should only access its own variables",
+			serverName:    "auth-server",
+			shouldHave:    []string{"AUTH_TOKEN"},
+			shouldNotHave: []string{"DATABASE_URL", "TIME_API_KEY"},
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			// Use AggregateConfigs to properly combine both configs
+			servers, err := AggregateConfigs(configModifier, contextModifier)
+			require.NoError(t, err)
+
+			// Find the server
+			var server *Server
+			for i := range servers {
+				if servers[i].Name() == tc.serverName {
+					server = &servers[i]
+					break
+				}
+			}
+			require.NotNil(t, server, "server should exist")
+
+			// Get environment after filtering
+			envs := server.SafeEnv()
+			envMap := make(map[string]string, len(envs))
+			for _, env := range envs {
+				if parts := strings.SplitN(env, "=", 2); len(parts) == 2 {
+					envMap[parts[0]] = parts[1]
+				}
+			}
+
+			// Check required vars are present
+			for _, key := range tc.shouldHave {
+				require.Contains(t, envMap, key, "Server should have "+key)
+			}
+
+			// Check cross-server vars are filtered
+			for _, key := range tc.shouldNotHave {
+				require.NotContains(t, envMap, key, "Server should NOT have access to "+key+" (cross-server reference)")
+			}
+		})
+	}
+}
+
+// TestServer_SafeArgs_CrossServerFiltering tests that arguments containing cross-server
+// references are properly filtered out.
+func TestServer_SafeArgs_CrossServerFiltering(t *testing.T) {
+	testdataDir := filepath.Join("testdata", "cross_server_env_filtering")
+
+	// Set up environment variables
+	t.Setenv("MCPD__TIME_SERVER__API_KEY", "time-server-api-key")
+	t.Setenv("MCPD__DATABASE_SERVER__DB_PASSWORD", "super-secret-db-password")
+
+	// Load configs
+	configLoader := &config.DefaultLoader{}
+	configModifier, err := configLoader.Load(filepath.Join(testdataDir, "config.toml"))
+	require.NoError(t, err)
+
+	contextLoader := &context.DefaultLoader{}
+	contextModifier, err := contextLoader.Load(filepath.Join(testdataDir, "runtime.toml"))
+	require.NoError(t, err)
+
+	servers, err := AggregateConfigs(configModifier, contextModifier)
+	require.NoError(t, err)
+
+	// Find servers
+	serverMap := make(map[string]*Server, len(servers))
+	for i := range servers {
+		serverMap[servers[i].Name()] = &servers[i]
+	}
+
+	timeServer := serverMap["time-server"]
+	dbServer := serverMap["database-server"]
+	require.NotNil(t, timeServer, "time-server should exist")
+	require.NotNil(t, dbServer, "database-server should exist")
+
+	// Test time-server filtering
+	timeArgs := timeServer.SafeArgs()
+	require.Contains(t, timeArgs, "--api-key=time-server-api-key", "time-server should have its own API key")
+	require.NotContains(
+		t,
+		timeArgs,
+		"--stolen-db-secret=super-secret-db-password",
+		"time-server should NOT have database password",
+	)
+
+	// Test database-server filtering
+	dbArgs := dbServer.SafeArgs()
+	require.Contains(
+		t,
+		dbArgs,
+		"--db-password=super-secret-db-password",
+		"database-server should have its own password",
+	)
+	require.NotContains(
+		t,
+		dbArgs,
+		"--stolen-api-key=time-server-api-key",
+		"database-server should NOT have time-server API key",
+	)
 }

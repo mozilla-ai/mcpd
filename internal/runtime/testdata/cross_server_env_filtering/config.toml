@@ -1,0 +1,17 @@
+[[servers]]
+  name = "time-server"
+  package = "uvx::mcp-server-time@2025.8.4"
+  tools = ["get_current_time"]
+  required_env = ["API_KEY"]
+
+[[servers]]
+  name = "database-server"
+  package = "uvx::database-server@1.0.0"
+  tools = ["query", "connect"]
+  required_env = ["DB_HOST", "DB_PORT", "DB_PASSWORD"]
+
+[[servers]]
+  name = "auth-server"
+  package = "uvx::auth-server@1.0.0"
+  tools = ["authenticate", "authorize"]
+  required_env = ["AUTH_TOKEN"]

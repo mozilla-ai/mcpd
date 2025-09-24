@@ -61,9 +61,15 @@ func (s *Server) EqualsExceptTools(other *Server) bool {
 	return s.EqualExceptTools(&other.ServerEntry)
 }
 
-// Environ returns the server's effective environment with overrides applied
-// and irrelevant variables stripped. Environment variables are already expanded at load time.
-func (s *Server) Environ() []string {
+// SafeArgs returns the server's command-line arguments with cross-server references filtered out.
+// Arguments are already expanded at load time.
+func (s *Server) SafeArgs() []string {
+	return s.filterArgs(s.Args)
+}
+
+// SafeEnv returns the server's environment variables with cross-server references filtered out
+// and server-specific overrides applied. Environment variables are already expanded at load time.
+func (s *Server) SafeEnv() []string {
 	baseEnvs := os.Environ()
 
 	overrideEnvs := make([]string, 0, len(s.Env))
@@ -75,7 +81,7 @@ func (s *Server) Environ() []string {
 	mergedEnvs := mergeEnvs(baseEnvs, overrideEnvs)
 
 	// Filter the environment to remove vars for other MCP servers or mcpd itself.
-	filteredEnvs := filterEnv(mergedEnvs, s.Name())
+	filteredEnvs := s.filterEnv(mergedEnvs)
 
 	// No expansion needed - env vars are already expanded at load time.
 	return filteredEnvs
@@ -290,8 +296,11 @@ func (s *Server) exportRuntimeArgs(
 ) []string {
 	var args []string
 
-	for i := 0; i < len(s.Args); i++ {
-		rawArg := s.Args[i]
+	// Filter out args with cross-server references.
+	filteredArgs := s.filterArgs(s.Args)
+
+	for i := 0; i < len(filteredArgs); i++ {
+		rawArg := filteredArgs[i]
 
 		// Sanity check for arg.
 		if !strings.HasPrefix(rawArg, "--") {
@@ -313,7 +322,7 @@ func (s *Server) exportRuntimeArgs(
 		}
 
 		// --arg val case
-		if rawArg == arg && i+1 < len(s.Args) && !strings.HasPrefix(s.Args[i+1], "--") {
+		if rawArg == arg && i+1 < len(filteredArgs) && !strings.HasPrefix(filteredArgs[i+1], "--") {
 			t := transformValueArg(appName, s.Name(), rawArg)
 			args = append(args, t.FormattedArg)
 			recordContractFunc(t.EnvVarName, t.EnvVarReference)
@@ -395,8 +404,10 @@ func AggregateConfigs(
 		// Update with execution context if we have any for this server.
 		if executionCtx, ok := executionContextCfg.Get(s.Name); ok {
 			runtimeServer.ServerExecutionContext = context.ServerExecutionContext{
-				Args: executionCtx.Args,
-				Env:  executionCtx.Env,
+				Args:    executionCtx.Args,
+				Env:     executionCtx.Env,
+				RawEnv:  executionCtx.RawEnv,
+				RawArgs: executionCtx.RawArgs,
 			}
 		}
 
@@ -511,15 +522,18 @@ func containsIllegalReference(serverName string, value string) bool {
 //   - Value: partial${MCPD__OTHER_SERVER__TOKEN}reference
 //   - Malformed: VAR_WITHOUT_EQUALS
 //
+// The method uses RawEnv (unexpanded environment variables) to detect cross-server references
+// that would be missed after environment variable expansion.
+//
 // Returns a sorted slice of allowed environment variables in "KEY=VALUE" format.
 // Returns an empty slice if env is nil.
-func filterEnv(env []string, serverName string) []string {
+func (s *Server) filterEnv(env []string) []string {
 	if len(env) == 0 {
 		return []string{}
 	}
 
 	appName := "MCPD" // TODO: Fix import cycle that occurs if we use strings.ToUpper(cmd.AppName())
-	srvName := strings.ReplaceAll(strings.ToUpper(serverName), "-", "_")
+	srvName := strings.ReplaceAll(strings.ToUpper(s.Name()), "-", "_")
 
 	// MCP server specific naming
 	appPrefix := fmt.Sprintf("%s__", appName)                 // "MCPD__"
@@ -536,7 +550,8 @@ func filterEnv(env []string, serverName string) []string {
 			continue // Probably a malformed entry, ignore.
 		}
 
-		key, value := strings.ToUpper(kv[:idx]), strings.ToUpper(kv[idx+1:])
+		key := strings.ToUpper(kv[:idx])
+		value := kv[idx+1:]
 
 		// Specifically for another server (drop).
 		if strings.HasPrefix(key, appPrefix) && !strings.HasPrefix(key, serverPrefix) {
@@ -548,14 +563,49 @@ func filterEnv(env []string, serverName string) []string {
 			continue // Ignored
 		}
 
-		// Value references a different MCP server variable (drop).
-		if containsIllegalReference(srvName, value) {
-			continue // Ignored
+		// Check for cross-server references, preferring raw (unexpanded) values when available.
+		// This catches both:
+		// 1. Server config vars that reference other servers (checked via RawEnv)
+		// 2. Any env var whose value contains cross-server references
+		checkValue := value
+		if rawValue, exists := s.RawEnv[key]; exists {
+			checkValue = rawValue // Use raw value if this var came from server config
+		}
+		if containsIllegalReference(srvName, checkValue) {
+			continue // Ignored - contains cross-server reference
 		}
 
 		filtered = append(filtered, kv)
 	}
 
 	slices.Sort(filtered)
+	return filtered
+}
+
+// filterArgs filters the given args slice to remove any args that contain cross-server references.
+func (s *Server) filterArgs(args []string) []string {
+	if len(args) == 0 {
+		return []string{}
+	}
+
+	srvName := strings.ReplaceAll(strings.ToUpper(s.Name()), "-", "_")
+	var filtered []string
+
+	for i, arg := range args {
+		// Check for cross-server references using raw (unexpanded) values when available.
+		var rawArg string
+		if i < len(s.RawArgs) {
+			rawArg = s.RawArgs[i]
+		} else {
+			rawArg = arg // Fallback to expanded value if no raw version
+		}
+
+		if containsIllegalReference(srvName, rawArg) {
+			continue // Ignored - raw value contains cross-server reference
+		}
+
+		filtered = append(filtered, arg)
+	}
+
 	return filtered
 }

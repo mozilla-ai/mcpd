@@ -33,10 +33,30 @@ type ExecutionContextConfig struct {
 }
 
 // ServerExecutionContext stores execution context data for an MCP server.
+//
+// The Args and Env fields contain expanded values with environment variables resolved.
+// These should not be used directly when starting MCP servers, as they may contain
+// cross-server references that pose security risks.
+//
+// Instead, use the server's SafeArgs() and SafeEnv() methods (in the runtime package)
+// which filter out cross-server references using the RawArgs and RawEnv fields.
 type ServerExecutionContext struct {
-	Name string            `toml:"-"`
-	Args []string          `toml:"args,omitempty"`
-	Env  map[string]string `toml:"env,omitempty"`
+	// Name is the server name.
+	Name string `toml:"-"`
+
+	// Args contains command-line arguments with environment variables expanded.
+	// NOTE: Use runtime.Server.SafeArgs() for filtered access when starting servers.
+	Args []string `toml:"args,omitempty"`
+
+	// Env contains environment variables with values expanded.
+	// NOTE: Use runtime.Server.SafeEnv() for filtered access when starting servers.
+	Env map[string]string `toml:"env,omitempty"`
+
+	// RawEnv stores unexpanded environment variables used for cross-server filtering decisions.
+	RawEnv map[string]string `toml:"-"`
+
+	// RawArgs stores unexpanded command-line arguments used for cross-server filtering decisions.
+	RawArgs []string `toml:"-"`
 }
 
 // Load loads an execution context configuration from the specified path.
@@ -68,9 +88,11 @@ func (c *ExecutionContextConfig) Get(name string) (ServerExecutionContext, bool)
 
 	if srv, ok := c.Servers[name]; ok {
 		return ServerExecutionContext{
-			Name: name,
-			Args: slices.Clone(srv.Args),
-			Env:  maps.Clone(srv.Env),
+			Name:    name,
+			Args:    slices.Clone(srv.Args),
+			Env:     maps.Clone(srv.Env),
+			RawEnv:  maps.Clone(srv.RawEnv),
+			RawArgs: slices.Clone(srv.RawArgs),
 		}, true
 	}
 
@@ -154,6 +176,14 @@ func (s *ServerExecutionContext) Equals(b ServerExecutionContext) bool {
 	}
 
 	if len(s.Env) != len(b.Env) || !maps.Equal(s.Env, b.Env) {
+		return false
+	}
+
+	if len(s.RawEnv) != len(b.RawEnv) || !maps.Equal(s.RawEnv, b.RawEnv) {
+		return false
+	}
+
+	if !equalSlices(s.RawArgs, b.RawArgs) {
 		return false
 	}
 
@@ -281,6 +311,12 @@ func loadExecutionContextConfig(path string) (*ExecutionContextConfig, error) {
 	// Manually set the name field for each ServerExecutionContext and expand all ${VAR} references.
 	for name, server := range cfg.Servers {
 		server.Name = name
+
+		// Store raw env vars before expansion for filtering decisions.
+		server.RawEnv = maps.Clone(server.Env)
+
+		// Store raw args before expansion for filtering decisions.
+		server.RawArgs = slices.Clone(server.Args)
 
 		// Expand args.
 		for i, arg := range server.Args {
