@@ -179,7 +179,6 @@ func (d *Daemon) startMCPServer(ctx context.Context, server runtime.Server) erro
 	}
 
 	logger := d.logger.Named("mcp").Named(server.Name())
-	logger.Info("Starting MCP server", "runtime", runtimeBinary, "package", server.Package)
 
 	pkg := server.PackageName()
 	ver := server.PackageVersion()
