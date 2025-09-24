@@ -13,21 +13,11 @@ import (
 	"github.com/mozilla-ai/mcpd/v2/internal/errors"
 )
 
-// TODO: Remove this const once mcp-go preserves JSON-RPC error codes.
-// See: https://github.com/mark3labs/mcp-go/issues/593
-const methodNotFoundMessage = "Method not found"
-
 // DomainResource wraps mcp.Resource for API conversion.
 type DomainResource mcp.Resource
 
 // DomainResourceTemplate wraps mcp.ResourceTemplate for API conversion.
 type DomainResourceTemplate mcp.ResourceTemplate
-
-// DomainMeta wraps mcp.Meta for API conversion.
-type DomainMeta mcp.Meta
-
-// Meta represents metadata in API responses.
-type Meta map[string]any
 
 // Resources represents a collection of Resource types.
 type Resources struct {
@@ -126,34 +116,6 @@ type ResourceTemplatesResponse struct {
 // ResourceContentResponse represents the wrapped API response for getting resource content.
 type ResourceContentResponse struct {
 	Body []ResourceContent
-}
-
-// ToAPIType converts a domain meta to an API meta type.
-// This creates a flat _meta object structure as defined by the MCP specification.
-// Returns empty Meta{} if domain type is nil.
-// See: https://modelcontextprotocol.io/specification/2025-06-18/basic/index#meta
-func (d DomainMeta) ToAPIType() (Meta, error) {
-	if (*mcp.Meta)(&d) == nil {
-		return Meta{}, nil
-	}
-
-	// The _meta field is MCP's reserved extensibility mechanism that allows both:
-	// - progressToken: for out-of-band progress notifications (defined by spec)
-	// - Additional fields: custom metadata from servers/clients (extensible)
-	// Both types of fields are merged at the same level in the resulting map.
-	result := make(Meta)
-
-	// Add progressToken if present (using MCP spec-defined field name).
-	if d.ProgressToken != nil {
-		result["progressToken"] = d.ProgressToken
-	}
-
-	// Merge additional fields at the same level.
-	for k, v := range d.AdditionalFields {
-		result[k] = v
-	}
-
-	return result, nil
 }
 
 // ToAPIType converts a domain resource to an API resource.

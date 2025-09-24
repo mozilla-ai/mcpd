@@ -339,7 +339,6 @@ func TestMapError(t *testing.T) {
 			expectedStatus: 502,
 		},
 		{
-<<<<<<< HEAD
 			name:           "ErrPromptNotFound maps to 404",
 			err:            errors.ErrPromptNotFound,
 			expectedStatus: 404,
@@ -362,7 +361,9 @@ func TestMapError(t *testing.T) {
 		{
 			name:           "ErrPromptsNotImplemented maps to 501",
 			err:            errors.ErrPromptsNotImplemented,
-=======
+			expectedStatus: 501,
+		},
+		{
 			name:           "ErrResourceNotFound maps to 404",
 			err:            errors.ErrResourceNotFound,
 			expectedStatus: 404,
@@ -390,7 +391,6 @@ func TestMapError(t *testing.T) {
 		{
 			name:           "ErrResourcesNotImplemented maps to 501",
 			err:            errors.ErrResourcesNotImplemented,
->>>>>>> 7854d9b (Map resource domain errors to HTTP status codes)
 			expectedStatus: 501,
 		},
 		{
