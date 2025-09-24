@@ -107,16 +107,10 @@ type ServerResourceTemplatesRequest struct {
 	Cursor string `doc:"Pagination cursor"              query:"cursor"`
 }
 
-// ServerResourceReadRequest represents the incoming API request for reading a resource.
-type ServerResourceReadRequest struct {
-	Name string           `doc:"Name of the server"       path:"name"`
-	Body ReadResourceBody `doc:"Resource read parameters"`
-}
-
-// ReadResourceBody contains parameters for reading a resource.
-type ReadResourceBody struct {
-	URI       string         `doc:"URI of the resource to read"         json:"uri"`
-	Arguments map[string]any `doc:"Optional arguments for the resource" json:"arguments,omitempty"`
+// ServerResourceContentRequest represents the incoming API request for getting resource content.
+type ServerResourceContentRequest struct {
+	Name string `doc:"Name of the server"  path:"name"`
+	URI  string `doc:"URI of the resource"             query:"uri"`
 }
 
 // ResourcesResponse represents the wrapped API response for Resources.
@@ -129,8 +123,8 @@ type ResourceTemplatesResponse struct {
 	Body ResourceTemplates
 }
 
-// ReadResourceResponse represents the wrapped API response for reading a resource.
-type ReadResourceResponse struct {
+// ResourceContentResponse represents the wrapped API response for getting resource content.
+type ResourceContentResponse struct {
 	Body []ResourceContent
 }
 
@@ -313,12 +307,12 @@ func handleServerResourceTemplates(
 	return resp, nil
 }
 
-// handleServerResourceRead reads a specific resource from a server.
-func handleServerResourceRead(
+// handleServerResourceContent gets the content of a specific resource from a server.
+func handleServerResourceContent(
 	accessor contracts.MCPClientAccessor,
 	name string,
-	body ReadResourceBody,
-) (*ReadResourceResponse, error) {
+	uri string,
+) (*ResourceContentResponse, error) {
 	mcpClient, clientOk := accessor.Client(name)
 	if !clientOk {
 		return nil, fmt.Errorf("%w: %s", errors.ErrServerNotFound, name)
@@ -329,8 +323,7 @@ func handleServerResourceRead(
 
 	result, err := mcpClient.ReadResource(ctx, mcp.ReadResourceRequest{
 		Params: mcp.ReadResourceParams{
-			URI:       body.URI,
-			Arguments: body.Arguments,
+			URI: uri,
 		},
 	})
 	if err != nil {
@@ -340,10 +333,10 @@ func handleServerResourceRead(
 		if strings.Contains(err.Error(), methodNotFoundMessage) {
 			return nil, fmt.Errorf("%w: %s", errors.ErrResourcesNotImplemented, name)
 		}
-		return nil, fmt.Errorf("%w: %s: %s: %w", errors.ErrResourceReadFailed, name, body.URI, err)
+		return nil, fmt.Errorf("%w: %s: %s: %w", errors.ErrResourceReadFailed, name, uri, err)
 	}
 	if result == nil {
-		return nil, fmt.Errorf("%w: %s: %s: no result", errors.ErrResourceReadFailed, name, body.URI)
+		return nil, fmt.Errorf("%w: %s: %s: no result", errors.ErrResourceReadFailed, name, uri)
 	}
 
 	contents := make([]ResourceContent, 0, len(result.Contents))
@@ -382,7 +375,7 @@ func handleServerResourceRead(
 		}
 	}
 
-	resp := &ReadResourceResponse{}
+	resp := &ResourceContentResponse{}
 	resp.Body = contents
 
 	return resp, nil
@@ -423,14 +416,15 @@ func RegisterResourceRoutes(serversAPI huma.API, accessor contracts.MCPClientAcc
 	huma.Register(
 		serversAPI,
 		huma.Operation{
-			OperationID: "readResource",
-			Method:      "POST",
-			Path:        "/{name}/resources/read",
-			Summary:     "Read a resource from a server",
+			OperationID: "getResourceContent",
+			Method:      "GET",
+			Path:        "/{name}/resources/content",
+			Summary:     "Get resource content from a server",
+			Description: "Retrieves the content of a resource by URI",
 			Tags:        tags,
 		},
-		func(ctx context.Context, input *ServerResourceReadRequest) (*ReadResourceResponse, error) {
-			return handleServerResourceRead(accessor, input.Name, input.Body)
+		func(ctx context.Context, input *ServerResourceContentRequest) (*ResourceContentResponse, error) {
+			return handleServerResourceContent(accessor, input.Name, input.URI)
 		},
 	)
 }

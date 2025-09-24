@@ -196,7 +196,7 @@ func TestAPI_HandleServerResourceTemplates_ServerNotFound(t *testing.T) {
 	require.True(t, errors.Is(err, internalerrors.ErrServerNotFound))
 }
 
-func TestAPI_HandleServerResourceRead_TextContent(t *testing.T) {
+func TestAPI_HandleServerResourceContent_TextContent(t *testing.T) {
 	t.Parallel()
 
 	mockClient := &mockMCPClient{
@@ -214,11 +214,9 @@ func TestAPI_HandleServerResourceRead_TextContent(t *testing.T) {
 	accessor := newMockMCPClientAccessor()
 	accessor.Add("test-server", mockClient, []string{})
 
-	body := ReadResourceBody{
-		URI: "file:///test.txt",
-	}
+	uri := "file:///test.txt"
 
-	result, err := handleServerResourceRead(accessor, "test-server", body)
+	result, err := handleServerResourceContent(accessor, "test-server", uri)
 
 	require.NoError(t, err)
 	require.NotNil(t, result)
@@ -228,7 +226,7 @@ func TestAPI_HandleServerResourceRead_TextContent(t *testing.T) {
 	require.Empty(t, result.Body[0].Blob)
 }
 
-func TestAPI_HandleServerResourceRead_BlobContent(t *testing.T) {
+func TestAPI_HandleServerResourceContent_BlobContent(t *testing.T) {
 	t.Parallel()
 
 	mockClient := &mockMCPClient{
@@ -246,11 +244,9 @@ func TestAPI_HandleServerResourceRead_BlobContent(t *testing.T) {
 	accessor := newMockMCPClientAccessor()
 	accessor.Add("test-server", mockClient, []string{})
 
-	body := ReadResourceBody{
-		URI: "file:///image.png",
-	}
+	uri := "file:///image.png"
 
-	result, err := handleServerResourceRead(accessor, "test-server", body)
+	result, err := handleServerResourceContent(accessor, "test-server", uri)
 
 	require.NoError(t, err)
 	require.NotNil(t, result)
@@ -260,7 +256,7 @@ func TestAPI_HandleServerResourceRead_BlobContent(t *testing.T) {
 	require.Empty(t, result.Body[0].Text)
 }
 
-func TestAPI_HandleServerResourceRead_MultipleContents(t *testing.T) {
+func TestAPI_HandleServerResourceContent_MultipleContents(t *testing.T) {
 	t.Parallel()
 
 	mockClient := &mockMCPClient{
@@ -283,11 +279,9 @@ func TestAPI_HandleServerResourceRead_MultipleContents(t *testing.T) {
 	accessor := newMockMCPClientAccessor()
 	accessor.Add("test-server", mockClient, []string{})
 
-	body := ReadResourceBody{
-		URI: "file:///multi",
-	}
+	uri := "file:///multi"
 
-	result, err := handleServerResourceRead(accessor, "test-server", body)
+	result, err := handleServerResourceContent(accessor, "test-server", uri)
 
 	require.NoError(t, err)
 	require.NotNil(t, result)
@@ -296,56 +290,21 @@ func TestAPI_HandleServerResourceRead_MultipleContents(t *testing.T) {
 	require.Equal(t, "YmluYXJ5", result.Body[1].Blob)
 }
 
-func TestAPI_HandleServerResourceRead_WithArguments(t *testing.T) {
-	t.Parallel()
-
-	mockClient := &mockMCPClient{
-		readResourceResult: &mcp.ReadResourceResult{
-			Contents: []mcp.ResourceContents{
-				mcp.TextResourceContents{
-					URI:  "api:///data",
-					Text: "Parameterized data",
-				},
-			},
-		},
-	}
-
-	accessor := newMockMCPClientAccessor()
-	accessor.Add("test-server", mockClient, []string{})
-
-	body := ReadResourceBody{
-		URI: "api:///data",
-		Arguments: map[string]any{
-			"format": "json",
-			"limit":  10,
-		},
-	}
-
-	result, err := handleServerResourceRead(accessor, "test-server", body)
-
-	require.NoError(t, err)
-	require.NotNil(t, result)
-	require.Len(t, result.Body, 1)
-	require.Equal(t, "Parameterized data", result.Body[0].Text)
-}
-
-func TestAPI_HandleServerResourceRead_ServerNotFound(t *testing.T) {
+func TestAPI_HandleServerResourceContent_ServerNotFound(t *testing.T) {
 	t.Parallel()
 
 	accessor := newMockMCPClientAccessor()
 
-	body := ReadResourceBody{
-		URI: "file:///test.txt",
-	}
+	uri := "file:///test.txt"
 
-	result, err := handleServerResourceRead(accessor, "nonexistent-server", body)
+	result, err := handleServerResourceContent(accessor, "nonexistent-server", uri)
 
 	require.Error(t, err)
 	require.Nil(t, result)
 	require.True(t, errors.Is(err, internalerrors.ErrServerNotFound))
 }
 
-func TestAPI_HandleServerResourceRead_ReadError(t *testing.T) {
+func TestAPI_HandleServerResourceContent_ReadError(t *testing.T) {
 	t.Parallel()
 
 	mockClient := &mockMCPClient{
@@ -355,18 +314,16 @@ func TestAPI_HandleServerResourceRead_ReadError(t *testing.T) {
 	accessor := newMockMCPClientAccessor()
 	accessor.Add("test-server", mockClient, []string{})
 
-	body := ReadResourceBody{
-		URI: "file:///nonexistent.txt",
-	}
+	uri := "file:///nonexistent.txt"
 
-	result, err := handleServerResourceRead(accessor, "test-server", body)
+	result, err := handleServerResourceContent(accessor, "test-server", uri)
 
 	require.Error(t, err)
 	require.Nil(t, result)
 	require.True(t, errors.Is(err, internalerrors.ErrResourceReadFailed))
 }
 
-func TestAPI_HandleServerResourceRead_NilResult(t *testing.T) {
+func TestAPI_HandleServerResourceContent_NilResult(t *testing.T) {
 	t.Parallel()
 
 	mockClient := &mockMCPClient{
@@ -376,11 +333,9 @@ func TestAPI_HandleServerResourceRead_NilResult(t *testing.T) {
 	accessor := newMockMCPClientAccessor()
 	accessor.Add("test-server", mockClient, []string{})
 
-	body := ReadResourceBody{
-		URI: "file:///test.txt",
-	}
+	uri := "file:///test.txt"
 
-	result, err := handleServerResourceRead(accessor, "test-server", body)
+	result, err := handleServerResourceContent(accessor, "test-server", uri)
 
 	require.Error(t, err)
 	require.Nil(t, result)
