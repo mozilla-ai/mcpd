@@ -339,6 +339,31 @@ func TestMapError(t *testing.T) {
 			expectedStatus: 502,
 		},
 		{
+			name:           "ErrPromptNotFound maps to 404",
+			err:            errors.ErrPromptNotFound,
+			expectedStatus: 404,
+		},
+		{
+			name:           "ErrPromptForbidden maps to 403",
+			err:            errors.ErrPromptForbidden,
+			expectedStatus: 403,
+		},
+		{
+			name:           "ErrPromptListFailed maps to 502",
+			err:            errors.ErrPromptListFailed,
+			expectedStatus: 502,
+		},
+		{
+			name:           "ErrPromptGenerationFailed maps to 502",
+			err:            errors.ErrPromptGenerationFailed,
+			expectedStatus: 502,
+		},
+		{
+			name:           "ErrPromptsNotImplemented maps to 501",
+			err:            errors.ErrPromptsNotImplemented,
+			expectedStatus: 501,
+		},
+		{
 			name:           "Unknown error maps to 500",
 			err:            fmt.Errorf("unknown error"),
 			expectedStatus: 500,

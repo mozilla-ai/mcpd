@@ -64,10 +64,14 @@ func (m *mockMCPClientAccessor) Remove(name string) {
 
 // mockMCPClient implements the client.MCPClient interface for testing.
 type mockMCPClient struct {
-	listToolsResult *mcp.ListToolsResult
-	listToolsError  error
-	callToolResult  *mcp.CallToolResult
-	callToolError   error
+	listToolsResult   *mcp.ListToolsResult
+	listToolsError    error
+	callToolResult    *mcp.CallToolResult
+	callToolError     error
+	listPromptsResult *mcp.ListPromptsResult
+	listPromptsError  error
+	getPromptResult   *mcp.GetPromptResult
+	getPromptError    error
 }
 
 func (m *mockMCPClient) Initialize(_ context.Context, _ mcp.InitializeRequest) (*mcp.InitializeResult, error) {
@@ -132,11 +136,11 @@ func (m *mockMCPClient) ListPrompts(
 	_ context.Context,
 	_ mcp.ListPromptsRequest,
 ) (*mcp.ListPromptsResult, error) {
-	return nil, nil
+	return m.listPromptsResult, m.listPromptsError
 }
 
 func (m *mockMCPClient) GetPrompt(_ context.Context, _ mcp.GetPromptRequest) (*mcp.GetPromptResult, error) {
-	return nil, nil
+	return m.getPromptResult, m.getPromptError
 }
 
 func (m *mockMCPClient) ListToolsByPage(
