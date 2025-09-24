@@ -354,8 +354,8 @@ func TestMapError(t *testing.T) {
 			expectedStatus: 502,
 		},
 		{
-			name:           "ErrPromptGetFailed maps to 502",
-			err:            errors.ErrPromptGetFailed,
+			name:           "ErrPromptGenerationFailed maps to 502",
+			err:            errors.ErrPromptGenerationFailed,
 			expectedStatus: 502,
 		},
 		{

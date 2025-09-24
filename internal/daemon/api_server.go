@@ -200,7 +200,7 @@ func mapError(logger hclog.Logger, err error) huma.StatusError {
 	case stdErrors.Is(err, errors.ErrPromptListFailed):
 		logger.Error("Prompt list failed", "error", err)
 		return huma.Error502BadGateway("MCP server error listing prompts", err)
-	case stdErrors.Is(err, errors.ErrPromptGetFailed):
+	case stdErrors.Is(err, errors.ErrPromptGenerationFailed):
 		logger.Error("Prompt get failed", "error", err)
 		return huma.Error502BadGateway("MCP server error getting prompt", err)
 	case stdErrors.Is(err, errors.ErrPromptsNotImplemented):

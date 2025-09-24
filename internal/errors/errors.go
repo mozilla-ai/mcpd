@@ -63,10 +63,10 @@ var (
 	// Recommended to map to HTTP 502 Bad Gateway.
 	ErrPromptListFailed = errors.New("prompt list failed")
 
-	// ErrPromptGetFailed indicates that getting a prompt from an MCP server failed.
+	// ErrPromptGenerationFailed indicates that getting a prompt from an MCP server failed.
 	// This represents a communication or protocol error with the external MCP server.
 	// Recommended to map to HTTP 502 Bad Gateway.
-	ErrPromptGetFailed = errors.New("prompt get failed")
+	ErrPromptGenerationFailed = errors.New("prompt generation from template failed")
 
 	// ErrPromptNotFound indicates that the requested prompt does not exist.
 	// This occurs when trying to get a prompt that hasn't been defined.

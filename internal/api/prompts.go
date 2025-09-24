@@ -258,10 +258,10 @@ func handleServerPromptGenerate(
 		if strings.Contains(err.Error(), methodNotFoundMessage) {
 			return nil, fmt.Errorf("%w: %s", errors.ErrPromptsNotImplemented, serverName)
 		}
-		return nil, fmt.Errorf("%w: %s: %s: %w", errors.ErrPromptGetFailed, serverName, promptName, err)
+		return nil, fmt.Errorf("%w: %s: %s: %w", errors.ErrPromptGenerationFailed, serverName, promptName, err)
 	}
 	if result == nil {
-		return nil, fmt.Errorf("%w: %s: %s: no result", errors.ErrPromptGetFailed, serverName, promptName)
+		return nil, fmt.Errorf("%w: %s: %s: no result", errors.ErrPromptGenerationFailed, serverName, promptName)
 	}
 
 	messages := make([]PromptMessage, 0, len(result.Messages))

@@ -313,7 +313,7 @@ func TestAPI_HandleServerPromptGenerate_GenerateError(t *testing.T) {
 
 	require.Error(t, err)
 	require.Nil(t, result)
-	require.True(t, errors.Is(err, internalerrors.ErrPromptGetFailed))
+	require.True(t, errors.Is(err, internalerrors.ErrPromptGenerationFailed))
 }
 
 func TestAPI_HandleServerPromptGenerate_NilResult(t *testing.T) {
@@ -333,7 +333,7 @@ func TestAPI_HandleServerPromptGenerate_NilResult(t *testing.T) {
 
 	require.Error(t, err)
 	require.Nil(t, result)
-	require.True(t, errors.Is(err, internalerrors.ErrPromptGetFailed))
+	require.True(t, errors.Is(err, internalerrors.ErrPromptGenerationFailed))
 }
 
 func TestAPI_HandleServerPromptGenerate_MethodNotFound(t *testing.T) {
