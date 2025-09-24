@@ -80,7 +80,11 @@ func TestRegistry_NewRegistry_NoSupportedRuntimes(t *testing.T) {
 		runtime.WithSupportedRuntimes(runtime.Python),
 	)
 	require.Error(t, err)
-	require.EqualError(t, err, "no supported runtimes for mozilla-ai registry: requires at least one of: npx, uvx, docker")
+	require.EqualError(
+		t,
+		err,
+		"no supported runtimes for mozilla-ai registry: requires at least one of: npx, uvx, docker",
+	)
 }
 
 func TestRegistry_Resolve_EmbeddedServer(t *testing.T) {

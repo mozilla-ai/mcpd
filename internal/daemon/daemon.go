@@ -196,9 +196,9 @@ func (d *Daemon) startMCPServer(ctx context.Context, server runtime.Server) erro
 		args = []string{"run", "-i", "--rm", "--network", "host"}
 
 		// Docker supplies the environment variables via args (-e), so
-		// we don't use the server.Environ() as this ensures least privilege.
-		for k, v := range server.Env {
-			args = append(args, "-e", fmt.Sprintf("%s=%s", k, v))
+		// we don't use the server.SafeEnv() as this ensures least privilege.
+		for _, env := range server.SafeEnvIsolated() {
+			args = append(args, append([]string{"-e"}, env)...)
 		}
 
 		// Add the image name
@@ -214,7 +214,7 @@ func (d *Daemon) startMCPServer(ctx context.Context, server runtime.Server) erro
 		environ = server.SafeEnv()
 	}
 
-	args = append(args, server.Args...)
+	args = append(args, server.SafeArgs()...)
 
 	logger.Debug("attempting to start server", "binary", runtimeBinary)
 
