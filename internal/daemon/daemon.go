@@ -180,20 +180,44 @@ func (d *Daemon) startMCPServer(ctx context.Context, server runtime.Server) erro
 
 	logger := d.logger.Named("mcp").Named(server.Name())
 
-	// Strip arbitrary package prefix (e.g. uvx::)
-	packageNameAndVersion := strings.TrimPrefix(server.Package, runtimeBinary+"::")
-
+	pkg := server.PackageName()
+	ver := server.PackageVersion()
 	var args []string
-	// TODO: npx requires '-y' before the package name
-	if runtime.Runtime(runtimeBinary) == runtime.NPX {
+	var environ []string
+
+	// Handle runtime-specific setup
+	switch runtime.Runtime(runtimeBinary) {
+	case runtime.Docker:
+		// Format the Docker package and version
+		packageNameAndVersion := fmt.Sprintf("%s:%s", pkg, ver)
+
+		// Docker requires special handling for environment variables
+		args = []string{"run", "-i", "--rm", "--network", "host"}
+
+		// Docker supplies the environment variables via args (-e), so
+		// we don't use the server.SafeEnv() as this ensures least privilege.
+		for _, env := range server.SafeEnvIsolated() {
+			args = append(args, append([]string{"-e"}, env)...)
+		}
+
+		// Add the image name
+		args = append(args, packageNameAndVersion)
+	case runtime.NPX:
+		// NPX requires '-y' before the package name
 		args = append(args, "-y")
+		fallthrough
+	default:
+		// Default case (UVX and others)
+		packageNameAndVersion := fmt.Sprintf("%s@%s", pkg, ver)
+		args = append(args, packageNameAndVersion)
+		environ = server.SafeEnv()
 	}
-	args = append(args, packageNameAndVersion)
+
 	args = append(args, server.SafeArgs()...)
 
 	logger.Debug("attempting to start server", "binary", runtimeBinary)
 
-	stdioClient, err := client.NewStdioMCPClient(runtimeBinary, server.SafeEnv(), args...)
+	stdioClient, err := client.NewStdioMCPClient(runtimeBinary, environ, args...)
 	if err != nil {
 		return fmt.Errorf("error starting MCP server: '%s': %w", server.Name(), err)
 	}
@@ -245,8 +269,7 @@ func (d *Daemon) startMCPServer(ctx context.Context, server runtime.Server) erro
 		return fmt.Errorf("error initializing MCP client: '%s': %w", server.Name(), err)
 	}
 
-	packageNameAndVersion = fmt.Sprintf("%s@%s", initResult.ServerInfo.Name, initResult.ServerInfo.Version)
-	logger.Info(fmt.Sprintf("Initialized: '%s'", packageNameAndVersion))
+	logger.Info("Initialized", "package", pkg, "version", ver, "server-name", initResult.ServerInfo.Name, "server-version", initResult.ServerInfo.Version)
 
 	// Store and track the client.
 	d.clientManager.Add(server.Name(), stdioClient, server.Tools)

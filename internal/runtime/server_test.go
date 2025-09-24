@@ -1667,6 +1667,117 @@ func TestServer_SafeEnv_CrossServerFiltering(t *testing.T) {
 	}
 }
 
+// TestServer_SafeEnvIsolated tests that SafeEnvIsolated returns only server-specific
+// environment variables without inheriting from os.Environ().
+func TestServer_SafeEnvIsolated(t *testing.T) {
+	// Set up some OS environment variables that should NOT appear in isolated env
+	t.Setenv("PATH", "/usr/bin:/bin")
+	t.Setenv("HOME", "/home/test")
+	t.Setenv("SOME_GLOBAL_VAR", "global-value")
+
+	// Set up server-specific environment variables
+	t.Setenv("MCPD__TEST_SERVER__API_KEY", "test-api-key")
+	t.Setenv("MCPD__TEST_SERVER__API_URL", "https://api.example.com")
+
+	server := &Server{
+		ServerEntry: config.ServerEntry{
+			Name: "test-server",
+		},
+		ServerExecutionContext: context.ServerExecutionContext{
+			Env: map[string]string{
+				"API_KEY": "server-specific-key",
+				"API_URL": "https://server.example.com",
+				"CUSTOM":  "custom-value",
+			},
+			RawEnv: map[string]string{
+				"API_KEY": "${MCPD__TEST_SERVER__API_KEY}",
+				"API_URL": "${MCPD__TEST_SERVER__API_URL}",
+				"CUSTOM":  "custom-value",
+			},
+		},
+	}
+
+	t.Run("SafeEnv includes OS environment", func(t *testing.T) {
+		envs := server.SafeEnv()
+		envMap := make(map[string]string)
+		for _, env := range envs {
+			if parts := strings.SplitN(env, "=", 2); len(parts) == 2 {
+				envMap[parts[0]] = parts[1]
+			}
+		}
+
+		// Should have OS environment variables
+		require.Contains(t, envMap, "PATH", "SafeEnv should include PATH from OS")
+		require.Contains(t, envMap, "HOME", "SafeEnv should include HOME from OS")
+		require.Contains(t, envMap, "SOME_GLOBAL_VAR", "SafeEnv should include SOME_GLOBAL_VAR from OS")
+
+		// Should also have server-specific variables
+		require.Contains(t, envMap, "API_KEY", "SafeEnv should include server's API_KEY")
+		require.Equal(t, "server-specific-key", envMap["API_KEY"], "Server env should override OS env")
+		require.Contains(t, envMap, "API_URL", "SafeEnv should include server's API_URL")
+		require.Contains(t, envMap, "CUSTOM", "SafeEnv should include server's CUSTOM")
+	})
+
+	t.Run("SafeEnvIsolated excludes OS environment", func(t *testing.T) {
+		envs := server.SafeEnvIsolated()
+		envMap := make(map[string]string)
+		for _, env := range envs {
+			if parts := strings.SplitN(env, "=", 2); len(parts) == 2 {
+				envMap[parts[0]] = parts[1]
+			}
+		}
+
+		// Should NOT have OS environment variables
+		require.NotContains(t, envMap, "PATH", "SafeEnvIsolated should NOT include PATH from OS")
+		require.NotContains(t, envMap, "HOME", "SafeEnvIsolated should NOT include HOME from OS")
+		require.NotContains(t, envMap, "SOME_GLOBAL_VAR", "SafeEnvIsolated should NOT include SOME_GLOBAL_VAR from OS")
+
+		// Should still have server-specific variables
+		require.Contains(t, envMap, "API_KEY", "SafeEnvIsolated should include server's API_KEY")
+		require.Equal(t, "server-specific-key", envMap["API_KEY"])
+		require.Contains(t, envMap, "API_URL", "SafeEnvIsolated should include server's API_URL")
+		require.Contains(t, envMap, "CUSTOM", "SafeEnvIsolated should include server's CUSTOM")
+		require.Equal(t, "custom-value", envMap["CUSTOM"])
+
+		// Should only have exactly the server's configured variables
+		require.Len(t, envMap, 3, "SafeEnvIsolated should only have the 3 configured server variables")
+	})
+
+	t.Run("SafeEnvIsolated filters cross-server references", func(t *testing.T) {
+		// Add a cross-server reference that should be filtered
+		serverWithCrossRef := &Server{
+			ServerEntry: config.ServerEntry{
+				Name: "test-server",
+			},
+			ServerExecutionContext: context.ServerExecutionContext{
+				Env: map[string]string{
+					"MY_VAR":    "my-value",
+					"OTHER_VAR": "other-server-ref", // This would be expanded, but we check RawEnv
+				},
+				RawEnv: map[string]string{
+					"MY_VAR":    "my-value",
+					"OTHER_VAR": "${MCPD__OTHER_SERVER__SECRET}", // Cross-server reference
+				},
+			},
+		}
+
+		envs := serverWithCrossRef.SafeEnvIsolated()
+		envMap := make(map[string]string)
+		for _, env := range envs {
+			if parts := strings.SplitN(env, "=", 2); len(parts) == 2 {
+				envMap[parts[0]] = parts[1]
+			}
+		}
+
+		// Should have the safe variable
+		require.Contains(t, envMap, "MY_VAR", "Should include safe variable")
+		require.Equal(t, "my-value", envMap["MY_VAR"])
+
+		// Should NOT have the cross-server reference
+		require.NotContains(t, envMap, "OTHER_VAR", "Should filter out cross-server reference")
+	})
+}
+
 // TestServer_SafeArgs_CrossServerFiltering tests that arguments containing cross-server
 // references are properly filtered out.
 func TestServer_SafeArgs_CrossServerFiltering(t *testing.T) {

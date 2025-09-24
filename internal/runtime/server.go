@@ -67,17 +67,28 @@ func (s *Server) SafeArgs() []string {
 	return s.filterArgs(s.Args)
 }
 
-// SafeEnv returns the server's environment variables with cross-server references filtered out
-// and server-specific overrides applied. Environment variables are already expanded at load time.
+// SafeEnv returns the server's entire set of environment variables with cross-server references
+// filtered out and server-specific overrides applied.
+// Environment variables are already expanded at load time.
 func (s *Server) SafeEnv() []string {
-	baseEnvs := os.Environ()
+	return s.safeEnvWithBase(os.Environ())
+}
 
+// SafeEnvIsolated returns only the server's configured environment variables without inheriting from os.Environ().
+// Cross-server references are filtered out.
+// Environment variables are already expanded at load time.
+func (s *Server) SafeEnvIsolated() []string {
+	return s.safeEnvWithBase(nil)
+}
+
+// safeEnvWithBase safely builds the server's environment starting from the given base environment.
+func (s *Server) safeEnvWithBase(baseEnvs []string) []string {
 	overrideEnvs := make([]string, 0, len(s.Env))
 	for k, v := range s.Env {
 		overrideEnvs = append(overrideEnvs, fmt.Sprintf("%s=%s", k, v))
 	}
 
-	// Merge the server's environment variables on top of the existing environment.
+	// Merge the server's environment variables on top of the base environment.
 	mergedEnvs := mergeEnvs(baseEnvs, overrideEnvs)
 
 	// Filter the environment to remove vars for other MCP servers or mcpd itself.

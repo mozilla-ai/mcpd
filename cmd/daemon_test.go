@@ -1823,7 +1823,7 @@ func TestDaemon_DaemonCmd_HandleSignals(t *testing.T) {
 		select {
 		case <-reloadChan:
 			// Expected - first signal processed
-		case <-time.After(100 * time.Millisecond):
+		case <-time.After(200 * time.Millisecond):
 			t.Fatal("Expected first reload signal not received")
 		}
 

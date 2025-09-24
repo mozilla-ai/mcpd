@@ -1080,3 +1080,41 @@ func TestDaemon_StopMCPServer(t *testing.T) {
 		})
 	}
 }
+
+// TestDaemon_DockerRuntimeSupport tests that Docker runtime is properly supported
+func TestDaemon_DockerRuntimeSupport(t *testing.T) {
+	t.Parallel()
+
+	// Test that Docker is in default supported runtimes
+	defaultRuntimes := runtime.DefaultSupportedRuntimes()
+	require.Contains(t, defaultRuntimes, runtime.Docker, "Docker should be in default supported runtimes")
+
+	// Test that a Docker server configuration is valid
+	dockerServer := runtime.Server{
+		ServerEntry: config.ServerEntry{
+			Name:    "docker-test",
+			Package: "docker::test/mcp-server@latest",
+			Tools:   []string{"test-tool"},
+		},
+		ServerExecutionContext: configcontext.ServerExecutionContext{
+			Env: map[string]string{
+				"TEST_ENV": "test-value",
+			},
+			Args: []string{"--test-arg", "value"},
+		},
+	}
+
+	// Verify the runtime is extracted correctly
+	runtimeType := dockerServer.Runtime()
+	require.Equal(t, "docker", runtimeType, "Should extract docker as runtime")
+
+	// Test daemon recognizes Docker as supported
+	logger := hclog.NewNullLogger()
+	deps, err := NewDependencies(logger, ":8085", []runtime.Server{dockerServer})
+	require.NoError(t, err)
+	daemon, err := NewDaemon(deps)
+	require.NoError(t, err)
+
+	// Verify Docker is in the daemon's supported runtimes
+	require.Contains(t, daemon.supportedRuntimes, runtime.Docker, "Daemon should support Docker runtime")
+}

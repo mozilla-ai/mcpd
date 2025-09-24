@@ -40,11 +40,14 @@ RUN apk add --no-cache tini=0.19.0-r3
 #  - Adds a dedicated non-root group and user for security (using the ARG).
 #  - Creates necessary directories for configs, logs, and user data.
 #  - Sets correct ownership for the non-root user.
+#  - Adds mcpd user to docker group for Docker socket access
 # Note: ~/.cache/mcpd is created on-demand by the application when needed
 # (e.g. ~/.cache/mcpd/registries during 'mcpd add' or 'mcpd search' commands)
 # but not during normal daemon operation.
 RUN addgroup -S $MCPD_USER && \
     adduser -D -S -h $MCPD_HOME -G $MCPD_USER $MCPD_USER && \
+    addgroup -S docker && \
+    adduser $MCPD_USER docker && \
     mkdir -p \
       $MCPD_HOME/.config/mcpd \
       /var/log/mcpd \
@@ -54,6 +57,9 @@ RUN addgroup -S $MCPD_USER && \
 
 # Copy uv/uvx binaries from image.
 COPY --from=ghcr.io/astral-sh/uv:0.8.4 /uv /uvx /usr/local/bin/
+
+# Copy Docker CLI from official Docker image for running MCP servers as Docker containers
+COPY --from=docker:27.3.1-cli /usr/local/bin/docker /usr/local/bin/docker
 
 # Copy application binary and set ownership to the non-root user.
 # IMPORTANT: Config/secrets are NOT copied. They should be mounted at runtime.
