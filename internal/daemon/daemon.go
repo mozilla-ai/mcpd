@@ -270,7 +270,7 @@ func (d *Daemon) startMCPServer(ctx context.Context, server runtime.Server) erro
 		return fmt.Errorf("error initializing MCP client: '%s': %w", server.Name(), err)
 	}
 
-	logger.Info("Initialized", "Package", initResult.ServerInfo.Name, "Version", initResult.ServerInfo.Version)
+	logger.Info("Initialized", "package", pkg, "version", ver, "server-name", initResult.ServerInfo.Name, "server-version", initResult.ServerInfo.Version)
 
 	// Store and track the client.
 	d.clientManager.Add(server.Name(), stdioClient, server.Tools)
