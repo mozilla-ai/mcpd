@@ -344,11 +344,11 @@ func handleServerResourceContent(
 }
 
 // RegisterResourceRoutes registers resource-related routes under the servers API.
-func RegisterResourceRoutes(serversAPI huma.API, accessor contracts.MCPClientAccessor) {
-	tags := []string{"Servers", "Resources"}
+func RegisterResourceRoutes(parentAPI huma.API, accessor contracts.MCPClientAccessor) {
+	tags := []string{"Resources"}
 
 	huma.Register(
-		serversAPI,
+		parentAPI,
 		huma.Operation{
 			OperationID: "listResources",
 			Method:      "GET",
@@ -362,7 +362,7 @@ func RegisterResourceRoutes(serversAPI huma.API, accessor contracts.MCPClientAcc
 	)
 
 	huma.Register(
-		serversAPI,
+		parentAPI,
 		huma.Operation{
 			OperationID: "listResourceTemplates",
 			Method:      "GET",
@@ -376,7 +376,7 @@ func RegisterResourceRoutes(serversAPI huma.API, accessor contracts.MCPClientAcc
 	)
 
 	huma.Register(
-		serversAPI,
+		parentAPI,
 		huma.Operation{
 			OperationID: "getResourceContent",
 			Method:      "GET",

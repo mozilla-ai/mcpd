@@ -51,33 +51,8 @@ func RegisterServerRoutes(routerAPI huma.API, accessor contracts.MCPClientAccess
 		},
 	)
 
-	huma.Register(
-		serversAPI,
-		huma.Operation{
-			OperationID: "listTools",
-			Method:      http.MethodGet,
-			Path:        "/{name}/tools",
-			Summary:     "List server tools",
-			Tags:        append(tags, "Tools"),
-		},
-		func(ctx context.Context, input *ServerToolsRequest) (*ToolsResponse, error) {
-			return handleServerTools(accessor, input.Name)
-		},
-	)
-
-	huma.Register(
-		serversAPI,
-		huma.Operation{
-			OperationID: "callTool",
-			Method:      http.MethodPost,
-			Path:        "/{server}/tools/{tool}",
-			Summary:     "Call a tool for a server",
-			Tags:        append(tags, "Tools"),
-		},
-		func(ctx context.Context, input *ServerToolCallRequest) (*ToolCallResponse, error) {
-			return handleServerToolCall(accessor, input.Server, input.Tool, input.Body)
-		},
-	)
+	// Register tool routes.
+	RegisterToolRoutes(serversAPI, accessor)
 
 	// Register prompt routes.
 	RegisterPromptRoutes(serversAPI, accessor)

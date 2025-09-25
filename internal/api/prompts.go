@@ -243,11 +243,11 @@ func handleServerPromptGenerate(
 }
 
 // RegisterPromptRoutes registers prompt-related routes under the servers API.
-func RegisterPromptRoutes(serversAPI huma.API, accessor contracts.MCPClientAccessor) {
-	tags := []string{"Servers", "Prompts"}
+func RegisterPromptRoutes(parentAPI huma.API, accessor contracts.MCPClientAccessor) {
+	tags := []string{"Prompts"}
 
 	huma.Register(
-		serversAPI,
+		parentAPI,
 		huma.Operation{
 			OperationID: "listPrompts",
 			Method:      "GET",
@@ -261,7 +261,7 @@ func RegisterPromptRoutes(serversAPI huma.API, accessor contracts.MCPClientAcces
 	)
 
 	huma.Register(
-		serversAPI,
+		parentAPI,
 		huma.Operation{
 			OperationID: "generatePrompt",
 			Method:      "POST",
