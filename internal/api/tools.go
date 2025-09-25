@@ -1,8 +1,13 @@
 package api
 
 import (
+	"context"
+	"net/http"
+
+	"github.com/danielgtaylor/huma/v2"
 	"github.com/mark3labs/mcp-go/mcp"
 
+	"github.com/mozilla-ai/mcpd/v2/internal/contracts"
 	"github.com/mozilla-ai/mcpd/v2/internal/filter"
 )
 
@@ -121,4 +126,36 @@ func (d DomainTool) ToAPIType() (Tool, error) {
 		InputSchema: schema,
 		Annotations: annotations,
 	}, nil
+}
+
+func RegisterToolRoutes(parentAPI huma.API, accessor contracts.MCPClientAccessor) {
+	tags := []string{"Tools"}
+
+	huma.Register(
+		parentAPI,
+		huma.Operation{
+			OperationID: "listTools",
+			Method:      http.MethodGet,
+			Path:        "/{name}/tools",
+			Summary:     "List server tools",
+			Tags:        tags,
+		},
+		func(ctx context.Context, input *ServerToolsRequest) (*ToolsResponse, error) {
+			return handleServerTools(accessor, input.Name)
+		},
+	)
+
+	huma.Register(
+		parentAPI,
+		huma.Operation{
+			OperationID: "callTool",
+			Method:      http.MethodPost,
+			Path:        "/{server}/tools/{tool}",
+			Summary:     "Call a tool for a server",
+			Tags:        tags,
+		},
+		func(ctx context.Context, input *ServerToolCallRequest) (*ToolCallResponse, error) {
+			return handleServerToolCall(accessor, input.Server, input.Tool, input.Body)
+		},
+	)
 }

@@ -364,6 +364,36 @@ func TestMapError(t *testing.T) {
 			expectedStatus: 501,
 		},
 		{
+			name:           "ErrResourceNotFound maps to 404",
+			err:            errors.ErrResourceNotFound,
+			expectedStatus: 404,
+		},
+		{
+			name:           "ErrResourceForbidden maps to 403",
+			err:            errors.ErrResourceForbidden,
+			expectedStatus: 403,
+		},
+		{
+			name:           "ErrResourceListFailed maps to 502",
+			err:            errors.ErrResourceListFailed,
+			expectedStatus: 502,
+		},
+		{
+			name:           "ErrResourceTemplateListFailed maps to 502",
+			err:            errors.ErrResourceTemplateListFailed,
+			expectedStatus: 502,
+		},
+		{
+			name:           "ErrResourceReadFailed maps to 502",
+			err:            errors.ErrResourceReadFailed,
+			expectedStatus: 502,
+		},
+		{
+			name:           "ErrResourcesNotImplemented maps to 501",
+			err:            errors.ErrResourcesNotImplemented,
+			expectedStatus: 501,
+		},
+		{
 			name:           "Unknown error maps to 500",
 			err:            fmt.Errorf("unknown error"),
 			expectedStatus: 500,
