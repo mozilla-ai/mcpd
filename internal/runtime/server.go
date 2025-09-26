@@ -300,57 +300,120 @@ func (s *Server) exportEnvVars(appName string) map[string]string {
 	return envs
 }
 
+// partitionArgs separates arguments into positional (non-flag) and flag arguments.
+// Positional args come before any flags. Once a flag is encountered, all remaining
+// args are treated as flags or flag values.
+func partitionArgs(args []string) (positional []string, flags []string) {
+	for i, arg := range args {
+		if strings.HasPrefix(arg, "--") {
+			// split here
+			positional = args[:i]
+			flags = args[i:]
+			return
+		}
+	}
+	// no flags found
+	positional = args
+	return
+}
+
+// exportPositionalArgs transforms positional arguments into environment variable placeholders.
+// Arguments are numbered starting from 1 (ARG_1, ARG_2, etc.).
+func (s *Server) exportPositionalArgs(
+	positional []string,
+	appName string,
+	recordContractFunc func(k, v string),
+) []string {
+	if len(positional) == 0 {
+		return nil
+	}
+
+	result := make([]string, 0, len(positional))
+	for i := range positional {
+		// Number positional args starting from 1.
+		argKey := fmt.Sprintf("ARG_%d", i+1)
+		envVarName := buildEnvVarName(appName, s.Name(), argKey)
+		envVarRef := fmt.Sprintf("${%s}", envVarName)
+		result = append(result, envVarRef)
+		recordContractFunc(envVarName, envVarRef)
+	}
+	return result
+}
+
+// exportFlagArgs processes flag arguments and transforms them into environment variable placeholders.
+func (s *Server) exportFlagArgs(
+	flags []string,
+	appName string,
+	seen map[string]struct{},
+	recordContractFunc func(k, v string),
+) []string {
+	if len(flags) == 0 {
+		return nil
+	}
+
+	var result []string
+	for i := 0; i < len(flags); i++ {
+		flag := flags[i]
+
+		// Skip non-flag arguments (values).
+		if !strings.HasPrefix(flag, "--") {
+			continue
+		}
+
+		argName := extractArgNameWithPrefix(flag)
+
+		// Skip if already processed.
+		if _, ok := seen[argName]; ok {
+			continue
+		}
+
+		// Handle --arg=value format.
+		if strings.Contains(flag, "=") {
+			t := transformValueArg(appName, s.Name(), flag)
+			result = append(result, t.FormattedArg)
+			recordContractFunc(t.EnvVarName, t.EnvVarReference)
+			seen[argName] = struct{}{}
+			continue
+		}
+
+		// Handle --arg value format (check next item).
+		if i+1 < len(flags) && !strings.HasPrefix(flags[i+1], "--") {
+			t := transformValueArg(appName, s.Name(), flag)
+			result = append(result, t.FormattedArg)
+			recordContractFunc(t.EnvVarName, t.EnvVarReference)
+			seen[argName] = struct{}{}
+			i++ // Skip the value.
+			continue
+		}
+
+		// Handle boolean flag.
+		result = append(result, flag)
+		seen[argName] = struct{}{}
+	}
+
+	return result
+}
+
 func (s *Server) exportRuntimeArgs(
 	appName string,
 	seen map[string]struct{},
 	recordContractFunc func(k, v string),
 ) []string {
-	var args []string
-
 	// Filter out args with cross-server references.
 	filteredArgs := s.filterArgs(s.Args)
-
-	for i := 0; i < len(filteredArgs); i++ {
-		rawArg := filteredArgs[i]
-
-		// Sanity check for arg.
-		if !strings.HasPrefix(rawArg, "--") {
-			continue // value
-		}
-
-		arg := extractArgNameWithPrefix(rawArg)
-		if _, ok := seen[arg]; ok {
-			continue // Already handled.
-		}
-
-		// --arg=val case
-		if strings.HasPrefix(rawArg, arg+"=") {
-			t := transformValueArg(appName, s.Name(), rawArg)
-			args = append(args, t.FormattedArg)
-			recordContractFunc(t.EnvVarName, t.EnvVarReference)
-			seen[arg] = struct{}{}
-			continue
-		}
-
-		// --arg val case
-		if rawArg == arg && i+1 < len(filteredArgs) && !strings.HasPrefix(filteredArgs[i+1], "--") {
-			t := transformValueArg(appName, s.Name(), rawArg)
-			args = append(args, t.FormattedArg)
-			recordContractFunc(t.EnvVarName, t.EnvVarReference)
-			seen[arg] = struct{}{}
-			i++ // Skip the next item since it's an actual value.
-			continue
-		}
-
-		// bool flag
-		if rawArg == arg {
-			args = append(args, arg)
-			seen[arg] = struct{}{}
-			continue
-		}
+	if len(filteredArgs) == 0 {
+		return nil
 	}
 
-	return args
+	// Partition into positional and flag arguments.
+	positional, flags := partitionArgs(filteredArgs)
+
+	// Process each type separately and combine results.
+	var result []string
+	result = append(result, s.exportPositionalArgs(positional, appName, recordContractFunc)...)
+	result = append(result, s.exportFlagArgs(flags, appName, seen, recordContractFunc)...)
+
+	return result
 }
 
 func (s *Servers) Export(path string) (map[string]string, error) {

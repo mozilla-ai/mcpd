@@ -811,6 +811,72 @@ func TestValidate(t *testing.T) {
 	}
 }
 
+func TestPartitionArgs(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name               string
+		args               []string
+		expectedPositional []string
+		expectedFlags      []string
+	}{
+		{
+			name:               "empty args",
+			args:               []string{},
+			expectedPositional: []string{},
+		},
+		{
+			name:               "only positional args",
+			args:               []string{"file1", "file2", "file3"},
+			expectedPositional: []string{"file1", "file2", "file3"},
+		},
+		{
+			name:               "only flags",
+			args:               []string{"--flag1", "--flag2=value", "--flag3", "value3"},
+			expectedPositional: []string{},
+			expectedFlags:      []string{"--flag1", "--flag2=value", "--flag3", "value3"},
+		},
+		{
+			name:               "positional then flags",
+			args:               []string{"pos1", "pos2", "--flag1", "--flag2=value"},
+			expectedPositional: []string{"pos1", "pos2"},
+			expectedFlags:      []string{"--flag1", "--flag2=value"},
+		},
+		{
+			name:               "positional then flag with value",
+			args:               []string{"pos1", "--flag", "value", "--another"},
+			expectedPositional: []string{"pos1"},
+			expectedFlags:      []string{"--flag", "value", "--another"},
+		},
+		{
+			name:               "no positional after first flag",
+			args:               []string{"pos1", "--flag", "value", "should-be-flag-value"},
+			expectedPositional: []string{"pos1"},
+			expectedFlags:      []string{"--flag", "value", "should-be-flag-value"},
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			positional, flags := partitionArgs(tc.args)
+
+			if tc.expectedPositional == nil {
+				require.Nil(t, positional)
+			} else {
+				require.Equal(t, tc.expectedPositional, positional)
+			}
+
+			if tc.expectedFlags == nil {
+				require.Nil(t, flags)
+			} else {
+				require.Equal(t, tc.expectedFlags, flags)
+			}
+		})
+	}
+}
+
 func TestServer_exportRuntimeArgs(t *testing.T) {
 	t.Parallel()
 
@@ -880,15 +946,34 @@ func TestServer_exportRuntimeArgs(t *testing.T) {
 			},
 		},
 		{
-			name: "skip non-flag arguments",
-			args: []string{"--host", "localhost", "not-a-flag", "--debug"},
+			name: "positional arguments before flags",
+			args: []string{"/path/to/file", "second-positional", "--host", "localhost", "--debug"},
 			seen: map[string]struct{}{},
 			expectedArgs: []string{
+				"${MCPD__TEST_SERVER__ARG_1}",
+				"${MCPD__TEST_SERVER__ARG_2}",
 				"--host=${MCPD__TEST_SERVER__HOST}",
 				"--debug",
 			},
 			expectedCalls: map[string]string{
-				"MCPD__TEST_SERVER__HOST": "${MCPD__TEST_SERVER__HOST}",
+				"MCPD__TEST_SERVER__ARG_1": "${MCPD__TEST_SERVER__ARG_1}",
+				"MCPD__TEST_SERVER__ARG_2": "${MCPD__TEST_SERVER__ARG_2}",
+				"MCPD__TEST_SERVER__HOST":  "${MCPD__TEST_SERVER__HOST}",
+			},
+		},
+		{
+			name: "only positional arguments",
+			args: []string{"/path/to/file", "second-arg", "third-arg"},
+			seen: map[string]struct{}{},
+			expectedArgs: []string{
+				"${MCPD__TEST_SERVER__ARG_1}",
+				"${MCPD__TEST_SERVER__ARG_2}",
+				"${MCPD__TEST_SERVER__ARG_3}",
+			},
+			expectedCalls: map[string]string{
+				"MCPD__TEST_SERVER__ARG_1": "${MCPD__TEST_SERVER__ARG_1}",
+				"MCPD__TEST_SERVER__ARG_2": "${MCPD__TEST_SERVER__ARG_2}",
+				"MCPD__TEST_SERVER__ARG_3": "${MCPD__TEST_SERVER__ARG_3}",
 			},
 		},
 		{
