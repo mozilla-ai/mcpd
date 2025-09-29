@@ -191,8 +191,16 @@ func (d *Daemon) startMCPServer(ctx context.Context, server runtime.Server) erro
 		// Format the Docker package and version
 		packageNameAndVersion := fmt.Sprintf("%s:%s", pkg, ver)
 
-		// Docker requires special handling for environment variables
-		args = []string{"run", "-i", "--rm", "--network", "host"}
+		// Use DockerConfig if available, otherwise use defaults
+		if server.DockerConfig != nil {
+			logger.Info("Using Docker configuration", "config", server.DockerConfig)
+			// Build Docker args from DockerConfig
+			args = server.DockerConfig.BuildDockerArgs()
+		} else {
+			logger.Info("No Docker configuration found, using defaults")
+			// Use default Docker args for backward compatibility
+			args = []string{"run", "-i", "--rm", "--network", "host"}
+		}
 
 		// Docker supplies the environment variables via args (-e), so
 		// we don't use the server.SafeEnv() as this ensures least privilege.

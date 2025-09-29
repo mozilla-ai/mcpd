@@ -11,6 +11,7 @@ import (
 	"strings"
 
 	"github.com/BurntSushi/toml"
+	gocmp "github.com/google/go-cmp/cmp"
 
 	"github.com/mozilla-ai/mcpd/v2/internal/perms"
 )
@@ -57,6 +58,9 @@ type ServerExecutionContext struct {
 
 	// RawArgs stores unexpanded command-line arguments used for cross-server filtering decisions.
 	RawArgs []string `toml:"-"`
+
+	// DockerConfig contains Docker-specific configuration for the server (volumes, ports, etc.)
+	DockerConfig *DockerConfig `toml:"docker,omitempty"`
 }
 
 // Load loads an execution context configuration from the specified path.
@@ -88,11 +92,12 @@ func (c *ExecutionContextConfig) Get(name string) (ServerExecutionContext, bool)
 
 	if srv, ok := c.Servers[name]; ok {
 		return ServerExecutionContext{
-			Name:    name,
-			Args:    slices.Clone(srv.Args),
-			Env:     maps.Clone(srv.Env),
-			RawEnv:  maps.Clone(srv.RawEnv),
-			RawArgs: slices.Clone(srv.RawArgs),
+			Name:         name,
+			Args:         slices.Clone(srv.Args),
+			Env:          maps.Clone(srv.Env),
+			RawEnv:       maps.Clone(srv.RawEnv),
+			RawArgs:      slices.Clone(srv.RawArgs),
+			DockerConfig: srv.DockerConfig,
 		}, true
 	}
 
@@ -187,12 +192,16 @@ func (s *ServerExecutionContext) Equals(b ServerExecutionContext) bool {
 		return false
 	}
 
+	if !equalDockerConfig(s.DockerConfig, b.DockerConfig) {
+		return false
+	}
+
 	return true
 }
 
-// IsEmpty returns true if the ServerExecutionContext has no args or env vars.
+// IsEmpty returns true if the ServerExecutionContext has no args, env vars, or Docker configuration.
 func (s *ServerExecutionContext) IsEmpty() bool {
-	return len(s.Args) == 0 && len(s.Env) == 0
+	return len(s.Args) == 0 && len(s.Env) == 0 && (s.DockerConfig == nil || isEmptyDockerConfig(s.DockerConfig))
 }
 
 // AppDirName returns the name of the application directory for use in user-specific operations where data is being written.
@@ -277,6 +286,16 @@ func equalSlices(a []string, b []string) bool {
 	slices.Sort(sortedB)
 
 	return slices.Equal(sortedA, sortedB)
+}
+
+// equalDockerConfig compares two DockerConfig pointers for equality.
+func equalDockerConfig(a, b *DockerConfig) bool {
+	return gocmp.Equal(a, b)
+}
+
+// isEmptyDockerConfig checks if the DockerConfig has any values set.
+func isEmptyDockerConfig(c *DockerConfig) bool {
+	return c == nil || gocmp.Equal(c, &DockerConfig{})
 }
 
 // isPermissionAcceptable checks if the actual permissions are acceptable for the required permissions.

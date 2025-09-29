@@ -2,8 +2,6 @@ package env
 
 import (
 	"fmt"
-	"maps"
-	"slices"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -70,13 +68,26 @@ func (c *SetCmd) run(cmd *cobra.Command, args []string) error {
 		server.Name = serverName
 	}
 
-	// Ensure the map is initialized, in case it didn't exist before.
+	// Parse Docker configuration from docker.* prefixed variables
+	dockerConfig, regularEnv := context.ParseDockerConfig(envMap)
+
+	// Validate Docker configuration if present
+	if dockerConfig != nil {
+		if err := dockerConfig.Validate(); err != nil {
+			return fmt.Errorf("invalid Docker configuration: %w", err)
+		}
+
+		// Simple replacement - same pattern as regular env vars
+		server.DockerConfig = dockerConfig
+	}
+
+	// Ensure the env map is initialized, in case it didn't exist before.
 	if server.Env == nil {
 		server.Env = map[string]string{}
 	}
 
-	// Merge or overwrite environment variables
-	for k, v := range envMap {
+	// Merge or overwrite regular environment variables
+	for k, v := range regularEnv {
 		server.Env[k] = v
 	}
 
@@ -85,9 +96,23 @@ func (c *SetCmd) run(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("error setting environment variables for server '%s': %w", serverName, err)
 	}
 
+	// Prepare output message
+	var setKeys []string
+	if dockerConfig != nil {
+		// Add docker.* keys that were set
+		for k := range envMap {
+			if strings.HasPrefix(strings.ToLower(k), "docker.") {
+				setKeys = append(setKeys, k)
+			}
+		}
+	}
+	for k := range regularEnv {
+		setKeys = append(setKeys, k)
+	}
+
 	if _, err := fmt.Fprintf(
 		cmd.OutOrStdout(),
-		"✓ Environment variables set for server '%s' (operation: %s): %v\n", serverName, string(res), slices.Collect(maps.Keys(envMap)),
+		"✓ Environment variables set for server '%s' (operation: %s): %v\n", serverName, string(res), setKeys,
 	); err != nil {
 		return err
 	}

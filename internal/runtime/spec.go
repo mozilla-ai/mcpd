@@ -34,15 +34,15 @@ func Specs() map[Runtime]Spec {
 }
 
 func dockerIgnoreFlags() flagNameSet {
+	// These flags should be ignored when parsing user-provided arguments
+	// as they are either managed by mcpd or conflict with MCP's communication model
 	return flagNameSet{
-		"-d":        {},
-		"--detach":  {},
-		"-i":        {},
-		"--name":    {},
-		"--network": {},
-		"--rm":      {},
-		"-v":        {},
-		"--volume":  {},
+		"-d":       {}, // Detach mode conflicts with MCP's stdin/stdout model
+		"--detach": {}, // Detach mode conflicts with MCP's stdin/stdout model
+		"-i":       {}, // Interactive mode is always added by mcpd
+		"--name":   {}, // Container naming is managed by mcpd
+		// Note: --network, --rm, -v, --volume are now configurable through DockerConfig
+		// and should not be ignored from user arguments
 	}
 }
 

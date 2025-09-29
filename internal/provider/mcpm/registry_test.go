@@ -144,7 +144,7 @@ func TestRegistry_Search(t *testing.T) {
 			expectedCount: 1,
 			expectedIDs:   []string{"time"},
 			expectedEnv:   map[string][]string{"time": {}},
-			expectedArgs:  map[string][]string{"time": {"--local-timezone"}},
+			expectedArgs:  map[string][]string{"time": {"--local-timezone", "--rm"}},
 		},
 		{
 			name:          "case insensitive search",
@@ -153,7 +153,7 @@ func TestRegistry_Search(t *testing.T) {
 			expectedCount: 1,
 			expectedIDs:   []string{"time"},
 			expectedEnv:   map[string][]string{"time": {}},
-			expectedArgs:  map[string][]string{"time": {"--local-timezone"}},
+			expectedArgs:  map[string][]string{"time": {"--local-timezone", "--rm"}},
 		},
 		{
 			name:          "finds servers with docker runtime",
@@ -162,7 +162,7 @@ func TestRegistry_Search(t *testing.T) {
 			expectedCount: 1,
 			expectedIDs:   []string{"time"},
 			expectedEnv:   map[string][]string{"time": {}},
-			expectedArgs:  map[string][]string{"time": {"--local-timezone"}},
+			expectedArgs:  map[string][]string{"time": {"--local-timezone", "--rm"}},
 		},
 		{
 			name:          "search by display name",
@@ -180,7 +180,7 @@ func TestRegistry_Search(t *testing.T) {
 			expectedCount: 2,
 			expectedIDs:   []string{"time", "math"},
 			expectedEnv:   map[string][]string{"time": {}, "math": {}},
-			expectedArgs:  map[string][]string{"time": {"--local-timezone"}, "math": {}},
+			expectedArgs:  map[string][]string{"time": {"--local-timezone", "--rm"}, "math": {}},
 		},
 		{
 			name:          "tool filter add",
@@ -206,7 +206,7 @@ func TestRegistry_Search(t *testing.T) {
 			expectedCount: 1,
 			expectedIDs:   []string{"time"},
 			expectedEnv:   map[string][]string{"time": {}},
-			expectedArgs:  map[string][]string{"time": {"--local-timezone"}},
+			expectedArgs:  map[string][]string{"time": {"--local-timezone", "--rm"}},
 		},
 	}
 
@@ -272,7 +272,7 @@ func TestRegistry_Resolve(t *testing.T) {
 			expectError:  false,
 			expectedID:   "time",
 			expectedEnv:  []string{},
-			expectedArgs: []string{"--local-timezone"},
+			expectedArgs: []string{"--local-timezone", "--rm"},
 		},
 		{
 			name:         "existing package with latest version",
@@ -425,6 +425,13 @@ func TestRegistry_ExtractArgumentMetadata_EdgeCases(t *testing.T) {
 					Required:     true,
 					Description:  "Test env var",
 					Example:      "test",
+				},
+				"--rm": {
+					Name:         "--rm",
+					VariableType: packages.VariableTypeArg,
+					Required:     false,
+					Description:  "",
+					Example:      "",
 				},
 			},
 		},

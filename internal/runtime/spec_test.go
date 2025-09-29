@@ -17,8 +17,10 @@ func TestSpecs_ShouldIgnoreFlag(t *testing.T) {
 		flag    string
 		want    bool
 	}{
-		{Docker, "--rm", true},
-		{Docker, "--name", true},
+		{Docker, "--rm", false},        // Now configurable through DockerConfig
+		{Docker, "--name", true},       // Still managed by mcpd
+		{Docker, "--detach", true},     // Conflicts with MCP model
+		{Docker, "-i", true},           // Always added by mcpd
 		{Docker, "--local-timezone", false},
 		{NPX, "-y", true},
 		{NPX, "--help", false},
@@ -160,7 +162,9 @@ func TestSpecs_ShouldIgnoreFlag_Additional(t *testing.T) {
 		{Docker, "-d", true},
 		{Docker, "--detach", true},
 		{Docker, "-i", true},
-		{Docker, "--volume", true},
+		{Docker, "--volume", false},  // Now configurable through DockerConfig
+		{Docker, "--network", false}, // Now configurable through DockerConfig
+		{Docker, "--rm", false},      // Now configurable through DockerConfig
 		{Docker, "--unknown-flag", false},
 		{Python, "-x", false},
 		{UVX, "--unknown", false},

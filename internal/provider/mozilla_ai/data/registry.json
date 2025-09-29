@@ -236,10 +236,16 @@
     "homepage": "https://github.com/modelcontextprotocol/servers/tree/main/src/filesystem",
     "id": "filesystem",
     "installations": {
+      "docker": {
+        "description": "Run with Docker",
+        "package": "mcp/filesystem",
+        "recommended": true,
+        "runtime": "docker",
+        "version": "latest"
+      },
       "npm": {
         "description": "Run with npm",
         "package": "@modelcontextprotocol/server-filesystem",
-        "recommended": true,
         "runtime": "npx",
         "version": "2025.7.29"
       }

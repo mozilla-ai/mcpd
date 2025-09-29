@@ -466,6 +466,13 @@ func TestCLIArgParser_EdgeCases(t *testing.T) {
 					Required:     true,
 					Description:  "Docker image name",
 				},
+				"--rm": {
+					Name:         "--rm",
+					VariableType: packages.VariableTypeArg,
+					Position:     nil,
+					Required:     false,
+					Description:  "",
+				},
 			},
 		},
 		{
