@@ -241,7 +241,7 @@
         "package": "@modelcontextprotocol/server-filesystem",
         "recommended": true,
         "runtime": "npx",
-        "version": "2025.7.29"
+        "version": "2025.8.21"
       }
     },
     "isOfficial": true,
@@ -263,12 +263,44 @@
         "name": "create_directory"
       },
       {
+        "description": "Get a recursive tree view of files and directories as a JSON structure",
+        "name": "directory_tree"
+      },
+      {
+        "description": "Make selective edits using advanced pattern matching and formatting",
+        "name": "edit_file"
+      },
+      {
+        "description": "Get detailed file/directory metadata",
+        "name": "get_file_info"
+      },
+      {
+        "description": "List all directories the server is allowed to access",
+        "name": "list_allowed_directories"
+      },
+      {
         "description": "Get a detailed listing of all files and directories in a specified path",
         "name": "list_directory"
       },
       {
-        "description": "Read the complete contents of a file from the file system",
-        "name": "read_file"
+        "description": "Get a detailed listing of all files and directories, including file sizes, in a specified path",
+        "name": "list_directory_with_sizes"
+      },
+      {
+        "description": "Move or rename files and directories",
+        "name": "move_file"
+      },
+      {
+        "description": "Read an image or audio file from the file system as base64 data with the corresponding MIME type",
+        "name": "read_media_file"
+      },
+      {
+        "description": "Read multiple files simultaneously from the file system",
+        "name": "read_multiple_files"
+      },
+      {
+        "description": "Read the complete contents of a file from the file system as text",
+        "name": "read_text_file"
       },
       {
         "description": "Recursively search for files and directories matching a pattern",
@@ -1351,7 +1383,7 @@
     "categories": ["Databases"],
     "description": "Redis database operations for caching, data storage, and key-value operations",
     "displayName": "Redis",
-    "homepage": "https://github.com/modelcontextprotocol/servers/tree/main/src/redis",
+    "homepage": "https://github.com/redis/mcp-redis/blob/main/Dockerfile",
     "id": "redis",
     "installations": {
       "docker": {
@@ -1366,8 +1398,8 @@
     "license": "MIT",
     "name": "redis",
     "publisher": {
-      "name": "Anthropic",
-      "url": "https://github.com/modelcontextprotocol"
+      "name": "redis",
+      "url": "https://github.com/redis"
     },
     "tags": [
       "redis",
@@ -1377,182 +1409,182 @@
       "storage"
     ],
     "tools": [
-    {
-      "name": "client_list",
-      "description": "Get a list of connected clients to the Redis server."
-    },
-    {
-      "name": "create_vector_index_hash",
-      "description": "Create a Redis 8 vector similarity index using HNSW on a Redis hash. This function sets up a Redis index for approximate nearest neighbor (ANN) search using the HNSW algorithm and float32 vector embeddings."
-    },
-    {
-      "name": "dbsize",
-      "description": "Get the number of keys stored in the Redis database"
-    },
-    {
-      "name": "delete",
-      "description": "Delete a Redis key."
-    },
-    {
-      "name": "expire",
-      "description": "Set an expiration time for a Redis key."
-    },
-    {
-      "name": "get",
-      "description": "Get a Redis string value."
-    },
-    {
-      "name": "get_index_info",
-      "description": "Retrieve schema and information about a specific Redis index using FT.INFO."
-    },
-    {
-      "name": "get_indexed_keys_number",
-      "description": "Retrieve the number of indexed keys by the index"
-    },
-    {
-      "name": "get_indexes",
-      "description": "List of indexes in the Redis database Returns: str: A JSON string containing the list of indexes or an error message."
-    },
-    {
-      "name": "get_vector_from_hash",
-      "description": "Retrieve a vector from a Redis hash and convert it back from binary blob."
-    },
-    {
-      "name": "hdel",
-      "description": "Delete a field from a Redis hash."
-    },
-    {
-      "name": "hexists",
-      "description": "Check if a field exists in a Redis hash."
-    },
-    {
-      "name": "hget",
-      "description": "Get the value of a field in a Redis hash."
-    },
-    {
-      "name": "hgetall",
-      "description": "Get all fields and values from a Redis hash."
-    },
-    {
-      "name": "hset",
-      "description": "Set a field in a hash stored at key with an optional expiration time."
-    },
-    {
-      "name": "info",
-      "description": "Get Redis server information and statistics."
-    },
-    {
-      "name": "json_del",
-      "description": "Delete a JSON value from Redis at a given path."
-    },
-    {
-      "name": "json_get",
-      "description": "Retrieve a JSON value from Redis at a given path."
-    },
-    {
-      "name": "json_set",
-      "description": "Set a JSON value in Redis at a given path with an optional expiration time."
-    },
-    {
-      "name": "llen",
-      "description": "Get the length of a Redis list."
-    },
-    {
-      "name": "lpop",
-      "description": "Remove and return the first element from a Redis list."
-    },
-    {
-      "name": "lpush",
-      "description": "Push a value onto the left of a Redis list and optionally set an expiration time."
-    },
-    {
-      "name": "lrange",
-      "description": "Get elements from a Redis list within a specific range. Returns: str: A JSON string containing the list of elements or an error message."
-    },
-    {
-      "name": "publish",
-      "description": "Publish a message to a Redis channel."
-    },
-    {
-      "name": "rename",
-      "description": "Renames a Redis key from old_key to new_key."
-    },
-    {
-      "name": "rpop",
-      "description": "Remove and return the last element from a Redis list."
-    },
-    {
-      "name": "rpush",
-      "description": "Push a value onto the right of a Redis list and optionally set an expiration time."
-    },
-    {
-      "name": "sadd",
-      "description": "Add a value to a Redis set with an optional expiration time."
-    },
-    {
-      "name": "scan_all_keys",
-      "description": "Scan and return ALL keys matching a pattern using multiple SCAN iterations. This function automatically handles the SCAN cursor iteration to collect all matching keys. It's safer than KEYS * for large databases but will still collect all results in memory. ⚠️ WARNING: With very large datasets (millions of keys), this may consume significant memory. For large-scale operations, consider using scan_keys() with manual iteration instead."
-    },
-    {
-      "name": "scan_keys",
-      "description": "Scan keys in the Redis database using the SCAN command (non-blocking, production-safe). ⚠️ IMPORTANT: This returns PARTIAL results from one iteration. Use scan_all_keys() to get ALL matching keys, or call this function multiple times with the returned cursor until cursor becomes 0. The SCAN command iterates through the keyspace in small chunks, making it safe to use on large databases without blocking other operations."
-    },
-    {
-      "name": "set",
-      "description": "Set a Redis string value with an optional expiration time."
-    },
-    {
-      "name": "set_vector_in_hash",
-      "description": "Store a vector as a field in a Redis hash."
-    },
-    {
-      "name": "smembers",
-      "description": "Get all members of a Redis set."
-    },
-    {
-      "name": "srem",
-      "description": "Remove a value from a Redis set."
-    },
-    {
-      "name": "subscribe",
-      "description": "Subscribe to a Redis channel."
-    },
-    {
-      "name": "type",
-      "description": "Returns the string representation of the type of the value stored at key"
-    },
-    {
-      "name": "unsubscribe",
-      "description": "Unsubscribe from a Redis channel."
-    },
-    {
-      "name": "vector_search_hash",
-      "description": "Perform a KNN vector similarity search using Redis 8 or later version on vectors stored in hash data structures."
-    },
-    {
-      "name": "xadd",
-      "description": "Add an entry to a Redis stream with an optional expiration time."
-    },
-    {
-      "name": "xdel",
-      "description": "Delete an entry from a Redis stream."
-    },
-    {
-      "name": "xrange",
-      "description": "Read entries from a Redis stream."
-    },
-    {
-      "name": "zadd",
-      "description": "Add a member to a Redis sorted set with an optional expiration time."
-    },
-    {
-      "name": "zrange",
-      "description": "Retrieve a range of members from a Redis sorted set."
-    },
-    {
-      "name": "zrem",
-      "description": "Remove a member from a Redis sorted set."
-    }
+      {
+        "name": "client_list",
+        "description": "Get a list of connected clients to the Redis server."
+      },
+      {
+        "name": "create_vector_index_hash",
+        "description": "Create a Redis 8 vector similarity index using HNSW on a Redis hash. This function sets up a Redis index for approximate nearest neighbor (ANN) search using the HNSW algorithm and float32 vector embeddings."
+      },
+      {
+        "name": "dbsize",
+        "description": "Get the number of keys stored in the Redis database"
+      },
+      {
+        "name": "delete",
+        "description": "Delete a Redis key."
+      },
+      {
+        "name": "expire",
+        "description": "Set an expiration time for a Redis key."
+      },
+      {
+        "name": "get",
+        "description": "Get a Redis string value."
+      },
+      {
+        "name": "get_index_info",
+        "description": "Retrieve schema and information about a specific Redis index using FT.INFO."
+      },
+      {
+        "name": "get_indexed_keys_number",
+        "description": "Retrieve the number of indexed keys by the index"
+      },
+      {
+        "name": "get_indexes",
+        "description": "List of indexes in the Redis database Returns: str: A JSON string containing the list of indexes or an error message."
+      },
+      {
+        "name": "get_vector_from_hash",
+        "description": "Retrieve a vector from a Redis hash and convert it back from binary blob."
+      },
+      {
+        "name": "hdel",
+        "description": "Delete a field from a Redis hash."
+      },
+      {
+        "name": "hexists",
+        "description": "Check if a field exists in a Redis hash."
+      },
+      {
+        "name": "hget",
+        "description": "Get the value of a field in a Redis hash."
+      },
+      {
+        "name": "hgetall",
+        "description": "Get all fields and values from a Redis hash."
+      },
+      {
+        "name": "hset",
+        "description": "Set a field in a hash stored at key with an optional expiration time."
+      },
+      {
+        "name": "info",
+        "description": "Get Redis server information and statistics."
+      },
+      {
+        "name": "json_del",
+        "description": "Delete a JSON value from Redis at a given path."
+      },
+      {
+        "name": "json_get",
+        "description": "Retrieve a JSON value from Redis at a given path."
+      },
+      {
+        "name": "json_set",
+        "description": "Set a JSON value in Redis at a given path with an optional expiration time."
+      },
+      {
+        "name": "llen",
+        "description": "Get the length of a Redis list."
+      },
+      {
+        "name": "lpop",
+        "description": "Remove and return the first element from a Redis list."
+      },
+      {
+        "name": "lpush",
+        "description": "Push a value onto the left of a Redis list and optionally set an expiration time."
+      },
+      {
+        "name": "lrange",
+        "description": "Get elements from a Redis list within a specific range. Returns: str: A JSON string containing the list of elements or an error message."
+      },
+      {
+        "name": "publish",
+        "description": "Publish a message to a Redis channel."
+      },
+      {
+        "name": "rename",
+        "description": "Renames a Redis key from old_key to new_key."
+      },
+      {
+        "name": "rpop",
+        "description": "Remove and return the last element from a Redis list."
+      },
+      {
+        "name": "rpush",
+        "description": "Push a value onto the right of a Redis list and optionally set an expiration time."
+      },
+      {
+        "name": "sadd",
+        "description": "Add a value to a Redis set with an optional expiration time."
+      },
+      {
+        "name": "scan_all_keys",
+        "description": "Scan and return ALL keys matching a pattern using multiple SCAN iterations. This function automatically handles the SCAN cursor iteration to collect all matching keys. It's safer than KEYS * for large databases but will still collect all results in memory. ⚠️ WARNING: With very large datasets (millions of keys), this may consume significant memory. For large-scale operations, consider using scan_keys() with manual iteration instead."
+      },
+      {
+        "name": "scan_keys",
+        "description": "Scan keys in the Redis database using the SCAN command (non-blocking, production-safe). ⚠️ IMPORTANT: This returns PARTIAL results from one iteration. Use scan_all_keys() to get ALL matching keys, or call this function multiple times with the returned cursor until cursor becomes 0. The SCAN command iterates through the keyspace in small chunks, making it safe to use on large databases without blocking other operations."
+      },
+      {
+        "name": "set",
+        "description": "Set a Redis string value with an optional expiration time."
+      },
+      {
+        "name": "set_vector_in_hash",
+        "description": "Store a vector as a field in a Redis hash."
+      },
+      {
+        "name": "smembers",
+        "description": "Get all members of a Redis set."
+      },
+      {
+        "name": "srem",
+        "description": "Remove a value from a Redis set."
+      },
+      {
+        "name": "subscribe",
+        "description": "Subscribe to a Redis channel."
+      },
+      {
+        "name": "type",
+        "description": "Returns the string representation of the type of the value stored at key"
+      },
+      {
+        "name": "unsubscribe",
+        "description": "Unsubscribe from a Redis channel."
+      },
+      {
+        "name": "vector_search_hash",
+        "description": "Perform a KNN vector similarity search using Redis 8 or later version on vectors stored in hash data structures."
+      },
+      {
+        "name": "xadd",
+        "description": "Add an entry to a Redis stream with an optional expiration time."
+      },
+      {
+        "name": "xdel",
+        "description": "Delete an entry from a Redis stream."
+      },
+      {
+        "name": "xrange",
+        "description": "Read entries from a Redis stream."
+      },
+      {
+        "name": "zadd",
+        "description": "Add a member to a Redis sorted set with an optional expiration time."
+      },
+      {
+        "name": "zrange",
+        "description": "Retrieve a range of members from a Redis sorted set."
+      },
+      {
+        "name": "zrem",
+        "description": "Remove a member from a Redis sorted set."
+      }
     ],
     "transports": ["stdio"]
   }
