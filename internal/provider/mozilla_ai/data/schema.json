@@ -241,7 +241,23 @@
         "description",
         "type"
       ],
-      "additionalProperties": false
+      "additionalProperties": false,
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "const": "argument_positional"
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "position"
+            ]
+          }
+        }
+      ]
     },
     "Repository": {
       "type": "object",
