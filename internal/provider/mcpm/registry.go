@@ -83,11 +83,11 @@ func NewRegistry(logger hclog.Logger, url string, opt ...runtime.Option) (*Regis
 }
 
 // registrySupportedRuntimes declares the runtimes that this registry supports.
+// Docker runtime is excluded because MCPM packages don't provide rich enough Docker image metadata for volumes.
 func registrySupportedRuntimes() []runtime.Runtime {
 	return []runtime.Runtime{
 		runtime.NPX,
 		runtime.UVX,
-		runtime.Docker,
 	}
 }
 

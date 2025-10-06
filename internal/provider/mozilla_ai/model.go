@@ -11,6 +11,7 @@ const (
 	ArgumentValue      ArgumentType = "argument"
 	ArgumentBool       ArgumentType = "argument_bool"
 	ArgumentPositional ArgumentType = "argument_positional"
+	ArgumentVolume     ArgumentType = "volume"
 )
 
 const (
@@ -150,6 +151,14 @@ type Argument struct {
 	// Position specifies the position for positional arguments (1-based index).
 	// Only relevant when Type is ArgumentPositional.
 	Position *int `json:"position,omitempty"`
+
+	// Path is the container mount path for volumes.
+	// Only relevant when Type is ArgumentVolume.
+	Path string `json:"path,omitempty"`
+
+	// From is the host path or named volume for volumes.
+	// Only relevant when Type is ArgumentVolume.
+	From string `json:"from,omitempty"`
 }
 
 // Repository represents a source code repository with version verification.
