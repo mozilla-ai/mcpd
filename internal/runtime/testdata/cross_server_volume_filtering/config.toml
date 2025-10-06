@@ -1,0 +1,25 @@
+[[servers]]
+  name = "filesystem-server"
+  package = "docker::filesystem-mcp@1.0.0"
+  tools = ["read_file", "write_file"]
+
+  [servers.volumes]
+    [servers.volumes.workspace]
+      path = "/workspace"
+      required = true
+    [servers.volumes.logs]
+      path = "/logs"
+      required = false
+
+[[servers]]
+  name = "database-server"
+  package = "docker::database-mcp@1.0.0"
+  tools = ["query", "backup"]
+
+  [servers.volumes]
+    [servers.volumes.data]
+      path = "/data"
+      required = true
+    [servers.volumes.backups]
+      path = "/backups"
+      required = false

@@ -1118,3 +1118,124 @@ func TestDaemon_DockerRuntimeSupport(t *testing.T) {
 	// Verify Docker is in the daemon's supported runtimes
 	require.Contains(t, daemon.supportedRuntimes, runtime.Docker, "Daemon should support Docker runtime")
 }
+
+func TestDaemon_DockerVolumeArguments(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name                string
+		volumes             map[string]config.VolumeEntry
+		volumeContext       map[string]string
+		expectedVolumeFlags []string
+	}{
+		{
+			name:                "no volumes",
+			volumes:             map[string]config.VolumeEntry{},
+			volumeContext:       map[string]string{},
+			expectedVolumeFlags: []string{},
+		},
+		{
+			name: "single required volume",
+			volumes: map[string]config.VolumeEntry{
+				"workspace": {
+					Path:     "/workspace",
+					Required: true,
+				},
+			},
+			volumeContext: map[string]string{
+				"workspace": "/Users/foo/repos/mcpd",
+			},
+			expectedVolumeFlags: []string{
+				"--volume", "/Users/foo/repos/mcpd:/workspace",
+			},
+		},
+		{
+			name: "multiple volumes",
+			volumes: map[string]config.VolumeEntry{
+				"workspace": {
+					Path:     "/workspace",
+					Required: true,
+				},
+				"kubeconfig": {
+					Path:     "/home/nonroot/.kube/config",
+					Required: true,
+				},
+			},
+			volumeContext: map[string]string{
+				"workspace":  "/Users/foo/repos",
+				"kubeconfig": "~/.kube/config",
+			},
+			expectedVolumeFlags: []string{
+				"--volume", "/Users/foo/repos:/workspace",
+				"--volume", "~/.kube/config:/home/nonroot/.kube/config",
+			},
+		},
+		{
+			name: "named docker volume",
+			volumes: map[string]config.VolumeEntry{
+				"data": {
+					Path:     "/data",
+					Required: true,
+				},
+			},
+			volumeContext: map[string]string{
+				"data": "mcp-data",
+			},
+			expectedVolumeFlags: []string{
+				"--volume", "mcp-data:/data",
+			},
+		},
+		{
+			name: "optional volume not configured",
+			volumes: map[string]config.VolumeEntry{
+				"workspace": {
+					Path:     "/workspace",
+					Required: true,
+				},
+				"cache": {
+					Path:     "/cache",
+					Required: false,
+				},
+			},
+			volumeContext: map[string]string{
+				"workspace": "/Users/foo/repos",
+			},
+			expectedVolumeFlags: []string{
+				"--volume", "/Users/foo/repos:/workspace",
+			},
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			// Manually construct Volume structs to test the Docker argument formatting.
+			// This simulates what would be produced after AggregateConfigs/computeVolumes.
+			var volumes []runtime.Volume
+			for name, entry := range tc.volumes {
+				from, exists := tc.volumeContext[name]
+				// Skip optional volumes without runtime configuration.
+				if !entry.Required && !exists {
+					continue
+				}
+				volumes = append(volumes, runtime.Volume{
+					Name:        name,
+					VolumeEntry: entry,
+					From:        from,
+				})
+			}
+
+			// Build actual volume arguments as the daemon would.
+			var actualVolumeFlags []string
+			for _, vol := range volumes {
+				actualVolumeFlags = append(actualVolumeFlags, "--volume", vol.String())
+			}
+
+			// Verify the volume flags match expectations.
+			// Note: We use ElementsMatch instead of Equal because Go map iteration order is not guaranteed.
+			require.ElementsMatch(t, tc.expectedVolumeFlags, actualVolumeFlags,
+				"Docker volume flags should match expected format")
+		})
+	}
+}
