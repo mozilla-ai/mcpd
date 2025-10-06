@@ -83,6 +83,7 @@ type DefaultLoader struct{}
 type Config struct {
 	Servers        []ServerEntry `toml:"servers"`
 	Daemon         *DaemonConfig `toml:"daemon,omitempty"`
+	Plugins        *PluginConfig `toml:"plugins,omitempty"`
 	configFilePath string        `toml:"-"`
 }
 
