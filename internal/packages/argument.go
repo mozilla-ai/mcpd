@@ -20,6 +20,9 @@ const (
 
 	// VariableTypeArgPositional represents a positional command line argument.
 	VariableTypeArgPositional VariableType = "argument_positional"
+
+	// VariableTypeVolume represents a Docker volume mount.
+	VariableTypeVolume VariableType = "volume"
 )
 
 // EnvVarPlaceholderRegex is used to find environment variable placeholders like ${VAR_NAME}.
@@ -37,7 +40,7 @@ type ArgumentMetadata struct {
 	// Name is the reference for the argument.
 	Name string `json:"name"`
 
-	// VariableType represents the type of argument this is (env var, value flag, bool flag, positional arg).
+	// VariableType represents the type of argument this is (env var, value flag, bool flag, positional arg, volume).
 	VariableType VariableType `json:"type"`
 
 	// Description provides a human-readable explanation of the argument's purpose.
@@ -52,6 +55,14 @@ type ArgumentMetadata struct {
 	// Position specifies the position for positional arguments (1-based index).
 	// Only relevant when Type is ArgumentPositional.
 	Position *int `json:"position,omitempty"`
+
+	// Path is the container mount path for volumes.
+	// Only relevant when VariableType is VariableTypeVolume.
+	Path string `json:"path,omitempty"`
+
+	// From is the host path or named volume for volumes.
+	// Only relevant when VariableType is VariableTypeVolume.
+	From string `json:"from,omitempty"`
 }
 
 // FilterBy allows filtering of Arguments using predicates.
@@ -164,4 +175,9 @@ func NonPositionalArgument(s string, data ArgumentMetadata) bool {
 // This means it must be an argument (as opposed to env var) and cannot be a boolean flag.
 func ValueAcceptingArgument(_ string, data ArgumentMetadata) bool {
 	return data.VariableType == VariableTypeArgPositional || data.VariableType == VariableTypeArg
+}
+
+// Volume is a predicate that requires the argument is a container volume mount.
+func Volume(_ string, data ArgumentMetadata) bool {
+	return data.VariableType == VariableTypeVolume
 }
