@@ -332,3 +332,177 @@ func TestServerEntry_PackageName(t *testing.T) {
 		})
 	}
 }
+
+func TestUpsertPlugin_CreatesAndPersists(t *testing.T) {
+	t.Parallel()
+
+	tempFile, err := os.CreateTemp(t.TempDir(), ".mcpd.toml")
+	require.NoError(t, err)
+
+	cfg := &Config{
+		Servers:        []ServerEntry{{Name: "test", Package: "x::test@latest"}},
+		configFilePath: tempFile.Name(),
+	}
+
+	entry := PluginEntry{
+		Name:       "jwt-auth",
+		CommitHash: testStringPtr(t, "abc123"),
+		Required:   testBoolPtr(t, true),
+		Flows:      []Flow{FlowRequest, FlowResponse},
+	}
+
+	result, err := cfg.UpsertPlugin(CategoryAuthentication, entry)
+	require.NoError(t, err)
+	require.Equal(t, "created", string(result))
+
+	// Verify saved to disk.
+	var loaded Config
+	_, err = toml.DecodeFile(tempFile.Name(), &loaded)
+	require.NoError(t, err)
+
+	require.NotNil(t, loaded.Plugins)
+	require.Len(t, loaded.Plugins.Authentication, 1)
+	require.Equal(t, "jwt-auth", loaded.Plugins.Authentication[0].Name)
+	require.Equal(t, "abc123", *loaded.Plugins.Authentication[0].CommitHash)
+	require.True(t, *loaded.Plugins.Authentication[0].Required)
+	require.Equal(t, []Flow{FlowRequest, FlowResponse}, loaded.Plugins.Authentication[0].Flows)
+}
+
+func TestUpsertPlugin_UpdatesExisting(t *testing.T) {
+	t.Parallel()
+
+	tempFile, err := os.CreateTemp(t.TempDir(), ".mcpd.toml")
+	require.NoError(t, err)
+
+	cfg := &Config{
+		Servers: []ServerEntry{{Name: "test", Package: "x::test@latest"}},
+		Plugins: &PluginConfig{
+			Authentication: []PluginEntry{
+				{Name: "jwt-auth", Flows: []Flow{FlowRequest}},
+			},
+		},
+		configFilePath: tempFile.Name(),
+	}
+
+	// Save initial state.
+	require.NoError(t, cfg.saveConfig())
+
+	// Update plugin.
+	entry := PluginEntry{
+		Name:  "jwt-auth",
+		Flows: []Flow{FlowRequest, FlowResponse},
+	}
+
+	result, err := cfg.UpsertPlugin(CategoryAuthentication, entry)
+	require.NoError(t, err)
+	require.Equal(t, "updated", string(result))
+
+	// Verify saved to disk.
+	var loaded Config
+	_, err = toml.DecodeFile(tempFile.Name(), &loaded)
+	require.NoError(t, err)
+
+	require.Len(t, loaded.Plugins.Authentication, 1)
+	require.Equal(t, []Flow{FlowRequest, FlowResponse}, loaded.Plugins.Authentication[0].Flows)
+}
+
+func TestDeletePlugin_RemovesAndPersists(t *testing.T) {
+	t.Parallel()
+
+	tempFile, err := os.CreateTemp(t.TempDir(), ".mcpd.toml")
+	require.NoError(t, err)
+
+	cfg := &Config{
+		Servers: []ServerEntry{{Name: "test", Package: "x::test@latest"}},
+		Plugins: &PluginConfig{
+			Authentication: []PluginEntry{
+				{Name: "jwt-auth", Flows: []Flow{FlowRequest}},
+				{Name: "oauth2", Flows: []Flow{FlowRequest}},
+			},
+		},
+		configFilePath: tempFile.Name(),
+	}
+
+	require.NoError(t, cfg.saveConfig())
+
+	result, err := cfg.DeletePlugin(CategoryAuthentication, "jwt-auth")
+	require.NoError(t, err)
+	require.Equal(t, "deleted", string(result))
+
+	// Verify saved to disk.
+	var loaded Config
+	_, err = toml.DecodeFile(tempFile.Name(), &loaded)
+	require.NoError(t, err)
+
+	require.Len(t, loaded.Plugins.Authentication, 1)
+	require.Equal(t, "oauth2", loaded.Plugins.Authentication[0].Name)
+}
+
+func TestLoad_ValidConfigWithPlugins(t *testing.T) {
+	t.Parallel()
+
+	tempFile, err := os.CreateTemp(t.TempDir(), ".mcpd.toml")
+	require.NoError(t, err)
+
+	content := `[[servers]]
+name = "test"
+package = "x::test@latest"
+
+[[plugins.authentication]]
+name = "jwt-auth"
+commit_hash = "abc123"
+required = true
+flows = ["request", "response"]
+
+[[plugins.observability]]
+name = "metrics"
+flows = ["request"]
+`
+	require.NoError(t, os.WriteFile(tempFile.Name(), []byte(content), 0o644))
+
+	loader := &DefaultLoader{}
+	cfg, err := loader.Load(tempFile.Name())
+	require.NoError(t, err)
+
+	// Verify server loaded.
+	require.Len(t, cfg.ListServers(), 1)
+
+	// Type assert to access plugin methods.
+	pluginCfg, ok := cfg.(*Config)
+	require.True(t, ok, "Config should support plugin operations")
+
+	// Verify plugins loaded.
+	authPlugins := pluginCfg.ListPlugins(CategoryAuthentication)
+	require.Len(t, authPlugins, 1)
+	require.Equal(t, "jwt-auth", authPlugins[0].Name)
+	require.Equal(t, "abc123", *authPlugins[0].CommitHash)
+	require.True(t, *authPlugins[0].Required)
+	require.Equal(t, []Flow{FlowRequest, FlowResponse}, authPlugins[0].Flows)
+
+	obsPlugins := pluginCfg.ListPlugins(CategoryObservability)
+	require.Len(t, obsPlugins, 1)
+	require.Equal(t, "metrics", obsPlugins[0].Name)
+	require.Equal(t, []Flow{FlowRequest}, obsPlugins[0].Flows)
+}
+
+func TestLoad_InvalidPluginConfigFails(t *testing.T) {
+	t.Parallel()
+
+	tempFile, err := os.CreateTemp(t.TempDir(), ".mcpd.toml")
+	require.NoError(t, err)
+
+	content := `[[servers]]
+name = "test"
+package = "x::test@latest"
+
+[[plugins.authentication]]
+name = ""
+flows = ["request"]
+`
+	require.NoError(t, os.WriteFile(tempFile.Name(), []byte(content), 0o644))
+
+	loader := &DefaultLoader{}
+	_, err = loader.Load(tempFile.Name())
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "plugin configuration error")
+}
