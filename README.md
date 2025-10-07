@@ -7,9 +7,11 @@
 
 <div align="center"><b>Run your agents, not your infrastructure.</b></div>
 
-**mcpd** is a tool to declaratively manage [Model Context Protocol](https://modelcontextprotocol.io/overview) (MCP) servers, providing a consistent interface to define and run tools across environments, from local development to containerized cloud deployments.
+`mcpd` is a tool to declaratively manage [Model Context Protocol](https://modelcontextprotocol.io/overview) (MCP) servers, providing a consistent interface to define and run tools across environments, from local development to containerized cloud deployments.
 
 Built by [Mozilla AI](https://mozilla.ai)
+
+📚 [mcpd official docs](https://mozilla-ai.github.io/mcpd/)
 
 ---
 
@@ -26,13 +28,13 @@ The gap between local development and enterprise deployment kills AI initiatives
 `mcpd` solves this with declarative configuration, secure secrets management, and seamless environment promotion - all while keeping the developer experience simple.
 
 
-## Why mcpd?
+## Why `mcpd`?
 
 **Zero-Config Tool Setup**  
 No cloning repos or installing language-specific dependencies. `mcpd add` and `mcpd daemon` handle everything.
 
 **Language-Agnostic Tooling**  
-Use MCP servers written in Python, JavaScript, TypeScript via a unified HTTP API.
+Use MCP servers in Docker containers or written in Python, JavaScript, TypeScript via a unified HTTP API.
 
 **Declarative Configuration**  
 Version-controlled `.mcpd.toml` files define your agent infrastructure. Reproducible, auditable, CI-friendly.
@@ -62,11 +64,11 @@ Same configuration works in development, CI, and cloud environments without modi
 - Smooth dev-to-prod transition via the `mcpd` daemon
 - Rich CLI and SDK tooling, see supported languages below:
 
-
 ## 🚀 Quick Start
 
 ### Prerequisites
 
+- [Docker](https://www.docker.com/products/docker-desktop/)
 - [Go](https://go.dev/doc/install) (only required for development of `mcpd`)
 - [npx](https://docs.npmjs.com/downloading-and-installing-node-js-and-npm)
 - [uvx](https://docs.astral.sh/uv/getting-started/installation/)
@@ -85,7 +87,7 @@ Then install `mcpd`:
 
 ```bash
 brew install mcpd
-````
+```
 
 Or install directly from the cask:
 
@@ -156,7 +158,6 @@ tail -f mcpd.log
 
 API docs will be available at [http://localhost:8090/docs](http://localhost:8090/docs).
 
-
 ## Deploy Anywhere
 
 `mcpd` is runtime-flexible and infrastructure-agnostic:
@@ -165,18 +166,26 @@ API docs will be available at [http://localhost:8090/docs](http://localhost:8090
 - ☁️ Multi-cloud ready (AWS, GCP, Azure, on-prem)
 - ♻️ Low resource overhead via efficient server management
 
+## SDKs
 
-## 📚 Documentation & SDKs
+### `mcpd` SDKs
 
-**Full documentation:** [https://mozilla-ai.github.io/mcpd/](https://mozilla-ai.github.io/mcpd/)
+| Language   | Repository                                                               | Status |
+|------------|--------------------------------------------------------------------------|--------|
+| Python     | [mcpd-sdk-python](https://github.com/mozilla-ai/mcpd-sdk-python)         | ✅      |
+| JavaScript | [mcpd-sdk-javascript](https://github.com/mozilla-ai/mcpd-sdk-javascript) | 🟡     |
 
-**SDKs available:**
 
-| Language   | Repository                                                       | Status |
-|------------|------------------------------------------------------------------|--------|
-| Python     | [mcpd-sdk-python](https://github.com/mozilla-ai/mcpd-sdk-python) | ✅      |
-| JavaScript | _Coming soon_                                                    | 🟡     |
+### `mcpd` plugin SDKs
 
+Plugin SDKs are built using the [mcpd plugin Protocol Buffers specification](https://github.com/mozilla-ai/mcpd-proto).
+
+| Language | Repository                                                                     | Status |
+|----------|--------------------------------------------------------------------------------|--------|
+| Go       | [mcpd-plugin-sdk-go](https://github.com/mozilla-ai/mcpd-plugin-sdk-go)         | ✅      |
+| .NET     | [mcpd-plugin-sdk-dotnet](https://github.com/mozilla-ai/mcpd-plugin-sdk-dotnet) | ✅      |
+
+More on plugins soon!
 
 ## 💻 Development
 
@@ -199,7 +208,6 @@ Run the local documentation site (requires `uv`), dynamically generates command 
 ```bash
 make docs
 ```
-
 
 ---
 
