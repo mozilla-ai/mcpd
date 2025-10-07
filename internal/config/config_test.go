@@ -2,6 +2,7 @@ package config
 
 import (
 	"os"
+	"path/filepath"
 	"testing"
 
 	"github.com/BurntSushi/toml"
@@ -505,4 +506,183 @@ flows = ["request"]
 	_, err = loader.Load(tempFile.Name())
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "plugin configuration error")
+}
+
+func TestLoad_StaticTestdata_BasicPlugins(t *testing.T) {
+	t.Parallel()
+
+	loader := &DefaultLoader{}
+	cfg, err := loader.Load("testdata/basic_plugins.toml")
+	require.NoError(t, err)
+
+	servers := cfg.ListServers()
+	require.Len(t, servers, 1)
+	require.Equal(t, "test-server", servers[0].Name)
+	require.Equal(t, "uvx::test-package@latest", servers[0].Package)
+	require.Equal(t, []string{"test_tool"}, servers[0].Tools)
+
+	pluginCfg, ok := cfg.(*Config)
+	require.True(t, ok)
+
+	authPlugins := pluginCfg.ListPlugins(CategoryAuthentication)
+	require.Len(t, authPlugins, 1)
+	require.Equal(t, "jwt-auth", authPlugins[0].Name)
+	require.NotNil(t, authPlugins[0].CommitHash)
+	require.Equal(t, "abc123", *authPlugins[0].CommitHash)
+	require.NotNil(t, authPlugins[0].Required)
+	require.True(t, *authPlugins[0].Required)
+	require.Equal(t, []Flow{FlowRequest}, authPlugins[0].Flows)
+}
+
+func TestLoad_StaticTestdata_MultiplePlugins(t *testing.T) {
+	t.Parallel()
+
+	loader := &DefaultLoader{}
+	cfg, err := loader.Load("testdata/multiple_plugins.toml")
+	require.NoError(t, err)
+
+	servers := cfg.ListServers()
+	require.Len(t, servers, 1)
+	require.Equal(t, "api-server", servers[0].Name)
+
+	pluginCfg, ok := cfg.(*Config)
+	require.True(t, ok)
+
+	authPlugins := pluginCfg.ListPlugins(CategoryAuthentication)
+	require.Len(t, authPlugins, 2)
+	require.Equal(t, "jwt-auth", authPlugins[0].Name)
+	require.Equal(t, "api-key-auth", authPlugins[1].Name)
+
+	authzPlugins := pluginCfg.ListPlugins(CategoryAuthorization)
+	require.Len(t, authzPlugins, 1)
+	require.Equal(t, "rbac", authzPlugins[0].Name)
+	require.True(t, *authzPlugins[0].Required)
+
+	rateLimitPlugins := pluginCfg.ListPlugins(CategoryRateLimiting)
+	require.Len(t, rateLimitPlugins, 1)
+	require.Equal(t, "token-bucket", rateLimitPlugins[0].Name)
+
+	obsPlugins := pluginCfg.ListPlugins(CategoryObservability)
+	require.Len(t, obsPlugins, 1)
+	require.Equal(t, "metrics", obsPlugins[0].Name)
+	require.Equal(t, []Flow{FlowRequest, FlowResponse}, obsPlugins[0].Flows)
+
+	auditPlugins := pluginCfg.ListPlugins(CategoryAudit)
+	require.Len(t, auditPlugins, 1)
+	require.Equal(t, "compliance-logger", auditPlugins[0].Name)
+	require.Equal(t, []Flow{FlowResponse}, auditPlugins[0].Flows)
+}
+
+func TestLoad_StaticTestdata_MinimalPlugins(t *testing.T) {
+	t.Parallel()
+
+	loader := &DefaultLoader{}
+	cfg, err := loader.Load("testdata/minimal_plugins.toml")
+	require.NoError(t, err)
+
+	servers := cfg.ListServers()
+	require.Len(t, servers, 1)
+	require.Equal(t, "simple-server", servers[0].Name)
+
+	pluginCfg, ok := cfg.(*Config)
+	require.True(t, ok)
+
+	require.Len(t, pluginCfg.ListPlugins(CategoryAuthentication), 0)
+	require.Len(t, pluginCfg.ListPlugins(CategoryAuthorization), 0)
+	require.Len(t, pluginCfg.ListPlugins(CategoryRateLimiting), 0)
+	require.Len(t, pluginCfg.ListPlugins(CategoryValidation), 0)
+	require.Len(t, pluginCfg.ListPlugins(CategoryContent), 0)
+	require.Len(t, pluginCfg.ListPlugins(CategoryObservability), 0)
+	require.Len(t, pluginCfg.ListPlugins(CategoryAudit), 0)
+}
+
+func TestLoad_StaticTestdata_InvalidPlugins(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name          string
+		testdataFile  string
+		expectedError string
+	}{
+		{
+			name:          "empty plugin name",
+			testdataFile:  "testdata/invalid_empty_plugin_name.toml",
+			expectedError: "plugin name is required",
+		},
+		{
+			name:          "no flows",
+			testdataFile:  "testdata/invalid_no_flows.toml",
+			expectedError: "at least one flow is required",
+		},
+		{
+			name:          "invalid flow value",
+			testdataFile:  "testdata/invalid_bad_flow.toml",
+			expectedError: "invalid flow",
+		},
+		{
+			name:          "duplicate flows",
+			testdataFile:  "testdata/invalid_duplicate_flows.toml",
+			expectedError: "duplicate flow",
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			loader := &DefaultLoader{}
+			_, err := loader.Load(tc.testdataFile)
+			require.Error(t, err)
+			require.Contains(t, err.Error(), tc.expectedError)
+		})
+	}
+}
+
+func TestLoadSaveRoundTrip_Plugins(t *testing.T) {
+	t.Parallel()
+
+	tempDir := t.TempDir()
+	tempFile := filepath.Join(tempDir, ".mcpd.toml")
+
+	sourceData, err := os.ReadFile("testdata/multiple_plugins.toml")
+	require.NoError(t, err)
+	require.NoError(t, os.WriteFile(tempFile, sourceData, 0o644))
+
+	loader := &DefaultLoader{}
+	cfg, err := loader.Load(tempFile)
+	require.NoError(t, err)
+
+	config, ok := cfg.(*Config)
+	require.True(t, ok)
+
+	require.NoError(t, config.SaveConfig())
+
+	reloaded, err := loader.Load(tempFile)
+	require.NoError(t, err)
+
+	reloadedConfig, ok := reloaded.(*Config)
+	require.True(t, ok)
+
+	authPlugins := reloadedConfig.ListPlugins(CategoryAuthentication)
+	require.Len(t, authPlugins, 2)
+
+	authzPlugins := reloadedConfig.ListPlugins(CategoryAuthorization)
+	require.Len(t, authzPlugins, 1)
+
+	rateLimitPlugins := reloadedConfig.ListPlugins(CategoryRateLimiting)
+	require.Len(t, rateLimitPlugins, 1)
+
+	obsPlugins := reloadedConfig.ListPlugins(CategoryObservability)
+	require.Len(t, obsPlugins, 1)
+
+	auditPlugins := reloadedConfig.ListPlugins(CategoryAudit)
+	require.Len(t, auditPlugins, 1)
+
+	require.Equal(t, "jwt-auth", authPlugins[0].Name)
+	require.NotNil(t, authPlugins[0].CommitHash)
+	require.Equal(t, "abc123", *authPlugins[0].CommitHash)
+	require.True(t, *authPlugins[0].Required)
+
+	require.Equal(t, "metrics", obsPlugins[0].Name)
+	require.Equal(t, []Flow{FlowRequest, FlowResponse}, obsPlugins[0].Flows)
 }
