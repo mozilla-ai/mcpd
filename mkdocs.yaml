@@ -47,6 +47,7 @@ nav:
   - Tutorial: tutorial.md
   - Configuration: configuration.md
   - Daemon Configuration: daemon-configuration.md
+  - Plugin Configuration: plugin-configuration.md
   - Execution Context: execution-context.md
   - Registry Caching: caching.md
   - Makefile: makefile.md
