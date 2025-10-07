@@ -1,4 +1,4 @@
-.PHONY: build build-dev build-linux build-linux-arm64 clean docs docs-cli docs-local docs-nav install local-down local-up test uninstall validate-registry
+.PHONY: build build-dev build-linux build-linux-arm64 clean docs docs-cli docs-local docs-nav install lint local-down local-up test uninstall validate-registry
 
 MODULE_PATH := github.com/mozilla-ai/mcpd/v2
 
@@ -29,7 +29,10 @@ LDFLAGS := -s -w -X '$(MODULE_PATH)/internal/cmd.version=$(VERSION)' \
 # Build flags for optimization
 BUILDFLAGS := -trimpath
 
-test:
+lint:
+	golangci-lint run --fix -v
+
+test: lint
 	go test ./...
 
 validate-registry:
@@ -38,7 +41,7 @@ validate-registry:
 		internal/provider/mozilla_ai/data/schema.json \
 		internal/provider/mozilla_ai/data/registry.json
 
-build:
+build: lint
 	@echo "building mcpd (version: $(VERSION), commit: $(COMMIT))..."
 	@go build $(BUILDFLAGS) -o mcpd -ldflags="$(LDFLAGS)" .
 
