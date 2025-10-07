@@ -1,0 +1,4 @@
+[[servers]]
+name = "simple-server"
+package = "uvx::simple@latest"
+tools = ["tool1"]

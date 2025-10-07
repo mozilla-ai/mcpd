@@ -1,0 +1,32 @@
+[[servers]]
+name = "api-server"
+package = "uvx::api-server@1.0.0"
+tools = ["create", "read", "update", "delete"]
+
+[[plugins.authentication]]
+name = "jwt-auth"
+commit_hash = "abc123"
+required = true
+flows = ["request"]
+
+[[plugins.authentication]]
+name = "api-key-auth"
+flows = ["request", "response"]
+
+[[plugins.authorization]]
+name = "rbac"
+required = true
+flows = ["request"]
+
+[[plugins.rate_limiting]]
+name = "token-bucket"
+flows = ["request"]
+
+[[plugins.observability]]
+name = "metrics"
+flows = ["request", "response"]
+
+[[plugins.audit]]
+name = "compliance-logger"
+required = true
+flows = ["response"]
