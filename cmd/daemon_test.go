@@ -4,7 +4,10 @@ import (
 	"bytes"
 	"fmt"
 	"io"
+	"math/rand"
 	"os"
+	"sync"
+	"sync/atomic"
 	"syscall"
 	"testing"
 	"time"
@@ -1767,33 +1770,26 @@ func TestDaemon_DaemonCmd_HandleSignals(t *testing.T) {
 		return daemonCmd
 	}
 
-	createLogger := func() hclog.Logger {
-		return hclog.New(&hclog.LoggerOptions{
-			Name:   "test",
-			Level:  hclog.Off,
-			Output: io.Discard,
-		})
-	}
-
 	t.Run("SIGHUP triggers reload", func(t *testing.T) {
 		t.Parallel()
 
 		daemonCmd := createDaemonCmd(t)
-		logger := createLogger()
+		logger := hclog.NewNullLogger()
 
 		sigChan := make(chan os.Signal, 1)
-		reloadChan := make(chan struct{}, 1)
+		state, cancel := newReloadState()
+		t.Cleanup(cancel)
 		shutdownCancel := func() {}
 
 		// Start handleSignals in goroutine.
-		go daemonCmd.handleSignals(logger, sigChan, reloadChan, shutdownCancel)
+		go daemonCmd.handleSignals(logger, sigChan, state, shutdownCancel)
 
 		// Send SIGHUP.
 		sigChan <- syscall.SIGHUP
 
 		// Verify reload signal received.
 		select {
-		case <-reloadChan:
+		case <-state.reloadChan:
 			// Expected
 		case <-time.After(100 * time.Millisecond):
 			t.Fatal("Expected reload signal not received")
@@ -1802,33 +1798,47 @@ func TestDaemon_DaemonCmd_HandleSignals(t *testing.T) {
 		close(sigChan)
 	})
 
-	t.Run("duplicate SIGHUP signals are handled gracefully", func(t *testing.T) {
+	t.Run("SIGHUP during reload is dropped", func(t *testing.T) {
 		t.Parallel()
 
 		daemonCmd := createDaemonCmd(t)
-		logger := createLogger()
+		logger := hclog.NewNullLogger()
 
-		sigChan := make(chan os.Signal, 2)
-		reloadChan := make(chan struct{}) // No buffer - will block second send
+		sigChan := make(chan os.Signal, 3)
+		state, cancel := newReloadState()
+		t.Cleanup(cancel)
 		shutdownCancel := func() {}
 
-		// Start handleSignals in goroutine.
-		go daemonCmd.handleSignals(logger, sigChan, reloadChan, shutdownCancel)
-
-		// Send two SIGHUP signals quickly.
-		sigChan <- syscall.SIGHUP
-		sigChan <- syscall.SIGHUP
-
-		// Verify first reload signal received.
-		select {
-		case <-reloadChan:
-			// Expected - first signal processed
-		case <-time.After(200 * time.Millisecond):
-			t.Fatal("Expected first reload signal not received")
+		// Track reloads executed with atomic counter.
+		var reloadCount atomic.Int32
+		reloadFn := func() {
+			reloadCount.Add(1)
+			// Simulate a long reload.
+			time.Sleep(200 * time.Millisecond)
 		}
 
-		// Second signal should be dropped (non-blocking send).
-		// We can't directly verify the drop, but the function should not hang.
+		// Emulate the behavior of the real reload loop using the state from handleSignals.
+		go func() {
+			for range state.reloadChan {
+				reloadFn()
+				state.reloading.Store(false)
+			}
+		}()
+
+		go daemonCmd.handleSignals(logger, sigChan, state, shutdownCancel)
+
+		// Send two SIGHUPs quickly and wait for reload loop to process.
+		sigChan <- syscall.SIGHUP
+		sigChan <- syscall.SIGHUP
+		time.Sleep(500 * time.Millisecond)
+
+		require.Equal(t, int32(1), reloadCount.Load(), "only one reload should run while busy")
+
+		// Send another SIGHUP after previous reload finished.
+		sigChan <- syscall.SIGHUP
+		time.Sleep(250 * time.Millisecond)
+
+		require.Equal(t, int32(2), reloadCount.Load(), "second reload should run after first finishes")
 
 		close(sigChan)
 	})
@@ -1837,17 +1847,18 @@ func TestDaemon_DaemonCmd_HandleSignals(t *testing.T) {
 		t.Parallel()
 
 		daemonCmd := createDaemonCmd(t)
-		logger := createLogger()
+		logger := hclog.NewNullLogger()
 
 		sigChan := make(chan os.Signal, 1)
-		reloadChan := make(chan struct{}, 1)
+		state, cancel := newReloadState()
+		t.Cleanup(cancel)
 		shutdownCalled := false
 		shutdownCancel := func() { shutdownCalled = true }
 
 		// Start handleSignals in goroutine.
 		done := make(chan struct{})
 		go func() {
-			daemonCmd.handleSignals(logger, sigChan, reloadChan, shutdownCancel)
+			daemonCmd.handleSignals(logger, sigChan, state, shutdownCancel)
 			close(done)
 		}()
 
@@ -1867,17 +1878,18 @@ func TestDaemon_DaemonCmd_HandleSignals(t *testing.T) {
 		t.Parallel()
 
 		daemonCmd := createDaemonCmd(t)
-		logger := createLogger()
+		logger := hclog.NewNullLogger()
 
 		sigChan := make(chan os.Signal, 1)
-		reloadChan := make(chan struct{}, 1)
+		state, cancel := newReloadState()
+		t.Cleanup(cancel)
 		shutdownCalled := false
 		shutdownCancel := func() { shutdownCalled = true }
 
 		// Start handleSignals in goroutine.
 		done := make(chan struct{})
 		go func() {
-			daemonCmd.handleSignals(logger, sigChan, reloadChan, shutdownCancel)
+			daemonCmd.handleSignals(logger, sigChan, state, shutdownCancel)
 			close(done)
 		}()
 
@@ -1897,17 +1909,18 @@ func TestDaemon_DaemonCmd_HandleSignals(t *testing.T) {
 		t.Parallel()
 
 		daemonCmd := createDaemonCmd(t)
-		logger := createLogger()
+		logger := hclog.NewNullLogger()
 
 		sigChan := make(chan os.Signal, 1)
-		reloadChan := make(chan struct{}, 1)
+		state, cancel := newReloadState()
+		t.Cleanup(cancel)
 		shutdownCalled := false
 		shutdownCancel := func() { shutdownCalled = true }
 
 		// Start handleSignals in goroutine.
 		done := make(chan struct{})
 		go func() {
-			daemonCmd.handleSignals(logger, sigChan, reloadChan, shutdownCancel)
+			daemonCmd.handleSignals(logger, sigChan, state, shutdownCancel)
 			close(done)
 		}()
 
@@ -1927,17 +1940,18 @@ func TestDaemon_DaemonCmd_HandleSignals(t *testing.T) {
 		t.Parallel()
 
 		daemonCmd := createDaemonCmd(t)
-		logger := createLogger()
+		logger := hclog.NewNullLogger()
 
 		sigChan := make(chan os.Signal)
-		reloadChan := make(chan struct{}, 1)
+		state, cancel := newReloadState()
+		t.Cleanup(cancel)
 		shutdownCalled := false
 		shutdownCancel := func() { shutdownCalled = true }
 
 		// Start handleSignals in goroutine.
 		done := make(chan struct{})
 		go func() {
-			daemonCmd.handleSignals(logger, sigChan, reloadChan, shutdownCancel)
+			daemonCmd.handleSignals(logger, sigChan, state, shutdownCancel)
 			close(done)
 		}()
 
@@ -1950,6 +1964,311 @@ func TestDaemon_DaemonCmd_HandleSignals(t *testing.T) {
 			assert.False(t, shutdownCalled, "shutdown should not be called on channel closure")
 		case <-time.After(100 * time.Millisecond):
 			t.Fatal("handleSignals should return after channel closure")
+		}
+	})
+}
+
+// TestDaemon_ReloadFlagManagement tests the proper management of the reload flag
+// between handleSignals and the main reload loop.
+func TestDaemon_ReloadFlagManagement(t *testing.T) {
+	t.Parallel()
+
+	t.Run("reload flag properly reset after successful reload", func(t *testing.T) {
+		t.Parallel()
+
+		state, cancel := newReloadState()
+		t.Cleanup(cancel)
+
+		// Simulate handleSignals setting the flag and sending to channel
+		require.True(t, state.reloading.CompareAndSwap(false, true), "should set flag")
+		state.reloadChan <- struct{}{}
+
+		// Simulate main loop processing
+		select {
+		case <-state.reloadChan:
+			// Main loop would call reloadServers here
+			// Then reset the flag
+			state.reloading.Store(false)
+		case <-time.After(100 * time.Millisecond):
+			t.Fatal("should receive from reload channel")
+		}
+
+		// Verify flag is reset
+		require.False(t, state.reloading.Load(), "flag should be reset after reload")
+
+		// Verify another reload can proceed
+		require.True(t, state.reloading.CompareAndSwap(false, true), "should allow new reload")
+	})
+
+	t.Run("reload flag coordination between handleSignals and main loop", func(t *testing.T) {
+		t.Parallel()
+
+		daemonCmd := &DaemonCmd{
+			BaseCmd: &cmd.BaseCmd{},
+		}
+		logger := hclog.NewNullLogger()
+
+		sigChan := make(chan os.Signal, 1)
+		state, cancel := newReloadState()
+		t.Cleanup(cancel)
+
+		var reloadCount atomic.Int32
+
+		// Simulate the main reload loop behavior (as it actually works in daemon.go)
+		go func() {
+			for range state.reloadChan {
+				// Main loop doesn't check/set the flag, just processes
+				reloadCount.Add(1)
+				time.Sleep(100 * time.Millisecond) // Simulate reload work
+
+				// Main loop resets the flag after reload
+				state.reloading.Store(false)
+			}
+		}()
+
+		// Start signal handler
+		go daemonCmd.handleSignals(logger, sigChan, state, func() {})
+
+		// First SIGHUP should trigger reload
+		sigChan <- syscall.SIGHUP
+		time.Sleep(50 * time.Millisecond)
+
+		// Second SIGHUP during reload should be dropped
+		sigChan <- syscall.SIGHUP
+		time.Sleep(100 * time.Millisecond)
+
+		require.Equal(t, int32(1), reloadCount.Load(), "only one reload should run")
+
+		// After reload completes, next SIGHUP should work
+		sigChan <- syscall.SIGHUP
+		time.Sleep(150 * time.Millisecond)
+
+		require.Equal(t, int32(2), reloadCount.Load(), "second reload should run after first completes")
+
+		close(sigChan)
+	})
+
+	t.Run("multiple rapid SIGHUPs handled correctly", func(t *testing.T) {
+		t.Parallel()
+
+		daemonCmd := &DaemonCmd{
+			BaseCmd: &cmd.BaseCmd{},
+		}
+		logger := hclog.NewNullLogger()
+
+		sigChan := make(chan os.Signal, 10)
+		state, cancel := newReloadState()
+		t.Cleanup(cancel)
+
+		var reloadStarted atomic.Bool
+		var reloadCount atomic.Int32
+
+		// Simulate main loop with slow reload
+		go func() {
+			for range state.reloadChan {
+				reloadStarted.Store(true)
+				reloadCount.Add(1)
+				time.Sleep(200 * time.Millisecond) // Long reload
+				state.reloading.Store(false)
+			}
+		}()
+
+		go daemonCmd.handleSignals(logger, sigChan, state, func() {})
+
+		// Send many SIGHUPs rapidly
+		for i := 0; i < 5; i++ {
+			sigChan <- syscall.SIGHUP
+		}
+
+		// Wait for first reload to start
+		for i := 0; i < 50; i++ {
+			if reloadStarted.Load() {
+				break
+			}
+			time.Sleep(10 * time.Millisecond)
+		}
+		require.True(t, reloadStarted.Load(), "reload should start")
+
+		// During the reload, flag should be true
+		require.True(t, state.reloading.Load(), "flag should be set during reload")
+
+		// Wait for reload to complete
+		time.Sleep(250 * time.Millisecond)
+
+		// Should only have processed one reload despite multiple signals
+		require.Equal(t, int32(1), reloadCount.Load(), "only one reload should run despite multiple signals")
+		require.False(t, state.reloading.Load(), "flag should be reset after reload")
+
+		close(sigChan)
+	})
+
+	t.Run("concurrent SIGHUP signals stress test", func(t *testing.T) {
+		t.Parallel()
+
+		daemonCmd := &DaemonCmd{
+			BaseCmd: &cmd.BaseCmd{},
+		}
+		logger := hclog.NewNullLogger()
+
+		sigChan := make(chan os.Signal, 100)
+		state, cancel := newReloadState()
+		t.Cleanup(cancel)
+
+		var reloadCount atomic.Int32
+		var maxConcurrent atomic.Int32
+		var currentConcurrent atomic.Int32
+
+		// Track maximum concurrent reloads (should never exceed 1)
+		go func() {
+			for range state.reloadChan {
+				current := currentConcurrent.Add(1)
+
+				// Track max concurrent
+				for {
+					max := maxConcurrent.Load()
+					if current <= max || maxConcurrent.CompareAndSwap(max, current) {
+						break
+					}
+				}
+
+				reloadCount.Add(1)
+				time.Sleep(50 * time.Millisecond) // Simulate reload
+				currentConcurrent.Add(-1)
+				state.reloading.Store(false)
+			}
+		}()
+
+		go daemonCmd.handleSignals(logger, sigChan, state, func() {})
+
+		// Launch concurrent SIGHUP senders
+		var wg sync.WaitGroup
+		for i := 0; i < 10; i++ {
+			wg.Add(1)
+			go func() {
+				defer wg.Done()
+				for j := 0; j < 5; j++ {
+					sigChan <- syscall.SIGHUP
+					time.Sleep(time.Millisecond * time.Duration(rand.Intn(10)))
+				}
+			}()
+		}
+
+		wg.Wait()
+		time.Sleep(500 * time.Millisecond) // Wait for all reloads to complete
+
+		// Verify constraints
+		require.Equal(t, int32(1), maxConcurrent.Load(), "should never have more than 1 reload running concurrently")
+		require.False(t, state.reloading.Load(), "flag should be reset after all reloads")
+		t.Logf("Processed %d reloads from 50 signals", reloadCount.Load())
+
+		close(sigChan)
+	})
+
+	t.Run("shutdown during reload handled gracefully", func(t *testing.T) {
+		t.Parallel()
+
+		daemonCmd := &DaemonCmd{
+			BaseCmd: &cmd.BaseCmd{},
+		}
+		logger := hclog.NewNullLogger()
+
+		sigChan := make(chan os.Signal, 2)
+		state, cancel := newReloadState()
+		t.Cleanup(cancel)
+
+		var shutdownCalled atomic.Bool
+		shutdownCancel := func() {
+			shutdownCalled.Store(true)
+		}
+
+		var reloadStarted atomic.Bool
+		var reloadCompleted atomic.Bool
+
+		// Simulate main loop with slow reload
+		go func() {
+			for range state.reloadChan {
+				reloadStarted.Store(true)
+				time.Sleep(100 * time.Millisecond) // Simulate reload work
+				reloadCompleted.Store(true)
+				state.reloading.Store(false)
+			}
+		}()
+
+		done := make(chan struct{})
+		go func() {
+			daemonCmd.handleSignals(logger, sigChan, state, shutdownCancel)
+			close(done)
+		}()
+
+		// Start a reload
+		sigChan <- syscall.SIGHUP
+
+		// Wait for reload to start
+		for i := 0; i < 50; i++ {
+			if reloadStarted.Load() {
+				break
+			}
+			time.Sleep(10 * time.Millisecond)
+		}
+		require.True(t, reloadStarted.Load(), "reload should start")
+
+		// Send shutdown signal during reload
+		sigChan <- syscall.SIGTERM
+
+		// Verify shutdown was called
+		select {
+		case <-done:
+			// Signal handler should exit
+		case <-time.After(200 * time.Millisecond):
+			t.Fatal("handleSignals should exit after SIGTERM")
+		}
+
+		require.True(t, shutdownCalled.Load(), "shutdown should be called")
+
+		// Note: In production, the main loop would handle shutdown context
+		// and wait for reload to complete before exiting
+	})
+
+	t.Run("reload channel buffer behavior", func(t *testing.T) {
+		t.Parallel()
+
+		state, cancel := newReloadState()
+		t.Cleanup(cancel)
+
+		// Channel has buffer size 1
+		// First signal: sets flag and sends to channel
+		require.True(t, state.reloading.CompareAndSwap(false, true))
+		select {
+		case state.reloadChan <- struct{}{}:
+			// Success
+		default:
+			t.Fatal("first send should succeed")
+		}
+
+		// Second signal while flag is true: should not send
+		require.False(t, state.reloading.CompareAndSwap(false, true), "flag already set")
+
+		// Even if we could send, channel is full
+		select {
+		case state.reloadChan <- struct{}{}:
+			t.Fatal("should not be able to send when channel is full")
+		default:
+			// Expected - channel full
+		}
+
+		// Consume from channel
+		<-state.reloadChan
+
+		// Reset flag (as main loop would)
+		state.reloading.Store(false)
+
+		// Now another signal can proceed
+		require.True(t, state.reloading.CompareAndSwap(false, true))
+		select {
+		case state.reloadChan <- struct{}{}:
+			// Success
+		default:
+			t.Fatal("should be able to send after consuming")
 		}
 	})
 }

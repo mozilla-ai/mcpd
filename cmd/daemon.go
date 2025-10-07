@@ -9,6 +9,7 @@ import (
 	"os/signal"
 	"reflect"
 	"strings"
+	"sync/atomic"
 	"syscall"
 	"time"
 
@@ -151,6 +152,46 @@ type timeoutFlagConfig struct {
 type intervalFlagConfig struct {
 	// healthCheck specifies how often to check MCP server's health.
 	healthCheck string
+}
+
+// reloadState tracks the daemon's configuration reload state.
+//
+// The reloading flag is managed in two places:
+//   - Set to true by handleSignals when SIGHUP is received
+//   - Reset to false by the main reload loop after reload completes
+//
+// This ensures only one reload can be in progress at a time.
+// Additional SIGHUP signals received while reloading is true are dropped with a warning.
+//
+// The reloadChan is a buffered channel (size 1) that queues reload requests.
+// When handleSignals successfully sets the reloading flag, it sends to this channel.
+// The main loop receives from this channel and performs the actual reload operation.
+//
+// Both fields are unexported as this type is only used internally within the daemon command implementation.
+//
+// Use newReloadState to construct a properly initialized reloadState with its cleanup function.
+type reloadState struct {
+	reloading  atomic.Bool
+	reloadChan chan struct{}
+}
+
+// newReloadState creates a new reloadState with a buffered channel.
+// Returns the state and a cleanup function that should be deferred to properly close the reload channel.
+//
+// Example:
+//
+//	state, cleanup := newReloadState()
+//	defer cleanup()
+func newReloadState() (state *reloadState, cancelFunc func()) {
+	state = &reloadState{
+		reloadChan: make(chan struct{}, 1),
+	}
+	cancelFunc = func() {
+		close(state.reloadChan)
+	}
+
+	// Named returns.
+	return
 }
 
 func newDaemonCmd(baseCmd *cmd.BaseCmd, cfgLoader config.Loader, ctxLoader configcontext.Loader) (*DaemonCmd, error) {
@@ -388,8 +429,8 @@ func (c *DaemonCmd) run(cmd *cobra.Command, _ []string) error {
 	defer signal.Stop(sigChan)
 
 	// Create reload channel for SIGHUP handling.
-	reloadChan := make(chan struct{}, 1)
-	defer close(reloadChan) // Ensure channel is closed on function exit
+	state, cancelState := newReloadState()
+	defer cancelState()
 
 	runErr := make(chan error, 1)
 	go func() {
@@ -404,21 +445,22 @@ func (c *DaemonCmd) run(cmd *cobra.Command, _ []string) error {
 	}
 
 	// Start signal handling in background.
-	go c.handleSignals(logger, sigChan, reloadChan, shutdownCancel)
+	go c.handleSignals(logger, sigChan, state, shutdownCancel)
 
 	// Start the daemon's main loop which responds to reloads, shutdowns and startup errors.
 	for {
 		select {
-		case <-reloadChan:
-			logger.Info("Reloading servers...")
+		case <-state.reloadChan:
 			if err := c.reloadServers(shutdownCtx, d); err != nil {
-				logger.Error("Failed to reload servers, exiting to prevent inconsistent state", "error", err)
-				// Signal shutdown to exit cleanly.
-				shutdownCancel()
-				return fmt.Errorf("configuration reload failed with unrecoverable error: %w", err)
+				logger.Error(
+					"Failed to reload servers, exiting to prevent inconsistent state",
+					"error", err,
+				)
+				return fmt.Errorf("configuration reload failed: %w", err)
 			}
 
-			logger.Info("Configuration reloaded successfully")
+			// Mark reloading as complete.
+			state.reloading.Store(false)
 		case <-shutdownCtx.Done():
 			logger.Info("Shutting down daemon...")
 			err := <-runErr // Wait for cleanup and deferred logging
@@ -766,26 +808,32 @@ func (c *DaemonCmd) loadConfigCORS(cors *config.CORSConfigSection, logger hclog.
 // handleSignals processes OS signals for daemon lifecycle management.
 // This function is intended to be called in a dedicated goroutine.
 //
-// SIGHUP signals trigger configuration reloads via reloadChan.
-// Termination signals (SIGTERM, SIGINT, os.Interrupt) trigger graceful shutdown via shutdownCancel.
-// The function runs until a shutdown signal is received or sigChan is closed.
-// Non-blocking sends to reloadChan prevent duplicate reload requests.
+// For SIGHUP signals:
+//  1. Attempts to set the shared reloading flag from false to true
+//  2. If successful, sends to reloadChan for main loop to process
+//  3. If flag already true, logs warning about duplicate reload requests and drops the signal
+//  4. The main loop is responsible for resetting the flag after a reload is complete
+//
+// This coordination ensures only one reload runs at a time while allowing
+// the actual reload work to happen in the main loop with proper context.
 func (c *DaemonCmd) handleSignals(
 	logger hclog.Logger,
 	sigChan <-chan os.Signal,
-	reloadChan chan<- struct{},
+	state *reloadState,
 	shutdownCancel context.CancelFunc,
 ) {
 	for sig := range sigChan {
 		switch sig {
 		case syscall.SIGHUP:
-			logger.Info("Received SIGHUP, triggering config reload")
+			if !state.reloading.CompareAndSwap(false, true) {
+				logger.Warn("SIGHUP: reload already in progress, skipping")
+				continue
+			}
 			select {
-			case reloadChan <- struct{}{}:
-				// Reload signal sent.
+			case state.reloadChan <- struct{}{}:
+				logger.Info("SIGHUP received, triggering reload")
 			default:
-				// Reload already pending, skip.
-				logger.Warn("Config reload already in progress, skipping")
+				logger.Warn("SIGHUP: reload channel full, skipping")
 			}
 		case os.Interrupt, syscall.SIGTERM, syscall.SIGINT:
 			logger.Info("Received shutdown signal", "signal", sig)
