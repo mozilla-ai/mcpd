@@ -2,15 +2,15 @@ package api
 
 import (
 	"context"
+	"errors"
 	"fmt"
-	"strings"
 	"time"
 
 	"github.com/danielgtaylor/huma/v2"
 	"github.com/mark3labs/mcp-go/mcp"
 
 	"github.com/mozilla-ai/mcpd/v2/internal/contracts"
-	"github.com/mozilla-ai/mcpd/v2/internal/errors"
+	errorsint "github.com/mozilla-ai/mcpd/v2/internal/errors"
 )
 
 // DomainPrompt wraps mcp.Prompt for API conversion.
@@ -147,7 +147,7 @@ func handleServerPrompts(
 ) (*PromptsListResponse, error) {
 	mcpClient, clientOk := accessor.Client(name)
 	if !clientOk {
-		return nil, fmt.Errorf("%w: %s", errors.ErrServerNotFound, name)
+		return nil, fmt.Errorf("%w: %s", errorsint.ErrServerNotFound, name)
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
@@ -162,16 +162,13 @@ func handleServerPrompts(
 
 	result, err := mcpClient.ListPrompts(ctx, req)
 	if err != nil {
-		// TODO: This string matching is fragile and should be replaced with proper JSON-RPC error code checking.
-		// Once mcp-go preserves JSON-RPC error codes, use errors.Is(err, mcp.ErrMethodNotFound) instead.
-		// See: https://github.com/mark3labs/mcp-go/issues/593
-		if strings.Contains(err.Error(), methodNotFoundMessage) {
-			return nil, fmt.Errorf("%w: %s", errors.ErrPromptsNotImplemented, name)
+		if errors.Is(err, mcp.ErrMethodNotFound) {
+			return nil, fmt.Errorf("%w: %s", errorsint.ErrPromptsNotImplemented, name)
 		}
-		return nil, fmt.Errorf("%w: %s: %w", errors.ErrPromptListFailed, name, err)
+		return nil, fmt.Errorf("%w: %s: %w", errorsint.ErrPromptListFailed, name, err)
 	}
 	if result == nil {
-		return nil, fmt.Errorf("%w: %s: no result", errors.ErrPromptListFailed, name)
+		return nil, fmt.Errorf("%w: %s: no result", errorsint.ErrPromptListFailed, name)
 	}
 
 	prompts := make([]Prompt, 0, len(result.Prompts))
@@ -201,7 +198,7 @@ func handleServerPromptGenerate(
 ) (*GeneratePromptResponse, error) {
 	mcpClient, clientOk := accessor.Client(serverName)
 	if !clientOk {
-		return nil, fmt.Errorf("%w: %s", errors.ErrServerNotFound, serverName)
+		return nil, fmt.Errorf("%w: %s", errorsint.ErrServerNotFound, serverName)
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
@@ -214,16 +211,13 @@ func handleServerPromptGenerate(
 		},
 	})
 	if err != nil {
-		// TODO: This string matching is fragile and should be replaced with proper JSON-RPC error code checking.
-		// Once mcp-go preserves JSON-RPC error codes, use errors.Is(err, mcp.ErrMethodNotFound) instead.
-		// See: https://github.com/mark3labs/mcp-go/issues/593
-		if strings.Contains(err.Error(), methodNotFoundMessage) {
-			return nil, fmt.Errorf("%w: %s", errors.ErrPromptsNotImplemented, serverName)
+		if errors.Is(err, mcp.ErrMethodNotFound) {
+			return nil, fmt.Errorf("%w: %s", errorsint.ErrPromptsNotImplemented, serverName)
 		}
-		return nil, fmt.Errorf("%w: %s: %s: %w", errors.ErrPromptGenerationFailed, serverName, promptName, err)
+		return nil, fmt.Errorf("%w: %s: %s: %w", errorsint.ErrPromptGenerationFailed, serverName, promptName, err)
 	}
 	if result == nil {
-		return nil, fmt.Errorf("%w: %s: %s: no result", errors.ErrPromptGenerationFailed, serverName, promptName)
+		return nil, fmt.Errorf("%w: %s: %s: no result", errorsint.ErrPromptGenerationFailed, serverName, promptName)
 	}
 
 	messages := make([]PromptMessage, 0, len(result.Messages))

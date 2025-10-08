@@ -171,7 +171,7 @@ func TestAPI_HandleServerPrompts_MethodNotFound(t *testing.T) {
 	t.Parallel()
 
 	mockClient := &mockMCPClient{
-		listPromptsError: errors.New("Method not found"),
+		listPromptsError: mcp.ErrMethodNotFound,
 	}
 
 	accessor := newMockMCPClientAccessor()
@@ -340,7 +340,7 @@ func TestAPI_HandleServerPromptGenerate_MethodNotFound(t *testing.T) {
 	t.Parallel()
 
 	mockClient := &mockMCPClient{
-		getPromptError: errors.New("Method not found"),
+		getPromptError: mcp.ErrMethodNotFound,
 	}
 
 	accessor := newMockMCPClientAccessor()

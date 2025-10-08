@@ -2,15 +2,15 @@ package api
 
 import (
 	"context"
+	"errors"
 	"fmt"
-	"strings"
 	"time"
 
 	"github.com/danielgtaylor/huma/v2"
 	"github.com/mark3labs/mcp-go/mcp"
 
 	"github.com/mozilla-ai/mcpd/v2/internal/contracts"
-	"github.com/mozilla-ai/mcpd/v2/internal/errors"
+	errorsint "github.com/mozilla-ai/mcpd/v2/internal/errors"
 )
 
 // DomainResource wraps mcp.Resource for API conversion.
@@ -171,7 +171,7 @@ func handleServerResources(
 ) (*ResourcesResponse, error) {
 	mcpClient, clientOk := accessor.Client(name)
 	if !clientOk {
-		return nil, fmt.Errorf("%w: %s", errors.ErrServerNotFound, name)
+		return nil, fmt.Errorf("%w: %s", errorsint.ErrServerNotFound, name)
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
@@ -186,16 +186,13 @@ func handleServerResources(
 
 	result, err := mcpClient.ListResources(ctx, req)
 	if err != nil {
-		// TODO: This string matching is fragile and should be replaced with proper JSON-RPC error code checking.
-		// Once mcp-go preserves JSON-RPC error codes, use errors.Is(err, mcp.ErrMethodNotFound) instead.
-		// See: https://github.com/mark3labs/mcp-go/issues/593
-		if strings.Contains(err.Error(), methodNotFoundMessage) {
-			return nil, fmt.Errorf("%w: %s", errors.ErrResourcesNotImplemented, name)
+		if errors.Is(err, mcp.ErrMethodNotFound) {
+			return nil, fmt.Errorf("%w: %s", errorsint.ErrResourcesNotImplemented, name)
 		}
-		return nil, fmt.Errorf("%w: %s: %w", errors.ErrResourceListFailed, name, err)
+		return nil, fmt.Errorf("%w: %s: %w", errorsint.ErrResourceListFailed, name, err)
 	}
 	if result == nil {
-		return nil, fmt.Errorf("%w: %s: no result", errors.ErrResourceListFailed, name)
+		return nil, fmt.Errorf("%w: %s: no result", errorsint.ErrResourceListFailed, name)
 	}
 
 	resources := make([]Resource, 0, len(result.Resources))
@@ -224,7 +221,7 @@ func handleServerResourceTemplates(
 ) (*ResourceTemplatesResponse, error) {
 	mcpClient, clientOk := accessor.Client(name)
 	if !clientOk {
-		return nil, fmt.Errorf("%w: %s", errors.ErrServerNotFound, name)
+		return nil, fmt.Errorf("%w: %s", errorsint.ErrServerNotFound, name)
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
@@ -239,16 +236,13 @@ func handleServerResourceTemplates(
 
 	result, err := mcpClient.ListResourceTemplates(ctx, req)
 	if err != nil {
-		// TODO: This string matching is fragile and should be replaced with proper JSON-RPC error code checking.
-		// Once mcp-go preserves JSON-RPC error codes, use errors.Is(err, mcp.ErrMethodNotFound) instead.
-		// See: https://github.com/mark3labs/mcp-go/issues/593
-		if strings.Contains(err.Error(), methodNotFoundMessage) {
-			return nil, fmt.Errorf("%w: %s", errors.ErrResourcesNotImplemented, name)
+		if errors.Is(err, mcp.ErrMethodNotFound) {
+			return nil, fmt.Errorf("%w: %s", errorsint.ErrResourcesNotImplemented, name)
 		}
-		return nil, fmt.Errorf("%w: %s: %w", errors.ErrResourceTemplateListFailed, name, err)
+		return nil, fmt.Errorf("%w: %s: %w", errorsint.ErrResourceTemplateListFailed, name, err)
 	}
 	if result == nil {
-		return nil, fmt.Errorf("%w: %s: no result", errors.ErrResourceTemplateListFailed, name)
+		return nil, fmt.Errorf("%w: %s: no result", errorsint.ErrResourceTemplateListFailed, name)
 	}
 
 	templates := make([]ResourceTemplate, 0, len(result.ResourceTemplates))
@@ -277,7 +271,7 @@ func handleServerResourceContent(
 ) (*ResourceContentResponse, error) {
 	mcpClient, clientOk := accessor.Client(name)
 	if !clientOk {
-		return nil, fmt.Errorf("%w: %s", errors.ErrServerNotFound, name)
+		return nil, fmt.Errorf("%w: %s", errorsint.ErrServerNotFound, name)
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
@@ -289,16 +283,13 @@ func handleServerResourceContent(
 		},
 	})
 	if err != nil {
-		// TODO: This string matching is fragile and should be replaced with proper JSON-RPC error code checking.
-		// Once mcp-go preserves JSON-RPC error codes, use errors.Is(err, mcp.ErrMethodNotFound) instead.
-		// See: https://github.com/mark3labs/mcp-go/issues/593
-		if strings.Contains(err.Error(), methodNotFoundMessage) {
-			return nil, fmt.Errorf("%w: %s", errors.ErrResourcesNotImplemented, name)
+		if errors.Is(err, mcp.ErrMethodNotFound) {
+			return nil, fmt.Errorf("%w: %s", errorsint.ErrResourcesNotImplemented, name)
 		}
-		return nil, fmt.Errorf("%w: %s: %s: %w", errors.ErrResourceReadFailed, name, uri, err)
+		return nil, fmt.Errorf("%w: %s: %s: %w", errorsint.ErrResourceReadFailed, name, uri, err)
 	}
 	if result == nil {
-		return nil, fmt.Errorf("%w: %s: %s: no result", errors.ErrResourceReadFailed, name, uri)
+		return nil, fmt.Errorf("%w: %s: %s: no result", errorsint.ErrResourceReadFailed, name, uri)
 	}
 
 	contents := make([]ResourceContent, 0, len(result.Contents))

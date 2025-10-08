@@ -2,12 +2,6 @@ package api
 
 import "github.com/mark3labs/mcp-go/mcp"
 
-// methodNotFoundMessage is the error message returned by MCP servers when a method is not implemented.
-// TODO: This string matching is fragile and should be replaced with proper JSON-RPC error code checking.
-// Once mcp-go preserves JSON-RPC error codes, use errors.Is(err, mcp.ErrMethodNotFound) instead.
-// See: https://github.com/mark3labs/mcp-go/issues/593
-const methodNotFoundMessage = "Method not found"
-
 // DomainMeta wraps mcp.Meta for API conversion.
 type DomainMeta mcp.Meta
 
