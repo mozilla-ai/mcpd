@@ -128,6 +128,30 @@ func TestPluginEntry_Equals(t *testing.T) {
 			want: true,
 		},
 		{
+			name: "equal entries - different flow order",
+			entry: PluginEntry{
+				Name:  "test-plugin",
+				Flows: []Flow{FlowRequest, FlowResponse},
+			},
+			other: &PluginEntry{
+				Name:  "test-plugin",
+				Flows: []Flow{FlowResponse, FlowRequest},
+			},
+			want: true,
+		},
+		{
+			name: "equal entries - duplicate flows",
+			entry: PluginEntry{
+				Name:  "test-plugin",
+				Flows: []Flow{FlowRequest, FlowRequest},
+			},
+			other: &PluginEntry{
+				Name:  "test-plugin",
+				Flows: []Flow{FlowRequest},
+			},
+			want: true,
+		},
+		{
 			name: "equal entries with all fields",
 			entry: PluginEntry{
 				Name:       "test-plugin",

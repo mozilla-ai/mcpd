@@ -126,12 +126,18 @@ func (e *PluginEntry) Equals(other *PluginEntry) bool {
 		return false
 	}
 
-	// Compare Flows (order matters for array comparison).
-	if len(e.Flows) != len(other.Flows) {
+	// Compare Flows...
+	currentFlows := e.FlowsDistinct()
+	otherFlows := other.FlowsDistinct()
+
+	// Check maps are the same size.
+	if len(currentFlows) != len(otherFlows) {
 		return false
 	}
-	for i, flow := range e.Flows {
-		if flow != other.Flows[i] {
+
+	// Check they have the same entries.
+	for k := range currentFlows {
+		if _, ok := otherFlows[k]; !ok {
 			return false
 		}
 	}
