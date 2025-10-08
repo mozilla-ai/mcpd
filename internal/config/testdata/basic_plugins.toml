@@ -1,0 +1,10 @@
+[[servers]]
+name = "test-server"
+package = "uvx::test-package@latest"
+tools = ["test_tool"]
+
+[[plugins.authentication]]
+name = "jwt-auth"
+commit_hash = "abc123"
+required = true
+flows = ["request"]

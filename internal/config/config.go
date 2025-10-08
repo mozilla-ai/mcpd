@@ -8,6 +8,7 @@ import (
 
 	"github.com/BurntSushi/toml"
 
+	"github.com/mozilla-ai/mcpd/v2/internal/context"
 	"github.com/mozilla-ai/mcpd/v2/internal/flags"
 	"github.com/mozilla-ai/mcpd/v2/internal/perms"
 )
@@ -128,6 +129,74 @@ func (c *Config) SaveConfig() error {
 	return c.saveConfig()
 }
 
+// Plugin retrieves a plugin by category and name.
+func (c *Config) Plugin(category string, name string) (PluginEntry, bool) {
+	if c.Plugins == nil {
+		return PluginEntry{}, false
+	}
+	return c.Plugins.plugin(category, name)
+}
+
+// UpsertPlugin creates or updates a plugin entry and saves the configuration.
+func (c *Config) UpsertPlugin(category string, entry PluginEntry) (context.UpsertResult, error) {
+	if c.Plugins == nil {
+		c.Plugins = &PluginConfig{}
+	}
+
+	result, err := c.Plugins.upsertPlugin(category, entry)
+	if err != nil {
+		return result, err
+	}
+
+	if result == context.Noop {
+		return result, nil
+	}
+
+	if err := c.validate(); err != nil {
+		return context.Noop, err
+	}
+
+	if err := c.saveConfig(); err != nil {
+		return context.Noop, fmt.Errorf("failed to save updated config: %w", err)
+	}
+
+	return result, nil
+}
+
+// DeletePlugin removes a plugin entry and saves the configuration.
+func (c *Config) DeletePlugin(category string, name string) (context.UpsertResult, error) {
+	if c.Plugins == nil {
+		return context.Noop, fmt.Errorf("no plugins configured")
+	}
+
+	result, err := c.Plugins.deletePlugin(category, name)
+	if err != nil {
+		return result, err
+	}
+
+	if result == context.Noop {
+		return result, err
+	}
+
+	if err := c.validate(); err != nil {
+		return context.Noop, err
+	}
+
+	if err := c.saveConfig(); err != nil {
+		return context.Noop, fmt.Errorf("failed to save updated config: %w", err)
+	}
+
+	return result, nil
+}
+
+// ListPlugins returns all plugins in a category.
+func (c *Config) ListPlugins(category string) []PluginEntry {
+	if c.Plugins == nil {
+		return nil
+	}
+	return c.Plugins.listPlugins(category)
+}
+
 // keyFor generates a temporary version of the ServerEntry to be used as a composite key.
 // It consists of the name of the server and the package without version information.
 func keyFor(entry ServerEntry) serverKey {
@@ -173,7 +242,17 @@ func (c *Config) validate() error {
 		return err
 	}
 
-	// TODO: Add more sub-validation as we add more parts to the config file.
+	if c.Daemon != nil {
+		if err := c.Daemon.Validate(); err != nil {
+			return fmt.Errorf("daemon configuration error: %w", err)
+		}
+	}
+
+	if c.Plugins != nil {
+		if err := c.Plugins.Validate(); err != nil {
+			return fmt.Errorf("plugin configuration error: %w", err)
+		}
+	}
 
 	return nil
 }
