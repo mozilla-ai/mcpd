@@ -1,0 +1,28 @@
+[[servers]]
+  name = "filesystem"
+  package = "docker::mcp/filesystem@latest"
+  tools = ["read_file", "write_file", "list_directory", "create_directory"]
+
+  [servers.volumes.workspace]
+    path = "/workspace"
+    required = true
+
+  [servers.volumes.kubeconfig]
+    path = "/home/nonroot/.kube/config"
+    required = true
+
+  [servers.volumes.gdrive]
+    path = "/gdrive-server"
+    required = false
+
+  [servers.volumes.calendar]
+    path = "/calendar-server"
+    required = false
+
+  [servers.volumes.dist]
+    path = "/app/dist"
+    required = false
+
+  [servers.volumes.app]
+    path = "/app"
+    required = false

@@ -1920,3 +1920,402 @@ func TestServer_SafeArgs_CrossServerFiltering(t *testing.T) {
 		"database-server should NOT have time-server API key",
 	)
 }
+
+// TestServer_SafeVolumes_CrossServerFiltering tests that volume paths containing cross-server
+// references are properly filtered out to maintain security isolation.
+func TestServer_SafeVolumes_CrossServerFiltering(t *testing.T) {
+	testdataDir := filepath.Join("testdata", "cross_server_volume_filtering")
+
+	// Set up environment variables that will be referenced in the config.
+	t.Setenv("MCPD__FILESYSTEM_SERVER__WORKSPACE", "/Users/foo/repos/mcpd")
+	t.Setenv("MCPD__DATABASE_SERVER__DATA_DIR", "/var/lib/postgres/data")
+
+	// Load configs.
+	configLoader := &config.DefaultLoader{}
+	configModifier, err := configLoader.Load(filepath.Join(testdataDir, "config.toml"))
+	require.NoError(t, err)
+
+	contextLoader := &context.DefaultLoader{}
+	contextModifier, err := contextLoader.Load(filepath.Join(testdataDir, "runtime.toml"))
+	require.NoError(t, err)
+
+	// Use AggregateConfigs to properly combine both configs.
+	servers, err := AggregateConfigs(configModifier, contextModifier)
+	require.NoError(t, err)
+
+	// Find servers.
+	serverMap := make(map[string]*Server, len(servers))
+	for i := range servers {
+		serverMap[servers[i].Name()] = &servers[i]
+	}
+
+	filesystemServer := serverMap["filesystem-server"]
+	databaseServer := serverMap["database-server"]
+	require.NotNil(t, filesystemServer, "filesystem-server should exist")
+	require.NotNil(t, databaseServer, "database-server should exist")
+
+	// Test filesystem-server filtering.
+	fsVolumes := filesystemServer.SafeVolumes()
+	fsVolumeMap := make(map[string]Volume)
+	for _, vol := range fsVolumes {
+		fsVolumeMap[vol.Name] = vol
+	}
+
+	// filesystem-server should have its own workspace volume.
+	workspace, ok := fsVolumeMap["workspace"]
+	require.True(t, ok, "filesystem-server should have workspace volume")
+	require.Equal(t, "/Users/foo/repos/mcpd", workspace.From)
+
+	// filesystem-server should NOT have logs volume (contains cross-server reference).
+	_, hasLogs := fsVolumeMap["logs"]
+	require.False(t, hasLogs, "filesystem-server should NOT have logs volume (cross-server reference)")
+
+	// Test database-server filtering.
+	dbVolumes := databaseServer.SafeVolumes()
+	dbVolumeMap := make(map[string]Volume)
+	for _, vol := range dbVolumes {
+		dbVolumeMap[vol.Name] = vol
+	}
+
+	// database-server should have its own data volume.
+	data, ok := dbVolumeMap["data"]
+	require.True(t, ok, "database-server should have data volume")
+	require.Equal(t, "/var/lib/postgres/data", data.From)
+
+	// database-server should NOT have backups volume (contains cross-server reference).
+	_, hasBackups := dbVolumeMap["backups"]
+	require.False(t, hasBackups, "database-server should NOT have backups volume (cross-server reference)")
+}
+
+func TestServer_Volumes_LoadFromTestdata(t *testing.T) {
+	t.Parallel()
+
+	testdataDir := filepath.Join("testdata", "docker_volumes")
+
+	// Load configs.
+	configLoader := &config.DefaultLoader{}
+	configModifier, err := configLoader.Load(filepath.Join(testdataDir, "config.toml"))
+	require.NoError(t, err)
+
+	contextLoader := &context.DefaultLoader{}
+	contextModifier, err := contextLoader.Load(filepath.Join(testdataDir, "runtime.toml"))
+	require.NoError(t, err)
+
+	servers, err := AggregateConfigs(configModifier, contextModifier)
+	require.NoError(t, err)
+
+	// Find the filesystem server.
+	var filesystemServer *Server
+	for i := range servers {
+		if servers[i].Name() == "filesystem" {
+			filesystemServer = &servers[i]
+			break
+		}
+	}
+	require.NotNil(t, filesystemServer, "filesystem server should exist")
+
+	// Get volumes.
+	volumes := filesystemServer.SafeVolumes()
+
+	// Convert to map for easier lookup in tests.
+	volumeMap := make(map[string]Volume)
+	for _, vol := range volumes {
+		volumeMap[vol.Name] = vol
+	}
+
+	// Check that required volumes are present.
+	workspace, ok := volumeMap["workspace"]
+	require.True(t, ok, "workspace volume should be present")
+	require.Equal(t, "workspace", workspace.Name)
+	require.Equal(t, "/workspace", workspace.Path)
+	require.True(t, workspace.Required)
+	require.Equal(t, "/Users/foo/repos/mcpd", workspace.From)
+
+	kubeconfig, ok := volumeMap["kubeconfig"]
+	require.True(t, ok, "kubeconfig volume should be present")
+	require.Equal(t, "kubeconfig", kubeconfig.Name)
+	require.Equal(t, "/home/nonroot/.kube/config", kubeconfig.Path)
+	require.True(t, kubeconfig.Required)
+	require.Equal(t, "~/.kube/config", kubeconfig.From)
+
+	// Check that optional configured volumes are present.
+	gdrive, ok := volumeMap["gdrive"]
+	require.True(t, ok, "gdrive volume should be present")
+	require.Equal(t, "mcp-gdrive", gdrive.From)
+	require.False(t, gdrive.Required)
+
+	// Check that optional unconfigured volumes are NOT present.
+	_, ok = volumeMap["calendar"]
+	require.False(t, ok, "calendar volume should NOT be present (optional and not configured)")
+}
+
+func TestVolume_String(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name     string
+		volume   Volume
+		expected string
+	}{
+		{
+			name: "absolute host path",
+			volume: Volume{
+				Name: "workspace",
+				VolumeEntry: config.VolumeEntry{
+					Path:     "/workspace",
+					Required: true,
+				},
+				From: "/Users/foo/repos/mcpd",
+			},
+			expected: "/Users/foo/repos/mcpd:/workspace",
+		},
+		{
+			name: "named docker volume",
+			volume: Volume{
+				Name: "data",
+				VolumeEntry: config.VolumeEntry{
+					Path:     "/data",
+					Required: true,
+				},
+				From: "mcp-data",
+			},
+			expected: "mcp-data:/data",
+		},
+		{
+			name: "kubeconfig file mount",
+			volume: Volume{
+				Name: "kubeconfig",
+				VolumeEntry: config.VolumeEntry{
+					Path:     "/home/nonroot/.kube/config",
+					Required: false,
+				},
+				From: "~/.kube/config",
+			},
+			expected: "~/.kube/config:/home/nonroot/.kube/config",
+		},
+		{
+			name: "relative path",
+			volume: Volume{
+				Name: "relative",
+				VolumeEntry: config.VolumeEntry{
+					Path:     "/app/config",
+					Required: false,
+				},
+				From: "./config",
+			},
+			expected: "./config:/app/config",
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			result := tc.volume.String()
+			require.Equal(t, tc.expected, result)
+		})
+	}
+}
+
+func TestServer_Volumes(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name            string
+		serverVolumes   config.VolumesEntry
+		contextVolumes  context.VolumeExecutionContext
+		expectedVolumes map[string]Volume
+		wantErr         bool
+		errContains     string
+	}{
+		{
+			name:            "no volumes configured",
+			serverVolumes:   config.VolumesEntry{},
+			contextVolumes:  context.VolumeExecutionContext{},
+			expectedVolumes: map[string]Volume{},
+			wantErr:         false,
+		},
+		{
+			name: "required volume present",
+			serverVolumes: config.VolumesEntry{
+				"workspace": config.VolumeEntry{
+					Path:     "/workspace",
+					Required: true,
+				},
+			},
+			contextVolumes: context.VolumeExecutionContext{
+				"workspace": "/Users/foo/repos",
+			},
+			expectedVolumes: map[string]Volume{
+				"workspace": {
+					Name: "workspace",
+					VolumeEntry: config.VolumeEntry{
+						Path:     "/workspace",
+						Required: true,
+					},
+					From: "/Users/foo/repos",
+				},
+			},
+			wantErr: false,
+		},
+		{
+			name: "required volume missing",
+			serverVolumes: config.VolumesEntry{
+				"kubeconfig": config.VolumeEntry{
+					Path:     "/home/nonroot/.kube/config",
+					Required: true,
+				},
+			},
+			contextVolumes:  context.VolumeExecutionContext{},
+			expectedVolumes: nil,
+			wantErr:         true,
+			errContains:     "required volume 'kubeconfig' not configured",
+		},
+		{
+			name: "optional volume present",
+			serverVolumes: config.VolumesEntry{
+				"gdrive": config.VolumeEntry{
+					Path:     "/gdrive-server",
+					Required: false,
+				},
+			},
+			contextVolumes: context.VolumeExecutionContext{
+				"gdrive": "mcp-gdrive",
+			},
+			expectedVolumes: map[string]Volume{
+				"gdrive": {
+					Name: "gdrive",
+					VolumeEntry: config.VolumeEntry{
+						Path:     "/gdrive-server",
+						Required: false,
+					},
+					From: "mcp-gdrive",
+				},
+			},
+			wantErr: false,
+		},
+		{
+			name: "optional volume not configured - skipped",
+			serverVolumes: config.VolumesEntry{
+				"calendar": config.VolumeEntry{
+					Path:     "/calendar-server",
+					Required: false,
+				},
+			},
+			contextVolumes:  context.VolumeExecutionContext{},
+			expectedVolumes: map[string]Volume{},
+			wantErr:         false,
+		},
+		{
+			name: "mix of required and optional volumes",
+			serverVolumes: config.VolumesEntry{
+				"workspace": config.VolumeEntry{
+					Path:     "/workspace",
+					Required: true,
+				},
+				"kubeconfig": config.VolumeEntry{
+					Path:     "/home/nonroot/.kube/config",
+					Required: true,
+				},
+				"gdrive": config.VolumeEntry{
+					Path:     "/gdrive-server",
+					Required: false,
+				},
+				"calendar": config.VolumeEntry{
+					Path:     "/calendar-server",
+					Required: false,
+				},
+			},
+			contextVolumes: context.VolumeExecutionContext{
+				"workspace":  "/Users/foo/repos",
+				"kubeconfig": "~/.kube/config",
+				"gdrive":     "mcp-gdrive",
+			},
+			expectedVolumes: map[string]Volume{
+				"workspace": {
+					Name: "workspace",
+					VolumeEntry: config.VolumeEntry{
+						Path:     "/workspace",
+						Required: true,
+					},
+					From: "/Users/foo/repos",
+				},
+				"kubeconfig": {
+					Name: "kubeconfig",
+					VolumeEntry: config.VolumeEntry{
+						Path:     "/home/nonroot/.kube/config",
+						Required: true,
+					},
+					From: "~/.kube/config",
+				},
+				"gdrive": {
+					Name: "gdrive",
+					VolumeEntry: config.VolumeEntry{
+						Path:     "/gdrive-server",
+						Required: false,
+					},
+					From: "mcp-gdrive",
+				},
+			},
+			wantErr: false,
+		},
+		{
+			name: "multiple required volumes - one missing",
+			serverVolumes: config.VolumesEntry{
+				"workspace": config.VolumeEntry{
+					Path:     "/workspace",
+					Required: true,
+				},
+				"kubeconfig": config.VolumeEntry{
+					Path:     "/home/nonroot/.kube/config",
+					Required: true,
+				},
+			},
+			contextVolumes: context.VolumeExecutionContext{
+				"workspace": "/Users/foo/repos",
+			},
+			expectedVolumes: nil,
+			wantErr:         true,
+			errContains:     "required volume 'kubeconfig' not configured",
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			server := &Server{
+				ServerEntry: config.ServerEntry{
+					Name:    "filesystem",
+					Volumes: tc.serverVolumes,
+				},
+				ServerExecutionContext: context.ServerExecutionContext{
+					Volumes: tc.contextVolumes,
+				},
+			}
+
+			// Populate volumes field.
+			server.computeVolumes()
+
+			if tc.wantErr {
+				// For error cases, validation should fail.
+				err := server.Validate()
+				require.Error(t, err)
+				if tc.errContains != "" {
+					require.Contains(t, err.Error(), tc.errContains)
+				}
+			} else {
+				// For success cases, get volumes and compare.
+				volumes := server.SafeVolumes()
+
+				// Convert to map for comparison.
+				volumeMap := make(map[string]Volume)
+				for _, vol := range volumes {
+					volumeMap[vol.Name] = vol
+				}
+
+				require.Equal(t, tc.expectedVolumes, volumeMap)
+			}
+		})
+	}
+}

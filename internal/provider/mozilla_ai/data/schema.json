@@ -222,9 +222,10 @@
             "environment",
             "argument",
             "argument_bool",
-            "argument_positional"
+            "argument_positional",
+            "volume"
           ],
-          "description": "Argument type (environment variable, command-line argument, boolean flag, or positional argument)"
+          "description": "Argument type (environment variable, command-line argument, boolean flag, positional argument, or volume)"
         },
         "example": {
           "type": "string",
@@ -234,6 +235,14 @@
           "type": "integer",
           "minimum": 1,
           "description": "Position for positional arguments (1-based index), only relevant when type is 'argument_positional'"
+        },
+        "path": {
+          "type": "string",
+          "description": "Container mount path for volumes, only relevant when type is 'volume'"
+        },
+        "from": {
+          "type": "string",
+          "description": "Host path or named volume for volumes, only relevant when type is 'volume'"
         }
       },
       "required": [
@@ -254,6 +263,20 @@
           "then": {
             "required": [
               "position"
+            ]
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "const": "volume"
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "path"
             ]
           }
         }

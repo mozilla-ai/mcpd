@@ -337,5 +337,7 @@ func (a Argument) ToDomainType() (packages.ArgumentMetadata, error) {
 		VariableType: packages.VariableType(a.Type),
 		Example:      a.Example,
 		Position:     a.Position,
+		Path:         a.Path,
+		From:         a.From,
 	}, nil
 }

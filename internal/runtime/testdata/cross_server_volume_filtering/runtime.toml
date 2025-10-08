@@ -1,0 +1,14 @@
+[servers]
+  [servers.filesystem-server]
+    [servers.filesystem-server.volumes]
+      # This server should only have access to its own workspace
+      workspace = "/Users/foo/repos/mcpd"
+      # This references the database server's data directory - should be filtered out
+      logs = "${MCPD__DATABASE_SERVER__DATA_DIR}/shared-logs"
+
+  [servers.database-server]
+    [servers.database-server.volumes]
+      # This server should have access to its own data directory
+      data = "/var/lib/postgres/data"
+      # This references the filesystem server's workspace - should be filtered out
+      backups = "${MCPD__FILESYSTEM_SERVER__WORKSPACE}/backups"

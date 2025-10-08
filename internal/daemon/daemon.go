@@ -191,8 +191,13 @@ func (d *Daemon) startMCPServer(ctx context.Context, server runtime.Server) erro
 		// Format the Docker package and version
 		packageNameAndVersion := fmt.Sprintf("%s:%s", pkg, ver)
 
-		// Docker requires special handling for environment variables
+		// Docker requires special handling for volumes and environment variables
 		args = []string{"run", "-i", "--rm", "--network", "host"}
+
+		// Add volumes before environment variables.
+		for _, vol := range server.SafeVolumes() {
+			args = append(args, "--volume", vol.String())
+		}
 
 		// Docker supplies the environment variables via args (-e), so
 		// we don't use the server.SafeEnv() as this ensures least privilege.
@@ -256,7 +261,7 @@ func (d *Daemon) startMCPServer(ctx context.Context, server runtime.Server) erro
 	initializeCtx, cancel := context.WithTimeout(ctx, d.clientInitTimeout)
 	defer cancel()
 
-	// 'Initialize'
+	// 'Initialize' the MCP server.
 	initResult, err := stdioClient.Initialize(
 		initializeCtx,
 		mcp.InitializeRequest{
@@ -271,14 +276,10 @@ func (d *Daemon) startMCPServer(ctx context.Context, server runtime.Server) erro
 
 	logger.Info(
 		"Initialized",
-		"package",
-		pkg,
-		"version",
-		ver,
-		"server-name",
-		initResult.ServerInfo.Name,
-		"server-version",
-		initResult.ServerInfo.Version,
+		"package", pkg,
+		"version", ver,
+		"server-name", initResult.ServerInfo.Name,
+		"server-version", initResult.ServerInfo.Version,
 	)
 
 	// Store and track the client.

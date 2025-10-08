@@ -34,12 +34,12 @@ type ExecutionContextConfig struct {
 
 // ServerExecutionContext stores execution context data for an MCP server.
 //
-// The Args and Env fields contain expanded values with environment variables resolved.
+// The Args, Env, and Volumes fields contain expanded values with environment variables resolved.
 // These should not be used directly when starting MCP servers, as they may contain
 // cross-server references that pose security risks.
 //
-// Instead, use the server's SafeArgs() and SafeEnv() methods (in the runtime package)
-// which filter out cross-server references using the RawArgs and RawEnv fields.
+// Instead, use the server's SafeArgs(), SafeEnv(), and SafeVolumes() methods (in the runtime package)
+// which filter out cross-server references using the RawArgs, RawEnv, and RawVolumes fields.
 type ServerExecutionContext struct {
 	// Name is the server name.
 	Name string `toml:"-"`
@@ -52,12 +52,23 @@ type ServerExecutionContext struct {
 	// NOTE: Use runtime.Server.SafeEnv() for filtered access when starting servers.
 	Env map[string]string `toml:"env,omitempty"`
 
-	// RawEnv stores unexpanded environment variables used for cross-server filtering decisions.
-	RawEnv map[string]string `toml:"-"`
+	// Volumes maps volume names to their host paths or named volumes with environment variables expanded.
+	// NOTE: Use runtime.Server.SafeVolumes() for filtered access when starting servers.
+	Volumes VolumeExecutionContext `toml:"volumes,omitempty"`
 
 	// RawArgs stores unexpanded command-line arguments used for cross-server filtering decisions.
 	RawArgs []string `toml:"-"`
+
+	// RawEnv stores unexpanded environment variables used for cross-server filtering decisions.
+	RawEnv map[string]string `toml:"-"`
+
+	// RawVolumes stores unexpanded volume mappings used for cross-server filtering decisions.
+	RawVolumes VolumeExecutionContext `toml:"-"`
 }
+
+// VolumeExecutionContext maps volume names to their host paths or named volumes.
+// e.g., {"workspace": "/Users/foo/repos/mcpd", "gdrive": "mcp-gdrive"}
+type VolumeExecutionContext map[string]string
 
 // Load loads an execution context configuration from the specified path.
 func (d *DefaultLoader) Load(path string) (Modifier, error) {
@@ -88,11 +99,13 @@ func (c *ExecutionContextConfig) Get(name string) (ServerExecutionContext, bool)
 
 	if srv, ok := c.Servers[name]; ok {
 		return ServerExecutionContext{
-			Name:    name,
-			Args:    slices.Clone(srv.Args),
-			Env:     maps.Clone(srv.Env),
-			RawEnv:  maps.Clone(srv.RawEnv),
-			RawArgs: slices.Clone(srv.RawArgs),
+			Name:       name,
+			Args:       slices.Clone(srv.Args),
+			Env:        maps.Clone(srv.Env),
+			Volumes:    maps.Clone(srv.Volumes),
+			RawArgs:    slices.Clone(srv.RawArgs),
+			RawEnv:     maps.Clone(srv.RawEnv),
+			RawVolumes: maps.Clone(srv.RawVolumes),
 		}, true
 	}
 
@@ -179,7 +192,7 @@ func (s *ServerExecutionContext) Equals(b ServerExecutionContext) bool {
 		return false
 	}
 
-	if len(s.RawEnv) != len(b.RawEnv) || !maps.Equal(s.RawEnv, b.RawEnv) {
+	if !maps.Equal(s.Volumes, b.Volumes) {
 		return false
 	}
 
@@ -187,12 +200,20 @@ func (s *ServerExecutionContext) Equals(b ServerExecutionContext) bool {
 		return false
 	}
 
+	if len(s.RawEnv) != len(b.RawEnv) || !maps.Equal(s.RawEnv, b.RawEnv) {
+		return false
+	}
+
+	if !maps.Equal(s.RawVolumes, b.RawVolumes) {
+		return false
+	}
+
 	return true
 }
 
-// IsEmpty returns true if the ServerExecutionContext has no args or env vars.
+// IsEmpty returns true if the ServerExecutionContext has no args, env vars, or volumes.
 func (s *ServerExecutionContext) IsEmpty() bool {
-	return len(s.Args) == 0 && len(s.Env) == 0
+	return len(s.Args) == 0 && len(s.Env) == 0 && len(s.Volumes) == 0
 }
 
 // AppDirName returns the name of the application directory for use in user-specific operations where data is being written.
@@ -312,11 +333,14 @@ func loadExecutionContextConfig(path string) (*ExecutionContextConfig, error) {
 	for name, server := range cfg.Servers {
 		server.Name = name
 
+		// Store raw args before expansion for filtering decisions.
+		server.RawArgs = slices.Clone(server.Args)
+
 		// Store raw env vars before expansion for filtering decisions.
 		server.RawEnv = maps.Clone(server.Env)
 
-		// Store raw args before expansion for filtering decisions.
-		server.RawArgs = slices.Clone(server.Args)
+		// Store raw volumes before expansion for filtering decisions.
+		server.RawVolumes = maps.Clone(server.Volumes)
 
 		// Expand args.
 		for i, arg := range server.Args {
@@ -326,6 +350,11 @@ func loadExecutionContextConfig(path string) (*ExecutionContextConfig, error) {
 		// Expand env vars.
 		for k, v := range server.Env {
 			server.Env[k] = os.ExpandEnv(v)
+		}
+
+		// Expand volume paths.
+		for k, v := range server.Volumes {
+			server.Volumes[k] = os.ExpandEnv(v)
 		}
 
 		cfg.Servers[name] = server

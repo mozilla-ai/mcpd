@@ -113,17 +113,32 @@ type ServerEntry struct {
 
 	// RequiredBoolArgs captures any command line args that are boolean flags when present, which are required to run the server.
 	RequiredBoolArgs []string `json:"requiredArgsBool,omitempty" toml:"required_args_bool,omitempty" yaml:"required_args_bool,omitempty"`
+
+	// Volumes maps volume names to their Docker volume configuration.
+	Volumes VolumesEntry `json:"volumes,omitempty" toml:"volumes,omitempty" yaml:"volumes,omitempty"`
+}
+
+// VolumeEntry represents a single Docker volume configuration.
+type VolumeEntry struct {
+	// Path is the container mount path.
+	// e.g., "/workspace", "/home/nonroot/.kube/config".
+	Path string `toml:"path"`
+
+	// Required indicates whether the volume must be configured by the user.
+	Required bool `toml:"required"`
+}
+
+// VolumesEntry maps volume names to their configuration.
+type VolumesEntry map[string]VolumeEntry
+
+type argEntry struct {
+	key   string
+	value string
 }
 
 type serverKey struct {
 	Name    string
 	Package string // NOTE: without version
-}
-
-// argEntry represents a parsed command line argument.
-type argEntry struct {
-	key   string
-	value string
 }
 
 func (s *ServerEntry) PackageVersion() string {

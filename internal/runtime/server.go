@@ -13,12 +13,35 @@ import (
 	"github.com/mozilla-ai/mcpd/v2/internal/context"
 )
 
-type Servers []Server
-
 // Server composes static config with runtime overrides.
 type Server struct {
 	config.ServerEntry
 	context.ServerExecutionContext
+
+	// volumes is the combined view of static volume config and runtime volume mappings.
+	// Use SafeVolumes() to access with cross-server reference filtering applied.
+	volumes []Volume
+}
+
+type Servers []Server
+
+// Volume combines volume configuration from both static config and runtime context.
+type Volume struct {
+	config.VolumeEntry
+
+	// Name is the user-facing volume name.
+	// e.g., "workspace", "kubeconfig", "gdrive".
+	Name string
+
+	// From is the host path or named volume supplied by the user.
+	// e.g., "/Users/foo/repos/mcpd" or "mcp-gdrive".
+	From string
+}
+
+// String formats the volume as a Docker volume mount string.
+// Returns format: "from:path" (e.g., "/Users/foo/repos:/workspace" or "mcp-gdrive:/data").
+func (v Volume) String() string {
+	return fmt.Sprintf("%s:%s", v.From, v.Path)
 }
 
 func (s *Server) Name() string {
@@ -79,6 +102,32 @@ func (s *Server) SafeEnv() []string {
 // Environment variables are already expanded at load time.
 func (s *Server) SafeEnvIsolated() []string {
 	return s.safeEnvWithBase(nil)
+}
+
+// SafeVolumes returns the server's volumes with cross-server references filtered out.
+// Volume paths are already expanded at load time.
+func (s *Server) SafeVolumes() []Volume {
+	return s.filterVolumes(s.volumes)
+}
+
+// computeVolumes populates the volumes field by combining static config with runtime mappings.
+// Only includes volumes that either have runtime config or are required.
+func (s *Server) computeVolumes() {
+	s.volumes = make([]Volume, 0, len(s.ServerEntry.Volumes))
+	for name, entry := range s.ServerEntry.Volumes {
+		from, exists := s.ServerExecutionContext.Volumes[name]
+
+		// Skip optional volumes without runtime configuration.
+		if !entry.Required && !exists {
+			continue
+		}
+
+		s.volumes = append(s.volumes, Volume{
+			Name:        name,
+			VolumeEntry: entry,
+			From:        from,
+		})
+	}
 }
 
 // safeEnvWithBase safely builds the server's environment starting from the given base environment.
@@ -197,6 +246,22 @@ func (s *Server) validateRequiredBoolArgs() error {
 	return errs
 }
 
+// validateRequiredVolumes checks that all required volumes have runtime configuration.
+func (s *Server) validateRequiredVolumes() error {
+	var errs error
+
+	for name, entry := range s.ServerEntry.Volumes {
+		if entry.Required {
+			from, exists := s.ServerExecutionContext.Volumes[name]
+			if !exists || from == "" {
+				errs = errors.Join(errs, fmt.Errorf("required volume '%s' not configured or empty", name))
+			}
+		}
+	}
+
+	return errs
+}
+
 // Validate can be used to ensure that any required env vars and args declared in config, are present in the runtime config.
 func (s *Server) Validate() error {
 	var errs error
@@ -215,6 +280,10 @@ func (s *Server) Validate() error {
 
 	if boolArgsErrs := s.validateRequiredBoolArgs(); boolArgsErrs != nil {
 		errs = errors.Join(errs, boolArgsErrs)
+	}
+
+	if volumeErrs := s.validateRequiredVolumes(); volumeErrs != nil {
+		errs = errors.Join(errs, volumeErrs)
 	}
 
 	return errs
@@ -437,6 +506,8 @@ func (s *Servers) Export(path string) (map[string]string, error) {
 			contract[k] = v
 		})
 
+		// TODO: Export volumes similar to args and env, creating contract entries for volume paths.
+
 		// Store the parsed and sanitized data in the new portable execution context.
 		pec.Servers[srv.Name()] = context.ServerExecutionContext{
 			Name: srv.Name(),
@@ -472,18 +543,24 @@ func AggregateConfigs(
 				RequiredPositionalArgs: s.RequiredPositionalArgs,
 				RequiredValueArgs:      s.RequiredValueArgs,
 				RequiredBoolArgs:       s.RequiredBoolArgs,
+				Volumes:                s.Volumes,
 			},
 		}
 
 		// Update with execution context if we have any for this server.
 		if executionCtx, ok := executionContextCfg.Get(s.Name); ok {
 			runtimeServer.ServerExecutionContext = context.ServerExecutionContext{
-				Args:    executionCtx.Args,
-				Env:     executionCtx.Env,
-				RawEnv:  executionCtx.RawEnv,
-				RawArgs: executionCtx.RawArgs,
+				Args:       executionCtx.Args,
+				Env:        executionCtx.Env,
+				Volumes:    executionCtx.Volumes,
+				RawArgs:    executionCtx.RawArgs,
+				RawEnv:     executionCtx.RawEnv,
+				RawVolumes: executionCtx.RawVolumes,
 			}
 		}
+
+		// Populate volumes field by combining static config with runtime mappings.
+		runtimeServer.computeVolumes()
 
 		runtimeCfg = append(runtimeCfg, runtimeServer)
 	}
@@ -679,6 +756,32 @@ func (s *Server) filterArgs(args []string) []string {
 		}
 
 		filtered = append(filtered, arg)
+	}
+
+	return filtered
+}
+
+// filterVolumes filters out volumes that contain cross-server references in their From paths.
+func (s *Server) filterVolumes(volumes []Volume) []Volume {
+	if len(volumes) == 0 {
+		return []Volume{}
+	}
+
+	srvName := strings.ReplaceAll(strings.ToUpper(s.Name()), "-", "_")
+	filtered := make([]Volume, 0, len(volumes))
+
+	for _, vol := range volumes {
+		// Check for cross-server references using raw (unexpanded) values when available.
+		checkValue := vol.From
+		if rawPath, exists := s.RawVolumes[vol.Name]; exists {
+			checkValue = rawPath // Use raw value if this volume came from server config
+		}
+
+		if containsIllegalReference(srvName, checkValue) {
+			continue // Ignored - contains cross-server reference
+		}
+
+		filtered = append(filtered, vol)
 	}
 
 	return filtered

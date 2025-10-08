@@ -1,0 +1,6 @@
+[servers]
+  [servers.filesystem]
+    [servers.filesystem.volumes]
+      workspace = "/Users/foo/repos/mcpd"
+      gdrive = "mcp-gdrive"
+      kubeconfig = "~/.kube/config"
