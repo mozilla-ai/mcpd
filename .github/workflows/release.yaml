@@ -66,6 +66,12 @@ jobs:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
+      - name: Generate third-party licenses
+        run: |
+          go install github.com/google/go-licenses@latest
+          mkdir -p dist/licenses
+          go-licenses save ./cmd --save_path=dist/licenses
+
       - name: Run GoReleaser
         uses: goreleaser/goreleaser-action@9c156ee8a17a598857849441385a2041ef570552 # v6.3.0
         with:
