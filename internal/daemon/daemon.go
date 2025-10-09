@@ -14,7 +14,9 @@ import (
 
 	"github.com/hashicorp/go-hclog"
 	"github.com/mark3labs/mcp-go/client"
+	"github.com/mark3labs/mcp-go/client/transport"
 	"github.com/mark3labs/mcp-go/mcp"
+	"github.com/mark3labs/mcp-go/util"
 	"golang.org/x/sync/errgroup"
 
 	"github.com/mozilla-ai/mcpd/v2/internal/cmd"
@@ -23,6 +25,8 @@ import (
 	"github.com/mozilla-ai/mcpd/v2/internal/filter"
 	"github.com/mozilla-ai/mcpd/v2/internal/runtime"
 )
+
+var _ util.Logger = (*mcpLoggerAdapter)(nil)
 
 // Daemon manages MCP server lifecycles, client connections, and health monitoring.
 // It should only be created using NewDaemon to ensure proper initialization.
@@ -45,6 +49,11 @@ type Daemon struct {
 
 	// clientHealthCheckInterval is the time interval between MCP server health checks (pings).
 	clientHealthCheckInterval time.Duration
+}
+
+// mcpLoggerAdapter adapts hclog.Logger to mcp-go's util.Logger interface.
+type mcpLoggerAdapter struct {
+	logger hclog.Logger
 }
 
 // NewDaemon creates a new Daemon instance with proper initialization.
@@ -106,6 +115,12 @@ func NewDaemon(deps Dependencies, opt ...Option) (*Daemon, error) {
 		clientHealthCheckTimeout:  opts.ClientHealthCheckTimeout,
 		clientHealthCheckInterval: opts.ClientHealthCheckInterval,
 	}, nil
+}
+
+func newMCPLoggerAdapter(logger hclog.Logger) *mcpLoggerAdapter {
+	return &mcpLoggerAdapter{
+		logger: logger,
+	}
 }
 
 // StartAndManage is a long-running method that starts configured MCP servers, and the API.
@@ -222,7 +237,13 @@ func (d *Daemon) startMCPServer(ctx context.Context, server runtime.Server) erro
 
 	logger.Debug("attempting to start server", "binary", runtimeBinary)
 
-	stdioClient, err := client.NewStdioMCPClient(runtimeBinary, environ, args...)
+	mcpLogger := newMCPLoggerAdapter(logger.Named("transport"))
+	stdioClient, err := client.NewStdioMCPClientWithOptions(
+		runtimeBinary,
+		environ,
+		args,
+		transport.WithCommandLogger(mcpLogger),
+	)
 	if err != nil {
 		return fmt.Errorf("error starting MCP server: '%s': %w", server.Name(), err)
 	}
@@ -396,12 +417,37 @@ func (d *Daemon) pingAllServers(ctx context.Context, maxTimeout time.Duration) e
 		})
 	}
 
-	_ = g.Wait()
-	if len(errs) > 0 {
-		return errors.Join(errs...)
-	}
+	// Wait for all pings to complete, but allow interruption if parent context is cancelled.
+	// This prevents the daemon from hanging during shutdown if a ping is stuck in uninterruptible I/O.
+	done := make(chan struct{})
+	go func() {
+		_ = g.Wait()
+		close(done)
+	}()
 
-	return nil
+	select {
+	case <-done:
+		// All pings completed normally.
+		if len(errs) > 0 {
+			return errors.Join(errs...)
+		}
+		return nil
+	case <-ctx.Done():
+		// Parent context cancelled (shutdown), return immediately without waiting for pings to complete.
+		// Any stuck pings will eventually time out or be cleaned up when the process exits.
+		d.logger.Warn("Ping operation interrupted due to context cancellation, some pings may not have completed")
+		return ctx.Err()
+	}
+}
+
+// Infof implements mcp-go's Logger interface.
+func (a *mcpLoggerAdapter) Infof(format string, v ...any) {
+	a.logger.Info(fmt.Sprintf(format, v...))
+}
+
+// Errorf implements mcp-go's Logger interface.
+func (a *mcpLoggerAdapter) Errorf(format string, v ...any) {
+	a.logger.Error(fmt.Sprintf(format, v...))
 }
 
 // IsValidAddr returns an error if the address is not a valid "host:port" string.

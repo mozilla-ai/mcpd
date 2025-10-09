@@ -29,6 +29,163 @@ type testLoggerSink struct {
 	messages []*testLogMessage
 }
 
+// mockMCPClientWithStuckPing simulates an MCP client with a Ping method that blocks
+// for a fixed duration without respecting context cancellation.
+type mockMCPClientWithStuckPing struct {
+	pingDelay    time.Duration
+	pingStarted  chan struct{}
+	pingFinished chan struct{}
+}
+
+// mockMCPClientWithBehavior is a test implementation that allows controlling closing behavior
+type mockMCPClientWithBehavior struct {
+	closeDelay  time.Duration
+	closeError  error
+	closeCalled bool
+	closedAt    time.Time
+	mu          sync.Mutex
+}
+
+func newMockMCPClientWithBehavior(closeDelay time.Duration, closeError error) *mockMCPClientWithBehavior {
+	return &mockMCPClientWithBehavior{
+		closeDelay: closeDelay,
+		closeError: closeError,
+	}
+}
+
+func (m *mockMCPClientWithBehavior) Close() error {
+	m.mu.Lock()
+	m.closeCalled = true
+	m.mu.Unlock()
+
+	if m.closeDelay > 0 {
+		time.Sleep(m.closeDelay)
+	}
+
+	m.mu.Lock()
+	m.closedAt = time.Now()
+	m.mu.Unlock()
+
+	return m.closeError
+}
+
+func (m *mockMCPClientWithBehavior) wasClosed() bool {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	return m.closeCalled
+}
+
+// Implement remaining MCPClient interface methods with minimal implementations
+func (m *mockMCPClientWithBehavior) Initialize(
+	ctx context.Context,
+	request mcp.InitializeRequest,
+) (*mcp.InitializeResult, error) {
+	return nil, nil
+}
+
+func (m *mockMCPClientWithBehavior) Ping(ctx context.Context) error {
+	return nil
+}
+
+func (m *mockMCPClientWithBehavior) ListResourcesByPage(
+	ctx context.Context,
+	request mcp.ListResourcesRequest,
+) (*mcp.ListResourcesResult, error) {
+	return nil, nil
+}
+
+func (m *mockMCPClientWithBehavior) ListResources(
+	ctx context.Context,
+	request mcp.ListResourcesRequest,
+) (*mcp.ListResourcesResult, error) {
+	return nil, nil
+}
+
+func (m *mockMCPClientWithBehavior) ListResourceTemplatesByPage(
+	ctx context.Context,
+	request mcp.ListResourceTemplatesRequest,
+) (*mcp.ListResourceTemplatesResult, error) {
+	return nil, nil
+}
+
+func (m *mockMCPClientWithBehavior) ListResourceTemplates(
+	ctx context.Context,
+	request mcp.ListResourceTemplatesRequest,
+) (*mcp.ListResourceTemplatesResult, error) {
+	return nil, nil
+}
+
+func (m *mockMCPClientWithBehavior) ReadResource(
+	ctx context.Context,
+	request mcp.ReadResourceRequest,
+) (*mcp.ReadResourceResult, error) {
+	return nil, nil
+}
+
+func (m *mockMCPClientWithBehavior) Subscribe(ctx context.Context, request mcp.SubscribeRequest) error {
+	return nil
+}
+
+func (m *mockMCPClientWithBehavior) Unsubscribe(ctx context.Context, request mcp.UnsubscribeRequest) error {
+	return nil
+}
+
+func (m *mockMCPClientWithBehavior) ListPromptsByPage(
+	ctx context.Context,
+	request mcp.ListPromptsRequest,
+) (*mcp.ListPromptsResult, error) {
+	return nil, nil
+}
+
+func (m *mockMCPClientWithBehavior) ListPrompts(
+	ctx context.Context,
+	request mcp.ListPromptsRequest,
+) (*mcp.ListPromptsResult, error) {
+	return nil, nil
+}
+
+func (m *mockMCPClientWithBehavior) GetPrompt(
+	ctx context.Context,
+	request mcp.GetPromptRequest,
+) (*mcp.GetPromptResult, error) {
+	return nil, nil
+}
+
+func (m *mockMCPClientWithBehavior) ListToolsByPage(
+	ctx context.Context,
+	request mcp.ListToolsRequest,
+) (*mcp.ListToolsResult, error) {
+	return nil, nil
+}
+
+func (m *mockMCPClientWithBehavior) ListTools(
+	ctx context.Context,
+	request mcp.ListToolsRequest,
+) (*mcp.ListToolsResult, error) {
+	return nil, nil
+}
+
+func (m *mockMCPClientWithBehavior) CallTool(
+	ctx context.Context,
+	request mcp.CallToolRequest,
+) (*mcp.CallToolResult, error) {
+	return nil, nil
+}
+
+func (m *mockMCPClientWithBehavior) SetLevel(ctx context.Context, request mcp.SetLevelRequest) error {
+	return nil
+}
+
+func (m *mockMCPClientWithBehavior) Complete(
+	ctx context.Context,
+	request mcp.CompleteRequest,
+) (*mcp.CompleteResult, error) {
+	return nil, nil
+}
+
+func (m *mockMCPClientWithBehavior) OnNotification(handler func(notification mcp.JSONRPCNotification)) {
+}
+
 func (cs *testLoggerSink) Accept(name string, level hclog.Level, msg string, args ...any) {
 	lm := &testLogMessage{
 		name:    name,
@@ -37,6 +194,132 @@ func (cs *testLoggerSink) Accept(name string, level hclog.Level, msg string, arg
 		args:    args,
 	}
 	cs.messages = append(cs.messages, lm)
+}
+
+func newMockMCPClientWithStuckPing(delay time.Duration) *mockMCPClientWithStuckPing {
+	return &mockMCPClientWithStuckPing{
+		pingDelay:    delay,
+		pingStarted:  make(chan struct{}),
+		pingFinished: make(chan struct{}),
+	}
+}
+
+func (m *mockMCPClientWithStuckPing) Ping(ctx context.Context) error {
+	close(m.pingStarted)
+	// Ignore context and block for the full duration.
+	time.Sleep(m.pingDelay)
+	close(m.pingFinished)
+	return nil
+}
+
+func (m *mockMCPClientWithStuckPing) Close() error {
+	return nil
+}
+
+func (m *mockMCPClientWithStuckPing) Initialize(
+	ctx context.Context,
+	request mcp.InitializeRequest,
+) (*mcp.InitializeResult, error) {
+	return nil, nil
+}
+
+func (m *mockMCPClientWithStuckPing) ListResourcesByPage(
+	ctx context.Context,
+	request mcp.ListResourcesRequest,
+) (*mcp.ListResourcesResult, error) {
+	return nil, nil
+}
+
+func (m *mockMCPClientWithStuckPing) ListResources(
+	ctx context.Context,
+	request mcp.ListResourcesRequest,
+) (*mcp.ListResourcesResult, error) {
+	return nil, nil
+}
+
+func (m *mockMCPClientWithStuckPing) ListResourceTemplatesByPage(
+	ctx context.Context,
+	request mcp.ListResourceTemplatesRequest,
+) (*mcp.ListResourceTemplatesResult, error) {
+	return nil, nil
+}
+
+func (m *mockMCPClientWithStuckPing) ListResourceTemplates(
+	ctx context.Context,
+	request mcp.ListResourceTemplatesRequest,
+) (*mcp.ListResourceTemplatesResult, error) {
+	return nil, nil
+}
+
+func (m *mockMCPClientWithStuckPing) ReadResource(
+	ctx context.Context,
+	request mcp.ReadResourceRequest,
+) (*mcp.ReadResourceResult, error) {
+	return nil, nil
+}
+
+func (m *mockMCPClientWithStuckPing) Subscribe(ctx context.Context, request mcp.SubscribeRequest) error {
+	return nil
+}
+
+func (m *mockMCPClientWithStuckPing) Unsubscribe(ctx context.Context, request mcp.UnsubscribeRequest) error {
+	return nil
+}
+
+func (m *mockMCPClientWithStuckPing) ListPromptsByPage(
+	ctx context.Context,
+	request mcp.ListPromptsRequest,
+) (*mcp.ListPromptsResult, error) {
+	return nil, nil
+}
+
+func (m *mockMCPClientWithStuckPing) ListPrompts(
+	ctx context.Context,
+	request mcp.ListPromptsRequest,
+) (*mcp.ListPromptsResult, error) {
+	return nil, nil
+}
+
+func (m *mockMCPClientWithStuckPing) GetPrompt(
+	ctx context.Context,
+	request mcp.GetPromptRequest,
+) (*mcp.GetPromptResult, error) {
+	return nil, nil
+}
+
+func (m *mockMCPClientWithStuckPing) ListToolsByPage(
+	ctx context.Context,
+	request mcp.ListToolsRequest,
+) (*mcp.ListToolsResult, error) {
+	return nil, nil
+}
+
+func (m *mockMCPClientWithStuckPing) ListTools(
+	ctx context.Context,
+	request mcp.ListToolsRequest,
+) (*mcp.ListToolsResult, error) {
+	return nil, nil
+}
+
+func (m *mockMCPClientWithStuckPing) CallTool(
+	ctx context.Context,
+	request mcp.CallToolRequest,
+) (*mcp.CallToolResult, error) {
+	return nil, nil
+}
+
+func (m *mockMCPClientWithStuckPing) SetLevel(ctx context.Context, request mcp.SetLevelRequest) error {
+	return nil
+}
+
+func (m *mockMCPClientWithStuckPing) Complete(
+	ctx context.Context,
+	request mcp.CompleteRequest,
+) (*mcp.CompleteResult, error) {
+	return nil, nil
+}
+
+func (m *mockMCPClientWithStuckPing) OnNotification(handler func(notification mcp.JSONRPCNotification)) {
 }
 
 func TestIsValidAddr(t *testing.T) {
@@ -301,155 +584,6 @@ func TestParseAndLogMCPMessage(t *testing.T) {
 			assert.Equal(t, tc.expectedMsg, logEntry.message, "Logged with incorrect message")
 		})
 	}
-}
-
-// mockMCPClientWithBehavior is a test implementation that allows controlling closing behavior
-type mockMCPClientWithBehavior struct {
-	closeDelay  time.Duration
-	closeError  error
-	closeCalled bool
-	closedAt    time.Time
-	mu          sync.Mutex
-}
-
-func newMockMCPClientWithBehavior(closeDelay time.Duration, closeError error) *mockMCPClientWithBehavior {
-	return &mockMCPClientWithBehavior{
-		closeDelay: closeDelay,
-		closeError: closeError,
-	}
-}
-
-func (m *mockMCPClientWithBehavior) Close() error {
-	m.mu.Lock()
-	m.closeCalled = true
-	m.mu.Unlock()
-
-	if m.closeDelay > 0 {
-		time.Sleep(m.closeDelay)
-	}
-
-	m.mu.Lock()
-	m.closedAt = time.Now()
-	m.mu.Unlock()
-
-	return m.closeError
-}
-
-func (m *mockMCPClientWithBehavior) wasClosed() bool {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-	return m.closeCalled
-}
-
-// Implement remaining MCPClient interface methods with minimal implementations
-func (m *mockMCPClientWithBehavior) Initialize(
-	ctx context.Context,
-	request mcp.InitializeRequest,
-) (*mcp.InitializeResult, error) {
-	return nil, nil
-}
-
-func (m *mockMCPClientWithBehavior) Ping(ctx context.Context) error {
-	return nil
-}
-
-func (m *mockMCPClientWithBehavior) ListResourcesByPage(
-	ctx context.Context,
-	request mcp.ListResourcesRequest,
-) (*mcp.ListResourcesResult, error) {
-	return nil, nil
-}
-
-func (m *mockMCPClientWithBehavior) ListResources(
-	ctx context.Context,
-	request mcp.ListResourcesRequest,
-) (*mcp.ListResourcesResult, error) {
-	return nil, nil
-}
-
-func (m *mockMCPClientWithBehavior) ListResourceTemplatesByPage(
-	ctx context.Context,
-	request mcp.ListResourceTemplatesRequest,
-) (*mcp.ListResourceTemplatesResult, error) {
-	return nil, nil
-}
-
-func (m *mockMCPClientWithBehavior) ListResourceTemplates(
-	ctx context.Context,
-	request mcp.ListResourceTemplatesRequest,
-) (*mcp.ListResourceTemplatesResult, error) {
-	return nil, nil
-}
-
-func (m *mockMCPClientWithBehavior) ReadResource(
-	ctx context.Context,
-	request mcp.ReadResourceRequest,
-) (*mcp.ReadResourceResult, error) {
-	return nil, nil
-}
-
-func (m *mockMCPClientWithBehavior) Subscribe(ctx context.Context, request mcp.SubscribeRequest) error {
-	return nil
-}
-
-func (m *mockMCPClientWithBehavior) Unsubscribe(ctx context.Context, request mcp.UnsubscribeRequest) error {
-	return nil
-}
-
-func (m *mockMCPClientWithBehavior) ListPromptsByPage(
-	ctx context.Context,
-	request mcp.ListPromptsRequest,
-) (*mcp.ListPromptsResult, error) {
-	return nil, nil
-}
-
-func (m *mockMCPClientWithBehavior) ListPrompts(
-	ctx context.Context,
-	request mcp.ListPromptsRequest,
-) (*mcp.ListPromptsResult, error) {
-	return nil, nil
-}
-
-func (m *mockMCPClientWithBehavior) GetPrompt(
-	ctx context.Context,
-	request mcp.GetPromptRequest,
-) (*mcp.GetPromptResult, error) {
-	return nil, nil
-}
-
-func (m *mockMCPClientWithBehavior) ListToolsByPage(
-	ctx context.Context,
-	request mcp.ListToolsRequest,
-) (*mcp.ListToolsResult, error) {
-	return nil, nil
-}
-
-func (m *mockMCPClientWithBehavior) ListTools(
-	ctx context.Context,
-	request mcp.ListToolsRequest,
-) (*mcp.ListToolsResult, error) {
-	return nil, nil
-}
-
-func (m *mockMCPClientWithBehavior) CallTool(
-	ctx context.Context,
-	request mcp.CallToolRequest,
-) (*mcp.CallToolResult, error) {
-	return nil, nil
-}
-
-func (m *mockMCPClientWithBehavior) SetLevel(ctx context.Context, request mcp.SetLevelRequest) error {
-	return nil
-}
-
-func (m *mockMCPClientWithBehavior) Complete(
-	ctx context.Context,
-	request mcp.CompleteRequest,
-) (*mcp.CompleteResult, error) {
-	return nil, nil
-}
-
-func (m *mockMCPClientWithBehavior) OnNotification(handler func(notification mcp.JSONRPCNotification)) {
 }
 
 // Test that client closing happens with proper timeout handling
@@ -1237,5 +1371,78 @@ func TestDaemon_DockerVolumeArguments(t *testing.T) {
 			require.ElementsMatch(t, tc.expectedVolumeFlags, actualVolumeFlags,
 				"Docker volume flags should match expected format")
 		})
+	}
+}
+
+// TestDaemon_PingAllServers_ContextCancellation_Deadlock verifies that pingAllServers
+// returns immediately when context is cancelled, even if some pings are stuck in
+// uninterruptible I/O operations.
+func TestDaemon_PingAllServers_ContextCancellation_Deadlock(t *testing.T) {
+	t.Parallel()
+
+	customSink := &testLoggerSink{}
+	logger := hclog.NewInterceptLogger(&hclog.LoggerOptions{
+		Name:  "test-daemon",
+		Level: hclog.Debug,
+	})
+	logger.RegisterSink(customSink)
+
+	clientManager := NewClientManager()
+	healthTracker := NewHealthTracker([]string{"fast-server", "stuck-server"})
+
+	daemon := &Daemon{
+		logger:                   logger,
+		clientManager:            clientManager,
+		healthTracker:            healthTracker,
+		clientHealthCheckTimeout: 3 * time.Second,
+	}
+
+	// Add a fast-responding server.
+	fastClient := newMockMCPClientWithBehavior(0, nil)
+	clientManager.Add("fast-server", fastClient, []string{"tool1"})
+	healthTracker.Add("fast-server")
+
+	// Add a stuck server that simulates blocked Docker I/O (will block for 30 seconds).
+	stuckClient := newMockMCPClientWithStuckPing(30 * time.Second)
+	clientManager.Add("stuck-server", stuckClient, []string{"tool2"})
+	healthTracker.Add("stuck-server")
+
+	// Create a context that we'll cancel after the stuck ping starts.
+	ctx, cancel := context.WithCancel(context.Background())
+
+	// Call pingAllServers in a goroutine.
+	done := make(chan error, 1)
+	go func() {
+		done <- daemon.pingAllServers(ctx, 3*time.Second)
+	}()
+
+	// Wait for the stuck ping to start.
+	select {
+	case <-stuckClient.pingStarted:
+		// Ping has started and is now stuck.
+	case <-time.After(1 * time.Second):
+		t.Fatal("Stuck ping never started")
+	}
+
+	// Cancel the context while the stuck ping is in progress.
+	cancel()
+
+	// Verify pingAllServers returns immediately when context is cancelled.
+	select {
+	case err := <-done:
+		require.ErrorIs(t, err, context.Canceled)
+
+		// Verify the interruption warning was logged.
+		found := false
+		for _, log := range customSink.messages {
+			if log.level == hclog.Warn && strings.Contains(log.message, "interrupted") {
+				found = true
+				break
+			}
+		}
+		assert.True(t, found, "Expected interruption warning in logs")
+
+	case <-time.After(2 * time.Second):
+		t.Fatal("pingAllServers did not return within 2 seconds after context cancellation")
 	}
 }
