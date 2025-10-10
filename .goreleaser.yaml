@@ -45,7 +45,7 @@ archives:
     files:
       - LICENSE
       - README.md
-      - dist/licenses/**/*    # <--- Include third-party license files
+      - NOTICE
 
 homebrew_casks:
   - name: mcpd

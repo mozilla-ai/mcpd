@@ -57,6 +57,11 @@ The `mcpd` project includes a `Makefile` to streamline common developer tasks.
 
 ### ✅ Validation
 
+- **Run linter with auto-fix**
+    ```bash
+    make lint
+    ```
+
 - **Validate Mozilla AI registry against JSON schema**
     ```bash
     make validate-registry
@@ -64,9 +69,34 @@ The `mcpd` project includes a `Makefile` to streamline common developer tasks.
 
     !!! note "When to use"
         Run this command before submitting PRs that modify:
-        
+
         * `internal/provider/mozilla_ai/data/registry.json`
         * `internal/provider/mozilla_ai/data/schema.json`
+
+---
+
+### 📜 License and Attribution
+
+- **Check dependency licenses**
+    ```bash
+    make check-licenses
+    ```
+
+    !!! note "Allowed licenses"
+        This validates that all dependencies use one of: `Apache-2.0`, `MIT`, `BSD-2-Clause`, `BSD-3-Clause`, `ZeroBSD`, or `Unlicense`.
+
+- **Check NOTICE file is up to date**
+    ```bash
+    make check-notice
+    ```
+
+- **Generate NOTICE file**
+    ```bash
+    make notice
+    ```
+
+    !!! note "Third-party attribution"
+        Regenerates the NOTICE file with current dependency license information.
 
 ---
 
@@ -126,20 +156,25 @@ These commands manage the [MkDocs](https://www.mkdocs.org) developer documentati
 
 Here's a complete list of Makefile targets:
 
-| Target              | Description                                   |
-|---------------------|-----------------------------------------------|
-| `build`             | Compile the Go binary                         |
-| `build-linux`       | Compile the Go binary for Linux on amd64      |
-| `build-linux-arm64` | Compile the Go binary for Linux on arm64      |
-| `install`           | Install binary to system path                 |
-| `uninstall`         | Remove installed binary                       |
-| `clean`             | Remove compiled binary from working directory |
-| `test`              | Run all Go tests                              |
-| `validate-registry` | Validate Mozilla AI registry JSON schema      |
-| `local-up`          | Start `mcpd` in a Docker container            |
-| `local-down`        | Stop a running `mcpd` Docker container        |
-| `docs-cli`          | Generate Markdown CLI reference docs          |
-| `docs-nav`          | Update CLI doc nav in `mkdocs.yaml`           |
-| `docs-local`        | Serve docs locally via `mkdocs serve`         |
-| `docs`              | Alias for `docs-local` (runs everything)      |
+| Target              | Description                                              |
+|---------------------|----------------------------------------------------------|
+| `build`             | Compile the Go binary                                    |
+| `build-dev`         | Compile the Go binary for development (no optimizations) |
+| `build-linux`       | Compile the Go binary for Linux on amd64                 |
+| `build-linux-arm64` | Compile the Go binary for Linux on arm64                 |
+| `check-licenses`    | Validate all dependency licenses are allowed             |
+| `check-notice`      | Verify NOTICE file is up to date                         |
+| `clean`             | Remove compiled binary from working directory            |
+| `docs`              | Alias for `docs-local` (runs everything)                 |
+| `docs-cli`          | Generate Markdown CLI reference docs                     |
+| `docs-local`        | Serve docs locally via `mkdocs serve`                    |
+| `docs-nav`          | Update CLI doc nav in `mkdocs.yaml`                      |
+| `install`           | Install binary to system path                            |
+| `lint`              | Run linter with auto-fix (includes check-notice)         |
+| `local-down`        | Stop a running `mcpd` Docker container                   |
+| `local-up`          | Start `mcpd` in a Docker container                       |
+| `notice`            | Generate NOTICE file with dependency licenses            |
+| `test`              | Run all Go tests (includes lint)                         |
+| `uninstall`         | Remove installed binary                                  |
+| `validate-registry` | Validate Mozilla AI registry JSON schema                 |
 
