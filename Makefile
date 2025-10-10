@@ -1,4 +1,4 @@
-.PHONY: build build-dev build-linux build-linux-arm64 clean docs docs-cli docs-local docs-nav install lint local-down local-up test uninstall validate-registry
+.PHONY: build build-dev build-linux build-linux-arm64 clean docs docs-cli docs-local docs-nav install lint local-down local-up test uninstall validate-registry check-licenses check-notice notice
 
 MODULE_PATH := github.com/mozilla-ai/mcpd/v2
 
@@ -29,7 +29,40 @@ LDFLAGS := -s -w -X '$(MODULE_PATH)/internal/cmd.version=$(VERSION)' \
 # Build flags for optimization
 BUILDFLAGS := -trimpath
 
-lint:
+# The license types allowed to be imported by the project
+ALLOWED_LICENSES := Apache-2.0,MIT,BSD-2-Clause,BSD-3-Clause,ZeroBSD,Unlicense
+
+check-licenses:
+	@echo "Checking licenses..."
+	@go install github.com/google/go-licenses/v2@latest
+	@set -e; \
+	if go-licenses check ./... --ignore github.com/mozilla-ai/mcpd/v2 --allowed_licenses=$(ALLOWED_LICENSES); then \
+		echo "✓ All licenses are allowed."; \
+	else \
+		echo "License check failed: some dependencies have disallowed licenses."; \
+		exit 1; \
+	fi
+
+check-notice:
+	@echo "Checking NOTICE..."
+	@go install github.com/google/go-licenses/v2@latest
+	@tmp=$$(mktemp); \
+	trap "rm -f $$tmp" EXIT; \
+	go-licenses report ./... --ignore github.com/mozilla-ai/mcpd/v2 --template build/licenses/notice.tpl > $$tmp; \
+	if ! cmp -s NOTICE $$tmp; then \
+		echo "NOTICE is out of date. Regenerate it with 'make notice'"; \
+		exit 1; \
+	else \
+		echo "✓ NOTICE is up to date"; \
+	fi
+
+notice:
+	@echo "Generating NOTICE..."
+	@go install github.com/google/go-licenses/v2@latest
+	@go-licenses report ./... --ignore github.com/mozilla-ai/mcpd/v2 --template build/licenses/notice.tpl > NOTICE
+	@echo "✓ NOTICE generated"
+
+lint: check-notice
 	golangci-lint run --fix -v
 
 test: lint

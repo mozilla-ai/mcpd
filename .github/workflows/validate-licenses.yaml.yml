@@ -1,0 +1,50 @@
+name: License Validation
+
+on:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - 'go.mod'
+      - 'go.sum'
+      - 'NOTICE'
+
+jobs:
+  check-license:
+    runs-on: ubuntu-latest
+    env:
+      ALLOWED_LICENSES: "Apache-2.0,MIT,BSD-2-Clause,BSD-3-Clause,ZeroBSD,Unlicense"
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+
+      - name: Cache Go modules
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+        with:
+          path: |
+            ~/.cache/go-build
+            ~/go/pkg/mod
+          key: ${{ runner.os }}-golang-${{ hashFiles('**/go.sum') }}
+          restore-keys: |
+            ${{ runner.os }}-golang-
+
+      - name: Set up Go (from go.mod)
+        uses: actions/setup-go@d35c59abb061a4a6fb18e82ac0862c26744d6ab5 # v5.5.0
+        with:
+          go-version-file: go.mod
+
+      - name: Install go-licenses
+        run: go install github.com/google/go-licenses/v2@latest
+
+      - name: Check allowed licenses
+        run: go-licenses check ./... --ignore github.com/mozilla-ai/mcpd/v2 --allowed_licenses=${ALLOWED_LICENSES}
+
+      - name: Check NOTICE file
+        run: |
+          go-licenses report ./... --ignore github.com/mozilla-ai/mcpd/v2 --template build/licenses/notice.tpl > NOTICE.new
+          if ! cmp -s NOTICE NOTICE.new; then
+            echo "NOTICE is out of date. Please regenerate it with 'make notice'"
+            diff -u NOTICE NOTICE.new || true
+            exit 1
+          fi

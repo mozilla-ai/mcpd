@@ -42,6 +42,10 @@ archives:
     format_overrides:
       - goos: windows
         formats: [zip]
+    files:
+      - LICENSE
+      - README.md
+      - NOTICE
 
 homebrew_casks:
   - name: mcpd
