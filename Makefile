@@ -124,12 +124,17 @@ docs-local: docs-nav
 
 # Generates CLI markdown documentation
 docs-cli:
-	@go run -tags=docsgen_cli ./tools/docsgen/cli/cmds.go
+	@go run -tags=docsgen_cli ./tools/docsgen/cmds/main.go
 	@echo "mcpd CLI command documentation generated"
+
+# Generates OpenAPI specification YAML
+docs-api:
+	@go run -tags=docsgen_api ./tools/docsgen/api/openapi.go
+	@echo "OpenAPI specification generated"
 
 ## Updates mkdocs.yaml nav to match generated CLI docs
 docs-nav: docs-cli
-	@go run -tags=docsgen_nav ./tools/docsgen/cli/nav.go
+	@go run -tags=docsgen_nav ./tools/docsgen/nav/main.go
 	@echo "navigation updated for MkDocs site"
 
 local-up: build-linux
