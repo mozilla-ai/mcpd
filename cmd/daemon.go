@@ -414,6 +414,11 @@ func (c *DaemonCmd) run(cmd *cobra.Command, _ []string) error {
 		return fmt.Errorf("error creating daemon options: %w", err)
 	}
 
+	// Add plugin configuration if present.
+	if cfg.Plugins != nil {
+		opts = append(opts, daemon.WithPluginConfig(cfg.Plugins))
+	}
+
 	d, err := daemon.NewDaemon(deps, opts...)
 	if err != nil {
 		return fmt.Errorf("failed to create mcpd daemon instance: %w", err)
