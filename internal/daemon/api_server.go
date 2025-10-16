@@ -5,7 +5,6 @@ import (
 	stdErrors "errors"
 	"fmt"
 	"net/http"
-	"net/url"
 	"strings"
 	"time"
 
@@ -17,7 +16,6 @@ import (
 	"github.com/hashicorp/go-hclog"
 
 	"github.com/mozilla-ai/mcpd/v2/internal/api"
-	"github.com/mozilla-ai/mcpd/v2/internal/cmd"
 	"github.com/mozilla-ai/mcpd/v2/internal/contracts"
 	"github.com/mozilla-ai/mcpd/v2/internal/errors"
 )
@@ -78,22 +76,18 @@ func (a *APIServer) Start(ctx context.Context) error {
 		a.applyCORS(mux)
 	}
 
-	config := huma.DefaultConfig("mcpd docs", cmd.Version())
+	// Set the version to match the API version (not the application version).
+	config := huma.DefaultConfig("mcpd docs", api.APIVersion)
 	router := humachi.New(mux, config)
 
 	// Configure the error handling wrapping.
 	huma.NewErrorWithContext = errorHandler(a.logger)
 
-	// Safe way to ensure /api/v1.
-	apiPathPrefix, err := url.JoinPath("/api", "v1")
+	// Register all API routes.
+	apiPathPrefix, err := api.RegisterRoutes(router, a.healthTracker, a.clientManager)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to register API routes: %w", err)
 	}
-
-	// Group all routes under the /api/v1 prefix.
-	v1 := huma.NewGroup(router, apiPathPrefix)
-	api.RegisterHealthRoutes(v1, a.healthTracker, "/health")
-	api.RegisterServerRoutes(v1, a.clientManager, "/servers")
 
 	srv := &http.Server{
 		Addr:    a.addr,

@@ -45,11 +45,14 @@ nav:
   - Requirements: requirements.md
   - Installation: installation.md
   - Tutorial: tutorial.md
-  - Configuration: configuration.md
-  - Daemon Configuration: daemon-configuration.md
-  - Plugin Configuration: plugin-configuration.md
-  - Execution Context: execution-context.md
-  - Registry Caching: caching.md
+  - Configuration:
+      - Overview: configuration.md
+      - Daemon Configuration: daemon-configuration.md
+      - Plugin Configuration: plugin-configuration.md
+      - Execution Context: execution-context.md
+      - Registry Caching: caching.md
   - Makefile: makefile.md
+  - API Reference:
+      - Download OpenAPI Spec: api/openapi.yaml
   - CLI Reference:
       - Overview: commands/mcpd.md

@@ -137,18 +137,13 @@ These commands manage the [MkDocs](https://www.mkdocs.org) developer documentati
     make docs-nav
     ```
 
-- **Serve the docs locally using MkDocs + uv**
-    ```bash
-    make docs-local
-    ```
-
-- **Full pipeline: generate CLI docs, update nav, serve locally**
+- **Serve the docs locally using MkDocs + uv: generate CLI docs, update nav, serve locally**
     ```bash
     make docs
     ```
 
     !!! tip "First time?"
-        The `docs-local` command will create a virtual environment using `uv`, install MkDocs + Material theme, and start the local server at [http://localhost:8000](http://localhost:8000).
+        The `docs` command will create a virtual environment using `uv`, install MkDocs + Material theme, and start the local server at [http://localhost:8000/mcpd/](http://localhost:8000/mcpd/).
 
 ---
 
@@ -165,8 +160,7 @@ Here's a complete list of Makefile targets:
 | `check-licenses`    | Validate all dependency licenses are allowed             |
 | `check-notice`      | Verify NOTICE file is up to date                         |
 | `clean`             | Remove compiled binary from working directory            |
-| `docs`              | Alias for `docs-local` (runs everything)                 |
-| `docs-cli`          | Generate Markdown CLI reference docs                     |
+| `docs`              | Serve docs locally via `mkdocs serve`                    |
 | `docs-local`        | Serve docs locally via `mkdocs serve`                    |
 | `docs-nav`          | Update CLI doc nav in `mkdocs.yaml`                      |
 | `install`           | Install binary to system path                            |

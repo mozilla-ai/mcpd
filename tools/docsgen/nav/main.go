@@ -56,7 +56,9 @@ func updateMkDocsNav(mkdocsPath, commandsDir string) error {
 	if err := encoder.Encode(&root); err != nil {
 		return fmt.Errorf("failed to marshal updated config: %w", err)
 	}
-	encoder.Close()
+	if err := encoder.Close(); err != nil {
+		return fmt.Errorf("failed to close YAML encoder: %w", err)
+	}
 
 	// Write back to file
 	if err := os.WriteFile(mkdocsPath, []byte(buf.String()), 0o644); err != nil {
