@@ -1,5 +1,3 @@
-.PHONY: build build-dev build-linux build-linux-arm64 clean docs docs-cli docs-local docs-nav install lint local-down local-up test uninstall validate-registry check-licenses check-notice notice
-
 MODULE_PATH := github.com/mozilla-ai/mcpd/v2
 
 # /usr/local/bin is a common default for user-installed binaries
@@ -32,6 +30,7 @@ BUILDFLAGS := -trimpath
 # The license types allowed to be imported by the project
 ALLOWED_LICENSES := Apache-2.0,MIT,BSD-2-Clause,BSD-3-Clause,ZeroBSD,Unlicense
 
+.PHONY: check-licenses
 check-licenses:
 	@echo "Checking licenses..."
 	@go install github.com/google/go-licenses/v2@latest
@@ -43,6 +42,7 @@ check-licenses:
 		exit 1; \
 	fi
 
+.PHONY: check-notice
 check-notice:
 	@echo "Checking NOTICE..."
 	@go install github.com/google/go-licenses/v2@latest
@@ -56,43 +56,52 @@ check-notice:
 		echo "✓ NOTICE is up to date"; \
 	fi
 
+.PHONY: notice
 notice:
 	@echo "Generating NOTICE..."
 	@go install github.com/google/go-licenses/v2@latest
 	@go-licenses report ./... --ignore github.com/mozilla-ai/mcpd/v2 --template build/licenses/notice.tpl > NOTICE
 	@echo "✓ NOTICE generated"
 
+.PHONY: lint
 lint: check-notice
 	golangci-lint run --fix -v
 
+.PHONY: test
 test: lint
 	go test ./...
 
+.PHONY: validate-registry
 validate-registry:
 	@echo "Validating Mozilla AI registry against schema..."
 	@go run -tags=validate_registry ./tools/validate/registry.go \
 		internal/provider/mozilla_ai/data/schema.json \
 		internal/provider/mozilla_ai/data/registry.json
 
+.PHONY: build
 build: lint
 	@echo "building mcpd (version: $(VERSION), commit: $(COMMIT))..."
 	@go build $(BUILDFLAGS) -o mcpd -ldflags="$(LDFLAGS)" .
 
+.PHONY: build-linux
 build-linux:
 	@echo "building mcpd for amd64/linux (version: $(VERSION), commit: $(COMMIT))..."
 	@GOOS=linux GOARCH=amd64 go build $(BUILDFLAGS) -o mcpd -ldflags="$(LDFLAGS)" .
 
+.PHONY: build-linux-arm64
 build-linux-arm64:
 	@echo "building mcpd for arm64/linux (version: $(VERSION), commit: $(COMMIT))..."
 	@GOOS=linux GOARCH=arm64 go build $(BUILDFLAGS) -o mcpd -ldflags="$(LDFLAGS)" .
 
 # For development builds without optimizations (for debugging)
+.PHONY: build-dev
 build-dev:
 	@echo "building mcpd for development (version: $(VERSION), commit: $(COMMIT))..."
 	@go build -o mcpd -ldflags="-X '$(MODULE_PATH)/internal/cmd.version=$(VERSION)' \
 		-X '$(MODULE_PATH)/internal/cmd.commit=$(COMMIT)' \
 		-X '$(MODULE_PATH)/internal/cmd.date=$(DATE)'" .
 
+.PHONY: install
 install: build
 	@# Copy the executable to the install directory
 	@# Requires sudo if INSTALL_DIR is a system path like /usr/local/bin
@@ -100,12 +109,14 @@ install: build
 	@cp mcpd $(INSTALL_DIR)/mcpd
 	@chmod +x $(INSTALL_DIR)/mcpd
 
+.PHONY: clean
 clean:
 	@# Remove the built executable and any temporary files
 	@echo "cleaning up local build artifacts..."
 	@rm -f mcpd # The executable itself
 	@rm -rf $(TARGET_PLATFORM) # Remove any orphaned Docker build directories
 
+.PHONY: uninstall
 uninstall:
 	@# Remove the installed executable from the system
 	@# Requires sudo if INSTALL_DIR is a system path
@@ -113,30 +124,32 @@ uninstall:
 	@rm -f $(INSTALL_DIR)/mcpd
 
 # Runs MkDocs locally
-docs: docs-local
-
-# Runs MkDocs locally
-docs-local: docs-nav
+.PHONY: docs
+docs: docs-nav docs-api
 	@uv venv && \
 		source .venv/bin/activate && \
 		uv pip install mkdocs mkdocs-material && \
 		uv run mkdocs serve
 
 # Generates CLI markdown documentation
+.PHONY: docs-cli
 docs-cli:
 	@go run -tags=docsgen_cli ./tools/docsgen/cmds/main.go
 	@echo "mcpd CLI command documentation generated"
 
 # Generates OpenAPI specification YAML
+.PHONY: docs-api
 docs-api:
 	@go run -tags=docsgen_api ./tools/docsgen/api/openapi.go
 	@echo "OpenAPI specification generated"
 
 ## Updates mkdocs.yaml nav to match generated CLI docs
+.PHONY: docs-nav
 docs-nav: docs-cli
 	@go run -tags=docsgen_nav ./tools/docsgen/nav/main.go
 	@echo "navigation updated for MkDocs site"
 
+.PHONY: local-up
 local-up: build-linux
 	@echo "organizing binary for docker build"
 	@mkdir -p $(TARGET_PLATFORM)
@@ -146,6 +159,7 @@ local-up: build-linux
 	@echo "cleaning up temporary platform directory"
 	@rm -rf $(TARGET_PLATFORM)
 
+.PHONY: local-down
 local-down:
 	@echo "stopping mcpd container"
 	@docker compose down
