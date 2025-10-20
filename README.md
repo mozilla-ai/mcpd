@@ -22,7 +22,7 @@ We're developing a Kubernetes operator, guided by our internal roadmap, to exten
 
 ## The Problem
 
-ML teams build agents that work perfectly locally. Operations teams get handed Python scripts and told "make this production-ready across dev/UAT/prod." 
+ML teams build agents that work perfectly locally. Operations teams often get handed Python scripts with little context and told "make this production-ready across dev/UAT/prod." 
 The gap between local development and enterprise deployment kills AI initiatives.
 
 `mcpd` solves this with declarative configuration, secure secrets management, and seamless environment promotion - all while keeping the developer experience simple.
@@ -31,19 +31,19 @@ The gap between local development and enterprise deployment kills AI initiatives
 ## Why `mcpd`?
 
 **Zero-Config Tool Setup**  
-No cloning repos or installing language-specific dependencies. `mcpd add` and `mcpd daemon` handle everything.
+No need to clone multiple repos or install language-specific dependencies. `mcpd add` and `mcpd daemon` handle everything.
 
 **Language-Agnostic Tooling**  
-Use MCP servers in Docker containers or written in Python, JavaScript, TypeScript via a unified HTTP API.
+Use MCP servers in Docker containers or written in Python, JavaScript, or TypeScript via a unified HTTP API.
 
 **Declarative Configuration**  
 Version-controlled `.mcpd.toml` files define your agent infrastructure. Reproducible, auditable, CI-friendly.
 
 **Enterprise-Ready Secrets**  
-Separate project configuration from runtime variables, and export sanitized secrets templates. Never commit secrets to Git again.
+Separate project configuration from runtime variables, and export sanitized secrets templates. No need to commit secrets to Git ever again.
 
 **Seamless Local-to-Prod**  
-Same configuration works in development, CI, and cloud environments without modification.
+Same configuration works in development, CI, and cloud environments without modification or risky hand-offs.
 
 
 ## Built for Dev & Production
@@ -71,7 +71,7 @@ Same configuration works in development, CI, and cloud environments without modi
 - [Docker](https://www.docker.com/products/docker-desktop/)
 - [Go](https://go.dev/doc/install) (only required for development of `mcpd`)
 - [npx](https://docs.npmjs.com/downloading-and-installing-node-js-and-npm)
-- [uvx](https://docs.astral.sh/uv/getting-started/installation/)
+- [uv](https://docs.astral.sh/uv/getting-started/installation/)
 
 ### Installation
 
