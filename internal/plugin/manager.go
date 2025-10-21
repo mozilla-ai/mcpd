@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"net"
 	"net/http"
 	"os"
@@ -153,7 +154,7 @@ func (m *Manager) StartPlugins(ctx context.Context) (func(http.Handler) http.Han
 			if err := plg.validate(ctx, pluginEntry); err != nil {
 				return nil, errors.Join(
 					fmt.Errorf("plugin '%s' validation error: %w", pluginEntry.Name, err),
-					plg.stop(ctx),
+					plg.stop(),
 				)
 			}
 
@@ -189,14 +190,14 @@ func (m *Manager) StartPlugins(ctx context.Context) (func(http.Handler) http.Han
 
 // StopPlugins stops all running plugins.
 // Force kills any that don't stop gracefully within the timeout.
-func (m *Manager) StopPlugins(ctx context.Context) error {
+func (m *Manager) StopPlugins() error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
 	var errs []error
 
 	for name, plg := range m.plugins {
-		if err := plg.stop(ctx); err != nil {
+		if err := plg.stop(); err != nil {
 			errs = append(errs, fmt.Errorf("error stopping plugin '%s': %w", name, err))
 		}
 	}
@@ -233,55 +234,94 @@ func (p *runningPlugin) validate(ctx context.Context, pluginEntry config.PluginE
 }
 
 // stop gracefully stops a single plugin.
-// It attempts graceful shutdown first, then force kills if necessary.
-func (p *runningPlugin) stop(ctx context.Context) error {
+// It attempts graceful shutdown first, waits for process exit, and cleans up resources.
+// Returns error only for truly unexpected failures that might indicate a problem.
+func (p *runningPlugin) stop() error {
 	if p == nil {
 		return fmt.Errorf("plugin is nil")
 	}
 
-	var errs []error
-
-	stopCtx, cancel := context.WithTimeout(ctx, pluginGracefulStopTimeout)
+	// Attempt graceful shutdown via RPC.
+	// Errors here are expected if the plugin already received SIGINT.
+	stopCtx, cancel := context.WithTimeout(context.Background(), pluginGracefulStopTimeout)
 	defer cancel()
 	if _, err := p.client.Stop(stopCtx, &emptypb.Empty{}); err != nil {
-		errs = append(errs, fmt.Errorf("failed to stop plugin: %w", err))
+		// Log at debug level - plugin may have already started shutting down from SIGINT.
+		p.logger.Debug("stop RPC failed (may be expected during shutdown)", "error", err)
 	}
 
+	// Close gRPC connection.
 	if err := p.conn.Close(); err != nil {
-		errs = append(errs, fmt.Errorf("failed to close plugin connection: %w", err))
+		p.logger.Debug("error closing gRPC connection", "error", err)
 	}
 
-	// Try to close the process normally.
+	// Wait for process to exit gracefully.
 	done := make(chan error, 1)
 	go func() {
 		done <- p.cmd.Wait()
 	}()
 
+	var processExitErr error
 	select {
 	case <-time.After(pluginForceKillTimeout):
-		// Force kill the process if required.
+		// Process didn't exit in time, force kill it.
+		p.logger.Warn("plugin didn't exit gracefully, force killing", "timeout", pluginForceKillTimeout)
 		if err := p.cmd.Process.Kill(); err != nil {
-			errs = append(errs, fmt.Errorf("failed to force kill plugin process: %w", err))
+			// Only report if we couldn't kill a stuck process.
+			return fmt.Errorf("failed to force kill stuck plugin process: %w", err)
 		}
-		<-done
-	case err := <-done:
-		if err != nil {
-			errs = append(errs, fmt.Errorf("plugin process exited with error: %w", err))
-		}
+		processExitErr = <-done
+	case processExitErr = <-done:
+		// Process exited on its own.
 	}
 
 	// Clean up unix sockets.
 	if p.network == networkUnix {
 		if err := os.Remove(p.address); err != nil && !os.IsNotExist(err) {
-			errs = append(errs, fmt.Errorf("failed to remove plugin's unix socket: %w", err))
+			p.logger.Debug("error removing unix socket", "error", err)
 		}
 	}
 
-	if len(errs) > 0 {
-		return errors.Join(errs...)
+	// Check if process exited cleanly.
+	if processExitErr != nil {
+		// Check for expected exit conditions during shutdown.
+		if isExpectedShutdownError(processExitErr) {
+			p.logger.Debug("plugin process exit", "status", processExitErr)
+			return nil
+		}
+		// Unexpected error - report it.
+		return fmt.Errorf("plugin process exited with unexpected error: %w", processExitErr)
 	}
 
+	p.logger.Debug("plugin stopped successfully")
 	return nil
+}
+
+// isExpectedShutdownError checks if an error is expected during graceful shutdown.
+func isExpectedShutdownError(err error) bool {
+	if err == nil {
+		return true
+	}
+
+	// Check for context cancellation.
+	if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
+		return true
+	}
+
+	// Check for process exit with signal or clean exit code.
+	var exitErr *exec.ExitError
+	if errors.As(err, &exitErr) {
+		// Process was signaled (SIGINT, SIGTERM, SIGKILL).
+		if exitErr.Exited() {
+			code := exitErr.ExitCode()
+			// Exit code 0 is clean, -1 typically means signaled.
+			return code == 0 || code == -1
+		}
+		// Process was terminated by signal (not via exit()).
+		return true
+	}
+
+	return false
 }
 
 // discoverPlugins scans the plugins directory for executable binaries that match the names of the configured plugins.
@@ -369,11 +409,14 @@ func (m *Manager) startPlugin(ctx context.Context, name string, binaryPath strin
 	cmd := exec.CommandContext(ctx, binaryPath, "--address", address, "--network", network)
 
 	// Use plugin specific logger to configure stdio and stderr for the plugin to emit logs.
-	stdWriter := l.StandardWriter(&hclog.StandardLoggerOptions{
-		InferLevels: true,
-	})
-	cmd.Stdout = stdWriter
-	cmd.Stderr = stdWriter
+	stdWriter := func() io.Writer {
+		return l.StandardWriter(&hclog.StandardLoggerOptions{
+			InferLevels:              true,
+			InferLevelsWithTimestamp: true,
+		})
+	}
+	cmd.Stdout = stdWriter()
+	cmd.Stderr = stdWriter()
 
 	if err := cmd.Start(); err != nil {
 		return nil, fmt.Errorf("failed to start process: %w", err)

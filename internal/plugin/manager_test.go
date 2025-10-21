@@ -405,8 +405,7 @@ func TestManager_StopPlugins_EmptyPluginsMap(t *testing.T) {
 	m, err := NewManager(logger, cfg)
 	require.NoError(t, err)
 
-	ctx := context.Background()
-	err = m.StopPlugins(ctx)
+	err = m.StopPlugins()
 	require.NoError(t, err)
 }
 
@@ -443,9 +442,8 @@ func TestRunningPlugin_stop_NilPlugin(t *testing.T) {
 	t.Parallel()
 
 	var plg *runningPlugin
-	ctx := context.Background()
 
-	err := plg.stop(ctx)
+	err := plg.stop()
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "plugin is nil")
 }

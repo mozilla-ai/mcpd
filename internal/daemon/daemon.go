@@ -149,7 +149,7 @@ func newMCPLoggerAdapter(logger hclog.Logger) *mcpLoggerAdapter {
 func (d *Daemon) StartAndManage(ctx context.Context) error {
 	// Handle clean-up.
 	defer d.closeAllClients()
-	defer d.stopPlugins(ctx)
+	defer d.stopPlugins()
 
 	// Launch servers
 	if err := d.startMCPServers(ctx); err != nil {
@@ -770,13 +770,13 @@ func (d *Daemon) stopMCPServer(name string) error {
 }
 
 // stopPlugins gracefully stops all plugin processes if a plugin manager exists.
-func (d *Daemon) stopPlugins(ctx context.Context) {
+func (d *Daemon) stopPlugins() {
 	if d.pluginManager == nil {
 		return
 	}
 
 	d.logger.Info("Stopping plugins")
-	if err := d.pluginManager.StopPlugins(ctx); err != nil {
+	if err := d.pluginManager.StopPlugins(); err != nil {
 		d.logger.Error("Error stopping plugins", "error", err)
 	}
 }
