@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/mozilla-ai/mcpd/v2/internal/context"
+	"github.com/mozilla-ai/mcpd/v2/internal/files"
 )
 
 const (
@@ -247,7 +248,43 @@ func (p *PluginConfig) Validate() error {
 		}
 	}
 
+	// Validate directory and plugins if Dir is configured.
+	if err := p.validatePluginDirectory(); err != nil {
+		validationErrors = append(validationErrors, err)
+	}
+
 	return errors.Join(validationErrors...)
+}
+
+// validatePluginDirectory validates that the plugin directory exists and contains all configured plugins.
+// Returns nil if Dir is empty (plugins disabled).
+func (p *PluginConfig) validatePluginDirectory() error {
+	if strings.TrimSpace(p.Dir) == "" {
+		return nil
+	}
+
+	available, err := files.DiscoverExecutables(p.Dir)
+	if err != nil {
+		return fmt.Errorf("plugin directory %s: %w", p.Dir, err)
+	}
+
+	return p.validateConfiguredPluginsExist(available)
+}
+
+// validateConfiguredPluginsExist checks that all configured plugins exist in the available set.
+func (p *PluginConfig) validateConfiguredPluginsExist(available map[string]struct{}) error {
+	var missingPlugins []error
+
+	for name := range p.PluginNamesDistinct() {
+		if _, exists := available[name]; !exists {
+			missingPlugins = append(
+				missingPlugins,
+				fmt.Errorf("plugin %s not found in directory %s", name, p.Dir),
+			)
+		}
+	}
+
+	return errors.Join(missingPlugins...)
 }
 
 // categorySlice returns a pointer to the category slice for the given category name.

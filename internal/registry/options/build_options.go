@@ -5,7 +5,7 @@ import (
 	"time"
 
 	"github.com/mozilla-ai/mcpd/v2/internal/config"
-	"github.com/mozilla-ai/mcpd/v2/internal/context"
+	"github.com/mozilla-ai/mcpd/v2/internal/files"
 )
 
 // BuildOption defines a functional option for configuring registry builds.
@@ -83,7 +83,7 @@ func WithCacheTTL(ttl time.Duration) BuildOption {
 
 // DefaultCacheDir returns the default cache directory for registry manifests.
 func DefaultCacheDir() (string, error) {
-	cacheDir, err := context.UserSpecificCacheDir()
+	cacheDir, err := files.UserSpecificCacheDir()
 	if err != nil {
 		return "", err
 	}
