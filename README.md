@@ -68,10 +68,13 @@ Same configuration works in development, CI, and cloud environments without modi
 
 ### Prerequisites
 
-- [Docker](https://www.docker.com/products/docker-desktop/)
-- [Go](https://go.dev/doc/install) (only required for development of `mcpd`)
-- [npx](https://docs.npmjs.com/downloading-and-installing-node-js-and-npm)
-- [uv](https://docs.astral.sh/uv/getting-started/installation/)
+You need the following installed before running `mcpd`:
+- [**Docker**](https://www.docker.com/products/docker-desktop/)
+- [**npx**](https://docs.npmjs.com/downloading-and-installing-node-js-and-npm) (Node.js package runner)
+- [**uvx**](https://docs.astral.sh/uv/getting-started/installation/) (Universal virtual environment manager)
+
+If you are developing `mcpd`, you will also need:
+- [**Go**](https://go.dev/doc/install) (v1.21+ recommended)
 
 ### Installation
 
@@ -173,7 +176,7 @@ API docs will be available at [http://localhost:8090/docs](http://localhost:8090
 | Language   | Repository                                                               | Status |
 |------------|--------------------------------------------------------------------------|--------|
 | Python     | [mcpd-sdk-python](https://github.com/mozilla-ai/mcpd-sdk-python)         | ✅      |
-| JavaScript | [mcpd-sdk-javascript](https://github.com/mozilla-ai/mcpd-sdk-javascript) | 🟡     |
+| JavaScript | [mcpd-sdk-javascript](https://github.com/mozilla-ai/mcpd-sdk-javascript) | ✅     |
 
 
 ### `mcpd` plugin SDKs
