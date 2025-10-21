@@ -355,7 +355,7 @@ func TestPluginConfig_categorySlice(t *testing.T) {
 
 	tests := []struct {
 		name     string
-		category string
+		category Category
 		wantErr  bool
 	}{
 		{name: "authentication", category: CategoryAuthentication, wantErr: false},
@@ -391,7 +391,7 @@ func TestPluginConfig_upsertPlugin(t *testing.T) {
 	tests := []struct {
 		name       string
 		initial    *PluginConfig
-		category   string
+		category   Category
 		entry      PluginEntry
 		wantResult context.UpsertResult
 		wantErr    bool
@@ -484,7 +484,7 @@ func TestPluginConfig_deletePlugin(t *testing.T) {
 	tests := []struct {
 		name       string
 		initial    *PluginConfig
-		category   string
+		category   Category
 		pluginName string
 		wantResult context.UpsertResult
 		wantErr    bool
@@ -608,7 +608,7 @@ func TestConfig_PluginMethods(t *testing.T) {
 			Flows: []Flow{FlowRequest},
 		}
 
-		result, err := config.UpsertPlugin(CategoryAuthentication, entry)
+		result, err := config.UpsertPlugin(CategoryAuthentication.String(), entry)
 		require.NoError(t, err)
 		require.Equal(t, context.Created, result)
 		require.NotNil(t, config.Plugins)
@@ -622,7 +622,7 @@ func TestConfig_PluginMethods(t *testing.T) {
 			configFilePath: t.TempDir() + "/test.toml",
 		}
 
-		result, err := config.DeletePlugin(CategoryAuthentication, "jwt-auth")
+		result, err := config.DeletePlugin(CategoryAuthentication.String(), "jwt-auth")
 		require.Error(t, err)
 		require.Equal(t, context.Noop, result)
 		require.Contains(t, err.Error(), "no plugins configured")
@@ -635,7 +635,7 @@ func TestConfig_PluginMethods(t *testing.T) {
 			Servers: []ServerEntry{},
 		}
 
-		plugins := config.ListPlugins(CategoryAuthentication)
+		plugins := config.ListPlugins(CategoryAuthentication.String())
 		require.Nil(t, plugins)
 	})
 
@@ -646,7 +646,7 @@ func TestConfig_PluginMethods(t *testing.T) {
 			Servers: []ServerEntry{},
 		}
 
-		_, found := config.Plugin(CategoryAuthentication, "jwt-auth")
+		_, found := config.Plugin(CategoryAuthentication.String(), "jwt-auth")
 		require.False(t, found)
 	})
 }

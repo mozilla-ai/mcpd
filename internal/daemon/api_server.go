@@ -40,6 +40,9 @@ type APIServer struct {
 
 	// ShutdownTimeout specifies how long to wait for graceful shutdown.
 	shutdownTimeout time.Duration
+
+	// middlewareProvider lazily provides HTTP middleware during server startup.
+	middlewareProvider func(context.Context) (func(http.Handler) http.Handler, error)
 }
 
 // NewAPIServer creates a new API server with the provided dependencies and options.
@@ -56,12 +59,13 @@ func NewAPIServer(deps APIDependencies, opt ...APIOption) (*APIServer, error) {
 	}
 
 	return &APIServer{
-		logger:          deps.Logger.Named("api"),
-		clientManager:   deps.ClientManager,
-		healthTracker:   deps.HealthTracker,
-		addr:            deps.Addr,
-		cors:            apiOpts.CORS,
-		shutdownTimeout: apiOpts.ShutdownTimeout,
+		logger:             deps.Logger.Named("api"),
+		clientManager:      deps.ClientManager,
+		healthTracker:      deps.HealthTracker,
+		addr:               deps.Addr,
+		cors:               apiOpts.CORS,
+		shutdownTimeout:    apiOpts.ShutdownTimeout,
+		middlewareProvider: apiOpts.MiddlewareProvider,
 	}, nil
 }
 
@@ -75,6 +79,13 @@ func (a *APIServer) Start(ctx context.Context) error {
 	if a.cors.Enabled {
 		a.applyCORS(mux)
 	}
+
+	// Initialize and apply middleware (plugins or no-op).
+	middlewareFunc, err := a.middlewareProvider(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to initialize middleware: %w", err)
+	}
+	mux.Use(middlewareFunc)
 
 	// Set the version to match the API version (not the application version).
 	config := huma.DefaultConfig("mcpd docs", api.APIVersion)

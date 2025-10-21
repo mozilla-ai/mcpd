@@ -1,6 +1,7 @@
 package daemon
 
 import (
+	"context"
 	"fmt"
 	"net"
 	"net/http"
@@ -16,6 +17,10 @@ type APIOptions struct {
 
 	// ShutdownTimeout specifies how long to wait for graceful shutdown.
 	ShutdownTimeout time.Duration
+
+	// MiddlewareProvider lazily provides HTTP middleware when called during API server startup.
+	// This allows plugin initialization to be deferred until the server actually starts.
+	MiddlewareProvider func(context.Context) (func(http.Handler) http.Handler, error)
 }
 
 // CORSConfig defines Cross-Origin Resource Sharing settings for the API server.
@@ -63,7 +68,8 @@ func NewAPIOptions(opts ...APIOption) (APIOptions, error) {
 			ExposedHeaders:   nil,
 			MaxAge:           DefaultCORSMaxAge(),
 		},
-		ShutdownTimeout: DefaultAPIShutdownTimeout(),
+		ShutdownTimeout:    DefaultAPIShutdownTimeout(),
+		MiddlewareProvider: DefaultMiddlewareProvider(),
 	}
 
 	for _, opt := range opts {
@@ -149,6 +155,15 @@ func WithShutdownTimeout(timeout time.Duration) APIOption {
 	}
 }
 
+// WithMiddlewareProvider configures a provider function that returns HTTP middleware.
+// The provider is called during API server startup to lazily initialize middleware.
+func WithMiddlewareProvider(provider func(context.Context) (func(http.Handler) http.Handler, error)) APIOption {
+	return func(o *APIOptions) error {
+		o.MiddlewareProvider = provider
+		return nil
+	}
+}
+
 // DefaultCORSAllowHeaders returns standard headers required for API interaction.
 func DefaultCORSAllowHeaders() []string {
 	// Headers that are safe-listed regardless of configuration.
@@ -186,6 +201,17 @@ func DefaultCORSMaxAge() time.Duration {
 // DefaultAPIShutdownTimeout is the default time allowed for API server graceful shutdown.
 func DefaultAPIShutdownTimeout() time.Duration {
 	return 5 * time.Second
+}
+
+// DefaultMiddlewareProvider returns a provider that supplies no-op middleware.
+// The no-op middleware passes requests through unchanged.
+func DefaultMiddlewareProvider() func(context.Context) (func(http.Handler) http.Handler, error) {
+	return func(context.Context) (func(http.Handler) http.Handler, error) {
+		middleware := func(next http.Handler) http.Handler {
+			return next
+		}
+		return middleware, nil
+	}
 }
 
 // validateAddr checks if the address is a valid "host:port" string.

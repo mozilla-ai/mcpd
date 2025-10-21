@@ -10,29 +10,26 @@ import (
 
 const (
 	// CategoryAuthentication represents authentication plugins.
-	CategoryAuthentication = "authentication"
+	CategoryAuthentication Category = "authentication"
 
 	// CategoryAuthorization represents authorization plugins.
-	CategoryAuthorization = "authorization"
+	CategoryAuthorization Category = "authorization"
 
 	// CategoryRateLimiting represents rate limiting plugins.
-	CategoryRateLimiting = "rate_limiting"
+	CategoryRateLimiting Category = "rate_limiting"
 
 	// CategoryValidation represents validation plugins.
-	CategoryValidation = "validation"
+	CategoryValidation Category = "validation"
 
 	// CategoryContent represents content transformation plugins.
-	CategoryContent = "content"
+	CategoryContent Category = "content"
 
 	// CategoryObservability represents observability plugins.
-	CategoryObservability = "observability"
+	CategoryObservability Category = "observability"
 
 	// CategoryAudit represents audit/compliance logging plugins.
-	CategoryAudit = "audit"
+	CategoryAudit Category = "audit"
 )
-
-// Flow represents the execution phase for a plugin.
-type Flow string
 
 const (
 	// FlowRequest indicates the plugin executes during the request phase.
@@ -45,22 +42,31 @@ const (
 // PluginModifier defines operations for managing plugin configuration.
 type PluginModifier interface {
 	// Plugin retrieves a plugin by category and name.
-	Plugin(category string, name string) (PluginEntry, bool)
+	Plugin(category Category, name string) (PluginEntry, bool)
 
 	// UpsertPlugin creates or updates a plugin entry.
-	UpsertPlugin(category string, entry PluginEntry) (context.UpsertResult, error)
+	UpsertPlugin(category Category, entry PluginEntry) (context.UpsertResult, error)
 
 	// DeletePlugin removes a plugin entry.
-	DeletePlugin(category string, name string) (context.UpsertResult, error)
+	DeletePlugin(category Category, name string) (context.UpsertResult, error)
 
 	// ListPlugins returns all plugins in a category.
-	ListPlugins(category string) []PluginEntry
+	ListPlugins(category Category) []PluginEntry
 }
+
+// Category represents a plugin category.
+type Category string
+
+// Flow represents the execution phase for a plugin.
+type Flow string
 
 // PluginConfig represents the top-level plugin configuration.
 //
 // NOTE: if you add/remove fields you must review the associated validation implementation.
 type PluginConfig struct {
+	// Dir specifies the directory containing plugin binaries.
+	Dir string `json:"dir,omitempty" toml:"dir,omitempty" yaml:"dir,omitempty"`
+
 	// Authentication plugins execute first, validating identity.
 	Authentication []PluginEntry `json:"authentication,omitempty" toml:"authentication,omitempty" yaml:"authentication,omitempty"`
 
@@ -164,6 +170,10 @@ func (e *PluginEntry) HasFlow(flow Flow) bool {
 	return false
 }
 
+func (c Category) String() string {
+	return string(c)
+}
+
 // Validate validates a single PluginEntry.
 func (e *PluginEntry) Validate() error {
 	var validationErrors []error
@@ -209,7 +219,7 @@ func (p *PluginConfig) Validate() error {
 
 	// Validate each category.
 	categories := []struct {
-		name    string
+		name    Category
 		entries []PluginEntry
 	}{
 		{CategoryAuthentication, p.Authentication},
@@ -241,9 +251,7 @@ func (p *PluginConfig) Validate() error {
 }
 
 // categorySlice returns a pointer to the category slice for the given category name.
-func (p *PluginConfig) categorySlice(category string) (*[]PluginEntry, error) {
-	category = normalizeKey(category)
-
+func (p *PluginConfig) categorySlice(category Category) (*[]PluginEntry, error) {
 	switch category {
 	case CategoryAuthentication:
 		return &p.Authentication, nil
@@ -265,7 +273,7 @@ func (p *PluginConfig) categorySlice(category string) (*[]PluginEntry, error) {
 }
 
 // plugin retrieves a plugin by category and name.
-func (p *PluginConfig) plugin(category string, name string) (PluginEntry, bool) {
+func (p *PluginConfig) plugin(category Category, name string) (PluginEntry, bool) {
 	if p == nil {
 		return PluginEntry{}, false
 	}
@@ -286,7 +294,7 @@ func (p *PluginConfig) plugin(category string, name string) (PluginEntry, bool) 
 }
 
 // upsertPlugin creates or updates a plugin entry.
-func (p *PluginConfig) upsertPlugin(category string, entry PluginEntry) (context.UpsertResult, error) {
+func (p *PluginConfig) upsertPlugin(category Category, entry PluginEntry) (context.UpsertResult, error) {
 	if strings.TrimSpace(entry.Name) == "" {
 		return context.Noop, fmt.Errorf("plugin name cannot be empty")
 	}
@@ -323,7 +331,7 @@ func (p *PluginConfig) upsertPlugin(category string, entry PluginEntry) (context
 }
 
 // deletePlugin removes a plugin entry.
-func (p *PluginConfig) deletePlugin(category string, name string) (context.UpsertResult, error) {
+func (p *PluginConfig) deletePlugin(category Category, name string) (context.UpsertResult, error) {
 	if p == nil {
 		return context.Noop, fmt.Errorf("plugin config is nil")
 	}
@@ -353,7 +361,7 @@ func (p *PluginConfig) deletePlugin(category string, name string) (context.Upser
 }
 
 // listPlugins returns all plugins in a category.
-func (p *PluginConfig) listPlugins(category string) []PluginEntry {
+func (p *PluginConfig) listPlugins(category Category) []PluginEntry {
 	if p == nil {
 		return nil
 	}
@@ -366,5 +374,57 @@ func (p *PluginConfig) listPlugins(category string) []PluginEntry {
 	// Return a copy to prevent external modification.
 	result := make([]PluginEntry, len(*slice))
 	copy(result, *slice)
+	return result
+}
+
+// AllCategories returns all plugin entries organized by category.
+// Only categories with configured plugins are included in the returned map.
+func (p *PluginConfig) AllCategories() map[Category][]PluginEntry {
+	if p == nil {
+		return nil
+	}
+
+	result := make(map[Category][]PluginEntry)
+
+	if len(p.Authentication) > 0 {
+		result[CategoryAuthentication] = p.Authentication
+	}
+	if len(p.Authorization) > 0 {
+		result[CategoryAuthorization] = p.Authorization
+	}
+	if len(p.RateLimiting) > 0 {
+		result[CategoryRateLimiting] = p.RateLimiting
+	}
+	if len(p.Validation) > 0 {
+		result[CategoryValidation] = p.Validation
+	}
+	if len(p.Content) > 0 {
+		result[CategoryContent] = p.Content
+	}
+	if len(p.Observability) > 0 {
+		result[CategoryObservability] = p.Observability
+	}
+	if len(p.Audit) > 0 {
+		result[CategoryAudit] = p.Audit
+	}
+
+	return result
+}
+
+// PluginNamesDistinct returns the names of all distinct plugins specified in config.
+func (p *PluginConfig) PluginNamesDistinct() map[string]struct{} {
+	if p == nil {
+		return nil
+	}
+
+	all := p.AllCategories()
+	result := make(map[string]struct{})
+
+	for _, plugins := range all {
+		for _, plugin := range plugins {
+			result[plugin.Name] = struct{}{}
+		}
+	}
+
 	return result
 }
