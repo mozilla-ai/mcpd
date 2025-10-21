@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"net"
+	"net/http"
 	"strconv"
 	"strings"
 	"sync"
@@ -23,6 +24,7 @@ import (
 	"github.com/mozilla-ai/mcpd/v2/internal/contracts"
 	"github.com/mozilla-ai/mcpd/v2/internal/domain"
 	"github.com/mozilla-ai/mcpd/v2/internal/filter"
+	"github.com/mozilla-ai/mcpd/v2/internal/plugin"
 	"github.com/mozilla-ai/mcpd/v2/internal/runtime"
 )
 
@@ -37,6 +39,7 @@ type Daemon struct {
 	healthTracker     contracts.MCPHealthMonitor
 	supportedRuntimes map[runtime.Runtime]struct{}
 	runtimeServers    []runtime.Server
+	pluginManager     *plugin.Manager
 
 	// clientInitTimeout is the time allowed for MCP servers to initialize.
 	clientInitTimeout time.Duration
@@ -98,7 +101,24 @@ func NewDaemon(deps Dependencies, opt ...Option) (*Daemon, error) {
 		return nil, fmt.Errorf("failed to create API dependencies: %w", err)
 	}
 
-	apiServer, err := NewAPIServer(apiDeps, opts.APIOptions...)
+	// Initialize plugin manager if config and directory are provided.
+	var pluginManager *plugin.Manager
+	apiOptions := opts.APIOptions
+	if opts.PluginConfig != nil && opts.PluginConfig.Dir != "" {
+		pluginManager, err = plugin.NewManager(deps.Logger, opts.PluginConfig)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create plugin manager: %w", err)
+		}
+
+		// Create middleware provider closure that will start plugins lazily.
+		middlewareProvider := func(ctx context.Context) (func(http.Handler) http.Handler, error) {
+			return pluginManager.StartPlugins(ctx)
+		}
+
+		apiOptions = append(apiOptions, WithMiddlewareProvider(middlewareProvider))
+	}
+
+	apiServer, err := NewAPIServer(apiDeps, apiOptions...)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create daemon API server: %w", err)
 	}
@@ -110,6 +130,7 @@ func NewDaemon(deps Dependencies, opt ...Option) (*Daemon, error) {
 		apiServer:                 apiServer,
 		supportedRuntimes:         runtime.DefaultSupportedRuntimes(),
 		runtimeServers:            deps.RuntimeServers,
+		pluginManager:             pluginManager,
 		clientInitTimeout:         opts.ClientInitTimeout,
 		clientShutdownTimeout:     opts.ClientShutdownTimeout,
 		clientHealthCheckTimeout:  opts.ClientHealthCheckTimeout,
@@ -128,6 +149,7 @@ func newMCPLoggerAdapter(logger hclog.Logger) *mcpLoggerAdapter {
 func (d *Daemon) StartAndManage(ctx context.Context) error {
 	// Handle clean-up.
 	defer d.closeAllClients()
+	defer d.stopPlugins()
 
 	// Launch servers
 	if err := d.startMCPServers(ctx); err != nil {
@@ -745,4 +767,16 @@ func (d *Daemon) stopMCPServer(name string) error {
 
 	d.logger.Info("MCP server stopped successfully", "server", name)
 	return nil
+}
+
+// stopPlugins gracefully stops all plugin processes if a plugin manager exists.
+func (d *Daemon) stopPlugins() {
+	if d.pluginManager == nil {
+		return
+	}
+
+	d.logger.Info("Stopping plugins")
+	if err := d.pluginManager.StopPlugins(); err != nil {
+		d.logger.Error("Error stopping plugins", "error", err)
+	}
 }

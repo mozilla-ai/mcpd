@@ -134,7 +134,7 @@ func (c *Config) Plugin(category string, name string) (PluginEntry, bool) {
 	if c.Plugins == nil {
 		return PluginEntry{}, false
 	}
-	return c.Plugins.plugin(category, name)
+	return c.Plugins.plugin(Category(category), name)
 }
 
 // UpsertPlugin creates or updates a plugin entry and saves the configuration.
@@ -143,7 +143,7 @@ func (c *Config) UpsertPlugin(category string, entry PluginEntry) (context.Upser
 		c.Plugins = &PluginConfig{}
 	}
 
-	result, err := c.Plugins.upsertPlugin(category, entry)
+	result, err := c.Plugins.upsertPlugin(Category(category), entry)
 	if err != nil {
 		return result, err
 	}
@@ -169,7 +169,7 @@ func (c *Config) DeletePlugin(category string, name string) (context.UpsertResul
 		return context.Noop, fmt.Errorf("no plugins configured")
 	}
 
-	result, err := c.Plugins.deletePlugin(category, name)
+	result, err := c.Plugins.deletePlugin(Category(category), name)
 	if err != nil {
 		return result, err
 	}
@@ -194,7 +194,7 @@ func (c *Config) ListPlugins(category string) []PluginEntry {
 	if c.Plugins == nil {
 		return nil
 	}
-	return c.Plugins.listPlugins(category)
+	return c.Plugins.listPlugins(Category(category))
 }
 
 // keyFor generates a temporary version of the ServerEntry to be used as a composite key.

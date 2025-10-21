@@ -3,6 +3,8 @@ package daemon
 import (
 	"fmt"
 	"time"
+
+	"github.com/mozilla-ai/mcpd/v2/internal/config"
 )
 
 // Options contains optional configuration for the daemon.
@@ -22,6 +24,9 @@ type Options struct {
 
 	// ClientShutdownTimeout specifies how long to wait for MCP clients to close.
 	ClientShutdownTimeout time.Duration
+
+	// PluginConfig specifies the configuration for plugins.
+	PluginConfig *config.PluginConfig
 }
 
 // Option defines a functional option for configuring Options.
@@ -94,6 +99,14 @@ func WithMCPServerShutdownTimeout(timeout time.Duration) Option {
 			return fmt.Errorf("server shutdown timeout must be positive, got %v", timeout)
 		}
 		o.ClientShutdownTimeout = timeout
+		return nil
+	}
+}
+
+// WithPluginConfig configures the plugin system with the specified configuration.
+func WithPluginConfig(cfg *config.PluginConfig) Option {
+	return func(o *Options) error {
+		o.PluginConfig = cfg
 		return nil
 	}
 }
