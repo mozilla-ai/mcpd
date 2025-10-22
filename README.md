@@ -74,7 +74,7 @@ You need the following installed before running `mcpd`:
 - [**uvx**](https://docs.astral.sh/uv/getting-started/installation/) (Universal virtual environment manager)
 
 If you are developing `mcpd`, you will also need:
-- [**Go**](https://go.dev/doc/install) (v1.21+ recommended)
+- [**Go**](https://go.dev/doc/install) (v1.25.1+ recommended)
 
 ### Installation
 
