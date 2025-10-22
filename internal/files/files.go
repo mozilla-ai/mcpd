@@ -13,7 +13,7 @@ const (
 	// EnvVarXDGConfigHome is the XDG Base Directory env var name for config files.
 	EnvVarXDGConfigHome = "XDG_CONFIG_HOME"
 
-	// EnvVarXDGCacheHome is the XDG Base Directory env var name for cache file.
+	// EnvVarXDGCacheHome is the XDG Base Directory env var name for cache files.
 	EnvVarXDGCacheHome = "XDG_CACHE_HOME"
 )
 

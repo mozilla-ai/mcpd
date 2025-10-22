@@ -285,10 +285,10 @@ func TestEnsureAtLeastSecureDir(t *testing.T) {
 			wantErr: false,
 		},
 		{
-			name: "accepts directory with more restrictive permissions",
+			name: "accepts directory with 0o600 (more restrictive)",
 			setup: func(t *testing.T) string {
 				dir := filepath.Join(t.TempDir(), "more-restrictive")
-				require.NoError(t, os.Mkdir(dir, 0o700))
+				require.NoError(t, os.Mkdir(dir, 0o600))
 				return dir
 			},
 			wantErr: false,
@@ -393,6 +393,10 @@ func TestEnsureAtLeastRegularDir(t *testing.T) {
 			name: "rejects directory with less restrictive permissions",
 			setup: func(t *testing.T) string {
 				dir := filepath.Join(t.TempDir(), "less-restrictive")
+				// NOTE: os.Mkdir applies the process umask, so passing 0o777 does not guarantee
+				// world-writable permissions (e.g. 0o777 &^ 0o022 = 0o755 on most systems).
+				// We explicitly chmod here to ensure the directory actually has 0o777 permissions
+				// for the test to validate incorrect-permission handling correctly.
 				require.NoError(t, os.Mkdir(dir, 0o755))
 				require.NoError(t, os.Chmod(dir, 0o777))
 				return dir
@@ -441,6 +445,10 @@ func TestEnsureAtLeastRegularDirErrorMessages(t *testing.T) {
 
 	tempDir := t.TempDir()
 	tooOpen := filepath.Join(tempDir, "too-open")
+	// NOTE: os.Mkdir applies the process umask, so passing 0o777 does not guarantee
+	// world-writable permissions (e.g. 0o777 &^ 0o022 = 0o755 on most systems).
+	// We explicitly chmod here to ensure the directory actually has 0o777 permissions
+	// for the test to validate incorrect-permission handling correctly.
 	require.NoError(t, os.Mkdir(tooOpen, 0o755))
 	require.NoError(t, os.Chmod(tooOpen, 0o777))
 
