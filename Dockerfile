@@ -29,13 +29,13 @@ USER root
 
 # Installs python, pip and tools
 RUN apk add --no-cache \
-    python3=3.12.11-r0 \
-    py3-pip=25.1.1-r0 \
-    py3-setuptools=80.9.0-r0 \
-    py3-wheel=0.46.1-r0
+    python3 \
+    py3-pip \
+    py3-setuptools \
+    py3-wheel
 
 # Installs 'tini', a lightweight init system to properly manage processes.
-RUN apk add --no-cache tini=0.19.0-r3
+RUN apk add --no-cache tini
 
 #  - Adds a dedicated non-root group and user for security (using the ARG).
 #  - Creates necessary directories for configs, logs, and user data.
