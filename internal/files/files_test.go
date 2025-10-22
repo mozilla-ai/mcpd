@@ -285,10 +285,10 @@ func TestEnsureAtLeastSecureDir(t *testing.T) {
 			wantErr: false,
 		},
 		{
-			name: "accepts directory with more restrictive permissions",
+			name: "accepts directory with 0o600 (more restrictive)",
 			setup: func(t *testing.T) string {
 				dir := filepath.Join(t.TempDir(), "more-restrictive")
-				require.NoError(t, os.Mkdir(dir, 0o700))
+				require.NoError(t, os.Mkdir(dir, 0o600))
 				return dir
 			},
 			wantErr: false,
@@ -393,8 +393,7 @@ func TestEnsureAtLeastRegularDir(t *testing.T) {
 			name: "rejects directory with less restrictive permissions",
 			setup: func(t *testing.T) string {
 				dir := filepath.Join(t.TempDir(), "less-restrictive")
-				require.NoError(t, os.Mkdir(dir, 0o755))
-				require.NoError(t, os.Chmod(dir, 0o777))
+				require.NoError(t, os.Mkdir(dir, 0o777))
 				return dir
 			},
 			wantErr: true,
@@ -441,8 +440,7 @@ func TestEnsureAtLeastRegularDirErrorMessages(t *testing.T) {
 
 	tempDir := t.TempDir()
 	tooOpen := filepath.Join(tempDir, "too-open")
-	require.NoError(t, os.Mkdir(tooOpen, 0o755))
-	require.NoError(t, os.Chmod(tooOpen, 0o777))
+	require.NoError(t, os.Mkdir(tooOpen, 0o777))
 
 	err := EnsureAtLeastRegularDir(tooOpen)
 	require.Error(t, err)
