@@ -64,14 +64,17 @@ func DiscoverExecutablesWithPaths(dir string, allowed map[string]struct{}) (map[
 			}
 		}
 
-		info, err := entry.Info()
+		fullPath := filepath.Join(dir, entry.Name())
+
+		// Use os.Stat to follow symlinks and get target info.
+		info, err := os.Stat(fullPath)
 		if err != nil {
-			return nil, fmt.Errorf("reading file info for %s: %w", entry.Name(), err)
+			// Skip unreadable or broken symlinks instead of aborting.
+			continue
 		}
 
-		// Check for execute permission (0o111 = user/group/other execute bits).
-		if info.Mode()&0o111 != 0 {
-			fullPath := filepath.Join(dir, entry.Name())
+		// Only include regular files with execute permission.
+		if info.Mode().IsRegular() && info.Mode().Perm()&0o111 != 0 {
 			executables[entry.Name()] = fullPath
 		}
 	}
@@ -97,7 +100,7 @@ func EnsureAtLeastSecureDir(path string) error {
 
 // UserSpecificCacheDir returns the directory that should be used to store any user-specific cache files.
 // It adheres to the XDG Base Directory Specification, respecting the XDG_CACHE_HOME environment variable.
-// When XDG_CACHE_HOME is not set, it defaults to ~/.cache/mcpd/
+// When XDG_CACHE_HOME is not set, it defaults to ~/.cache/mcpd
 // See: https://specifications.freedesktop.org/basedir-spec/latest/
 func UserSpecificCacheDir() (string, error) {
 	return userSpecificDir(EnvVarXDGCacheHome, ".cache")
@@ -105,7 +108,7 @@ func UserSpecificCacheDir() (string, error) {
 
 // UserSpecificConfigDir returns the directory that should be used to store any user-specific configuration.
 // It adheres to the XDG Base Directory Specification, respecting the XDG_CONFIG_HOME environment variable.
-// When XDG_CONFIG_HOME is not set, it defaults to ~/.config/mcpd/
+// When XDG_CONFIG_HOME is not set, it defaults to ~/.config/mcpd
 // See: https://specifications.freedesktop.org/basedir-spec/latest/
 func UserSpecificConfigDir() (string, error) {
 	return userSpecificDir(EnvVarXDGConfigHome, ".config")
@@ -114,14 +117,28 @@ func UserSpecificConfigDir() (string, error) {
 // ensureAtLeastDir creates a directory with the specified permissions if it doesn't exist,
 // and verifies that it has at least the required permissions if it already exists.
 // It does not attempt to repair ownership or permissions: if they are wrong, it returns an error.
+// Rejects symlinked directories for security.
+//
+// NOTE: This function only secures the final directory and its contents with the specified
+// permissions. Antecedent directories may have default permissions (typically 0755), which
+// is intentional and sufficient for the intended use case. The goal is to protect the
+// contents of the final directory, not to secure the entire path hierarchy.
 func ensureAtLeastDir(path string, perm os.FileMode) error {
 	if err := os.MkdirAll(path, perm); err != nil {
 		return fmt.Errorf("could not ensure directory exists for '%s': %w", path, err)
 	}
 
-	info, err := os.Stat(path)
+	info, err := os.Lstat(path)
 	if err != nil {
 		return fmt.Errorf("could not stat directory '%s': %w", path, err)
+	}
+
+	if info.Mode()&os.ModeSymlink != 0 {
+		return fmt.Errorf("path '%s' is a symlink, not a directory", path)
+	}
+
+	if !info.IsDir() {
+		return fmt.Errorf("path '%s' is not a directory", path)
 	}
 
 	if !isPermissionAcceptable(info.Mode().Perm(), perm) {
@@ -159,7 +176,11 @@ func userSpecificDir(envVar string, dir string) (string, error) {
 	// If the relevant environment variable is present and configured, then use it.
 	if ch, ok := os.LookupEnv(envVar); ok && strings.TrimSpace(ch) != "" {
 		home := strings.TrimSpace(ch)
-		return filepath.Join(home, AppDirName()), nil
+		if filepath.IsAbs(home) {
+			return filepath.Join(home, AppDirName()), nil
+		}
+
+		return "", fmt.Errorf("environment variable '%s' must be an absolute path, got: %s", envVar, home)
 	}
 
 	// Attempt to locate the home directory for the current user and return the path that follows the spec.
