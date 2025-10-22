@@ -76,6 +76,10 @@ func initConfigFile(fs *pflag.FlagSet) {
 	fs.StringVar(&ConfigFile, FlagNameConfigFile, defaultConfigFile, "path to config file")
 }
 
+// initRuntimeVarsFile registers the "runtime-file" flag on the provided FlagSet,
+// using the MCPD_RUNTIME_FILE environment variable when set; otherwise it falls
+// back to a user-specific config directory joined with the default runtime file name.
+// It returns an error if the user-specific config directory cannot be determined.
 func initRuntimeVarsFile(fs *pflag.FlagSet) error {
 	defaultRuntimeVarsFile := strings.TrimSpace(os.Getenv(EnvRuntimeFile))
 	// When empty or matching the default value, resolve the correct folder.

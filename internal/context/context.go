@@ -209,7 +209,7 @@ func (s *ServerExecutionContext) IsEmpty() bool {
 	return len(s.Args) == 0 && len(s.Env) == 0 && len(s.Volumes) == 0
 }
 
-// NewExecutionContextConfig returns a newly initialized ExecutionContextConfig.
+// NewExecutionContextConfig creates a new ExecutionContextConfig with an initialized Servers map and sets its filePath to the provided path trimmed of surrounding whitespace.
 func NewExecutionContextConfig(path string) *ExecutionContextConfig {
 	return &ExecutionContextConfig{
 		Servers:  map[string]ServerExecutionContext{},
@@ -217,7 +217,8 @@ func NewExecutionContextConfig(path string) *ExecutionContextConfig {
 	}
 }
 
-// equalSlices compares two string slices for equality, ignoring order.
+// equalSlices reports whether two string slices contain the same elements
+// with the same multiplicities, regardless of order.
 func equalSlices(a []string, b []string) bool {
 	if len(a) != len(b) {
 		return false

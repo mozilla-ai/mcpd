@@ -17,13 +17,16 @@ const (
 	EnvVarXDGCacheHome = "XDG_CACHE_HOME"
 )
 
-// AppDirName returns the name of the application directory for use in user-specific operations where data is being written.
+// AppDirName returns the application directory name used for user-specific configuration and cache paths ("mcpd").
 func AppDirName() string {
 	return "mcpd"
 }
 
 // DiscoverExecutables scans a directory and returns a set of executable file names.
-// Skips directories and hidden files (starting with ".").
+// DiscoverExecutables scans dir and returns the set of executable file names found.
+// It skips directories and files whose names start with ".". A file is considered
+// executable when any of the user/group/other execute permission bits are set.
+// On error it returns nil and the underlying error.
 func DiscoverExecutables(dir string) (map[string]struct{}, error) {
 	entries, err := os.ReadDir(dir)
 	if err != nil {
@@ -56,7 +59,12 @@ func DiscoverExecutables(dir string) (map[string]struct{}, error) {
 
 // DiscoverExecutablesWithPaths scans a directory and returns a map of executable names to their full paths.
 // Skips directories and hidden files (starting with ".").
-// Only includes files present in the allowed set if provided (nil allowed means include all).
+// DiscoverExecutablesWithPaths scans dir and returns a map from executable file name to its full path,
+// optionally restricted to names present in allowed.
+//
+// It ignores directory entries and hidden files (names starting with '.'). When allowed is non-nil,
+// only entries whose names are keys in allowed are considered. A file is included if any execute bit
+// is set in its mode. Returns an error if the directory cannot be read or if file information cannot be retrieved.
 func DiscoverExecutablesWithPaths(dir string, allowed map[string]struct{}) (map[string]string, error) {
 	entries, err := os.ReadDir(dir)
 	if err != nil {
@@ -98,7 +106,8 @@ func DiscoverExecutablesWithPaths(dir string, allowed map[string]struct{}) (map[
 // EnsureAtLeastRegularDir creates a directory with standard permissions if it doesn't exist,
 // and verifies that it has at least the required regular permissions if it already exists.
 // It does not attempt to repair ownership or permissions: if they are wrong, it returns an error.
-// Used for cache directories, data directories, and documentation.
+// EnsureAtLeastRegularDir ensures the directory at path exists and has at least the standard regular directory permissions.
+// It creates the directory with regular permissions if it does not exist, or verifies existing permissions meet the required regular permissions; returns an error if creation or the permission check fails.
 func EnsureAtLeastRegularDir(path string) error {
 	return ensureAtLeastDir(path, perms.RegularDir)
 }
@@ -106,7 +115,8 @@ func EnsureAtLeastRegularDir(path string) error {
 // EnsureAtLeastSecureDir creates a directory with secure permissions if it doesn't exist,
 // and verifies that it has at least the required secure permissions if it already exists.
 // It does not attempt to repair ownership or permissions: if they are wrong,
-// it returns an error.
+// EnsureAtLeastSecureDir ensures a directory exists at path with at least the package's secure directory permissions.
+// If the directory is missing it will be created; if it exists its permissions must be no less restrictive than the secure policy.
 func EnsureAtLeastSecureDir(path string) error {
 	return ensureAtLeastDir(path, perms.SecureDir)
 }
@@ -114,7 +124,11 @@ func EnsureAtLeastSecureDir(path string) error {
 // UserSpecificCacheDir returns the directory that should be used to store any user-specific cache files.
 // It adheres to the XDG Base Directory Specification, respecting the XDG_CACHE_HOME environment variable.
 // When XDG_CACHE_HOME is not set, it defaults to ~/.cache/mcpd/
-// See: https://specifications.freedesktop.org/basedir-spec/latest/
+// UserSpecificCacheDir returns the user-specific cache directory path for the application
+// following the XDG Base Directory Specification.
+// If the XDG_CACHE_HOME environment variable is set and non-empty, its value is joined
+// with the application directory name; otherwise the function falls back to
+// $HOME/.cache/<appdir>. An error is returned if the user's home directory cannot be determined.
 func UserSpecificCacheDir() (string, error) {
 	return userSpecificDir(EnvVarXDGCacheHome, ".cache")
 }
@@ -122,14 +136,22 @@ func UserSpecificCacheDir() (string, error) {
 // UserSpecificConfigDir returns the directory that should be used to store any user-specific configuration.
 // It adheres to the XDG Base Directory Specification, respecting the XDG_CONFIG_HOME environment variable.
 // When XDG_CONFIG_HOME is not set, it defaults to ~/.config/mcpd/
-// See: https://specifications.freedesktop.org/basedir-spec/latest/
+// UserSpecificConfigDir returns the user-specific configuration directory for this application
+// following the XDG Base Directory Specification.
+// If the XDG_CONFIG_HOME environment variable is set and non-empty, its value is used; otherwise
+// the directory $HOME/.config is used. The returned path is the chosen base directory joined with
+// AppDirName().
+// An error is returned if the XDG environment variable name is invalid or the current user's home
+// directory cannot be determined.
 func UserSpecificConfigDir() (string, error) {
 	return userSpecificDir(EnvVarXDGConfigHome, ".config")
 }
 
 // ensureAtLeastDir creates a directory with the specified permissions if it doesn't exist,
 // and verifies that it has at least the required permissions if it already exists.
-// It does not attempt to repair ownership or permissions: if they are wrong, it returns an error.
+// ensureAtLeastDir ensures a directory exists at path and that its permission bits are no less restrictive than perm.
+// If the directory does not exist it is created with perm; if creating, statting, or the permission check fails, an error is returned.
+// It does not attempt to change ownership or otherwise repair permissions.
 func ensureAtLeastDir(path string, perm os.FileMode) error {
 	if err := os.MkdirAll(path, perm); err != nil {
 		return fmt.Errorf("could not ensure directory exists for '%s': %w", path, err)
@@ -153,7 +175,8 @@ func ensureAtLeastDir(path string, perm os.FileMode) error {
 
 // isPermissionAcceptable checks if the actual permissions are acceptable for the required permissions.
 // It returns true if the actual permissions are equal to or more restrictive than required.
-// "More restrictive" means: no permission bit set in actual that isn't also set in required.
+// isPermissionAcceptable reports whether the actual file mode is equal to or more restrictive than the required mode.
+// It returns true if no permission bit is set in actual that is not also set in required.
 func isPermissionAcceptable(actual, required os.FileMode) bool {
 	// Check that actual doesn't grant any permissions that required doesn't grant.
 	return (actual & ^required) == 0
@@ -161,7 +184,16 @@ func isPermissionAcceptable(actual, required os.FileMode) bool {
 
 // userSpecificDir returns a user-specific directory following XDG Base Directory Specification.
 // It respects the given environment variable, falling back to homeDir/dir/AppDirName() if not set.
-// The envVar must have XDG_ prefix to follow the specification.
+// userSpecificDir returns the user-specific directory path for the application
+// following the XDG Base Directory Specification.
+//
+// envVar must start with the "XDG_" prefix; if the corresponding environment
+// variable is set and non-empty its value is used as the base directory.
+// Otherwise the function falls back to the current user's home directory and
+// appends dir and the application directory name.
+//
+// It returns an error if envVar does not start with "XDG_" or if the user's
+// home directory cannot be determined.
 func userSpecificDir(envVar string, dir string) (string, error) {
 	envVar = strings.TrimSpace(envVar)
 	// Validate that the environment variable follows XDG naming convention.

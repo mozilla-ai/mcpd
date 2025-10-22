@@ -33,7 +33,9 @@ type Cache struct {
 	logger hclog.Logger
 }
 
-// NewCache creates a new cache instance for registry manifests.
+// NewCache creates a Cache configured with the provided logger and options.
+// It validates options and, when caching is enabled, ensures the cache directory exists; it returns an error if option validation fails or the directory cannot be created.
+// The returned Cache is initialized with the options' directory, TTL, enabled and refresh settings and uses the provided logger named "cache".
 func NewCache(logger hclog.Logger, opts ...Option) (*Cache, error) {
 	options, err := NewOptions(opts...)
 	if err != nil {
