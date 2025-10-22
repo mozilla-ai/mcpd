@@ -25,33 +25,17 @@ func AppDirName() string {
 // DiscoverExecutables scans a directory and returns a set of executable file names.
 // Skips directories and hidden files (starting with ".").
 func DiscoverExecutables(dir string) (map[string]struct{}, error) {
-	entries, err := os.ReadDir(dir)
+	executables, err := DiscoverExecutablesWithPaths(dir, nil)
 	if err != nil {
 		return nil, err
 	}
 
-	executables := make(map[string]struct{})
-	for _, entry := range entries {
-		if entry.IsDir() {
-			continue
-		}
-
-		if strings.HasPrefix(entry.Name(), ".") {
-			continue
-		}
-
-		info, err := entry.Info()
-		if err != nil {
-			return nil, fmt.Errorf("reading file info for %s: %w", entry.Name(), err)
-		}
-
-		// Check for execute permission (0o111 = user/group/other execute bits).
-		if info.Mode()&0o111 != 0 {
-			executables[entry.Name()] = struct{}{}
-		}
+	result := make(map[string]struct{}, len(executables))
+	for name := range executables {
+		result[name] = struct{}{}
 	}
 
-	return executables, nil
+	return result, nil
 }
 
 // DiscoverExecutablesWithPaths scans a directory and returns a map of executable names to their full paths.
