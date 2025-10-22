@@ -25,6 +25,7 @@ import (
 	pluginv1 "github.com/mozilla-ai/mcpd-plugins-sdk-go/pkg/plugins/v1/plugins"
 
 	"github.com/mozilla-ai/mcpd/v2/internal/config"
+	"github.com/mozilla-ai/mcpd/v2/internal/files"
 )
 
 const (
@@ -331,40 +332,9 @@ func (m *Manager) discoverPlugins(allowed map[string]struct{}) (map[string]strin
 		return nil, nil
 	}
 
-	entries, err := os.ReadDir(m.config.Dir)
+	plugins, err := files.DiscoverExecutablesWithPaths(m.config.Dir, allowed)
 	if err != nil {
 		return nil, fmt.Errorf("reading plugin directory %s: %w", m.config.Dir, err)
-	}
-
-	plugins := make(map[string]string, len(allowed))
-
-	for _, entry := range entries {
-		// Skip directories.
-		if entry.IsDir() {
-			continue
-		}
-
-		// Skip hidden files.
-		if strings.HasPrefix(entry.Name(), ".") {
-			continue
-		}
-
-		// Skip any file that isn't in the configured allow list.
-		if _, ok := allowed[entry.Name()]; !ok {
-			continue
-		}
-
-		// Check if file is executable.
-		info, err := entry.Info()
-		if err != nil {
-			return nil, fmt.Errorf("reading file info for %s: %w", entry.Name(), err)
-		}
-
-		// Check for execute permission (0o111 = user/group/other execute bits).
-		if info.Mode()&0o111 != 0 {
-			fullPath := filepath.Join(m.config.Dir, entry.Name())
-			plugins[entry.Name()] = fullPath
-		}
 	}
 
 	return plugins, nil
@@ -411,8 +381,7 @@ func (m *Manager) startPlugin(ctx context.Context, name string, binaryPath strin
 	// Use plugin specific logger to configure stdio and stderr for the plugin to emit logs.
 	stdWriter := func() io.Writer {
 		return l.StandardWriter(&hclog.StandardLoggerOptions{
-			InferLevels:              true,
-			InferLevelsWithTimestamp: true,
+			InferLevels: true,
 		})
 	}
 	cmd.Stdout = stdWriter()

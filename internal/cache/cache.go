@@ -11,7 +11,7 @@ import (
 
 	"github.com/hashicorp/go-hclog"
 
-	"github.com/mozilla-ai/mcpd/v2/internal/context"
+	"github.com/mozilla-ai/mcpd/v2/internal/files"
 )
 
 // Cache manages cached registry manifests.
@@ -42,7 +42,7 @@ func NewCache(logger hclog.Logger, opts ...Option) (*Cache, error) {
 
 	// Only create cache directory if caching is enabled.
 	if options.enabled {
-		if err := context.EnsureAtLeastRegularDir(options.dir); err != nil {
+		if err := files.EnsureAtLeastRegularDir(options.dir); err != nil {
 			return nil, fmt.Errorf("failed to create cache directory: %w", err)
 		}
 	}

@@ -8,7 +8,7 @@ import (
 
 	"github.com/spf13/pflag"
 
-	"github.com/mozilla-ai/mcpd/v2/internal/context"
+	"github.com/mozilla-ai/mcpd/v2/internal/files"
 )
 
 const (
@@ -80,7 +80,7 @@ func initRuntimeVarsFile(fs *pflag.FlagSet) error {
 	defaultRuntimeVarsFile := strings.TrimSpace(os.Getenv(EnvRuntimeFile))
 	// When empty or matching the default value, resolve the correct folder.
 	if defaultRuntimeVarsFile == "" || defaultRuntimeVarsFile == DefaultRuntimeVarsFile {
-		dir, err := context.UserSpecificConfigDir()
+		dir, err := files.UserSpecificConfigDir()
 		if err != nil {
 			return fmt.Errorf("error configuring default value for runtime vars file: %w", err)
 		}

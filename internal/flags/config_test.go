@@ -8,7 +8,7 @@ import (
 	"github.com/spf13/pflag"
 	"github.com/stretchr/testify/require"
 
-	"github.com/mozilla-ai/mcpd/v2/internal/context"
+	"github.com/mozilla-ai/mcpd/v2/internal/files"
 )
 
 func TestConfig_InitConfigFile_EnvVars(t *testing.T) {
@@ -250,7 +250,7 @@ func TestConfig_RuntimeVarsFile_Precedence(t *testing.T) {
 			envValue:    "",
 			cmdLineArgs: nil,
 			expected: func() string {
-				dir, err := context.UserSpecificConfigDir()
+				dir, err := files.UserSpecificConfigDir()
 				require.NoError(t, err)
 				return filepath.Join(dir, DefaultRuntimeVarsFile)
 			}(),
@@ -260,7 +260,7 @@ func TestConfig_RuntimeVarsFile_Precedence(t *testing.T) {
 			envValue:    DefaultRuntimeVarsFile,
 			cmdLineArgs: nil,
 			expected: func() string {
-				dir, err := context.UserSpecificConfigDir()
+				dir, err := files.UserSpecificConfigDir()
 				require.NoError(t, err)
 				return filepath.Join(dir, DefaultRuntimeVarsFile)
 			}(),
@@ -269,16 +269,16 @@ func TestConfig_RuntimeVarsFile_Precedence(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			originalXDGConfigHome := os.Getenv(context.EnvVarXDGConfigHome)
+			originalXDGConfigHome := os.Getenv(files.EnvVarXDGConfigHome)
 			t.Cleanup(func() {
 				// Reset flag vars.
 				RuntimeFile = ""
 
 				// Reset env state
-				require.NoError(t, os.Setenv(context.EnvVarXDGConfigHome, originalXDGConfigHome))
+				require.NoError(t, os.Setenv(files.EnvVarXDGConfigHome, originalXDGConfigHome))
 			})
 			// Clear XDG_CONFIG_HOME to ensure it cannot cause side effects in the test results.
-			t.Setenv(context.EnvVarXDGConfigHome, "")
+			t.Setenv(files.EnvVarXDGConfigHome, "")
 			t.Setenv(EnvRuntimeFile, tc.envValue)
 
 			fs := pflag.NewFlagSet("test", pflag.ContinueOnError)
@@ -342,7 +342,7 @@ func TestConfig_LoggerFlags_Precedence(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			originalXDGConfigHome := os.Getenv(context.EnvVarXDGConfigHome)
+			originalXDGConfigHome := os.Getenv(files.EnvVarXDGConfigHome)
 			t.Cleanup(func() {
 				// Reset flag vars.
 				ConfigFile = ""
@@ -351,10 +351,10 @@ func TestConfig_LoggerFlags_Precedence(t *testing.T) {
 				LogLevel = ""
 
 				// Reset env state.
-				require.NoError(t, os.Setenv(context.EnvVarXDGConfigHome, originalXDGConfigHome))
+				require.NoError(t, os.Setenv(files.EnvVarXDGConfigHome, originalXDGConfigHome))
 			})
 			// Clear XDG_CONFIG_HOME to ensure it cannot cause side effects in the test results.
-			t.Setenv(context.EnvVarXDGConfigHome, "")
+			t.Setenv(files.EnvVarXDGConfigHome, "")
 
 			t.Setenv(EnvVarLogPath, tc.envLogPath)
 			t.Setenv(EnvVarLogLevel, tc.envLogLevel)
