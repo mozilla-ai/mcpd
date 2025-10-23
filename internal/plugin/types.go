@@ -2,7 +2,6 @@ package plugin
 
 import (
 	"fmt"
-	"slices"
 
 	"github.com/mozilla-ai/mcpd/v2/internal/config"
 )
@@ -21,17 +20,11 @@ var categoryProps = map[config.Category]CategoryProperties{
 	config.CategoryAudit:          {},
 }
 
-// orderedCategories defines the pipeline execution order.
-// Categories execute in this sequence for each request/response.
-var orderedCategories = []config.Category{
-	config.CategoryObservability, // First, parallel, non-blocking.
-	config.CategoryAuthentication,
-	config.CategoryAuthorization,
-	config.CategoryRateLimiting,
-	config.CategoryValidation,
-	config.CategoryContent,
-	config.CategoryAudit, // Last.
-}
+// orderedCategories stores a copy of the slice that determines the order categories should be executed in the pipeline.
+// The order is essentially a constant in the system, and does not change during runtime.
+// As the pipeline runs for every request/response we take a copy here and re-use it for efficiency.
+// NOTE: This variable must not be mutated within the package.
+var orderedCategories = config.OrderedCategories()
 
 // CategoryProperties defines execution semantics for each plugin category.
 // Defaults (zero values) represent the common case: serial, blocking, no modification.
@@ -48,11 +41,6 @@ type CategoryProperties struct {
 	// CanModify when true allows plugins to mutate the request/response object.
 	// Default (false): no modification allowed.
 	CanModify bool
-}
-
-// OrderedCategories returns the list of categories in execution order.
-func OrderedCategories() []config.Category {
-	return slices.Clone(orderedCategories)
 }
 
 // PropertiesForCategory returns execution properties for a category.

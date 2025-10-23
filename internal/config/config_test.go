@@ -352,7 +352,7 @@ func TestUpsertPlugin_CreatesAndPersists(t *testing.T) {
 		Flows:      []Flow{FlowRequest, FlowResponse},
 	}
 
-	result, err := cfg.UpsertPlugin(CategoryAuthentication.String(), entry)
+	result, err := cfg.UpsertPlugin(CategoryAuthentication, entry)
 	require.NoError(t, err)
 	require.Equal(t, "created", string(result))
 
@@ -394,7 +394,7 @@ func TestUpsertPlugin_UpdatesExisting(t *testing.T) {
 		Flows: []Flow{FlowRequest, FlowResponse},
 	}
 
-	result, err := cfg.UpsertPlugin(CategoryAuthentication.String(), entry)
+	result, err := cfg.UpsertPlugin(CategoryAuthentication, entry)
 	require.NoError(t, err)
 	require.Equal(t, "updated", string(result))
 
@@ -426,7 +426,7 @@ func TestDeletePlugin_RemovesAndPersists(t *testing.T) {
 
 	require.NoError(t, cfg.saveConfig())
 
-	result, err := cfg.DeletePlugin(CategoryAuthentication.String(), "jwt-auth")
+	result, err := cfg.DeletePlugin(CategoryAuthentication, "jwt-auth")
 	require.NoError(t, err)
 	require.Equal(t, "deleted", string(result))
 
@@ -473,14 +473,14 @@ flows = ["request"]
 	require.True(t, ok, "Config should support plugin operations")
 
 	// Verify plugins loaded.
-	authPlugins := pluginCfg.ListPlugins(CategoryAuthentication.String())
+	authPlugins := pluginCfg.Plugins.ListPlugins(CategoryAuthentication)
 	require.Len(t, authPlugins, 1)
 	require.Equal(t, "jwt-auth", authPlugins[0].Name)
 	require.Equal(t, "abc123", *authPlugins[0].CommitHash)
 	require.True(t, *authPlugins[0].Required)
 	require.Equal(t, []Flow{FlowRequest, FlowResponse}, authPlugins[0].Flows)
 
-	obsPlugins := pluginCfg.ListPlugins(CategoryObservability.String())
+	obsPlugins := pluginCfg.Plugins.ListPlugins(CategoryObservability)
 	require.Len(t, obsPlugins, 1)
 	require.Equal(t, "metrics", obsPlugins[0].Name)
 	require.Equal(t, []Flow{FlowRequest}, obsPlugins[0].Flows)
@@ -524,7 +524,7 @@ func TestLoad_StaticTestdata_BasicPlugins(t *testing.T) {
 	pluginCfg, ok := cfg.(*Config)
 	require.True(t, ok)
 
-	authPlugins := pluginCfg.ListPlugins(CategoryAuthentication.String())
+	authPlugins := pluginCfg.Plugins.ListPlugins(CategoryAuthentication)
 	require.Len(t, authPlugins, 1)
 	require.Equal(t, "jwt-auth", authPlugins[0].Name)
 	require.NotNil(t, authPlugins[0].CommitHash)
@@ -548,26 +548,26 @@ func TestLoad_StaticTestdata_MultiplePlugins(t *testing.T) {
 	pluginCfg, ok := cfg.(*Config)
 	require.True(t, ok)
 
-	authPlugins := pluginCfg.ListPlugins(CategoryAuthentication.String())
+	authPlugins := pluginCfg.Plugins.ListPlugins(CategoryAuthentication)
 	require.Len(t, authPlugins, 2)
 	require.Equal(t, "jwt-auth", authPlugins[0].Name)
 	require.Equal(t, "api-key-auth", authPlugins[1].Name)
 
-	authzPlugins := pluginCfg.ListPlugins(CategoryAuthorization.String())
+	authzPlugins := pluginCfg.Plugins.ListPlugins(CategoryAuthorization)
 	require.Len(t, authzPlugins, 1)
 	require.Equal(t, "rbac", authzPlugins[0].Name)
 	require.True(t, *authzPlugins[0].Required)
 
-	rateLimitPlugins := pluginCfg.ListPlugins(CategoryRateLimiting.String())
+	rateLimitPlugins := pluginCfg.Plugins.ListPlugins(CategoryRateLimiting)
 	require.Len(t, rateLimitPlugins, 1)
 	require.Equal(t, "token-bucket", rateLimitPlugins[0].Name)
 
-	obsPlugins := pluginCfg.ListPlugins(CategoryObservability.String())
+	obsPlugins := pluginCfg.Plugins.ListPlugins(CategoryObservability)
 	require.Len(t, obsPlugins, 1)
 	require.Equal(t, "metrics", obsPlugins[0].Name)
 	require.Equal(t, []Flow{FlowRequest, FlowResponse}, obsPlugins[0].Flows)
 
-	auditPlugins := pluginCfg.ListPlugins(CategoryAudit.String())
+	auditPlugins := pluginCfg.Plugins.ListPlugins(CategoryAudit)
 	require.Len(t, auditPlugins, 1)
 	require.Equal(t, "compliance-logger", auditPlugins[0].Name)
 	require.Equal(t, []Flow{FlowResponse}, auditPlugins[0].Flows)
@@ -587,13 +587,13 @@ func TestLoad_StaticTestdata_MinimalPlugins(t *testing.T) {
 	pluginCfg, ok := cfg.(*Config)
 	require.True(t, ok)
 
-	require.Len(t, pluginCfg.ListPlugins(CategoryAuthentication.String()), 0)
-	require.Len(t, pluginCfg.ListPlugins(CategoryAuthorization.String()), 0)
-	require.Len(t, pluginCfg.ListPlugins(CategoryRateLimiting.String()), 0)
-	require.Len(t, pluginCfg.ListPlugins(CategoryValidation.String()), 0)
-	require.Len(t, pluginCfg.ListPlugins(CategoryContent.String()), 0)
-	require.Len(t, pluginCfg.ListPlugins(CategoryObservability.String()), 0)
-	require.Len(t, pluginCfg.ListPlugins(CategoryAudit.String()), 0)
+	require.Len(t, pluginCfg.Plugins.ListPlugins(CategoryAuthentication), 0)
+	require.Len(t, pluginCfg.Plugins.ListPlugins(CategoryAuthorization), 0)
+	require.Len(t, pluginCfg.Plugins.ListPlugins(CategoryRateLimiting), 0)
+	require.Len(t, pluginCfg.Plugins.ListPlugins(CategoryValidation), 0)
+	require.Len(t, pluginCfg.Plugins.ListPlugins(CategoryContent), 0)
+	require.Len(t, pluginCfg.Plugins.ListPlugins(CategoryObservability), 0)
+	require.Len(t, pluginCfg.Plugins.ListPlugins(CategoryAudit), 0)
 }
 
 func TestLoad_StaticTestdata_InvalidPlugins(t *testing.T) {
@@ -663,19 +663,19 @@ func TestLoadSaveRoundTrip_Plugins(t *testing.T) {
 	reloadedConfig, ok := reloaded.(*Config)
 	require.True(t, ok)
 
-	authPlugins := reloadedConfig.ListPlugins(CategoryAuthentication.String())
+	authPlugins := reloadedConfig.Plugins.ListPlugins(CategoryAuthentication)
 	require.Len(t, authPlugins, 2)
 
-	authzPlugins := reloadedConfig.ListPlugins(CategoryAuthorization.String())
+	authzPlugins := reloadedConfig.Plugins.ListPlugins(CategoryAuthorization)
 	require.Len(t, authzPlugins, 1)
 
-	rateLimitPlugins := reloadedConfig.ListPlugins(CategoryRateLimiting.String())
+	rateLimitPlugins := reloadedConfig.Plugins.ListPlugins(CategoryRateLimiting)
 	require.Len(t, rateLimitPlugins, 1)
 
-	obsPlugins := reloadedConfig.ListPlugins(CategoryObservability.String())
+	obsPlugins := reloadedConfig.Plugins.ListPlugins(CategoryObservability)
 	require.Len(t, obsPlugins, 1)
 
-	auditPlugins := reloadedConfig.ListPlugins(CategoryAudit.String())
+	auditPlugins := reloadedConfig.Plugins.ListPlugins(CategoryAudit)
 	require.Len(t, auditPlugins, 1)
 
 	require.Equal(t, "jwt-auth", authPlugins[0].Name)

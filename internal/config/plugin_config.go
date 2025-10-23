@@ -3,6 +3,7 @@ package config
 import (
 	"errors"
 	"fmt"
+	"slices"
 	"strings"
 
 	"github.com/mozilla-ai/mcpd/v2/internal/context"
@@ -40,6 +41,19 @@ const (
 	FlowResponse Flow = "response"
 )
 
+// orderedCategories defines the pipeline execution order.
+// Categories should execute in this sequence for each request/response.
+// NOTE: This variable should not be modified in other parts of the codebase.
+var orderedCategories = Categories{
+	CategoryObservability, // First, parallel, non-blocking.
+	CategoryAuthentication,
+	CategoryAuthorization,
+	CategoryRateLimiting,
+	CategoryValidation,
+	CategoryContent,
+	CategoryAudit, // Last.
+}
+
 // PluginModifier defines operations for managing plugin configuration.
 type PluginModifier interface {
 	// Plugin retrieves a plugin by category and name.
@@ -54,6 +68,9 @@ type PluginModifier interface {
 	// ListPlugins returns all plugins in a category.
 	ListPlugins(category Category) []PluginEntry
 }
+
+// Categories represents collection of Category types.
+type Categories []Category
 
 // Category represents a plugin category.
 type Category string
@@ -171,8 +188,8 @@ func (e *PluginEntry) HasFlow(flow Flow) bool {
 	return false
 }
 
-func (c Category) String() string {
-	return string(c)
+func (c *Category) String() string {
+	return string(*c)
 }
 
 // Validate validates a single PluginEntry.
@@ -397,8 +414,8 @@ func (p *PluginConfig) deletePlugin(category Category, name string) (context.Ups
 	return context.Noop, fmt.Errorf("plugin %q not found in category %s", name, category)
 }
 
-// listPlugins returns all plugins in a category.
-func (p *PluginConfig) listPlugins(category Category) []PluginEntry {
+// ListPlugins returns all plugins in a category.
+func (p *PluginConfig) ListPlugins(category Category) []PluginEntry {
 	if p == nil {
 		return nil
 	}
@@ -464,4 +481,46 @@ func (p *PluginConfig) PluginNamesDistinct() map[string]struct{} {
 	}
 
 	return result
+}
+
+// OrderedCategories returns the list of categories in the order they are executed in the plugin pipeline.
+// This ordering is important for consistent plugin execution across the system.
+func OrderedCategories() Categories {
+	return slices.Clone(orderedCategories)
+}
+
+// Set is used by Cobra to set the category value from a string.
+// NOTE: This is also required by Cobra as part of implementing flag.Value.
+func (c *Category) Set(v string) error {
+	v = strings.ToLower(strings.TrimSpace(v))
+	allowed := OrderedCategories()
+
+	for _, a := range allowed {
+		if string(a) == v {
+			*c = Category(v)
+			return nil
+		}
+	}
+
+	return fmt.Errorf("invalid category '%s', must be one of %v", v, allowed.String())
+}
+
+// Type is used by Cobra/pflag to describe the flag's underlying type.
+func (c *Category) Type() string {
+	return "category"
+}
+
+// String implements fmt.Stringer for a collection of plugin categories,
+// converting them to a comma separated string.
+func (c Categories) String() string {
+	categories := slices.Clone(c)
+
+	slices.Sort(categories)
+
+	out := make([]string, len(categories))
+	for i := range categories {
+		out[i] = categories[i].String()
+	}
+
+	return strings.Join(out, ", ")
 }
