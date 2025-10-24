@@ -792,17 +792,13 @@ func TestPipeline_CategoryOrdering(t *testing.T) {
 	require.NoError(t, err)
 
 	// Verify execution order matches category order.
-	orderedCats := OrderedCategories()
 	require.Len(t, executionOrder, len(categories))
 
-	// Map execution order to expected category order.
+	// Map execution order to expected category order from the source of truth.
+	expected := config.OrderedCategories()
 	for i, categoryName := range executionOrder {
-		expectedCategory := orderedCats[i]
+		expectedCategory := expected[i]
 		require.Equal(t, string(expectedCategory), categoryName,
 			"plugin at position %d should be from category %s", i, expectedCategory)
 	}
-
-	// Verify observability runs first, authentication second.
-	require.Equal(t, string(config.CategoryObservability), executionOrder[0])
-	require.Equal(t, string(config.CategoryAuthentication), executionOrder[1])
 }

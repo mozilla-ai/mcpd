@@ -560,7 +560,7 @@ func TestPluginConfig_listPlugins(t *testing.T) {
 		},
 	}
 
-	plugins := config.listPlugins(CategoryAuthentication)
+	plugins := config.ListPlugins(CategoryAuthentication)
 	require.Len(t, plugins, 2)
 
 	// Verify it returns a copy.
@@ -599,7 +599,6 @@ func TestConfig_PluginMethods(t *testing.T) {
 		t.Parallel()
 
 		config := &Config{
-			Servers:        []ServerEntry{},
 			configFilePath: t.TempDir() + "/test.toml",
 		}
 
@@ -608,7 +607,7 @@ func TestConfig_PluginMethods(t *testing.T) {
 			Flows: []Flow{FlowRequest},
 		}
 
-		result, err := config.UpsertPlugin(CategoryAuthentication.String(), entry)
+		result, err := config.UpsertPlugin(CategoryAuthentication, entry)
 		require.NoError(t, err)
 		require.Equal(t, context.Created, result)
 		require.NotNil(t, config.Plugins)
@@ -618,35 +617,33 @@ func TestConfig_PluginMethods(t *testing.T) {
 		t.Parallel()
 
 		config := &Config{
-			Servers:        []ServerEntry{},
 			configFilePath: t.TempDir() + "/test.toml",
 		}
 
-		result, err := config.DeletePlugin(CategoryAuthentication.String(), "jwt-auth")
+		result, err := config.DeletePlugin(CategoryAuthentication, "jwt-auth")
 		require.Error(t, err)
 		require.Equal(t, context.Noop, result)
 		require.Contains(t, err.Error(), "no plugins configured")
 	})
 
-	t.Run("ListPlugins on nil config", func(t *testing.T) {
+	t.Run("ListPlugins on nil plugin config", func(t *testing.T) {
 		t.Parallel()
 
 		config := &Config{
-			Servers: []ServerEntry{},
+			// When Plugins is nil, we expect nil return.
+			Plugins: nil,
 		}
 
-		plugins := config.ListPlugins(CategoryAuthentication.String())
-		require.Nil(t, plugins)
+		require.Nil(t, config.Plugins)
+		require.Nil(t, config.Plugins.ListPlugins(CategoryAuthentication))
 	})
 
 	t.Run("Plugin on nil config", func(t *testing.T) {
 		t.Parallel()
 
-		config := &Config{
-			Servers: []ServerEntry{},
-		}
+		config := &Config{}
 
-		_, found := config.Plugin(CategoryAuthentication.String(), "jwt-auth")
+		_, found := config.Plugin(CategoryAuthentication, "jwt-auth")
 		require.False(t, found)
 	})
 }

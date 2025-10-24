@@ -80,28 +80,12 @@ func TestCategoryProperties_UnknownCategory(t *testing.T) {
 func TestOrderedCategories_ReturnsCorrectOrder(t *testing.T) {
 	t.Parallel()
 
-	categories := OrderedCategories()
-
-	require.Len(t, categories, 7)
-	require.Equal(t, config.CategoryObservability, categories[0])
-	require.Equal(t, config.CategoryAuthentication, categories[1])
-	require.Equal(t, config.CategoryAuthorization, categories[2])
-	require.Equal(t, config.CategoryRateLimiting, categories[3])
-	require.Equal(t, config.CategoryValidation, categories[4])
-	require.Equal(t, config.CategoryContent, categories[5])
-	require.Equal(t, config.CategoryAudit, categories[6])
-}
-
-func TestOrderedCategories_ReturnsCopy(t *testing.T) {
-	t.Parallel()
-
-	categories1 := OrderedCategories()
-	categories2 := OrderedCategories()
-
-	// Modify first slice.
-	categories1[0] = "modified"
-
-	// Second slice should be unchanged.
-	require.NotEqual(t, categories1[0], categories2[0])
-	require.Equal(t, config.CategoryObservability, categories2[0])
+	require.Len(t, orderedCategories, 7)
+	require.Equal(t, config.CategoryObservability, orderedCategories[0])
+	require.Equal(t, config.CategoryAuthentication, orderedCategories[1])
+	require.Equal(t, config.CategoryAuthorization, orderedCategories[2])
+	require.Equal(t, config.CategoryRateLimiting, orderedCategories[3])
+	require.Equal(t, config.CategoryValidation, orderedCategories[4])
+	require.Equal(t, config.CategoryContent, orderedCategories[5])
+	require.Equal(t, config.CategoryAudit, orderedCategories[6])
 }

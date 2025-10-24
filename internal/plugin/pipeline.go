@@ -47,7 +47,7 @@ func (p *pipeline) HandleRequest(ctx context.Context, req *HTTPRequest) (*HTTPRe
 	currentReq := req
 
 	// Ensure we process plugins 'per category' and that category order is adhered to.
-	for _, category := range OrderedCategories() {
+	for _, category := range orderedCategories {
 		instances := p.plugins[category]
 		if len(instances) == 0 {
 			continue // Skip categories with no plugins registered.
@@ -120,7 +120,7 @@ func (p *pipeline) HandleResponse(ctx context.Context, resp *HTTPResponse) (*HTT
 
 	currentResp := resp
 
-	for _, category := range OrderedCategories() {
+	for _, category := range orderedCategories {
 		instances := p.plugins[category]
 		if len(instances) == 0 {
 			continue
