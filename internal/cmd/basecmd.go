@@ -4,8 +4,11 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"slices"
+	"strings"
 
 	"github.com/hashicorp/go-hclog"
+	"github.com/spf13/cobra"
 
 	"github.com/mozilla-ai/mcpd/v2/internal/cache"
 	"github.com/mozilla-ai/mcpd/v2/internal/cmd/output"
@@ -195,4 +198,22 @@ func (c *BaseCmd) LoadConfig(loader config.Loader) (*config.Config, error) {
 		return nil, fmt.Errorf("invalid config structure")
 	}
 	return cfg, nil
+}
+
+// RequireTogether validates that a set of flags are either all provided or all omitted.
+// Returns an error if only some of the flags are provided.
+func (c *BaseCmd) RequireTogether(cmd *cobra.Command, names ...string) error {
+	count := 0
+	for _, name := range names {
+		if cmd.Flags().Changed(name) {
+			count++
+		}
+	}
+
+	if count > 0 && count < len(names) {
+		slices.Sort(names)
+		return fmt.Errorf("flags (%s) must be provided together or not at all", strings.Join(names, ", "))
+	}
+
+	return nil
 }

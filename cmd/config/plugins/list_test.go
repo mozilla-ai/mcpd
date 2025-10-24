@@ -16,19 +16,6 @@ import (
 	"github.com/mozilla-ai/mcpd/v2/internal/printer"
 )
 
-// Mock loader for testing.
-type mockLoaderForList struct {
-	cfg *config.Config
-	err error
-}
-
-func (m *mockLoaderForList) Load(_ string) (config.Modifier, error) {
-	if m.err != nil {
-		return nil, m.err
-	}
-	return m.cfg, nil
-}
-
 // newTestConfig creates a config.Config with the given plugin map.
 func newTestConfig(t *testing.T, plugins map[config.Category][]config.PluginEntry) *config.Config {
 	t.Helper()
@@ -161,7 +148,7 @@ func TestListCmd_SingleCategory(t *testing.T) {
 			t.Parallel()
 
 			cfg := newTestConfig(t, tc.plugins)
-			loader := &mockLoaderForList{cfg: cfg}
+			loader := &mockLoader{cfg: cfg}
 
 			base := &cmd.BaseCmd{}
 			listCmd, err := NewListCmd(base, cmdopts.WithConfigLoader(loader))
@@ -262,7 +249,7 @@ func TestListCmd_AllCategories(t *testing.T) {
 			t.Parallel()
 
 			cfg := newTestConfig(t, tc.plugins)
-			loader := &mockLoaderForList{cfg: cfg}
+			loader := &mockLoader{cfg: cfg}
 
 			base := &cmd.BaseCmd{}
 			listCmd, err := NewListCmd(base, cmdopts.WithConfigLoader(loader))
@@ -346,7 +333,7 @@ func TestListCmd_JSONOutput(t *testing.T) {
 			t.Parallel()
 
 			cfg := newTestConfig(t, tc.plugins)
-			loader := &mockLoaderForList{cfg: cfg}
+			loader := &mockLoader{cfg: cfg}
 
 			base := &cmd.BaseCmd{}
 			listCmd, err := NewListCmd(base, cmdopts.WithConfigLoader(loader))
@@ -442,7 +429,7 @@ func TestListCmd_YAMLOutput(t *testing.T) {
 			t.Parallel()
 
 			cfg := newTestConfig(t, tc.plugins)
-			loader := &mockLoaderForList{cfg: cfg}
+			loader := &mockLoader{cfg: cfg}
 
 			base := &cmd.BaseCmd{}
 			listCmd, err := NewListCmd(base, cmdopts.WithConfigLoader(loader))
@@ -501,7 +488,7 @@ func TestListCmd_DistinctPluginCount(t *testing.T) {
 		}
 
 		cfg := newTestConfig(t, plugins)
-		loader := &mockLoaderForList{cfg: cfg}
+		loader := &mockLoader{cfg: cfg}
 
 		base := &cmd.BaseCmd{}
 		listCmd, err := NewListCmd(base, cmdopts.WithConfigLoader(loader))
@@ -555,7 +542,7 @@ func TestListCmd_DistinctPluginCount(t *testing.T) {
 		}
 
 		cfg := newTestConfig(t, plugins)
-		loader := &mockLoaderForList{cfg: cfg}
+		loader := &mockLoader{cfg: cfg}
 
 		base := &cmd.BaseCmd{}
 		listCmd, err := NewListCmd(base, cmdopts.WithConfigLoader(loader))
@@ -579,7 +566,7 @@ func TestListCmd_DistinctPluginCount(t *testing.T) {
 func TestListCmd_ConfigLoadError(t *testing.T) {
 	t.Parallel()
 
-	loader := &mockLoaderForList{
+	loader := &mockLoader{
 		err: fmt.Errorf("failed to load config"),
 	}
 
@@ -618,7 +605,7 @@ func TestListCmd_AllValidCategories(t *testing.T) {
 			t.Parallel()
 
 			cfg := newTestConfig(t, map[config.Category][]config.PluginEntry{})
-			loader := &mockLoaderForList{cfg: cfg}
+			loader := &mockLoader{cfg: cfg}
 
 			base := &cmd.BaseCmd{}
 			listCmd, err := NewListCmd(base, cmdopts.WithConfigLoader(loader))
@@ -644,7 +631,7 @@ func TestListCmd_AllValidCategories(t *testing.T) {
 	t.Run("category_case_insensitive", func(t *testing.T) {
 		t.Parallel()
 		cfg := newTestConfig(t, map[config.Category][]config.PluginEntry{})
-		loader := &mockLoaderForList{cfg: cfg}
+		loader := &mockLoader{cfg: cfg}
 		base := &cmd.BaseCmd{}
 		listCmd, err := NewListCmd(base, cmdopts.WithConfigLoader(loader))
 		require.NoError(t, err)
@@ -694,7 +681,7 @@ func TestListCmd_CategoryExecutionOrder(t *testing.T) {
 		}
 
 		cfg := newTestConfig(t, plugins)
-		loader := &mockLoaderForList{cfg: cfg}
+		loader := &mockLoader{cfg: cfg}
 
 		base := &cmd.BaseCmd{}
 		listCmd, err := NewListCmd(base, cmdopts.WithConfigLoader(loader))

@@ -134,6 +134,7 @@ func (c *Config) Plugin(category Category, name string) (PluginEntry, bool) {
 	if c.Plugins == nil {
 		return PluginEntry{}, false
 	}
+
 	return c.Plugins.plugin(category, name)
 }
 
