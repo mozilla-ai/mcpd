@@ -15,6 +15,7 @@ import (
 const (
 	flagCategory = "category"
 	flagName     = "name"
+	flagFormat   = "format"
 )
 
 // GetCmd represents the get command.
@@ -76,7 +77,7 @@ Both --category and --name must be provided together.`,
 	allowedCategories := config.OrderedCategories()
 	cobraCmd.Flags().Var(
 		&c.category,
-		"category",
+		flagCategory,
 		fmt.Sprintf("Specify the category (one of: %s)", allowedCategories.String()),
 	)
 
@@ -90,7 +91,7 @@ Both --category and --name must be provided together.`,
 	allowedOutputFormats := internalcmd.AllowedOutputFormats()
 	cobraCmd.Flags().Var(
 		&c.format,
-		"format",
+		flagFormat,
 		fmt.Sprintf("Specify the output format (one of: %s)", allowedOutputFormats.String()),
 	)
 
