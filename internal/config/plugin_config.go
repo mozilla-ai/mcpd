@@ -3,11 +3,13 @@ package config
 import (
 	"errors"
 	"fmt"
+	"maps"
 	"slices"
 	"strings"
 
 	"github.com/mozilla-ai/mcpd/v2/internal/context"
 	"github.com/mozilla-ai/mcpd/v2/internal/files"
+	"github.com/mozilla-ai/mcpd/v2/internal/filter"
 )
 
 const (
@@ -54,6 +56,13 @@ var orderedCategories = Categories{
 	CategoryAudit, // Last.
 }
 
+// flows defines the set of valid flow types.
+// NOTE: This variable should not be modified in other parts of the codebase.
+var flows = map[Flow]struct{}{
+	FlowRequest:  {},
+	FlowResponse: {},
+}
+
 // PluginModifier defines operations for managing plugin configuration.
 type PluginModifier interface {
 	// Plugin retrieves a plugin by category and name.
@@ -77,6 +86,34 @@ type Category string
 
 // Flow represents the execution phase for a plugin.
 type Flow string
+
+// Flows returns the canonical set of allowed flows.
+// Returns a clone to prevent modification of the internal map.
+func Flows() map[Flow]struct{} {
+	return maps.Clone(flows)
+}
+
+// IsValid returns true if the Flow is a recognized value.
+func (f Flow) IsValid() bool {
+	_, ok := flows[f]
+	return ok
+}
+
+// ParseFlows validates and reduces flow strings to a distinct set.
+// Flow strings are normalized before validation.
+// Invalid flows are silently ignored. Returns an empty map if no valid flows are found.
+func ParseFlows(flags []string) map[Flow]struct{} {
+	valid := make(map[Flow]struct{}, len(flows))
+
+	for _, s := range flags {
+		f := Flow(filter.NormalizeString(s))
+		if _, ok := flows[f]; ok {
+			valid[f] = struct{}{}
+		}
+	}
+
+	return valid
+}
 
 // PluginConfig represents the top-level plugin configuration.
 //
@@ -208,7 +245,7 @@ func (e *PluginEntry) Validate() error {
 		seen := make(map[Flow]struct{})
 		for _, flow := range e.Flows {
 			// Check for valid flow values.
-			if flow != FlowRequest && flow != FlowResponse {
+			if !flow.IsValid() {
 				validationErrors = append(
 					validationErrors,
 					fmt.Errorf("invalid flow '%s', must be '%s' or '%s'", flow, FlowRequest, FlowResponse),

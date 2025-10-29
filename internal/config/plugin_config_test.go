@@ -724,6 +724,154 @@ func TestPluginConfig_Validate_errorMessages(t *testing.T) {
 	})
 }
 
+func TestFlows(t *testing.T) {
+	t.Parallel()
+
+	flows := Flows()
+
+	// Should contain exactly request and response.
+	require.Len(t, flows, 2)
+	require.Contains(t, flows, FlowRequest)
+	require.Contains(t, flows, FlowResponse)
+
+	// Verify that modifications don't affect subsequent calls (clone behavior).
+	delete(flows, FlowRequest)
+	require.Len(t, flows, 1)
+
+	// Get a fresh copy - should still have both flows.
+	freshFlows := Flows()
+	require.Len(t, freshFlows, 2)
+	require.Contains(t, freshFlows, FlowRequest)
+	require.Contains(t, freshFlows, FlowResponse)
+}
+
+func TestFlow_IsValid(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name  string
+		flow  Flow
+		valid bool
+	}{
+		{
+			name:  "valid request flow",
+			flow:  FlowRequest,
+			valid: true,
+		},
+		{
+			name:  "valid response flow",
+			flow:  FlowResponse,
+			valid: true,
+		},
+		{
+			name:  "invalid empty flow",
+			flow:  Flow(""),
+			valid: false,
+		},
+		{
+			name:  "invalid unknown flow",
+			flow:  Flow("unknown"),
+			valid: false,
+		},
+		{
+			name:  "invalid uppercase",
+			flow:  Flow("REQUEST"),
+			valid: false,
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			result := tc.flow.IsValid()
+			require.Equal(t, tc.valid, result)
+		})
+	}
+}
+
+func TestParseFlows(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name     string
+		input    []string
+		expected map[Flow]struct{}
+	}{
+		{
+			name:  "single valid flow",
+			input: []string{"request"},
+			expected: map[Flow]struct{}{
+				FlowRequest: {},
+			},
+		},
+		{
+			name:  "two valid flows",
+			input: []string{"request", "response"},
+			expected: map[Flow]struct{}{
+				FlowRequest:  {},
+				FlowResponse: {},
+			},
+		},
+		{
+			name:  "duplicates are deduplicated",
+			input: []string{"request", "request", "response", "response"},
+			expected: map[Flow]struct{}{
+				FlowRequest:  {},
+				FlowResponse: {},
+			},
+		},
+		{
+			name:     "invalid flows are ignored",
+			input:    []string{"invalid", "foo", "bar"},
+			expected: map[Flow]struct{}{},
+		},
+		{
+			name:  "mixed valid and invalid",
+			input: []string{"request", "invalid", "response", "foo"},
+			expected: map[Flow]struct{}{
+				FlowRequest:  {},
+				FlowResponse: {},
+			},
+		},
+		{
+			name:     "empty input",
+			input:    []string{},
+			expected: map[Flow]struct{}{},
+		},
+		{
+			name:     "nil input",
+			input:    nil,
+			expected: map[Flow]struct{}{},
+		},
+		{
+			name:  "case insensitive",
+			input: []string{"REQUEST", "Response", "REQUEST"},
+			expected: map[Flow]struct{}{
+				FlowRequest:  {},
+				FlowResponse: {},
+			},
+		},
+		{
+			name:  "with whitespace",
+			input: []string{" request ", "  response  "},
+			expected: map[Flow]struct{}{
+				FlowRequest:  {},
+				FlowResponse: {},
+			},
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			result := ParseFlows(tc.input)
+			require.Equal(t, tc.expected, result)
+		})
+	}
+}
+
 func testPluginStringPtr(t *testing.T, s string) *string {
 	t.Helper()
 	return &s
