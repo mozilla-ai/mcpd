@@ -85,7 +85,10 @@ in the category, the command fails with an error. To update an existing plugin, 
 		&c.flows,
 		flagFlow,
 		nil,
-		"Flow to execute plugin in: request, response (can be repeated)",
+		fmt.Sprintf(
+			"Flow during which, the plugin should execute (%s) (can be repeated)",
+			strings.Join(config.OrderedFlowNames(), ", "),
+		),
 	)
 	_ = cobraCmd.MarkFlagRequired(flagFlow)
 
@@ -128,16 +131,17 @@ func (c *AddCmd) run(cmd *cobra.Command, args []string) error {
 		)
 	}
 
-	flowsMap := config.ParseFlows(c.flows)
-	if len(flowsMap) == 0 {
-		return fmt.Errorf("at least one valid flow is required (must be 'request' or 'response')")
+	flows := config.ParseFlowsDistinct(c.flows)
+	if len(flows) == 0 {
+		return fmt.Errorf(
+			"at least one valid flow is required (%s)",
+			strings.Join(config.OrderedFlowNames(), ", "),
+		)
 	}
-
-	parsedFlows := slices.Sorted(maps.Keys(flowsMap))
 
 	entry := config.PluginEntry{
 		Name:  pluginName,
-		Flows: parsedFlows,
+		Flows: slices.Sorted(maps.Keys(flows)),
 	}
 
 	// Set optional fields only if they were provided.

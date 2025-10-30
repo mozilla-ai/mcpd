@@ -99,10 +99,10 @@ func (f Flow) IsValid() bool {
 	return ok
 }
 
-// ParseFlows validates and reduces flow strings to a distinct set.
+// ParseFlowsDistinct validates and reduces flow strings to a distinct set.
 // Flow strings are normalized before validation.
 // Invalid flows are silently ignored. Returns an empty map if no valid flows are found.
-func ParseFlows(flags []string) map[Flow]struct{} {
+func ParseFlowsDistinct(flags []string) map[Flow]struct{} {
 	valid := make(map[Flow]struct{}, len(flows))
 
 	for _, s := range flags {
@@ -244,12 +244,10 @@ func (e *PluginEntry) Validate() error {
 	} else {
 		seen := make(map[Flow]struct{})
 		for _, flow := range e.Flows {
-			// Check for valid flow values.
 			if !flow.IsValid() {
-				validationErrors = append(
-					validationErrors,
-					fmt.Errorf("invalid flow '%s', must be '%s' or '%s'", flow, FlowRequest, FlowResponse),
-				)
+				allowedFlows := strings.Join(OrderedFlowNames(), ", ")
+				err := fmt.Errorf("invalid flow '%s' (allowed: %s)", flow, allowedFlows)
+				validationErrors = append(validationErrors, err)
 			}
 
 			// Check for duplicates.
@@ -386,7 +384,9 @@ func (p *PluginConfig) plugin(category Category, name string) (PluginEntry, bool
 
 // upsertPlugin creates or updates a plugin entry.
 func (p *PluginConfig) upsertPlugin(category Category, entry PluginEntry) (context.UpsertResult, error) {
-	if strings.TrimSpace(entry.Name) == "" {
+	// Handle sanitizing the plugin name.
+	entry.Name = strings.TrimSpace(entry.Name)
+	if entry.Name == "" {
 		return context.Noop, fmt.Errorf("plugin name cannot be empty")
 	}
 
@@ -399,11 +399,9 @@ func (p *PluginConfig) upsertPlugin(category Category, entry PluginEntry) (conte
 		return context.Noop, err
 	}
 
-	name := strings.TrimSpace(entry.Name)
-
 	// Check if plugin already exists.
 	for i, existing := range *slice {
-		if existing.Name != name {
+		if existing.Name != entry.Name {
 			continue
 		}
 
@@ -526,10 +524,22 @@ func OrderedCategories() Categories {
 	return slices.Clone(orderedCategories)
 }
 
+// OrderedFlowNames returns the names of allowed flows in order.
+func OrderedFlowNames() []string {
+	sortedFlows := slices.Sorted(maps.Keys(flows))
+
+	flowNames := make([]string, len(sortedFlows))
+	for i, f := range sortedFlows {
+		flowNames[i] = string(f)
+	}
+
+	return flowNames
+}
+
 // Set is used by Cobra to set the category value from a string.
 // NOTE: This is also required by Cobra as part of implementing flag.Value.
 func (c *Category) Set(v string) error {
-	v = strings.ToLower(strings.TrimSpace(v))
+	v = filter.NormalizeString(v)
 	allowed := OrderedCategories()
 
 	for _, a := range allowed {

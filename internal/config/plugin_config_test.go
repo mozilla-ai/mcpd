@@ -8,6 +8,16 @@ import (
 	"github.com/mozilla-ai/mcpd/v2/internal/context"
 )
 
+func testPluginStringPtr(t *testing.T, s string) *string {
+	t.Helper()
+	return &s
+}
+
+func testPluginBoolPtr(t *testing.T, b bool) *bool {
+	t.Helper()
+	return &b
+}
+
 func TestPluginEntry_Validate(t *testing.T) {
 	t.Parallel()
 
@@ -395,6 +405,7 @@ func TestPluginConfig_upsertPlugin(t *testing.T) {
 		entry      PluginEntry
 		wantResult context.UpsertResult
 		wantErr    bool
+		wantName   string
 	}{
 		{
 			name:     "create new plugin",
@@ -404,6 +415,7 @@ func TestPluginConfig_upsertPlugin(t *testing.T) {
 				Name:  "jwt-auth",
 				Flows: []Flow{FlowRequest},
 			},
+			wantName:   "jwt-auth",
 			wantResult: context.Created,
 			wantErr:    false,
 		},
@@ -419,6 +431,7 @@ func TestPluginConfig_upsertPlugin(t *testing.T) {
 				Name:  "jwt-auth",
 				Flows: []Flow{FlowRequest, FlowResponse},
 			},
+			wantName:   "jwt-auth",
 			wantResult: context.Updated,
 			wantErr:    false,
 		},
@@ -434,6 +447,7 @@ func TestPluginConfig_upsertPlugin(t *testing.T) {
 				Name:  "jwt-auth",
 				Flows: []Flow{FlowRequest},
 			},
+			wantName:   "jwt-auth",
 			wantResult: context.Noop,
 			wantErr:    false,
 		},
@@ -459,6 +473,18 @@ func TestPluginConfig_upsertPlugin(t *testing.T) {
 			wantResult: context.Noop,
 			wantErr:    true,
 		},
+		{
+			name:     "trim whitespace",
+			initial:  &PluginConfig{},
+			category: CategoryAuthentication,
+			entry: PluginEntry{
+				Name:  " jwt-auth  ",
+				Flows: []Flow{FlowRequest},
+			},
+			wantName:   "jwt-auth",
+			wantResult: context.Created,
+			wantErr:    false,
+		},
 	}
 
 	for _, tc := range tests {
@@ -471,6 +497,10 @@ func TestPluginConfig_upsertPlugin(t *testing.T) {
 				require.Error(t, err)
 			} else {
 				require.NoError(t, err)
+
+				updated, found := tc.initial.plugin(tc.category, tc.wantName)
+				require.True(t, found)
+				require.Equal(t, tc.wantName, updated.Name)
 			}
 
 			require.Equal(t, tc.wantResult, result)
@@ -790,7 +820,7 @@ func TestFlow_IsValid(t *testing.T) {
 	}
 }
 
-func TestParseFlows(t *testing.T) {
+func TestParseFlowsDistinct(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
@@ -866,18 +896,15 @@ func TestParseFlows(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
-			result := ParseFlows(tc.input)
+			result := ParseFlowsDistinct(tc.input)
 			require.Equal(t, tc.expected, result)
 		})
 	}
 }
 
-func testPluginStringPtr(t *testing.T, s string) *string {
-	t.Helper()
-	return &s
-}
-
-func testPluginBoolPtr(t *testing.T, b bool) *bool {
-	t.Helper()
-	return &b
+func TestAddCmd_OrderedFlowNames(t *testing.T) {
+	flows := OrderedFlowNames()
+	require.Len(t, flows, 2)
+	require.Equal(t, "request", flows[0])
+	require.Equal(t, "response", flows[1])
 }
