@@ -1,6 +1,10 @@
 package api
 
-import "github.com/mark3labs/mcp-go/mcp"
+import (
+	"maps"
+
+	"github.com/mark3labs/mcp-go/mcp"
+)
 
 // DomainMeta wraps mcp.Meta for API conversion.
 type DomainMeta mcp.Meta
@@ -13,25 +17,10 @@ type Meta map[string]any
 // Returns empty Meta{} if domain type is nil.
 // See: https://modelcontextprotocol.io/specification/2025-06-18/basic/index#meta
 func (d DomainMeta) ToAPIType() (Meta, error) {
-	if (*mcp.Meta)(&d) == nil {
+	m := (*mcp.Meta)(&d)
+	if m == nil || m.AdditionalFields == nil {
 		return Meta{}, nil
 	}
 
-	// The _meta field is MCP's reserved extensibility mechanism that allows both:
-	// - progressToken: for out-of-band progress notifications (defined by spec)
-	// - Additional fields: custom metadata from servers/clients (extensible)
-	// Both types of fields are merged at the same level in the resulting map.
-	result := make(Meta)
-
-	// Add progressToken if present (using MCP spec-defined field name).
-	if d.ProgressToken != nil {
-		result["progressToken"] = d.ProgressToken
-	}
-
-	// Merge additional fields at the same level.
-	for k, v := range d.AdditionalFields {
-		result[k] = v
-	}
-
-	return result, nil
+	return maps.Clone(m.AdditionalFields), nil
 }

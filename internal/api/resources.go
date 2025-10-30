@@ -296,34 +296,18 @@ func handleServerResourceContent(
 	for _, content := range result.Contents {
 		switch c := content.(type) {
 		case mcp.TextResourceContents:
-			var meta Meta
-			if c.Meta != nil {
-				var err error
-				meta, err = DomainMeta(*c.Meta).ToAPIType()
-				if err != nil {
-					return nil, err
-				}
-			}
 			contents = append(contents, ResourceContent{
 				URI:      c.URI,
 				MIMEType: c.MIMEType,
 				Text:     c.Text,
-				Meta:     meta,
+				Meta:     c.Meta,
 			})
 		case mcp.BlobResourceContents:
-			var meta Meta
-			if c.Meta != nil {
-				var err error
-				meta, err = DomainMeta(*c.Meta).ToAPIType()
-				if err != nil {
-					return nil, err
-				}
-			}
 			contents = append(contents, ResourceContent{
 				URI:      c.URI,
 				MIMEType: c.MIMEType,
 				Blob:     c.Blob,
-				Meta:     meta,
+				Meta:     c.Meta,
 			})
 		}
 	}
