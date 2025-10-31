@@ -51,7 +51,7 @@ body:
       label: Environment
       description: Provide details about your environment.
       value: |
-        - **OS:** [e.g. macOS, Windows, Linux] (and version)
+        - **OS:** [e.g. macOS, Linux] (and version)
         - **mcpd Version:** [e.g. v0.1.0] (mcpd --version)
         - **Other relevant libraries/versions:**
       render: markdown
