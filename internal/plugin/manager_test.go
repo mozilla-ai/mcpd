@@ -4,6 +4,7 @@ import (
 	"context"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/hashicorp/go-hclog"
@@ -249,19 +250,6 @@ func TestManager_formatDialAddress_UnixNetwork(t *testing.T) {
 	require.Equal(t, "unix:///tmp/test.sock", result)
 }
 
-func TestManager_formatDialAddress_TCPNetwork(t *testing.T) {
-	t.Parallel()
-
-	logger := hclog.NewNullLogger()
-	cfg := &config.PluginConfig{Dir: "/tmp"}
-	m, err := NewManager(logger, cfg)
-	require.NoError(t, err)
-
-	address := "localhost:8080"
-	result := m.formatDialAddress(networkTCP, address)
-	require.Equal(t, "localhost:8080", result)
-}
-
 func TestManager_formatDialAddress_EmptyAddress(t *testing.T) {
 	t.Parallel()
 
@@ -272,9 +260,6 @@ func TestManager_formatDialAddress_EmptyAddress(t *testing.T) {
 
 	result := m.formatDialAddress(networkUnix, "")
 	require.Equal(t, "unix://", result)
-
-	result = m.formatDialAddress(networkTCP, "")
-	require.Equal(t, "", result)
 }
 
 func TestManager_generateAddress_ReturnsValidFormat(t *testing.T) {
@@ -287,19 +272,11 @@ func TestManager_generateAddress_ReturnsValidFormat(t *testing.T) {
 
 	address, network := m.generateAddress("test-plugin")
 	require.NotEmpty(t, address)
-	require.NotEmpty(t, network)
+	require.Equal(t, networkUnix, network)
 
-	// Network should be either tcp or unix depending on OS.
-	require.Contains(t, []string{networkTCP, networkUnix}, network)
-
-	if network == networkTCP {
-		// TCP address should be localhost:port format.
-		require.Contains(t, address, "localhost:")
-	} else {
-		// Unix socket should be a file path ending in .sock.
-		require.Contains(t, address, ".sock")
-		require.Contains(t, address, "test-plugin")
-	}
+	// Unix socket should be a file path ending in .sock.
+	require.True(t, strings.HasSuffix(address, ".sock"))
+	require.Contains(t, address, "test-plugin")
 }
 
 func TestManager_generateAddress_ReplacesSpacesInPluginName(t *testing.T) {
@@ -312,12 +289,11 @@ func TestManager_generateAddress_ReplacesSpacesInPluginName(t *testing.T) {
 
 	address, network := m.generateAddress("test plugin with spaces")
 	require.NotEmpty(t, address)
+	require.Equal(t, networkUnix, network)
 
 	// Unix sockets should have spaces replaced with dashes.
-	if network == networkUnix {
-		require.Contains(t, address, "test-plugin-with-spaces")
-		require.NotContains(t, address, " ")
-	}
+	require.Contains(t, address, "test-plugin-with-spaces")
+	require.NotContains(t, address, " ")
 }
 
 func TestManager_generateAddress_GeneratesUniqueAddresses(t *testing.T) {

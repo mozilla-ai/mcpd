@@ -7,7 +7,6 @@ import (
 	"net/http"
 	"net/url"
 	"os"
-	"strings"
 )
 
 // LoadFromURL retrieves and decodes JSON from the given URL into the target registry object.
@@ -27,10 +26,7 @@ func LoadFromURL[T any](registryURL string, registryName string) (T, error) {
 	case "file":
 		// Handle file:// URLs
 		path := parsedURL.Path
-		// On Windows, file URLs might have an extra slash that needs to be removed
-		if strings.HasPrefix(path, "/") && len(path) > 2 && path[2] == ':' {
-			path = path[1:]
-		}
+
 		body, err = os.ReadFile(path)
 		if err != nil {
 			return target, fmt.Errorf("failed to read file '%s' for registry '%s': %w", path, registryName, err)
