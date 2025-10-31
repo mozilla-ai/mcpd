@@ -11,7 +11,6 @@ import (
 	"os/exec"
 	"path/filepath"
 	"reflect"
-	"runtime"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -47,20 +46,12 @@ const (
 	// socketDialTimeout is the timeout for individual socket dial attempts.
 	socketDialTimeout = 100 * time.Millisecond
 
-	// tcpPortRangeStart is the starting port for Windows TCP connections.
-	tcpPortRangeStart = 50000
-
-	// tcpPortRangeSize is the range of ports available for Windows TCP connections.
-	tcpPortRangeSize = 10000
-
 	// unixSocketIDRange is the range for unique socket file IDs.
 	unixSocketIDRange = 1000000
 )
 
 const (
-	networkTCP  = "tcp"
 	networkUnix = "unix"
-	osWindows   = "windows"
 )
 
 const (
@@ -348,22 +339,13 @@ func (m *Manager) formatDialAddress(network, address string) string {
 	return address
 }
 
-// generateAddress generates a network address for a plugin based on the OS.
-// Windows uses TCP, Unix systems use Unix domain sockets.
-// Uses an atomic counter to ensure uniqueness across concurrent calls.
-func (m *Manager) generateAddress(pluginName string) (address string, network string) {
+// generateAddress returns a unique Unix socket address for the given plugin.
+func (m *Manager) generateAddress(pluginName string) (addr, network string) {
 	id := m.addressCounter.Add(1)
 
-	switch runtime.GOOS {
-	case osWindows:
-		port := tcpPortRangeStart + (id % tcpPortRangeSize)
-		return fmt.Sprintf("localhost:%d", port), networkTCP
-	default:
-		sockPath := filepath.Join(os.TempDir(), fmt.Sprintf("plugin-%s-%d.sock",
-			strings.ReplaceAll(pluginName, " ", "-"),
-			id%unixSocketIDRange))
-		return sockPath, networkUnix
-	}
+	name := strings.ReplaceAll(pluginName, " ", "-")
+	addr = filepath.Join(os.TempDir(), fmt.Sprintf("plugin-%s-%d.sock", name, id%unixSocketIDRange))
+	return addr, networkUnix
 }
 
 // startPlugin launches a plugin binary, connects to it, and returns a Plugin instance.
