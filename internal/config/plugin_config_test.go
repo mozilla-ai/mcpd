@@ -8,6 +8,16 @@ import (
 	"github.com/mozilla-ai/mcpd/v2/internal/context"
 )
 
+func testPluginStringPtr(t *testing.T, s string) *string {
+	t.Helper()
+	return &s
+}
+
+func testPluginBoolPtr(t *testing.T, b bool) *bool {
+	t.Helper()
+	return &b
+}
+
 func TestPluginEntry_Validate(t *testing.T) {
 	t.Parallel()
 
@@ -395,6 +405,7 @@ func TestPluginConfig_upsertPlugin(t *testing.T) {
 		entry      PluginEntry
 		wantResult context.UpsertResult
 		wantErr    bool
+		wantName   string
 	}{
 		{
 			name:     "create new plugin",
@@ -404,6 +415,7 @@ func TestPluginConfig_upsertPlugin(t *testing.T) {
 				Name:  "jwt-auth",
 				Flows: []Flow{FlowRequest},
 			},
+			wantName:   "jwt-auth",
 			wantResult: context.Created,
 			wantErr:    false,
 		},
@@ -419,6 +431,7 @@ func TestPluginConfig_upsertPlugin(t *testing.T) {
 				Name:  "jwt-auth",
 				Flows: []Flow{FlowRequest, FlowResponse},
 			},
+			wantName:   "jwt-auth",
 			wantResult: context.Updated,
 			wantErr:    false,
 		},
@@ -434,6 +447,7 @@ func TestPluginConfig_upsertPlugin(t *testing.T) {
 				Name:  "jwt-auth",
 				Flows: []Flow{FlowRequest},
 			},
+			wantName:   "jwt-auth",
 			wantResult: context.Noop,
 			wantErr:    false,
 		},
@@ -459,6 +473,18 @@ func TestPluginConfig_upsertPlugin(t *testing.T) {
 			wantResult: context.Noop,
 			wantErr:    true,
 		},
+		{
+			name:     "trim whitespace",
+			initial:  &PluginConfig{},
+			category: CategoryAuthentication,
+			entry: PluginEntry{
+				Name:  " jwt-auth  ",
+				Flows: []Flow{FlowRequest},
+			},
+			wantName:   "jwt-auth",
+			wantResult: context.Created,
+			wantErr:    false,
+		},
 	}
 
 	for _, tc := range tests {
@@ -471,6 +497,10 @@ func TestPluginConfig_upsertPlugin(t *testing.T) {
 				require.Error(t, err)
 			} else {
 				require.NoError(t, err)
+
+				updated, found := tc.initial.plugin(tc.category, tc.wantName)
+				require.True(t, found)
+				require.Equal(t, tc.wantName, updated.Name)
 			}
 
 			require.Equal(t, tc.wantResult, result)
@@ -724,12 +754,157 @@ func TestPluginConfig_Validate_errorMessages(t *testing.T) {
 	})
 }
 
-func testPluginStringPtr(t *testing.T, s string) *string {
-	t.Helper()
-	return &s
+func TestFlows(t *testing.T) {
+	t.Parallel()
+
+	flows := Flows()
+
+	// Should contain exactly request and response.
+	require.Len(t, flows, 2)
+	require.Contains(t, flows, FlowRequest)
+	require.Contains(t, flows, FlowResponse)
+
+	// Verify that modifications don't affect subsequent calls (clone behavior).
+	delete(flows, FlowRequest)
+	require.Len(t, flows, 1)
+
+	// Get a fresh copy - should still have both flows.
+	freshFlows := Flows()
+	require.Len(t, freshFlows, 2)
+	require.Contains(t, freshFlows, FlowRequest)
+	require.Contains(t, freshFlows, FlowResponse)
 }
 
-func testPluginBoolPtr(t *testing.T, b bool) *bool {
-	t.Helper()
-	return &b
+func TestFlow_IsValid(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name  string
+		flow  Flow
+		valid bool
+	}{
+		{
+			name:  "valid request flow",
+			flow:  FlowRequest,
+			valid: true,
+		},
+		{
+			name:  "valid response flow",
+			flow:  FlowResponse,
+			valid: true,
+		},
+		{
+			name:  "invalid empty flow",
+			flow:  Flow(""),
+			valid: false,
+		},
+		{
+			name:  "invalid unknown flow",
+			flow:  Flow("unknown"),
+			valid: false,
+		},
+		{
+			name:  "invalid uppercase",
+			flow:  Flow("REQUEST"),
+			valid: false,
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			result := tc.flow.IsValid()
+			require.Equal(t, tc.valid, result)
+		})
+	}
+}
+
+func TestParseFlowsDistinct(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name     string
+		input    []string
+		expected map[Flow]struct{}
+	}{
+		{
+			name:  "single valid flow",
+			input: []string{"request"},
+			expected: map[Flow]struct{}{
+				FlowRequest: {},
+			},
+		},
+		{
+			name:  "two valid flows",
+			input: []string{"request", "response"},
+			expected: map[Flow]struct{}{
+				FlowRequest:  {},
+				FlowResponse: {},
+			},
+		},
+		{
+			name:  "duplicates are deduplicated",
+			input: []string{"request", "request", "response", "response"},
+			expected: map[Flow]struct{}{
+				FlowRequest:  {},
+				FlowResponse: {},
+			},
+		},
+		{
+			name:     "invalid flows are ignored",
+			input:    []string{"invalid", "foo", "bar"},
+			expected: map[Flow]struct{}{},
+		},
+		{
+			name:  "mixed valid and invalid",
+			input: []string{"request", "invalid", "response", "foo"},
+			expected: map[Flow]struct{}{
+				FlowRequest:  {},
+				FlowResponse: {},
+			},
+		},
+		{
+			name:     "empty input",
+			input:    []string{},
+			expected: map[Flow]struct{}{},
+		},
+		{
+			name:     "nil input",
+			input:    nil,
+			expected: map[Flow]struct{}{},
+		},
+		{
+			name:  "case insensitive",
+			input: []string{"REQUEST", "Response", "REQUEST"},
+			expected: map[Flow]struct{}{
+				FlowRequest:  {},
+				FlowResponse: {},
+			},
+		},
+		{
+			name:  "with whitespace",
+			input: []string{" request ", "  response  "},
+			expected: map[Flow]struct{}{
+				FlowRequest:  {},
+				FlowResponse: {},
+			},
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			result := ParseFlowsDistinct(tc.input)
+			require.Equal(t, tc.expected, result)
+		})
+	}
+}
+
+func TestAddCmd_OrderedFlowNames(t *testing.T) {
+	flows := OrderedFlowNames()
+	require.Len(t, flows, 2)
+	require.Equal(t, "request", flows[0])
+	require.Equal(t, "response", flows[1])
 }

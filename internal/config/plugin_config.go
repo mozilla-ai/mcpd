@@ -3,11 +3,13 @@ package config
 import (
 	"errors"
 	"fmt"
+	"maps"
 	"slices"
 	"strings"
 
 	"github.com/mozilla-ai/mcpd/v2/internal/context"
 	"github.com/mozilla-ai/mcpd/v2/internal/files"
+	"github.com/mozilla-ai/mcpd/v2/internal/filter"
 )
 
 const (
@@ -54,6 +56,13 @@ var orderedCategories = Categories{
 	CategoryAudit, // Last.
 }
 
+// flows defines the set of valid flow types.
+// NOTE: This variable should not be modified in other parts of the codebase.
+var flows = map[Flow]struct{}{
+	FlowRequest:  {},
+	FlowResponse: {},
+}
+
 // PluginModifier defines operations for managing plugin configuration.
 type PluginModifier interface {
 	// Plugin retrieves a plugin by category and name.
@@ -77,6 +86,34 @@ type Category string
 
 // Flow represents the execution phase for a plugin.
 type Flow string
+
+// Flows returns the canonical set of allowed flows.
+// Returns a clone to prevent modification of the internal map.
+func Flows() map[Flow]struct{} {
+	return maps.Clone(flows)
+}
+
+// IsValid returns true if the Flow is a recognized value.
+func (f Flow) IsValid() bool {
+	_, ok := flows[f]
+	return ok
+}
+
+// ParseFlowsDistinct validates and reduces flow strings to a distinct set.
+// Flow strings are normalized before validation.
+// Invalid flows are silently ignored. Returns an empty map if no valid flows are found.
+func ParseFlowsDistinct(flags []string) map[Flow]struct{} {
+	valid := make(map[Flow]struct{}, len(flows))
+
+	for _, s := range flags {
+		f := Flow(filter.NormalizeString(s))
+		if _, ok := flows[f]; ok {
+			valid[f] = struct{}{}
+		}
+	}
+
+	return valid
+}
 
 // PluginConfig represents the top-level plugin configuration.
 //
@@ -207,12 +244,10 @@ func (e *PluginEntry) Validate() error {
 	} else {
 		seen := make(map[Flow]struct{})
 		for _, flow := range e.Flows {
-			// Check for valid flow values.
-			if flow != FlowRequest && flow != FlowResponse {
-				validationErrors = append(
-					validationErrors,
-					fmt.Errorf("invalid flow '%s', must be '%s' or '%s'", flow, FlowRequest, FlowResponse),
-				)
+			if !flow.IsValid() {
+				allowedFlows := strings.Join(OrderedFlowNames(), ", ")
+				err := fmt.Errorf("invalid flow '%s' (allowed: %s)", flow, allowedFlows)
+				validationErrors = append(validationErrors, err)
 			}
 
 			// Check for duplicates.
@@ -349,7 +384,9 @@ func (p *PluginConfig) plugin(category Category, name string) (PluginEntry, bool
 
 // upsertPlugin creates or updates a plugin entry.
 func (p *PluginConfig) upsertPlugin(category Category, entry PluginEntry) (context.UpsertResult, error) {
-	if strings.TrimSpace(entry.Name) == "" {
+	// Handle sanitizing the plugin name.
+	entry.Name = strings.TrimSpace(entry.Name)
+	if entry.Name == "" {
 		return context.Noop, fmt.Errorf("plugin name cannot be empty")
 	}
 
@@ -362,11 +399,9 @@ func (p *PluginConfig) upsertPlugin(category Category, entry PluginEntry) (conte
 		return context.Noop, err
 	}
 
-	name := strings.TrimSpace(entry.Name)
-
 	// Check if plugin already exists.
 	for i, existing := range *slice {
-		if existing.Name != name {
+		if existing.Name != entry.Name {
 			continue
 		}
 
@@ -489,10 +524,22 @@ func OrderedCategories() Categories {
 	return slices.Clone(orderedCategories)
 }
 
+// OrderedFlowNames returns the names of allowed flows in order.
+func OrderedFlowNames() []string {
+	sortedFlows := slices.Sorted(maps.Keys(flows))
+
+	flowNames := make([]string, len(sortedFlows))
+	for i, f := range sortedFlows {
+		flowNames[i] = string(f)
+	}
+
+	return flowNames
+}
+
 // Set is used by Cobra to set the category value from a string.
 // NOTE: This is also required by Cobra as part of implementing flag.Value.
 func (c *Category) Set(v string) error {
-	v = strings.ToLower(strings.TrimSpace(v))
+	v = filter.NormalizeString(v)
 	allowed := OrderedCategories()
 
 	for _, a := range allowed {

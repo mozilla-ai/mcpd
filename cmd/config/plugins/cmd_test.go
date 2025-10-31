@@ -1,6 +1,7 @@
 package plugins_test
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -35,8 +36,10 @@ func TestPlugins_NewCmd_Success(t *testing.T) {
 	}
 
 	for _, command := range commands {
-		require.True(t, expectedCmds[command.Use], "unexpected command: %s", command.Use)
-		delete(expectedCmds, command.Use)
+		// Extract command name (first word) from Use field to handle cases like "add <plugin-name>".
+		cmdName := strings.Fields(command.Use)[0]
+		require.True(t, expectedCmds[cmdName], "unexpected command: %s", command.Use)
+		delete(expectedCmds, cmdName)
 	}
 
 	require.Empty(t, expectedCmds, "missing expected commands")
