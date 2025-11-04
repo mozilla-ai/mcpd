@@ -187,7 +187,7 @@ Plugin SDKs are built using the [mcpd plugin Protocol Buffers specification](htt
 |----------|----------------------------------------------------------------------------------|--------|
 | Go       | [mcpd-plugins-sdk-go](https://github.com/mozilla-ai/mcpd-plugins-sdk-go)         | ✅      |
 | .NET     | [mcpd-plugins-sdk-dotnet](https://github.com/mozilla-ai/mcpd-plugins-sdk-dotnet) | ✅      |
-| Python   | [mcpd-plugins-sdk-python](https://github.com/mozilla-ai/mcpd-plugins-sdk-python) | 🟡     |
+| Python   | [mcpd-plugins-sdk-python](https://github.com/mozilla-ai/mcpd-plugins-sdk-python) | ✅      |
 
 More on plugins soon!
 
