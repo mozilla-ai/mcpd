@@ -176,17 +176,18 @@ API docs will be available at [http://localhost:8090/docs](http://localhost:8090
 | Language   | Repository                                                               | Status |
 |------------|--------------------------------------------------------------------------|--------|
 | Python     | [mcpd-sdk-python](https://github.com/mozilla-ai/mcpd-sdk-python)         | ✅      |
-| JavaScript | [mcpd-sdk-javascript](https://github.com/mozilla-ai/mcpd-sdk-javascript) | ✅     |
+| JavaScript | [mcpd-sdk-javascript](https://github.com/mozilla-ai/mcpd-sdk-javascript) | ✅      |
 
 
 ### `mcpd` plugin SDKs
 
 Plugin SDKs are built using the [mcpd plugin Protocol Buffers specification](https://github.com/mozilla-ai/mcpd-proto).
 
-| Language | Repository                                                                     | Status |
-|----------|--------------------------------------------------------------------------------|--------|
-| Go       | [mcpd-plugin-sdk-go](https://github.com/mozilla-ai/mcpd-plugin-sdk-go)         | ✅      |
-| .NET     | [mcpd-plugin-sdk-dotnet](https://github.com/mozilla-ai/mcpd-plugin-sdk-dotnet) | ✅      |
+| Language | Repository                                                                      | Status |
+|----------|---------------------------------------------------------------------------------|--------|
+| Go       | [mcpd-plugin-sdk-go](https://github.com/mozilla-ai/mcpd-plugin-sdk-go)          | ✅      |
+| .NET     | [mcpd-plugin-sdk-dotnet](https://github.com/mozilla-ai/mcpd-plugin-sdk-dotnet)  | ✅      |
+| Python   | [mcpd-plugin-sdk-python](https://github.com/mozilla-ai/mcpd-plugins-sdk-python) | 🟡     |
 
 More on plugins soon!
 
