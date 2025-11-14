@@ -89,6 +89,13 @@ func (a *APIServer) Start(ctx context.Context) error {
 
 	// Set the version to match the API version (not the application version).
 	config := huma.DefaultConfig("mcpd docs", api.APIVersion)
+
+	// Register API transformers.
+	// IMPORTANT: Prepend our transformers to run BEFORE Huma's defaults (including the link transformer).
+	// This ensures that when we modify response types (e.g., Tool → ToolMinimal), the link transformer
+	// adds the correct $schema for the filtered response type.
+	config.Transformers = append(api.Transformers(), config.Transformers...)
+
 	router := humachi.New(mux, config)
 
 	// Configure the error handling wrapping.

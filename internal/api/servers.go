@@ -23,6 +23,11 @@ type ServersResponse struct {
 // ServerToolsRequest represents the incoming API request for giving the configured tools schemas for a server.
 type ServerToolsRequest struct {
 	Name string `doc:"Name of the server to lookup tools for" example:"time" path:"name"`
+
+	// Detail specifies the level of detail to return (minimal, summary, or full).
+	// NOTE: This field is not used by the handler itself; it exists solely for OpenAPI documentation.
+	// The actual filtering is performed by toolFieldSelectTransformer, which reads the query parameter directly.
+	Detail toolDetailLevel `default:"full" doc:"Level of detail to return" enum:"minimal,summary,full" query:"detail"`
 }
 
 // ServerToolCallRequest represents the incoming API request to call a tool on a particular server.
@@ -73,7 +78,8 @@ func handleServers(accessor contracts.MCPClientAccessor) (*ServersResponse, erro
 }
 
 // handleServerTools returns the schemas for the allowed tools that exist for a given server.
-func handleServerTools(accessor contracts.MCPClientAccessor, name string) (*ToolsResponse, error) {
+// This always returns full tool details (Tool), which can be filtered by the transformer.
+func handleServerTools(accessor contracts.MCPClientAccessor, name string) (*ToolsResponse[Tool], error) {
 	mcpClient, clientOk := accessor.Client(name)
 	if !clientOk {
 		return nil, fmt.Errorf("%w: %s", errors.ErrServerNotFound, name)
@@ -100,7 +106,7 @@ func handleServerTools(accessor contracts.MCPClientAccessor, name string) (*Tool
 	tools := make([]Tool, 0, len(result.Tools))
 	for _, tool := range result.Tools {
 		if slices.Contains(allowedTools, filter.NormalizeString(tool.Name)) {
-			data, err := DomainTool(tool).ToAPIType()
+			data, err := domainTool(tool).ToAPIType()
 			if err != nil {
 				return nil, err
 			}
@@ -108,8 +114,8 @@ func handleServerTools(accessor contracts.MCPClientAccessor, name string) (*Tool
 		}
 	}
 
-	resp := &ToolsResponse{}
-	resp.Body = Tools{Tools: tools}
+	resp := &ToolsResponse[Tool]{}
+	resp.Body.Tools = tools
 
 	return resp, nil
 }
