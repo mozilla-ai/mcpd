@@ -446,7 +446,7 @@ func (p *PluginConfig) deletePlugin(category Category, name string) (context.Ups
 		return context.Deleted, nil
 	}
 
-	return context.Noop, fmt.Errorf("plugin %q not found in category %s", name, category)
+	return context.Noop, fmt.Errorf("plugin %s not found in category '%s'", name, category)
 }
 
 // ListPlugins returns all plugins in a category.

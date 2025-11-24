@@ -4,32 +4,12 @@ import (
 	"bytes"
 	"testing"
 
-	"github.com/spf13/cobra"
 	"github.com/stretchr/testify/require"
 
 	"github.com/mozilla-ai/mcpd/v2/internal/cmd"
 	cmdopts "github.com/mozilla-ai/mcpd/v2/internal/cmd/options"
 	"github.com/mozilla-ai/mcpd/v2/internal/config"
 )
-
-// executeCmd runs both PreRunE and RunE hooks for the command.
-func executeCmd(t *testing.T, cobraCmd *cobra.Command, args []string) error {
-	t.Helper()
-
-	// Run PreRunE if it exists.
-	if cobraCmd.PreRunE != nil {
-		if err := cobraCmd.PreRunE(cobraCmd, args); err != nil {
-			return err
-		}
-	}
-
-	// Run RunE.
-	if cobraCmd.RunE != nil {
-		return cobraCmd.RunE(cobraCmd, args)
-	}
-
-	return nil
-}
 
 func TestNewSetCmd(t *testing.T) {
 	t.Parallel()
