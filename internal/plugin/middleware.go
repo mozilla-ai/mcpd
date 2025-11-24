@@ -4,6 +4,8 @@ import (
 	"bytes"
 	"io"
 	"net/http"
+
+	"github.com/mozilla-ai/mcpd/v2/internal/api"
 )
 
 // Middleware returns an HTTP middleware function that processes requests through the plugin pipeline.
@@ -25,7 +27,8 @@ func (p *pipeline) Middleware() func(http.Handler) http.Handler {
 			httpResp, err := p.HandleRequest(ctx, httpReq)
 			if err != nil {
 				// Pipeline error (required plugin failed, or infrastructure error).
-				http.Error(w, "Service unavailable", http.StatusServiceUnavailable)
+				w.Header().Set(api.HeaderErrorType, string(api.PipelineRequestFailure))
+				http.Error(w, "Request processing failed", http.StatusInternalServerError)
 				p.logger.Error("pipeline request flow failed", "error", err)
 				return
 			}
@@ -53,7 +56,8 @@ func (p *pipeline) Middleware() func(http.Handler) http.Handler {
 			finalResp, err := p.HandleResponse(ctx, handlerResp)
 			if err != nil {
 				// Pipeline error in response flow.
-				http.Error(w, "Service unavailable", http.StatusServiceUnavailable)
+				w.Header().Set(api.HeaderErrorType, string(api.PipelineResponseFailure))
+				http.Error(w, "Response processing failed", http.StatusInternalServerError)
 				p.logger.Error("pipeline response flow failed", "error", err)
 				return
 			}

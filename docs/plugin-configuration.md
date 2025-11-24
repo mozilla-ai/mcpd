@@ -98,7 +98,9 @@ During the request phase, `jwt-auth` executes first, followed by `api-key-auth`.
 ## Required Plugins
 
 !!! warning "Required Plugin Failures"
-    If a required (serial) plugin fails or rejects a request/response, the overall request is rejected immediately.
+    If a required plugin fails, the request is rejected with HTTP 500 (Internal Server Error)
+    and a `Mcpd-Error-Type` header indicating the failure phase.
+
 
 Mark plugins as required when their successful execution is critical:
 
@@ -109,7 +111,26 @@ Mark plugins as required when their successful execution is critical:
   flows = ["request"]
 ```
 
-When `required` is not specified or set to `false`, plugin failures are logged but do not block the request.
+### Failure Behavior
+
+When a required plugin fails, `mcpd` returns:
+
+* Status: 500 Internal Server Error
+* Header: `Mcpd-Error-Type` with one of:
+    * `request-pipeline-failure` - Plugin failed during request processing (before upstream call)
+    * `response-pipeline-failure` - Plugin failed during response processing (after upstream call)
+
+!!! info "Response Pipeline Execution"
+    The response pipeline runs on all upstream responses, regardless of status (200 OK, 500 error, etc.).
+    This ensures critical plugins (PII redaction, audit logging, security headers) run consistently.
+
+### Optional Plugin Behavior
+
+When `required` is not specified or set to `false`:
+
+* **Plugin errors** (crashes, exceptions): Logged as warnings, pipeline continues.
+* **Plugin rejections** (returning `Continue=false`): Pipeline respects the rejection and stops processing, **except**:
+    * **Observability category only**: Pipeline ignores optional plugin rejections and continues (necessary for parallel execution model).
 
 ---
 
