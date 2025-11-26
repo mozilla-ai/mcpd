@@ -209,9 +209,12 @@ func (c *MoveCmd) run(cobraCmd *cobra.Command, _ []string) error {
 // NOTE: Mutual exclusivity flags should be handled by Cobra parsing args.
 func (c *MoveCmd) validate(cobraCmd *cobra.Command, _ []string) error {
 	toCategorySet := cobraCmd.Flags().Changed(flagToCategory)
-	hasPositioning := cobraCmd.Flags().Changed(flagBefore) ||
-		cobraCmd.Flags().Changed(flagAfter) ||
-		cobraCmd.Flags().Changed(flagPosition)
+	hasPosition := cobraCmd.Flags().Changed(flagPosition)
+	if hasPosition && c.position != -1 && c.position < 1 {
+		return fmt.Errorf("invalid '%s' flag value (must be a positive integer or -1 for end)", flagPosition)
+	}
+
+	hasPositioning := cobraCmd.Flags().Changed(flagBefore) || cobraCmd.Flags().Changed(flagAfter) || hasPosition
 
 	// Must specify at least one operation.
 	if !toCategorySet && !hasPositioning {

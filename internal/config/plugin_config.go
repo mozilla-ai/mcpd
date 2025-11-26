@@ -844,10 +844,10 @@ func (p *PluginConfig) moveToPosition(category Category, name string, position i
 	switch {
 	case position == -1:
 		targetIdx = n - 1
-	case position < 1:
-		targetIdx = 0
 	case position > n:
 		targetIdx = n - 1
+	case position < 1:
+		return context.Noop, fmt.Errorf("invalid position %d: must be 1 or greater, or -1 for end", position)
 	default:
 		targetIdx = position - 1
 	}

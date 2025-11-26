@@ -203,6 +203,50 @@ func TestMoveCmd_InvalidFlagCombinations(t *testing.T) {
 	}
 }
 
+func TestMoveCmd_InvalidPositionValues(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name     string
+		position string
+		error    string
+	}{
+		{
+			name:     "position zero",
+			position: "0",
+			error:    "invalid 'position' flag value (must be a positive integer or -1 for end)",
+		},
+		{
+			name:     "position negative",
+			position: "-2",
+			error:    "invalid 'position' flag value (must be a positive integer or -1 for end)",
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			loader := newMockLoaderFromFile(t)
+
+			base := &cmd.BaseCmd{}
+			moveCmd, err := NewMoveCmd(base, cmdopts.WithConfigLoader(loader))
+			require.NoError(t, err)
+
+			err = moveCmd.Flags().Set(flagCategory, "authentication")
+			require.NoError(t, err)
+			err = moveCmd.Flags().Set(flagName, "plugin-a")
+			require.NoError(t, err)
+			err = moveCmd.Flags().Set(flagPosition, tc.position)
+			require.NoError(t, err)
+
+			err = executeCmd(t, moveCmd, []string{})
+			require.Error(t, err)
+			require.ErrorContains(t, err, tc.error)
+		})
+	}
+}
+
 func TestMoveCmd_After(t *testing.T) {
 	t.Parallel()
 
