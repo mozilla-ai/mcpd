@@ -571,3 +571,306 @@ func (c Categories) String() string {
 
 	return strings.Join(out, ", ")
 }
+
+// MoveOption defines a functional option for configuring plugin move operations.
+type MoveOption func(*moveOptions) error
+
+// moveOptions contains configuration for moving a plugin.
+type moveOptions struct {
+	toCategory *Category
+	before     *string
+	after      *string
+	position   *int
+	force      bool
+}
+
+func newMoveOptions(opts ...MoveOption) (moveOptions, error) {
+	o := moveOptions{}
+
+	for _, opt := range opts {
+		if opt == nil {
+			continue
+		}
+		if err := opt(&o); err != nil {
+			return moveOptions{}, err
+		}
+	}
+
+	return o, nil
+}
+
+// WithToCategory moves the plugin to a different category.
+func WithToCategory(category Category) MoveOption {
+	return func(o *moveOptions) error {
+		o.toCategory = &category
+		return nil
+	}
+}
+
+// WithBefore positions the plugin before the named plugin.
+func WithBefore(name string) MoveOption {
+	return func(o *moveOptions) error {
+		o.before = &name
+		return nil
+	}
+}
+
+// WithAfter positions the plugin after the named plugin.
+func WithAfter(name string) MoveOption {
+	return func(o *moveOptions) error {
+		o.after = &name
+		return nil
+	}
+}
+
+// WithPosition sets the absolute position (1-based).
+func WithPosition(pos int) MoveOption {
+	return func(o *moveOptions) error {
+		o.position = &pos
+		return nil
+	}
+}
+
+// WithForce overwrites an existing plugin with the same name in the target category.
+func WithForce(force bool) MoveOption {
+	return func(o *moveOptions) error {
+		o.force = force
+		return nil
+	}
+}
+
+// movePlugin moves a plugin based on the provided options.
+func (p *PluginConfig) movePlugin(category Category, name string, opts ...MoveOption) (context.UpsertResult, error) {
+	options, err := newMoveOptions(opts...)
+	if err != nil {
+		return context.Noop, err
+	}
+
+	// Defaults before any operations take place.
+	res := context.Noop
+	err = fmt.Errorf("no move operation specified")
+
+	// Cross-category moves can occur in addition to positional moves.
+	if options.toCategory != nil {
+		res, err = p.moveToCategory(category, name, *options.toCategory, options.force)
+		if err != nil {
+			return res, err
+		}
+
+		// Position operations should now target the new category.
+		category = *options.toCategory
+	}
+
+	// Positional moves (within whatever category the plugin is now in).
+	switch {
+	case options.before != nil:
+		return p.moveBefore(category, name, *options.before)
+	case options.after != nil:
+		return p.moveAfter(category, name, *options.after)
+	case options.position != nil:
+		return p.moveToPosition(category, name, *options.position)
+	default:
+		return res, err
+	}
+}
+
+// moveToCategory moves a plugin from one category to another (appends to end).
+// If a plugin with the same name exists in the new category,
+// then the operation can only succeed if the force parameter is set to true.
+func (p *PluginConfig) moveToCategory(
+	fromCategory Category,
+	name string,
+	toCategory Category,
+	force bool,
+) (context.UpsertResult, error) {
+	srcSlice, err := p.categorySlice(fromCategory)
+	if err != nil {
+		return context.Noop, err
+	}
+
+	srcIdx := findPluginIndex(*srcSlice, name)
+	if srcIdx == -1 {
+		return context.Noop, fmt.Errorf("plugin '%s' not found in category '%s'", name, fromCategory)
+	}
+
+	plugin := (*srcSlice)[srcIdx]
+
+	targetSlice, err := p.categorySlice(toCategory)
+	if err != nil {
+		return context.Noop, err
+	}
+
+	existingIdx := findPluginIndex(*targetSlice, name)
+	if existingIdx != -1 && !force {
+		return context.Noop, fmt.Errorf(
+			"plugin '%s' already exists in category '%s', use --force to overwrite",
+			name,
+			toCategory,
+		)
+	}
+
+	// Remove from source.
+	*srcSlice = append((*srcSlice)[:srcIdx], (*srcSlice)[srcIdx+1:]...)
+
+	// Remove existing in target if force.
+	if existingIdx != -1 {
+		*targetSlice = append((*targetSlice)[:existingIdx], (*targetSlice)[existingIdx+1:]...)
+	}
+
+	// Append to end of target category.
+	*targetSlice = append(*targetSlice, plugin)
+
+	return context.Updated, nil
+}
+
+// findPluginIndex returns the index of a plugin by name, or -1 if not found.
+func findPluginIndex(slice []PluginEntry, name string) int {
+	for i, entry := range slice {
+		if entry.Name == name {
+			return i
+		}
+	}
+	return -1
+}
+
+// moveAfter moves a plugin to immediately after the target plugin within the same category.
+func (p *PluginConfig) moveAfter(category Category, name string, targetName string) (context.UpsertResult, error) {
+	slice, err := p.categorySlice(category)
+	if err != nil {
+		return context.Noop, err
+	}
+
+	items := *slice
+	n := len(items)
+	if n <= 1 {
+		return context.Noop, nil
+	}
+
+	srcIdx := slices.IndexFunc(items, func(e PluginEntry) bool { return e.Name == name })
+	if srcIdx < 0 {
+		return context.Noop, fmt.Errorf("plugin '%s' not found in category '%s'", name, category)
+	}
+
+	targetIdx := slices.IndexFunc(items, func(e PluginEntry) bool { return e.Name == targetName })
+	if targetIdx < 0 {
+		return context.Noop, fmt.Errorf("target plugin '%s' not found in category '%s'", targetName, category)
+	}
+
+	// Already in correct position?
+	if srcIdx == targetIdx+1 {
+		return context.Noop, nil
+	}
+
+	// Remove the entry.
+	entry := items[srcIdx]
+	items = slices.Delete(items, srcIdx, srcIdx+1)
+
+	// If removal was before target, targetIdx shifts left by one.
+	if srcIdx < targetIdx {
+		targetIdx--
+	}
+
+	// Insert after targetIdx.
+	items = slices.Insert(items, targetIdx+1, entry)
+
+	*slice = items
+	return context.Updated, nil
+}
+
+// moveBefore moves a plugin to immediately before the target plugin within the same category.
+func (p *PluginConfig) moveBefore(category Category, name string, targetName string) (context.UpsertResult, error) {
+	slice, err := p.categorySlice(category)
+	if err != nil {
+		return context.Noop, err
+	}
+
+	items := *slice
+	if len(items) <= 1 {
+		return context.Noop, nil
+	}
+
+	srcIdx := slices.IndexFunc(items, func(e PluginEntry) bool { return e.Name == name })
+	if srcIdx < 0 {
+		return context.Noop, fmt.Errorf("plugin '%s' not found in category '%s'", name, category)
+	}
+
+	targetIdx := slices.IndexFunc(items, func(e PluginEntry) bool { return e.Name == targetName })
+	if targetIdx < 0 {
+		return context.Noop, fmt.Errorf("target plugin '%s' not found in category '%s'", targetName, category)
+	}
+
+	// Already in correct position?
+	if srcIdx == targetIdx-1 {
+		return context.Noop, nil
+	}
+
+	// Remove the entry.
+	entry := items[srcIdx]
+	items = slices.Delete(items, srcIdx, srcIdx+1)
+
+	// If removal was before target, targetIdx shifts left by one.
+	if srcIdx < targetIdx {
+		targetIdx--
+	}
+
+	// Insert before targetIdx.
+	items = slices.Insert(items, targetIdx, entry)
+
+	*slice = items
+	return context.Updated, nil
+}
+
+// moveToPosition moves a plugin to an absolute position within the same category.
+// Position is 1-based. Position -1 means "move to end".
+func (p *PluginConfig) moveToPosition(category Category, name string, position int) (context.UpsertResult, error) {
+	slice, err := p.categorySlice(category)
+	if err != nil {
+		return context.Noop, err
+	}
+
+	items := *slice
+	n := len(items)
+	if n <= 1 {
+		return context.Noop, nil
+	}
+
+	srcIdx := slices.IndexFunc(items, func(e PluginEntry) bool { return e.Name == name })
+	if srcIdx < 0 {
+		return context.Noop, fmt.Errorf("plugin '%s' not found in category '%s'", name, category)
+	}
+
+	// Normalize target index (1-based to 0-based, -1 means end).
+	var targetIdx int
+	switch {
+	case position == -1:
+		targetIdx = n - 1
+	case position < 1:
+		targetIdx = 0
+	case position > n:
+		targetIdx = n - 1
+	default:
+		targetIdx = position - 1
+	}
+
+	if srcIdx == targetIdx {
+		return context.Noop, nil
+	}
+
+	// Remove the entry.
+	entry := items[srcIdx]
+	items = slices.Delete(items, srcIdx, srcIdx+1)
+
+	// Recalculate target position after removal.
+	switch {
+	case position == -1 || position >= n:
+		targetIdx = len(items) // End of shortened list.
+	case srcIdx < targetIdx:
+		targetIdx--
+	}
+
+	// Insert at target position.
+	items = slices.Insert(items, targetIdx, entry)
+
+	*slice = items
+	return context.Updated, nil
+}

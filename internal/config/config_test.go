@@ -686,3 +686,276 @@ func TestLoadSaveRoundTrip_Plugins(t *testing.T) {
 	require.Equal(t, "metrics", obsPlugins[0].Name)
 	require.Equal(t, []Flow{FlowRequest, FlowResponse}, obsPlugins[0].Flows)
 }
+
+func TestMovePlugin_ToCategory(t *testing.T) {
+	t.Parallel()
+
+	tempFile, err := os.CreateTemp(t.TempDir(), ".mcpd.toml")
+	require.NoError(t, err)
+
+	cfg := &Config{
+		Servers: []ServerEntry{{Name: "test", Package: "x::test@latest"}},
+		Plugins: &PluginConfig{
+			Authentication: []PluginEntry{
+				{Name: "jwt-auth", Flows: []Flow{FlowRequest}},
+			},
+		},
+		configFilePath: tempFile.Name(),
+	}
+
+	require.NoError(t, cfg.saveConfig())
+
+	result, err := cfg.MovePlugin(CategoryAuthentication, "jwt-auth", WithToCategory(CategoryAudit))
+	require.NoError(t, err)
+	require.Equal(t, "updated", string(result))
+
+	// Verify persisted.
+	var loaded Config
+	_, err = toml.DecodeFile(tempFile.Name(), &loaded)
+	require.NoError(t, err)
+
+	require.Empty(t, loaded.Plugins.Authentication)
+	require.Len(t, loaded.Plugins.Audit, 1)
+	require.Equal(t, "jwt-auth", loaded.Plugins.Audit[0].Name)
+}
+
+func TestMovePlugin_ToPosition(t *testing.T) {
+	t.Parallel()
+
+	tempFile, err := os.CreateTemp(t.TempDir(), ".mcpd.toml")
+	require.NoError(t, err)
+
+	cfg := &Config{
+		Servers: []ServerEntry{{Name: "test", Package: "x::test@latest"}},
+		Plugins: &PluginConfig{
+			Authentication: []PluginEntry{
+				{Name: "a", Flows: []Flow{FlowRequest}},
+				{Name: "b", Flows: []Flow{FlowRequest}},
+				{Name: "c", Flows: []Flow{FlowRequest}},
+			},
+		},
+		configFilePath: tempFile.Name(),
+	}
+
+	require.NoError(t, cfg.saveConfig())
+
+	result, err := cfg.MovePlugin(CategoryAuthentication, "c", WithPosition(1))
+	require.NoError(t, err)
+	require.Equal(t, "updated", string(result))
+
+	plugins := cfg.Plugins.ListPlugins(CategoryAuthentication)
+	require.Equal(t, "c", plugins[0].Name)
+	require.Equal(t, "a", plugins[1].Name)
+	require.Equal(t, "b", plugins[2].Name)
+}
+
+func TestMovePlugin_Before(t *testing.T) {
+	t.Parallel()
+
+	tempFile, err := os.CreateTemp(t.TempDir(), ".mcpd.toml")
+	require.NoError(t, err)
+
+	cfg := &Config{
+		Servers: []ServerEntry{{Name: "test", Package: "x::test@latest"}},
+		Plugins: &PluginConfig{
+			Authentication: []PluginEntry{
+				{Name: "a", Flows: []Flow{FlowRequest}},
+				{Name: "b", Flows: []Flow{FlowRequest}},
+			},
+		},
+		configFilePath: tempFile.Name(),
+	}
+
+	require.NoError(t, cfg.saveConfig())
+
+	result, err := cfg.MovePlugin(CategoryAuthentication, "b", WithBefore("a"))
+	require.NoError(t, err)
+	require.Equal(t, "updated", string(result))
+
+	plugins := cfg.Plugins.ListPlugins(CategoryAuthentication)
+	require.Equal(t, "b", plugins[0].Name)
+	require.Equal(t, "a", plugins[1].Name)
+}
+
+func TestMovePlugin_After(t *testing.T) {
+	t.Parallel()
+
+	tempFile, err := os.CreateTemp(t.TempDir(), ".mcpd.toml")
+	require.NoError(t, err)
+
+	cfg := &Config{
+		Servers: []ServerEntry{{Name: "test", Package: "x::test@latest"}},
+		Plugins: &PluginConfig{
+			Authentication: []PluginEntry{
+				{Name: "a", Flows: []Flow{FlowRequest}},
+				{Name: "b", Flows: []Flow{FlowRequest}},
+				{Name: "c", Flows: []Flow{FlowRequest}},
+			},
+		},
+		configFilePath: tempFile.Name(),
+	}
+
+	require.NoError(t, cfg.saveConfig())
+
+	result, err := cfg.MovePlugin(CategoryAuthentication, "a", WithAfter("b"))
+	require.NoError(t, err)
+	require.Equal(t, "updated", string(result))
+
+	plugins := cfg.Plugins.ListPlugins(CategoryAuthentication)
+	require.Equal(t, "b", plugins[0].Name)
+	require.Equal(t, "a", plugins[1].Name)
+	require.Equal(t, "c", plugins[2].Name)
+}
+
+func TestMovePlugin_ToCategoryAndPosition(t *testing.T) {
+	t.Parallel()
+
+	tempFile, err := os.CreateTemp(t.TempDir(), ".mcpd.toml")
+	require.NoError(t, err)
+
+	cfg := &Config{
+		Servers: []ServerEntry{{Name: "test", Package: "x::test@latest"}},
+		Plugins: &PluginConfig{
+			Authentication: []PluginEntry{
+				{Name: "jwt-auth", Flows: []Flow{FlowRequest}},
+			},
+			Audit: []PluginEntry{
+				{Name: "audit-a", Flows: []Flow{FlowRequest}},
+				{Name: "audit-b", Flows: []Flow{FlowRequest}},
+			},
+		},
+		configFilePath: tempFile.Name(),
+	}
+
+	require.NoError(t, cfg.saveConfig())
+
+	result, err := cfg.MovePlugin(
+		CategoryAuthentication,
+		"jwt-auth",
+		WithToCategory(CategoryAudit),
+		WithPosition(1),
+	)
+	require.NoError(t, err)
+	require.Equal(t, "updated", string(result))
+
+	// Verify moved to correct position.
+	authPlugins := cfg.Plugins.ListPlugins(CategoryAuthentication)
+	require.Empty(t, authPlugins)
+
+	auditPlugins := cfg.Plugins.ListPlugins(CategoryAudit)
+	require.Equal(t, "jwt-auth", auditPlugins[0].Name)
+	require.Equal(t, "audit-a", auditPlugins[1].Name)
+	require.Equal(t, "audit-b", auditPlugins[2].Name)
+}
+
+func TestMovePlugin_NoPluginsConfigured(t *testing.T) {
+	t.Parallel()
+
+	cfg := &Config{
+		configFilePath: t.TempDir() + "/test.toml",
+	}
+
+	result, err := cfg.MovePlugin(CategoryAuthentication, "jwt-auth", WithToCategory(CategoryAudit))
+	require.ErrorContains(t, err, "no plugins configured")
+	require.Equal(t, "noop", string(result))
+}
+
+func TestMovePlugin_PluginNotFound(t *testing.T) {
+	t.Parallel()
+
+	cfg := &Config{
+		configFilePath: t.TempDir() + "/test.toml",
+		Plugins: &PluginConfig{
+			Authentication: []PluginEntry{
+				{Name: "other", Flows: []Flow{FlowRequest}},
+			},
+		},
+	}
+
+	result, err := cfg.MovePlugin(CategoryAuthentication, "nonexistent", WithToCategory(CategoryAudit))
+	require.ErrorContains(t, err, "not found")
+	require.Equal(t, "noop", string(result))
+}
+
+func TestMovePlugin_NoopWhenAlreadyInPosition(t *testing.T) {
+	t.Parallel()
+
+	tempFile, err := os.CreateTemp(t.TempDir(), ".mcpd.toml")
+	require.NoError(t, err)
+
+	cfg := &Config{
+		Servers: []ServerEntry{{Name: "test", Package: "x::test@latest"}},
+		Plugins: &PluginConfig{
+			Authentication: []PluginEntry{
+				{Name: "a", Flows: []Flow{FlowRequest}},
+				{Name: "b", Flows: []Flow{FlowRequest}},
+			},
+		},
+		configFilePath: tempFile.Name(),
+	}
+
+	require.NoError(t, cfg.saveConfig())
+
+	result, err := cfg.MovePlugin(CategoryAuthentication, "a", WithPosition(1))
+	require.NoError(t, err)
+	require.Equal(t, "noop", string(result))
+}
+
+func TestMovePlugin_ForceOverwriteExisting(t *testing.T) {
+	t.Parallel()
+
+	tempFile, err := os.CreateTemp(t.TempDir(), ".mcpd.toml")
+	require.NoError(t, err)
+
+	cfg := &Config{
+		Servers: []ServerEntry{{Name: "test", Package: "x::test@latest"}},
+		Plugins: &PluginConfig{
+			Authentication: []PluginEntry{
+				{Name: "shared", Flows: []Flow{FlowRequest}},
+			},
+			Audit: []PluginEntry{
+				{Name: "shared", Flows: []Flow{FlowResponse}},
+			},
+		},
+		configFilePath: tempFile.Name(),
+	}
+
+	require.NoError(t, cfg.saveConfig())
+
+	result, err := cfg.MovePlugin(
+		CategoryAuthentication,
+		"shared",
+		WithToCategory(CategoryAudit),
+		WithForce(true),
+	)
+	require.NoError(t, err)
+	require.Equal(t, "updated", string(result))
+
+	// Verify: auth empty, audit has plugin with FlowRequest.
+	authPlugins := cfg.Plugins.ListPlugins(CategoryAuthentication)
+	require.Empty(t, authPlugins)
+
+	auditPlugins := cfg.Plugins.ListPlugins(CategoryAudit)
+	require.Len(t, auditPlugins, 1)
+	require.Equal(t, []Flow{FlowRequest}, auditPlugins[0].Flows)
+}
+
+func TestMovePlugin_ErrorWithoutForceWhenDuplicateExists(t *testing.T) {
+	t.Parallel()
+
+	cfg := &Config{
+		configFilePath: t.TempDir() + "/test.toml",
+		Plugins: &PluginConfig{
+			Authentication: []PluginEntry{
+				{Name: "shared", Flows: []Flow{FlowRequest}},
+			},
+			Audit: []PluginEntry{
+				{Name: "shared", Flows: []Flow{FlowResponse}},
+			},
+		},
+	}
+
+	result, err := cfg.MovePlugin(CategoryAuthentication, "shared", WithToCategory(CategoryAudit))
+	require.ErrorContains(t, err, "already exists")
+	require.Equal(t, "noop", string(result))
+}
