@@ -434,6 +434,102 @@ func TestMoveCmd_ToCategoryAndPosition(t *testing.T) {
 	require.Equal(t, "audit-b", auditPlugins[2].Name)
 }
 
+func TestMoveCmd_ToCategoryAndRelativePosition(t *testing.T) {
+	t.Parallel()
+
+	name := "my_plugin"
+	a := "audit-a"
+	b := "audit-b"
+
+	tests := []struct {
+		flag          string
+		flagValue     string
+		expectedOrder []string
+	}{
+		{
+			flag:          flagBefore,
+			flagValue:     b,
+			expectedOrder: []string{a, name, b},
+		},
+		{
+			flag:          flagAfter,
+			flagValue:     a,
+			expectedOrder: []string{a, name, b},
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.flag, func(t *testing.T) {
+			t.Parallel()
+
+			loader := newMockLoaderFromFile(t)
+
+			// Setup: Add plugin to auth and two plugins to audit.
+			cfgModifier, err := loader.Load("ignored")
+			require.NoError(t, err)
+			cfg := cfgModifier.(*config.Config)
+
+			// Add to auth category.
+			_, err = cfg.UpsertPlugin(config.CategoryAuthentication, config.PluginEntry{
+				Name:  name,
+				Flows: []config.Flow{config.FlowRequest},
+			})
+			require.NoError(t, err)
+
+			// Add to audit category.
+			_, err = cfg.UpsertPlugin(config.CategoryAudit, config.PluginEntry{
+				Name:  a,
+				Flows: []config.Flow{config.FlowRequest},
+			})
+			require.NoError(t, err)
+			_, err = cfg.UpsertPlugin(config.CategoryAudit, config.PluginEntry{
+				Name:  b,
+				Flows: []config.Flow{config.FlowRequest},
+			})
+			require.NoError(t, err)
+
+			base := &cmd.BaseCmd{}
+			moveCmd, err := NewMoveCmd(base, cmdopts.WithConfigLoader(loader))
+			require.NoError(t, err)
+
+			err = moveCmd.Flags().Set(flagCategory, string(config.CategoryAuthentication))
+			require.NoError(t, err)
+			err = moveCmd.Flags().Set(flagName, name)
+			require.NoError(t, err)
+			err = moveCmd.Flags().Set(flagToCategory, string(config.CategoryAudit))
+			require.NoError(t, err)
+			err = moveCmd.Flags().Set(tc.flag, tc.flagValue)
+			require.NoError(t, err)
+
+			var stdout bytes.Buffer
+			var stderr bytes.Buffer
+			moveCmd.SetOut(&stdout)
+			moveCmd.SetErr(&stderr)
+
+			err = executeCmd(t, moveCmd, []string{})
+			require.NoError(t, err)
+			require.Empty(t, stderr.String())
+			require.Contains(t, stdout.String(), fmt.Sprintf("Plugin '%s' moved", name))
+
+			// Verify new config.
+			cfgModifier, err = loader.Load("ignored")
+			require.NoError(t, err)
+			cfg = cfgModifier.(*config.Config)
+
+			// Auth should now be empty.
+			authPlugins := cfg.Plugins.ListPlugins(config.CategoryAuthentication)
+			require.Empty(t, authPlugins)
+
+			// Audit has expected order.
+			auditPlugins := cfg.Plugins.ListPlugins(config.CategoryAudit)
+			require.Len(t, auditPlugins, len(tc.expectedOrder))
+			for i, name := range tc.expectedOrder {
+				require.Equal(t, name, auditPlugins[i].Name)
+			}
+		})
+	}
+}
+
 func TestMoveCmd_NoOperationSpecified(t *testing.T) {
 	t.Parallel()
 
