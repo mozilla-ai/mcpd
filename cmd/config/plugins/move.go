@@ -137,8 +137,10 @@ categorization and position in the execution pipeline.`,
 	)
 
 	// Can't specify a specific position and a relative one at the same time.
-	cobraCmd.MarkFlagsMutuallyExclusive(flagPosition, flagBefore)
-	cobraCmd.MarkFlagsMutuallyExclusive(flagPosition, flagAfter)
+	cobraCmd.MarkFlagsMutuallyExclusive(flagBefore, flagPosition)
+	cobraCmd.MarkFlagsMutuallyExclusive(flagAfter, flagPosition)
+	// Can't specify being before AND after a named plugin.
+	cobraCmd.MarkFlagsMutuallyExclusive(flagAfter, flagBefore)
 
 	return cobraCmd, nil
 }
@@ -204,7 +206,7 @@ func (c *MoveCmd) run(cobraCmd *cobra.Command, _ []string) error {
 }
 
 // validate ensures the flag combination is valid.
-// Mutual exclusivity for position+before and position+after is handled by Cobra.
+// NOTE: Mutual exclusivity flags should be handled by Cobra parsing args.
 func (c *MoveCmd) validate(cobraCmd *cobra.Command, _ []string) error {
 	toCategorySet := cobraCmd.Flags().Changed(flagToCategory)
 	hasPositioning := cobraCmd.Flags().Changed(flagBefore) ||

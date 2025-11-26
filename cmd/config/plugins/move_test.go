@@ -2,6 +2,7 @@ package plugins
 
 import (
 	"bytes"
+	"fmt"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -125,6 +126,81 @@ func TestMoveCmd_Before(t *testing.T) {
 	require.Len(t, authPlugins, 2)
 	require.Equal(t, "plugin-b", authPlugins[0].Name)
 	require.Equal(t, "plugin-a", authPlugins[1].Name)
+}
+
+func TestMoveCmd_InvalidFlagCombinations(t *testing.T) {
+	t.Parallel()
+
+	loader := newMockLoaderFromFile(t)
+
+	// Setup: Add two plugins to authentication category.
+	cfgModifier, err := loader.Load("ignored")
+	require.NoError(t, err)
+	cfg := cfgModifier.(*config.Config)
+	_, err = cfg.UpsertPlugin(config.CategoryAuthentication, config.PluginEntry{
+		Name:  "plugin-a",
+		Flows: []config.Flow{config.FlowRequest},
+	})
+	require.NoError(t, err)
+	_, err = cfg.UpsertPlugin(config.CategoryAuthentication, config.PluginEntry{
+		Name:  "plugin-b",
+		Flows: []config.Flow{config.FlowRequest},
+	})
+	require.NoError(t, err)
+
+	tests := []struct {
+		name  string
+		args  map[string]string
+		error string
+	}{
+		{
+			name:  "before and after",
+			args:  map[string]string{flagBefore: "plugin-b", flagAfter: "plugin-c"},
+			error: "if any flags in the group [after before] are set none of the others can be; [after before] were all set",
+		},
+		{
+			name:  "before and position",
+			args:  map[string]string{flagBefore: "plugin-b", flagPosition: "2"},
+			error: "if any flags in the group [before position] are set none of the others can be; [before position] were all set",
+		},
+		{
+			name:  "after and position",
+			args:  map[string]string{flagAfter: "plugin-b", flagPosition: "3"},
+			error: "if any flags in the group [after position] are set none of the others can be; [after position] were all set",
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			base := &cmd.BaseCmd{}
+			moveCmd, err := NewMoveCmd(base, cmdopts.WithConfigLoader(loader))
+			require.NoError(t, err)
+
+			name := "plugin-a"
+			category := "authentication"
+			argFmt := "--%s=%s"
+
+			// Set cmd line args and flags (Cobra checks raw args, our validation checks flags).
+			err = moveCmd.Flags().Set(flagCategory, category)
+			require.NoError(t, err)
+			err = moveCmd.Flags().Set(flagName, name)
+			require.NoError(t, err)
+
+			args := make([]string, 0, len(tc.args)+2) // Manually add category and name
+			args = append(args, fmt.Sprintf(argFmt, flagCategory, category))
+			args = append(args, fmt.Sprintf(argFmt, flagName, name))
+			for k, v := range tc.args {
+				args = append(args, fmt.Sprintf(argFmt, k, v))
+			}
+
+			moveCmd.SetArgs(args)
+			err = moveCmd.Execute()
+			require.Error(t, err)
+			require.EqualError(t, err, tc.error)
+		})
+	}
 }
 
 func TestMoveCmd_After(t *testing.T) {
