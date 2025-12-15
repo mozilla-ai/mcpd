@@ -326,45 +326,49 @@ func (p *pipeline) executeSerial(
 }
 
 // handlePluginResult processes plugin errors and rejections.
-// Returns (shouldStop, response, error).
-// This centralizes the logic for handling required vs optional plugins and rejection policies.
+//
+// Used by serial and parallel execution to consolidate logic.
+//
+// The following predicates are adhered to:
+//   - An error for a required plugin should stop pipeline processing.
+//   - A response for a required plugin which indicates that the pipeline should not continue, should stop processing.
+//   - A response for an optional plugin which indicates that the pipeline should not continue, when the category does
+//     not ignore optional plugin rejections, should stop processing.
+//
+// Other scenarios may produce a warning log message.
+//
+// Returns boolean indicating whether pipeline processing should be stopped, the response where available and required,
+// and the error.
 func (p *pipeline) handlePluginResult(
 	err error,
-	response *HTTPResponse,
-	instance *Instance,
+	resp *HTTPResponse,
+	inst *Instance,
 	ignoreOptionalRejection bool,
 ) (bool, *HTTPResponse, error) {
-	// Handle plugin errors.
+	if err == nil && (resp == nil || resp.Continue) {
+		return false, resp, nil
+	}
+
 	if err != nil {
-		if instance.Required() {
-			tmpErr := fmt.Errorf("%w: %s: %w", ErrRequiredPluginFailed, instance.Name(), err)
-			return false, nil, tmpErr
+		if inst.Required() {
+			return true, nil, fmt.Errorf("%w: %s: %w", ErrRequiredPluginFailed, inst.Name(), err)
 		}
 
-		// Optional plugin error, log and continue.
-		p.logger.Warn("optional plugin failed",
-			"name", instance.Name(),
-			"error", err,
-		)
-		return false, nil, nil
+		p.logger.Warn("optional plugin failed", "name", inst.Name(), "error", err)
+		return false, resp, nil
 	}
 
-	// Handle plugin rejection (Continue=false).
-	if response != nil && !response.Continue {
-		// Required plugins always cause rejection.
-		// Optional plugins cause rejection only if ignoreOptionalRejection is false.
-		if instance.Required() || !ignoreOptionalRejection {
-			return true, response, nil
-		}
-
-		// Optional plugin in non-rejecting category, log and continue.
-		p.logger.Warn("optional plugin rejected but category ignores optional rejection",
-			"name", instance.Name(),
-		)
-		return false, nil, nil
+	if inst.Required() {
+		return true, resp, nil
 	}
 
-	return false, nil, nil
+	if ignoreOptionalRejection {
+		p.logger.Warn("optional plugin rejected - but category ignores it", "name", inst.Name())
+		return false, resp, nil
+	}
+
+	// Optional plugin didn't want to continue.
+	return true, resp, nil
 }
 
 // filterByFlow returns plugins that both support the specified flow, and are configured to execute on that flow.
