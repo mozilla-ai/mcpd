@@ -190,6 +190,37 @@ func (c *Config) DeletePlugin(category Category, name string) (context.UpsertRes
 	return result, nil
 }
 
+// MovePlugin moves a plugin within or between categories.
+// Use MoveOption functions to specify the operation:
+//   - WithToCategory: move to a different category
+//   - WithBefore/WithAfter: position relative to another plugin
+//   - WithPosition: move to absolute position (1-based)
+//   - WithForce: overwrite existing plugin in target category
+func (c *Config) MovePlugin(category Category, name string, opts ...MoveOption) (context.UpsertResult, error) {
+	if c.Plugins == nil {
+		return context.Noop, fmt.Errorf("no plugins configured")
+	}
+
+	result, err := c.Plugins.movePlugin(category, name, opts...)
+	if err != nil {
+		return result, err
+	}
+
+	if result == context.Noop {
+		return result, nil
+	}
+
+	if err := c.validate(); err != nil {
+		return context.Noop, err
+	}
+
+	if err := c.saveConfig(); err != nil {
+		return context.Noop, fmt.Errorf("failed to save updated config: %w", err)
+	}
+
+	return result, nil
+}
+
 // keyFor generates a temporary version of the ServerEntry to be used as a composite key.
 // It consists of the name of the server and the package without version information.
 func keyFor(entry ServerEntry) serverKey {

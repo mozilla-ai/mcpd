@@ -908,3 +908,616 @@ func TestAddCmd_OrderedFlowNames(t *testing.T) {
 	require.Equal(t, "request", flows[0])
 	require.Equal(t, "response", flows[1])
 }
+
+func TestPluginConfig_moveToCategory(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name       string
+		initial    *PluginConfig
+		from       Category
+		pluginName string
+		to         Category
+		force      bool
+		wantResult context.UpsertResult
+		wantErr    bool
+		errMsg     string
+	}{
+		{
+			name: "move to different category",
+			initial: &PluginConfig{
+				Authentication: []PluginEntry{
+					{Name: "jwt-auth", Flows: []Flow{FlowRequest}},
+				},
+			},
+			from:       CategoryAuthentication,
+			pluginName: "jwt-auth",
+			to:         CategoryAudit,
+			wantResult: context.Updated,
+		},
+		{
+			name: "plugin not found",
+			initial: &PluginConfig{
+				Authentication: []PluginEntry{
+					{Name: "other", Flows: []Flow{FlowRequest}},
+				},
+			},
+			from:       CategoryAuthentication,
+			pluginName: "nonexistent",
+			to:         CategoryAudit,
+			wantResult: context.Noop,
+			wantErr:    true,
+			errMsg:     "not found",
+		},
+		{
+			name: "duplicate without force",
+			initial: &PluginConfig{
+				Authentication: []PluginEntry{
+					{Name: "shared", Flows: []Flow{FlowRequest}},
+				},
+				Audit: []PluginEntry{
+					{Name: "shared", Flows: []Flow{FlowResponse}},
+				},
+			},
+			from:       CategoryAuthentication,
+			pluginName: "shared",
+			to:         CategoryAudit,
+			force:      false,
+			wantResult: context.Noop,
+			wantErr:    true,
+			errMsg:     "already exists",
+		},
+		{
+			name: "duplicate with force",
+			initial: &PluginConfig{
+				Authentication: []PluginEntry{
+					{Name: "shared", Flows: []Flow{FlowRequest}},
+				},
+				Audit: []PluginEntry{
+					{Name: "shared", Flows: []Flow{FlowResponse}},
+				},
+			},
+			from:       CategoryAuthentication,
+			pluginName: "shared",
+			to:         CategoryAudit,
+			force:      true,
+			wantResult: context.Updated,
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			result, err := tc.initial.moveToCategory(tc.from, tc.pluginName, tc.to, tc.force)
+
+			require.Equal(t, tc.wantResult, result)
+			if tc.wantErr {
+				require.ErrorContains(t, err, tc.errMsg)
+			} else {
+				require.NoError(t, err)
+				// Verify plugin moved.
+				_, found := tc.initial.plugin(tc.from, tc.pluginName)
+				require.False(t, found)
+				_, found = tc.initial.plugin(tc.to, tc.pluginName)
+				require.True(t, found)
+			}
+		})
+	}
+}
+
+func TestPluginConfig_moveBefore(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name       string
+		initial    *PluginConfig
+		category   Category
+		pluginName string
+		targetName string
+		wantResult context.UpsertResult
+		wantErr    bool
+		errMsg     string
+		wantOrder  []string
+	}{
+		{
+			name: "move before target",
+			initial: &PluginConfig{
+				Authentication: []PluginEntry{
+					{Name: "a", Flows: []Flow{FlowRequest}},
+					{Name: "b", Flows: []Flow{FlowRequest}},
+					{Name: "c", Flows: []Flow{FlowRequest}},
+				},
+			},
+			category:   CategoryAuthentication,
+			pluginName: "c",
+			targetName: "a",
+			wantResult: context.Updated,
+			wantOrder:  []string{"c", "a", "b"},
+		},
+		{
+			name: "already in position",
+			initial: &PluginConfig{
+				Authentication: []PluginEntry{
+					{Name: "a", Flows: []Flow{FlowRequest}},
+					{Name: "b", Flows: []Flow{FlowRequest}},
+				},
+			},
+			category:   CategoryAuthentication,
+			pluginName: "a",
+			targetName: "b",
+			wantResult: context.Noop,
+			wantOrder:  []string{"a", "b"},
+		},
+		{
+			name: "plugin not found",
+			initial: &PluginConfig{
+				Authentication: []PluginEntry{
+					{Name: "a", Flows: []Flow{FlowRequest}},
+					{Name: "b", Flows: []Flow{FlowRequest}},
+				},
+			},
+			category:   CategoryAuthentication,
+			pluginName: "nonexistent",
+			targetName: "a",
+			wantResult: context.Noop,
+			wantErr:    true,
+			errMsg:     "not found",
+		},
+		{
+			name: "target not found",
+			initial: &PluginConfig{
+				Authentication: []PluginEntry{
+					{Name: "a", Flows: []Flow{FlowRequest}},
+					{Name: "b", Flows: []Flow{FlowRequest}},
+				},
+			},
+			category:   CategoryAuthentication,
+			pluginName: "a",
+			targetName: "nonexistent",
+			wantResult: context.Noop,
+			wantErr:    true,
+			errMsg:     "target plugin",
+		},
+		{
+			name: "single plugin",
+			initial: &PluginConfig{
+				Authentication: []PluginEntry{
+					{Name: "a", Flows: []Flow{FlowRequest}},
+				},
+			},
+			category:   CategoryAuthentication,
+			pluginName: "a",
+			targetName: "a",
+			wantResult: context.Noop,
+			wantOrder:  []string{"a"},
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			result, err := tc.initial.moveBefore(tc.category, tc.pluginName, tc.targetName)
+
+			require.Equal(t, tc.wantResult, result)
+			if tc.wantErr {
+				require.ErrorContains(t, err, tc.errMsg)
+			} else {
+				require.NoError(t, err)
+				plugins := tc.initial.ListPlugins(tc.category)
+				for i, want := range tc.wantOrder {
+					require.Equal(t, want, plugins[i].Name)
+				}
+			}
+		})
+	}
+}
+
+func TestPluginConfig_moveAfter(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name       string
+		initial    *PluginConfig
+		category   Category
+		pluginName string
+		targetName string
+		wantResult context.UpsertResult
+		wantErr    bool
+		errMsg     string
+		wantOrder  []string
+	}{
+		{
+			name: "move after target",
+			initial: &PluginConfig{
+				Authentication: []PluginEntry{
+					{Name: "a", Flows: []Flow{FlowRequest}},
+					{Name: "b", Flows: []Flow{FlowRequest}},
+					{Name: "c", Flows: []Flow{FlowRequest}},
+				},
+			},
+			category:   CategoryAuthentication,
+			pluginName: "a",
+			targetName: "b",
+			wantResult: context.Updated,
+			wantOrder:  []string{"b", "a", "c"},
+		},
+		{
+			name: "already in position",
+			initial: &PluginConfig{
+				Authentication: []PluginEntry{
+					{Name: "a", Flows: []Flow{FlowRequest}},
+					{Name: "b", Flows: []Flow{FlowRequest}},
+				},
+			},
+			category:   CategoryAuthentication,
+			pluginName: "b",
+			targetName: "a",
+			wantResult: context.Noop,
+			wantOrder:  []string{"a", "b"},
+		},
+		{
+			name: "plugin not found",
+			initial: &PluginConfig{
+				Authentication: []PluginEntry{
+					{Name: "a", Flows: []Flow{FlowRequest}},
+					{Name: "b", Flows: []Flow{FlowRequest}},
+				},
+			},
+			category:   CategoryAuthentication,
+			pluginName: "nonexistent",
+			targetName: "a",
+			wantResult: context.Noop,
+			wantErr:    true,
+			errMsg:     "not found",
+		},
+		{
+			name: "target not found",
+			initial: &PluginConfig{
+				Authentication: []PluginEntry{
+					{Name: "a", Flows: []Flow{FlowRequest}},
+					{Name: "b", Flows: []Flow{FlowRequest}},
+				},
+			},
+			category:   CategoryAuthentication,
+			pluginName: "a",
+			targetName: "nonexistent",
+			wantResult: context.Noop,
+			wantErr:    true,
+			errMsg:     "target plugin",
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			result, err := tc.initial.moveAfter(tc.category, tc.pluginName, tc.targetName)
+
+			require.Equal(t, tc.wantResult, result)
+			if tc.wantErr {
+				require.ErrorContains(t, err, tc.errMsg)
+			} else {
+				require.NoError(t, err)
+				plugins := tc.initial.ListPlugins(tc.category)
+				for i, want := range tc.wantOrder {
+					require.Equal(t, want, plugins[i].Name)
+				}
+			}
+		})
+	}
+}
+
+func TestPluginConfig_moveToPosition(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name       string
+		initial    *PluginConfig
+		category   Category
+		pluginName string
+		position   int
+		wantResult context.UpsertResult
+		wantErr    bool
+		errMsg     string
+		wantOrder  []string
+	}{
+		{
+			name: "move to first position",
+			initial: &PluginConfig{
+				Authentication: []PluginEntry{
+					{Name: "a", Flows: []Flow{FlowRequest}},
+					{Name: "b", Flows: []Flow{FlowRequest}},
+					{Name: "c", Flows: []Flow{FlowRequest}},
+				},
+			},
+			category:   CategoryAuthentication,
+			pluginName: "c",
+			position:   1,
+			wantResult: context.Updated,
+			wantOrder:  []string{"c", "a", "b"},
+		},
+		{
+			name: "move to last position",
+			initial: &PluginConfig{
+				Authentication: []PluginEntry{
+					{Name: "a", Flows: []Flow{FlowRequest}},
+					{Name: "b", Flows: []Flow{FlowRequest}},
+					{Name: "c", Flows: []Flow{FlowRequest}},
+				},
+			},
+			category:   CategoryAuthentication,
+			pluginName: "a",
+			position:   3,
+			wantResult: context.Updated,
+			wantOrder:  []string{"b", "c", "a"},
+		},
+		{
+			name: "move to end with -1",
+			initial: &PluginConfig{
+				Authentication: []PluginEntry{
+					{Name: "a", Flows: []Flow{FlowRequest}},
+					{Name: "b", Flows: []Flow{FlowRequest}},
+					{Name: "c", Flows: []Flow{FlowRequest}},
+				},
+			},
+			category:   CategoryAuthentication,
+			pluginName: "a",
+			position:   -1,
+			wantResult: context.Updated,
+			wantOrder:  []string{"b", "c", "a"},
+		},
+		{
+			name: "already at position",
+			initial: &PluginConfig{
+				Authentication: []PluginEntry{
+					{Name: "a", Flows: []Flow{FlowRequest}},
+					{Name: "b", Flows: []Flow{FlowRequest}},
+				},
+			},
+			category:   CategoryAuthentication,
+			pluginName: "a",
+			position:   1,
+			wantResult: context.Noop,
+			wantOrder:  []string{"a", "b"},
+		},
+		{
+			name: "position clamped to max",
+			initial: &PluginConfig{
+				Authentication: []PluginEntry{
+					{Name: "a", Flows: []Flow{FlowRequest}},
+					{Name: "b", Flows: []Flow{FlowRequest}},
+				},
+			},
+			category:   CategoryAuthentication,
+			pluginName: "a",
+			position:   100,
+			wantResult: context.Updated,
+			wantOrder:  []string{"b", "a"},
+		},
+		{
+			name: "plugin not found",
+			initial: &PluginConfig{
+				Authentication: []PluginEntry{
+					{Name: "a", Flows: []Flow{FlowRequest}},
+					{Name: "b", Flows: []Flow{FlowRequest}},
+				},
+			},
+			category:   CategoryAuthentication,
+			pluginName: "nonexistent",
+			position:   1,
+			wantResult: context.Noop,
+			wantErr:    true,
+			errMsg:     "not found",
+		},
+		{
+			name: "single plugin",
+			initial: &PluginConfig{
+				Authentication: []PluginEntry{
+					{Name: "a", Flows: []Flow{FlowRequest}},
+				},
+			},
+			category:   CategoryAuthentication,
+			pluginName: "a",
+			position:   1,
+			wantResult: context.Noop,
+			wantOrder:  []string{"a"},
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			result, err := tc.initial.moveToPosition(tc.category, tc.pluginName, tc.position)
+
+			require.Equal(t, tc.wantResult, result)
+			if tc.wantErr {
+				require.ErrorContains(t, err, tc.errMsg)
+			} else {
+				require.NoError(t, err)
+				plugins := tc.initial.ListPlugins(tc.category)
+				for i, want := range tc.wantOrder {
+					require.Equal(t, want, plugins[i].Name)
+				}
+			}
+		})
+	}
+}
+
+func TestPluginConfig_movePlugin(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name       string
+		initial    *PluginConfig
+		category   Category
+		pluginName string
+		opts       []MoveOption
+		wantResult context.UpsertResult
+		wantErr    bool
+		errMsg     string
+	}{
+		{
+			name: "move to category",
+			initial: &PluginConfig{
+				Authentication: []PluginEntry{
+					{Name: "jwt-auth", Flows: []Flow{FlowRequest}},
+				},
+			},
+			category:   CategoryAuthentication,
+			pluginName: "jwt-auth",
+			opts:       []MoveOption{WithToCategory(CategoryAudit)},
+			wantResult: context.Updated,
+		},
+		{
+			name: "move before",
+			initial: &PluginConfig{
+				Authentication: []PluginEntry{
+					{Name: "a", Flows: []Flow{FlowRequest}},
+					{Name: "b", Flows: []Flow{FlowRequest}},
+				},
+			},
+			category:   CategoryAuthentication,
+			pluginName: "b",
+			opts:       []MoveOption{WithBefore("a")},
+			wantResult: context.Updated,
+		},
+		{
+			name: "move after",
+			initial: &PluginConfig{
+				Authentication: []PluginEntry{
+					{Name: "a", Flows: []Flow{FlowRequest}},
+					{Name: "b", Flows: []Flow{FlowRequest}},
+				},
+			},
+			category:   CategoryAuthentication,
+			pluginName: "a",
+			opts:       []MoveOption{WithAfter("b")},
+			wantResult: context.Updated,
+		},
+		{
+			name: "move to position",
+			initial: &PluginConfig{
+				Authentication: []PluginEntry{
+					{Name: "a", Flows: []Flow{FlowRequest}},
+					{Name: "b", Flows: []Flow{FlowRequest}},
+				},
+			},
+			category:   CategoryAuthentication,
+			pluginName: "b",
+			opts:       []MoveOption{WithPosition(1)},
+			wantResult: context.Updated,
+		},
+		{
+			name: "move to category and position",
+			initial: &PluginConfig{
+				Authentication: []PluginEntry{
+					{Name: "jwt-auth", Flows: []Flow{FlowRequest}},
+				},
+				Audit: []PluginEntry{
+					{Name: "audit-a", Flows: []Flow{FlowRequest}},
+					{Name: "audit-b", Flows: []Flow{FlowRequest}},
+				},
+			},
+			category:   CategoryAuthentication,
+			pluginName: "jwt-auth",
+			opts:       []MoveOption{WithToCategory(CategoryAudit), WithPosition(1)},
+			wantResult: context.Updated,
+		},
+		{
+			name: "no operation specified",
+			initial: &PluginConfig{
+				Authentication: []PluginEntry{
+					{Name: "jwt-auth", Flows: []Flow{FlowRequest}},
+				},
+			},
+			category:   CategoryAuthentication,
+			pluginName: "jwt-auth",
+			opts:       []MoveOption{},
+			wantResult: context.Noop,
+			wantErr:    true,
+			errMsg:     "no move operation",
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			result, err := tc.initial.movePlugin(tc.category, tc.pluginName, tc.opts...)
+
+			require.Equal(t, tc.wantResult, result)
+			if tc.wantErr {
+				require.ErrorContains(t, err, tc.errMsg)
+			} else {
+				require.NoError(t, err)
+			}
+		})
+	}
+}
+
+func TestMoveOptions(t *testing.T) {
+	t.Parallel()
+
+	t.Run("WithToCategory", func(t *testing.T) {
+		t.Parallel()
+
+		opts, err := newMoveOptions(WithToCategory(CategoryAudit))
+		require.NoError(t, err)
+		require.NotNil(t, opts.toCategory)
+		require.Equal(t, CategoryAudit, *opts.toCategory)
+	})
+
+	t.Run("WithBefore", func(t *testing.T) {
+		t.Parallel()
+
+		opts, err := newMoveOptions(WithBefore("target"))
+		require.NoError(t, err)
+		require.NotNil(t, opts.before)
+		require.Equal(t, "target", *opts.before)
+	})
+
+	t.Run("WithAfter", func(t *testing.T) {
+		t.Parallel()
+
+		opts, err := newMoveOptions(WithAfter("target"))
+		require.NoError(t, err)
+		require.NotNil(t, opts.after)
+		require.Equal(t, "target", *opts.after)
+	})
+
+	t.Run("WithPosition", func(t *testing.T) {
+		t.Parallel()
+
+		opts, err := newMoveOptions(WithPosition(3))
+		require.NoError(t, err)
+		require.NotNil(t, opts.position)
+		require.Equal(t, 3, *opts.position)
+	})
+
+	t.Run("WithForce", func(t *testing.T) {
+		t.Parallel()
+
+		opts, err := newMoveOptions(WithForce(true))
+		require.NoError(t, err)
+		require.True(t, opts.force)
+	})
+
+	t.Run("multiple options", func(t *testing.T) {
+		t.Parallel()
+
+		opts, err := newMoveOptions(
+			WithToCategory(CategoryAudit),
+			WithPosition(1),
+			WithForce(true),
+		)
+		require.NoError(t, err)
+		require.NotNil(t, opts.toCategory)
+		require.Equal(t, CategoryAudit, *opts.toCategory)
+		require.NotNil(t, opts.position)
+		require.Equal(t, 1, *opts.position)
+		require.True(t, opts.force)
+	})
+}
