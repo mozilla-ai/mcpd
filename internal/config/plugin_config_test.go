@@ -1,6 +1,8 @@
 package config
 
 import (
+	"os"
+	"path/filepath"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -354,6 +356,123 @@ func TestPluginConfig_Validate(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestValidatePluginBinaries(t *testing.T) {
+	t.Parallel()
+
+	t.Run("returns nil for nil plugins", func(t *testing.T) {
+		t.Parallel()
+
+		cfg := &Config{Plugins: nil}
+		err := ValidatePluginBinaries(cfg)
+
+		require.NoError(t, err)
+	})
+
+	t.Run("returns nil for empty plugin dir", func(t *testing.T) {
+		t.Parallel()
+
+		cfg := &Config{
+			Plugins: &PluginConfig{Dir: ""},
+		}
+		err := ValidatePluginBinaries(cfg)
+
+		require.NoError(t, err)
+	})
+
+	t.Run("returns nil for valid plugin directory", func(t *testing.T) {
+		t.Parallel()
+
+		dir := t.TempDir()
+		cfg := &Config{
+			Plugins: &PluginConfig{Dir: dir},
+		}
+		err := ValidatePluginBinaries(cfg)
+
+		require.NoError(t, err)
+	})
+
+	t.Run("returns error for missing plugin binary", func(t *testing.T) {
+		t.Parallel()
+
+		dir := t.TempDir()
+		cfg := &Config{
+			Plugins: &PluginConfig{
+				Dir: dir,
+				Authentication: []PluginEntry{
+					{Name: "missing-plugin", Flows: []Flow{FlowRequest}},
+				},
+			},
+		}
+		err := ValidatePluginBinaries(cfg)
+
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "missing-plugin")
+	})
+
+	t.Run("returns error for non-existent directory", func(t *testing.T) {
+		t.Parallel()
+
+		cfg := &Config{
+			Plugins: &PluginConfig{
+				Dir: "/non/existent/directory",
+			},
+		}
+		err := ValidatePluginBinaries(cfg)
+
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "plugin directory")
+	})
+
+	t.Run("passes when configured plugins exist as executables", func(t *testing.T) {
+		t.Parallel()
+
+		dir := t.TempDir()
+
+		// Create executable file.
+		pluginPath := filepath.Join(dir, "my-plugin")
+		require.NoError(t, os.WriteFile(pluginPath, []byte("#!/bin/sh\n"), 0o755))
+
+		cfg := &Config{
+			Plugins: &PluginConfig{
+				Dir: dir,
+				Authentication: []PluginEntry{
+					{Name: "my-plugin", Flows: []Flow{FlowRequest}},
+				},
+			},
+		}
+		err := ValidatePluginBinaries(cfg)
+
+		require.NoError(t, err)
+	})
+
+	t.Run("passes with multiple plugins across categories", func(t *testing.T) {
+		t.Parallel()
+
+		dir := t.TempDir()
+
+		// Create executable files.
+		for _, name := range []string{"auth-plugin", "rate-plugin"} {
+			pluginPath := filepath.Join(dir, name)
+			require.NoError(t, os.WriteFile(pluginPath, []byte("#!/bin/sh\n"), 0o755))
+		}
+
+		cfg := &Config{
+			Plugins: &PluginConfig{
+				Dir: dir,
+				Authentication: []PluginEntry{
+					{Name: "auth-plugin", Flows: []Flow{FlowRequest}},
+				},
+				RateLimiting: []PluginEntry{
+					{Name: "rate-plugin", Flows: []Flow{FlowRequest}},
+				},
+			},
+		}
+		err := ValidatePluginBinaries(cfg)
+
+		require.NoError(t, err)
+	})
 }
 
 func TestPluginConfig_categorySlice(t *testing.T) {

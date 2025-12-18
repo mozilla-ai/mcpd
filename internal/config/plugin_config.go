@@ -261,8 +261,7 @@ func (e *PluginEntry) Validate() error {
 	return errors.Join(validationErrors...)
 }
 
-// Validate implements Validator for PluginConfig.
-// Validates all plugin entries across all categories.
+// Validate validates plugin configuration structure (names, flows, etc.)
 func (p *PluginConfig) Validate() error {
 	if p == nil {
 		return nil
@@ -270,7 +269,6 @@ func (p *PluginConfig) Validate() error {
 
 	var validationErrors []error
 
-	// Validate each category.
 	categories := []struct {
 		name    Category
 		entries []PluginEntry
@@ -300,16 +298,18 @@ func (p *PluginConfig) Validate() error {
 		}
 	}
 
-	// Validate directory and plugins if Dir is configured.
-	if err := p.validatePluginDirectory(); err != nil {
-		validationErrors = append(validationErrors, err)
-	}
-
 	return errors.Join(validationErrors...)
 }
 
+// ValidatePluginBinaries validates that configured plugin binaries exist on the filesystem.
+func ValidatePluginBinaries(cfg *Config) error {
+	if cfg.Plugins == nil {
+		return nil
+	}
+	return cfg.Plugins.validatePluginDirectory()
+}
+
 // validatePluginDirectory validates that the plugin directory exists and contains all configured plugins.
-// Returns nil if Dir is empty (plugins disabled).
 func (p *PluginConfig) validatePluginDirectory() error {
 	if strings.TrimSpace(p.Dir) == "" {
 		return nil

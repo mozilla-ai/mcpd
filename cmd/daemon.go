@@ -336,7 +336,18 @@ func NewDaemonCmd(baseCmd *cmd.BaseCmd, opt ...cmdopts.CmdOption) (*cobra.Comman
 		return nil, err
 	}
 
-	daemonCmd, err := newDaemonCmd(baseCmd, opts.ConfigLoader, opts.ContextLoader)
+	// Validate config loader before wrapping.
+	if opts.ConfigLoader == nil || reflect.ValueOf(opts.ConfigLoader).IsNil() {
+		return nil, fmt.Errorf("config loader cannot be nil")
+	}
+
+	// Daemon requires plugin binary validation at load time.
+	validatingLoader := config.NewValidatingLoader(
+		opts.ConfigLoader,
+		config.ValidatePluginBinaries,
+	)
+
+	daemonCmd, err := newDaemonCmd(baseCmd, validatingLoader, opts.ContextLoader)
 	if err != nil {
 		return nil, err
 	}
