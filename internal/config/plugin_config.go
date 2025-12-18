@@ -303,9 +303,10 @@ func (p *PluginConfig) Validate() error {
 
 // ValidatePluginBinaries validates that configured plugin binaries exist on the filesystem.
 func ValidatePluginBinaries(cfg *Config) error {
-	if cfg.Plugins == nil {
+	if cfg == nil || cfg.Plugins == nil {
 		return nil
 	}
+
 	return cfg.Plugins.validatePluginDirectory()
 }
 

@@ -29,10 +29,20 @@ func TestNewValidatingLoader(t *testing.T) {
 	t.Parallel()
 
 	inner := &mockLoader{}
-	loader := NewValidatingLoader(inner)
+	loader, err := NewValidatingLoader(inner)
 
+	require.NoError(t, err)
 	require.NotNil(t, loader)
 	require.Equal(t, inner, loader.Loader)
+}
+
+func TestNewValidatingLoader_NilInner(t *testing.T) {
+	t.Parallel()
+
+	loader, err := NewValidatingLoader(nil)
+
+	require.Nil(t, loader)
+	require.ErrorContains(t, err, "loader cannot be nil")
 }
 
 func TestValidatingLoader_Load_DelegatesError(t *testing.T) {
@@ -40,9 +50,10 @@ func TestValidatingLoader_Load_DelegatesError(t *testing.T) {
 
 	expectedErr := errors.New("load failed")
 	inner := &mockLoader{err: expectedErr}
-	loader := NewValidatingLoader(inner)
+	loader, err := NewValidatingLoader(inner)
+	require.NoError(t, err)
 
-	_, err := loader.Load("/some/path")
+	_, err = loader.Load("/some/path")
 
 	require.ErrorIs(t, err, expectedErr)
 }
@@ -52,12 +63,13 @@ func TestValidatingLoader_Load_RejectsNonConfig(t *testing.T) {
 
 	mock := &mockModifier{}
 	inner := &mockLoader{modifier: mock}
-	loader := NewValidatingLoader(inner)
+	loader, err := NewValidatingLoader(inner)
+	require.NoError(t, err)
 
-	_, err := loader.Load("/some/path")
+	_, err = loader.Load("/some/path")
 
 	require.Error(t, err)
-	require.Contains(t, err.Error(), "invalid config structure")
+	require.ErrorContains(t, err, "loader returned unexpected type")
 }
 
 func TestValidatingLoader_Load_RunsPredicates(t *testing.T) {
@@ -73,7 +85,9 @@ func TestValidatingLoader_Load_RunsPredicates(t *testing.T) {
 		return nil
 	}
 
-	loader := NewValidatingLoader(inner, testPredicate)
+	loader, err := NewValidatingLoader(inner, testPredicate)
+	require.NoError(t, err)
+
 	result, err := loader.Load("/some/path")
 
 	require.NoError(t, err)
@@ -92,8 +106,10 @@ func TestValidatingLoader_Load_PredicateError(t *testing.T) {
 		return expectedErr
 	}
 
-	loader := NewValidatingLoader(inner, failingPredicate)
-	_, err := loader.Load("/some/path")
+	loader, err := NewValidatingLoader(inner, failingPredicate)
+	require.NoError(t, err)
+
+	_, err = loader.Load("/some/path")
 
 	require.ErrorIs(t, err, expectedErr)
 }
@@ -111,7 +127,8 @@ func TestValidatingLoader_Load_SkipsWithoutPredicates(t *testing.T) {
 		},
 	}
 	inner := &mockLoader{modifier: cfg}
-	loader := NewValidatingLoader(inner)
+	loader, err := NewValidatingLoader(inner)
+	require.NoError(t, err)
 
 	result, err := loader.Load("/some/path")
 
@@ -133,7 +150,9 @@ func TestValidatingLoader_WithPluginBinaryValidator(t *testing.T) {
 		}
 		inner := &mockLoader{modifier: cfg}
 
-		loader := NewValidatingLoader(inner, ValidatePluginBinaries)
+		loader, err := NewValidatingLoader(inner, ValidatePluginBinaries)
+		require.NoError(t, err)
+
 		result, err := loader.Load("/some/path")
 
 		require.NoError(t, err)
@@ -153,9 +172,12 @@ func TestValidatingLoader_WithPluginBinaryValidator(t *testing.T) {
 		}
 		inner := &mockLoader{modifier: cfg}
 
-		loader := NewValidatingLoader(inner, ValidatePluginBinaries)
-		_, err := loader.Load("/some/path")
+		loader, err := NewValidatingLoader(inner, ValidatePluginBinaries)
+		require.NoError(t, err)
+
+		_, err = loader.Load("/some/path")
 
 		require.Error(t, err)
+		require.ErrorContains(t, err, "/non/existent/directory")
 	})
 }
