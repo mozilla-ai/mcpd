@@ -291,11 +291,9 @@ func TestValidateCmd_PluginDirectoryNotConfigured(t *testing.T) {
 
 	err = executeCmd(t, validateCmd, []string{})
 	require.Error(t, err)
-	require.Contains(t, err.Error(), "validation failed with 1 error(s)")
+	// Validating loader catches missing directory config at load time.
+	require.ErrorContains(t, err, "plugin directory not configured")
 	require.Empty(t, stderr.String())
-
-	output := stdout.String()
-	require.Contains(t, output, "Plugin directory not configured")
 }
 
 func TestValidateCmd_PluginDirectoryDoesNotExist(t *testing.T) {

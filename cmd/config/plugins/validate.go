@@ -3,7 +3,6 @@ package plugins
 import (
 	"fmt"
 	"io"
-	"os"
 	"path/filepath"
 	"strings"
 
@@ -169,23 +168,6 @@ func (v *pluginValidator) validate() *validationResult {
 		verbose:       v.verbose,
 	}
 
-	// Validate plugin directory if binary checks requested.
-	if v.checkBinaries {
-		if strings.TrimSpace(v.cfg.Dir) == "" {
-			result.configErrors = append(
-				result.configErrors,
-				"Plugin directory not configured (required for --check-binaries)",
-			)
-			result.totalIssues++
-		} else if _, err := os.Stat(v.cfg.Dir); os.IsNotExist(err) {
-			result.configErrors = append(
-				result.configErrors,
-				fmt.Sprintf("Plugin directory does not exist: %s", v.cfg.Dir),
-			)
-			result.totalIssues++
-		}
-	}
-
 	// Get categories to validate.
 	allCategories := v.cfg.AllCategories()
 
@@ -235,14 +217,10 @@ func (v *pluginValidator) validatePlugin(entry config.PluginEntry) pluginValidat
 		}
 	}
 
-	// Validate binary existence if requested.
-	if v.checkBinaries && strings.TrimSpace(v.cfg.Dir) != "" {
+	// Show binary path in verbose mode (validation already done by loader).
+	if v.checkBinaries && v.verbose {
 		binaryPath := filepath.Join(v.cfg.Dir, entry.Name)
-		if _, err := os.Stat(binaryPath); os.IsNotExist(err) {
-			pv.errors = append(pv.errors, fmt.Sprintf("Binary not found: %s", binaryPath))
-		} else if v.verbose {
-			pv.details = append(pv.details, fmt.Sprintf("Binary exists: %s", binaryPath))
-		}
+		pv.details = append(pv.details, fmt.Sprintf("Binary exists: %s", binaryPath))
 	}
 
 	return pv

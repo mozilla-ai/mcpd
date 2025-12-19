@@ -422,7 +422,8 @@ func TestValidatePluginBinaries(t *testing.T) {
 		err := ValidatePluginBinaries(cfg)
 
 		require.Error(t, err)
-		require.Contains(t, err.Error(), "plugin directory")
+		require.ErrorContains(t, err, "plugin directory")
+		require.ErrorContains(t, err, "/non/existent/directory")
 	})
 
 	t.Run("passes when configured plugins exist as executables", func(t *testing.T) {

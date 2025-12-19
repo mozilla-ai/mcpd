@@ -312,16 +312,31 @@ func ValidatePluginBinaries(cfg *Config) error {
 
 // validatePluginDirectory validates that the plugin directory exists and contains all configured plugins.
 func (p *PluginConfig) validatePluginDirectory() error {
-	if strings.TrimSpace(p.Dir) == "" {
+	hasPlugins := len(p.PluginNamesDistinct()) > 0
+	hasDir := strings.TrimSpace(p.Dir) != ""
+
+	// Nothing to validate if no dir and no plugins.
+	if !hasDir && !hasPlugins {
 		return nil
 	}
 
+	// Plugins require a directory.
+	if hasPlugins && !hasDir {
+		return fmt.Errorf("plugin directory not configured but plugins are defined")
+	}
+
+	// Validate directory exists.
 	available, err := files.DiscoverExecutables(p.Dir)
 	if err != nil {
 		return fmt.Errorf("plugin directory %s: %w", p.Dir, err)
 	}
 
-	return p.validateConfiguredPluginsExist(available)
+	// Validate configured plugins exist in the directory.
+	if hasPlugins {
+		return p.validateConfiguredPluginsExist(available)
+	}
+
+	return nil
 }
 
 // validateConfiguredPluginsExist checks that all configured plugins exist in the available set.
