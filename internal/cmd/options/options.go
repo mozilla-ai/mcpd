@@ -1,6 +1,9 @@
 package options
 
 import (
+	"fmt"
+	"reflect"
+
 	"github.com/mozilla-ai/mcpd/v2/internal/cmd"
 	"github.com/mozilla-ai/mcpd/v2/internal/config"
 	"github.com/mozilla-ai/mcpd/v2/internal/context"
@@ -42,6 +45,9 @@ func NewOptions(opt ...CmdOption) (CmdOptions, error) {
 
 func WithConfigLoader(l config.Loader) CmdOption {
 	return func(o *CmdOptions) error {
+		if l == nil || reflect.ValueOf(l).IsNil() {
+			return fmt.Errorf("config loader cannot be nil")
+		}
 		o.ConfigLoader = l
 		return nil
 	}
