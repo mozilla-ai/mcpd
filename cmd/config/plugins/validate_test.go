@@ -253,11 +253,10 @@ func TestValidateCmd_CheckBinaries(t *testing.T) {
 
 		err = executeCmd(t, validateCmd, []string{})
 		require.Error(t, err)
-		require.Contains(t, err.Error(), "validation failed with 1 error(s)")
+		// Validating loader catches missing binaries at load time.
+		require.ErrorContains(t, err, "missing-plugin")
+		require.ErrorContains(t, err, "not found")
 		require.Empty(t, stderr.String())
-
-		output := stdout.String()
-		require.Contains(t, output, "Binary not found")
 	})
 }
 
@@ -330,13 +329,10 @@ func TestValidateCmd_PluginDirectoryDoesNotExist(t *testing.T) {
 
 	err = executeCmd(t, validateCmd, []string{})
 	require.Error(t, err)
-	// 2 errors: directory doesn't exist + binary not found.
-	require.Contains(t, err.Error(), "validation failed with 2 error(s)")
+	// Validating loader catches non-existent directory at load time.
+	require.ErrorContains(t, err, "plugin directory")
+	require.ErrorContains(t, err, "/nonexistent/plugin/directory")
 	require.Empty(t, stderr.String())
-
-	output := stdout.String()
-	require.Contains(t, output, "Plugin directory does not exist")
-	require.Contains(t, output, "Binary not found")
 }
 
 func TestValidateCmd_VerboseOutput(t *testing.T) {

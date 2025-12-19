@@ -92,7 +92,17 @@ Use --check-binaries to also verify binaries exist (environment-specific).`,
 
 // run executes the validation and prints results.
 func (c *ValidateCmd) run(cobraCmd *cobra.Command, _ []string) error {
-	cfg, err := c.LoadConfig(c.cfgLoader)
+	loader := c.cfgLoader
+	var err error
+
+	// Wrap with validating loader if binary checks requested.
+	if c.checkBinaries {
+		if loader, err = config.NewValidatingLoader(loader, config.ValidatePluginBinaries); err != nil {
+			return fmt.Errorf("failed to create validating loader: %w", err)
+		}
+	}
+
+	cfg, err := c.LoadConfig(loader)
 	if err != nil {
 		return err
 	}
