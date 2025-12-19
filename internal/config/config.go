@@ -260,7 +260,7 @@ func (c *Config) saveConfig() error {
 	return os.WriteFile(c.configFilePath, data, perms.RegularFile)
 }
 
-// validate orchestrates validation of all aspects of the configuration.
+// validate orchestrates validation of configuration structure.
 func (c *Config) validate() error {
 	if err := c.validateServers(); err != nil {
 		return err
