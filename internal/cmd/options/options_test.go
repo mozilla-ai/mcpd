@@ -65,3 +65,23 @@ func TestNewOptions_WithFailingOption(t *testing.T) {
 	require.Error(t, err)
 	require.ErrorContains(t, err, "fail")
 }
+
+func TestWithConfigLoader_NilLoader(t *testing.T) {
+	t.Parallel()
+
+	_, err := NewOptions(WithConfigLoader(nil))
+
+	require.Error(t, err)
+	require.ErrorContains(t, err, "config loader cannot be nil")
+}
+
+func TestWithConfigLoader_NilInterface(t *testing.T) {
+	t.Parallel()
+
+	var loader *fakeLoader // Typed nil.
+
+	_, err := NewOptions(WithConfigLoader(loader))
+
+	require.Error(t, err)
+	require.ErrorContains(t, err, "config loader cannot be nil")
+}

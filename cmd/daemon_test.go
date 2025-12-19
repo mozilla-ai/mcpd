@@ -151,7 +151,7 @@ func TestDaemon_NewDaemonCmd_WithOptions(t *testing.T) {
 				cmdopts.WithConfigLoader(nil),
 				cmdopts.WithContextLoader(&mockContextLoader{}),
 			},
-			wantErr: "failed to create validating loader: loader cannot be nil",
+			wantErr: "config loader cannot be nil",
 		},
 		{
 			name: "nil context loader",
@@ -167,7 +167,7 @@ func TestDaemon_NewDaemonCmd_WithOptions(t *testing.T) {
 				cmdopts.WithConfigLoader((*mockConfigLoader)(nil)),
 				cmdopts.WithContextLoader(&mockContextLoader{}),
 			},
-			wantErr: "failed to create validating loader: loader cannot be nil",
+			wantErr: "config loader cannot be nil",
 		},
 		{
 			name: "context loader interface pointing to nil",
