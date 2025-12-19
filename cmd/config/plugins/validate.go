@@ -141,7 +141,6 @@ type pluginValidator struct {
 // validationResult holds the results of plugin validation.
 type validationResult struct {
 	categories    []categoryResult
-	configErrors  []string
 	totalPlugins  int
 	totalIssues   int
 	checkBinaries bool
@@ -243,15 +242,6 @@ func (r *validationResult) print(w io.Writer) {
 		_, _ = fmt.Fprintln(w, "Checking plugin binaries (environment-specific)...")
 	}
 	_, _ = fmt.Fprintln(w)
-
-	// Print config-level errors.
-	if len(r.configErrors) > 0 {
-		_, _ = fmt.Fprintln(w, "Configuration:")
-		for _, err := range r.configErrors {
-			_, _ = fmt.Fprintf(w, "  \u2717 %s\n", err)
-		}
-		_, _ = fmt.Fprintln(w)
-	}
 
 	// Print category results.
 	for _, cat := range r.categories {
