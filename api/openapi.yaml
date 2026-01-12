@@ -1,0 +1,731 @@
+components:
+  schemas:
+    ErrorDetail:
+      additionalProperties: false
+      properties:
+        location:
+          description: Where the error occurred, e.g. 'body.items[3].tags' or 'path.thing-id'
+          type: string
+        message:
+          description: Error message text
+          type: string
+        value:
+          description: The value at the given location
+      type: object
+    ErrorModel:
+      additionalProperties: false
+      properties:
+        $schema:
+          description: A URL to the JSON Schema for this object.
+          examples:
+            - https://example.com/schemas/ErrorModel.json
+          format: uri
+          readOnly: true
+          type: string
+        detail:
+          description: A human-readable explanation specific to this occurrence of the problem.
+          examples:
+            - Property foo is required but is missing.
+          type: string
+        errors:
+          description: Optional list of individual error details
+          items:
+            $ref: "#/components/schemas/ErrorDetail"
+          type:
+            - array
+            - "null"
+        instance:
+          description: A URI reference that identifies the specific occurrence of the problem.
+          examples:
+            - https://example.com/error-log/abc123
+          format: uri
+          type: string
+        status:
+          description: HTTP status code
+          examples:
+            - 400
+          format: int64
+          type: integer
+        title:
+          description: A short, human-readable summary of the problem type. This value should not change between occurrences of the error.
+          examples:
+            - Bad Request
+          type: string
+        type:
+          default: about:blank
+          description: A URI reference to human-readable documentation for the error.
+          examples:
+            - https://example.com/errors/example
+          format: uri
+          type: string
+      type: object
+    GeneratePromptResponseBody:
+      additionalProperties: false
+      properties:
+        $schema:
+          description: A URL to the JSON Schema for this object.
+          examples:
+            - https://example.com/schemas/GeneratePromptResponseBody.json
+          format: uri
+          readOnly: true
+          type: string
+        description:
+          type: string
+        messages:
+          items:
+            $ref: "#/components/schemas/PromptMessage"
+          type:
+            - array
+            - "null"
+      required:
+        - messages
+      type: object
+    JSONSchema:
+      additionalProperties: false
+      properties:
+        properties:
+          additionalProperties: {}
+          type: object
+        required:
+          items:
+            type: string
+          type:
+            - array
+            - "null"
+        type:
+          type: string
+      required:
+        - type
+      type: object
+    Prompt:
+      additionalProperties: false
+      properties:
+        _meta:
+          additionalProperties: {}
+          type: object
+        arguments:
+          items:
+            $ref: "#/components/schemas/PromptArgument"
+          type:
+            - array
+            - "null"
+        description:
+          type: string
+        name:
+          type: string
+      required:
+        - name
+      type: object
+    PromptArgument:
+      additionalProperties: false
+      properties:
+        description:
+          type: string
+        name:
+          type: string
+        required:
+          type: boolean
+      required:
+        - name
+      type: object
+    PromptGenerateArguments:
+      additionalProperties: false
+      properties:
+        $schema:
+          description: A URL to the JSON Schema for this object.
+          examples:
+            - https://example.com/schemas/PromptGenerateArguments.json
+          format: uri
+          readOnly: true
+          type: string
+        arguments:
+          additionalProperties:
+            type: string
+          description: Arguments for templating the prompt
+          type: object
+      type: object
+    PromptMessage:
+      additionalProperties: false
+      properties:
+        content: {}
+        role:
+          type: string
+      required:
+        - role
+        - content
+      type: object
+    Prompts:
+      additionalProperties: false
+      properties:
+        $schema:
+          description: A URL to the JSON Schema for this object.
+          examples:
+            - https://example.com/schemas/Prompts.json
+          format: uri
+          readOnly: true
+          type: string
+        nextCursor:
+          type: string
+        prompts:
+          items:
+            $ref: "#/components/schemas/Prompt"
+          type:
+            - array
+            - "null"
+      required:
+        - prompts
+      type: object
+    Resource:
+      additionalProperties: false
+      properties:
+        _meta:
+          additionalProperties: {}
+          type: object
+        description:
+          type: string
+        mimeType:
+          type: string
+        name:
+          type: string
+        uri:
+          type: string
+      required:
+        - uri
+        - name
+      type: object
+    ResourceContent:
+      additionalProperties: false
+      properties:
+        _meta:
+          additionalProperties: {}
+          type: object
+        blob:
+          type: string
+        mimeType:
+          type: string
+        text:
+          type: string
+        uri:
+          type: string
+      required:
+        - uri
+      type: object
+    ResourceTemplate:
+      additionalProperties: false
+      properties:
+        _meta:
+          additionalProperties: {}
+          type: object
+        description:
+          type: string
+        mimeType:
+          type: string
+        name:
+          type: string
+        uriTemplate:
+          type: string
+      required:
+        - uriTemplate
+        - name
+      type: object
+    ResourceTemplates:
+      additionalProperties: false
+      properties:
+        $schema:
+          description: A URL to the JSON Schema for this object.
+          examples:
+            - https://example.com/schemas/ResourceTemplates.json
+          format: uri
+          readOnly: true
+          type: string
+        nextCursor:
+          type: string
+        templates:
+          items:
+            $ref: "#/components/schemas/ResourceTemplate"
+          type:
+            - array
+            - "null"
+      required:
+        - templates
+      type: object
+    Resources:
+      additionalProperties: false
+      properties:
+        $schema:
+          description: A URL to the JSON Schema for this object.
+          examples:
+            - https://example.com/schemas/Resources.json
+          format: uri
+          readOnly: true
+          type: string
+        nextCursor:
+          type: string
+        resources:
+          items:
+            $ref: "#/components/schemas/Resource"
+          type:
+            - array
+            - "null"
+      required:
+        - resources
+      type: object
+    ServerHealth:
+      additionalProperties: false
+      properties:
+        $schema:
+          description: A URL to the JSON Schema for this object.
+          examples:
+            - https://example.com/schemas/ServerHealth.json
+          format: uri
+          readOnly: true
+          type: string
+        lastChecked:
+          format: date-time
+          type: string
+        lastSuccessful:
+          format: date-time
+          type: string
+        latency:
+          type: string
+        name:
+          type: string
+        status:
+          type: string
+      required:
+        - name
+        - status
+      type: object
+    ServersHealthResponseBody:
+      additionalProperties: false
+      properties:
+        $schema:
+          description: A URL to the JSON Schema for this object.
+          examples:
+            - https://example.com/schemas/ServersHealthResponseBody.json
+          format: uri
+          readOnly: true
+          type: string
+        servers:
+          description: Tracked MCP server health statuses
+          items:
+            $ref: "#/components/schemas/ServerHealth"
+          type:
+            - array
+            - "null"
+      required:
+        - servers
+      type: object
+    Tool:
+      additionalProperties: false
+      properties:
+        _meta:
+          additionalProperties: {}
+          description: Additional metadata
+          type: object
+        annotations:
+          $ref: "#/components/schemas/ToolAnnotations"
+          description: Additional hints about the tool
+        description:
+          description: Description of what the tool does
+          type: string
+        inputSchema:
+          $ref: "#/components/schemas/JSONSchema"
+          description: Input parameters schema
+        name:
+          description: Name of the tool
+          type: string
+        outputSchema:
+          $ref: "#/components/schemas/JSONSchema"
+          description: Output structure schema
+        title:
+          description: Human-readable title
+          type: string
+      required:
+        - description
+        - name
+      type: object
+    ToolAnnotations:
+      additionalProperties: false
+      properties:
+        destructiveHint:
+          type: boolean
+        idempotentHint:
+          type: boolean
+        openWorldHint:
+          type: boolean
+        readOnlyHint:
+          type: boolean
+        title:
+          type: string
+      type: object
+    ToolsResponseBodyTool:
+      additionalProperties: false
+      properties:
+        $schema:
+          description: A URL to the JSON Schema for this object.
+          examples:
+            - https://example.com/schemas/ToolsResponseBodyTool.json
+          format: uri
+          readOnly: true
+          type: string
+        tools:
+          items:
+            $ref: "#/components/schemas/Tool"
+          type:
+            - array
+            - "null"
+      required:
+        - tools
+      type: object
+info:
+  title: mcpd docs
+  version: v1
+openapi: 3.1.0
+paths:
+  /api/v1/health/servers:
+    get:
+      operationId: listServersHealth
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ServersHealthResponseBody"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Error
+      summary: List the health statuses for all servers
+      tags:
+        - Health
+  /api/v1/health/servers/{name}:
+    get:
+      operationId: getServerHealth
+      parameters:
+        - description: Name of the server to check
+          example: time
+          in: path
+          name: name
+          required: true
+          schema:
+            description: Name of the server to check
+            examples:
+              - time
+            type: string
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ServerHealth"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Error
+      summary: Get the health status of a server
+      tags:
+        - Health
+  /api/v1/servers:
+    get:
+      operationId: listServers
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                items:
+                  type: string
+                type:
+                  - array
+                  - "null"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Error
+      summary: List all servers
+      tags:
+        - Servers
+  /api/v1/servers/{name}/prompts:
+    get:
+      operationId: listPrompts
+      parameters:
+        - description: Name of the server
+          in: path
+          name: name
+          required: true
+          schema:
+            description: Name of the server
+            type: string
+        - description: Pagination cursor
+          explode: false
+          in: query
+          name: cursor
+          schema:
+            description: Pagination cursor
+            type: string
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Prompts"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Error
+      summary: List server prompt templates
+      tags:
+        - Prompts
+  /api/v1/servers/{name}/prompts/{promptName}:
+    post:
+      description: Generates a prompt by filling in a template with the provided arguments
+      operationId: generatePrompt
+      parameters:
+        - description: Name of the server
+          in: path
+          name: name
+          required: true
+          schema:
+            description: Name of the server
+            type: string
+        - description: Name of the prompt
+          in: path
+          name: promptName
+          required: true
+          schema:
+            description: Name of the prompt
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PromptGenerateArguments"
+              description: Prompt arguments
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GeneratePromptResponseBody"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Error
+      summary: Generate a prompt from a server template
+      tags:
+        - Prompts
+  /api/v1/servers/{name}/resources:
+    get:
+      operationId: listResources
+      parameters:
+        - description: Name of the server
+          in: path
+          name: name
+          required: true
+          schema:
+            description: Name of the server
+            type: string
+        - description: Pagination cursor
+          explode: false
+          in: query
+          name: cursor
+          schema:
+            description: Pagination cursor
+            type: string
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Resources"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Error
+      summary: List server resources
+      tags:
+        - Resources
+  /api/v1/servers/{name}/resources/content:
+    get:
+      description: Retrieves the content of a resource by URI
+      operationId: getResourceContent
+      parameters:
+        - description: Name of the server
+          in: path
+          name: name
+          required: true
+          schema:
+            description: Name of the server
+            type: string
+        - description: URI of the resource
+          explode: false
+          in: query
+          name: uri
+          schema:
+            description: URI of the resource
+            type: string
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                items:
+                  $ref: "#/components/schemas/ResourceContent"
+                type:
+                  - array
+                  - "null"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Error
+      summary: Get resource content from a server
+      tags:
+        - Resources
+  /api/v1/servers/{name}/resources/templates:
+    get:
+      operationId: listResourceTemplates
+      parameters:
+        - description: Name of the server
+          in: path
+          name: name
+          required: true
+          schema:
+            description: Name of the server
+            type: string
+        - description: Pagination cursor
+          explode: false
+          in: query
+          name: cursor
+          schema:
+            description: Pagination cursor
+            type: string
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ResourceTemplates"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Error
+      summary: List server resource templates
+      tags:
+        - Resources
+  /api/v1/servers/{name}/tools:
+    get:
+      description: Returns tools with configurable detail level via ?detail= query parameter (minimal, summary, full)
+      operationId: listTools
+      parameters:
+        - description: Name of the server to lookup tools for
+          example: time
+          in: path
+          name: name
+          required: true
+          schema:
+            description: Name of the server to lookup tools for
+            examples:
+              - time
+            type: string
+        - description: Level of detail to return
+          explode: false
+          in: query
+          name: detail
+          schema:
+            default: full
+            description: Level of detail to return
+            enum:
+              - minimal
+              - summary
+              - full
+            type: string
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ToolsResponseBodyTool"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Error
+      summary: List server tools
+      tags:
+        - Tools
+  /api/v1/servers/{server}/tools/{tool}:
+    post:
+      operationId: callTool
+      parameters:
+        - description: Name of the server
+          example: time
+          in: path
+          name: server
+          required: true
+          schema:
+            description: Name of the server
+            examples:
+              - time
+            type: string
+        - description: Name of the tool to call
+          example: get_current_time
+          in: path
+          name: tool
+          required: true
+          schema:
+            description: Name of the tool to call
+            examples:
+              - get_current_time
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              additionalProperties: {}
+              description: Body of the tool to call
+              type: object
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                type: string
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Error
+      summary: Call a tool for a server
+      tags:
+        - Tools
