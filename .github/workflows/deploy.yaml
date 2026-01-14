@@ -60,10 +60,11 @@ jobs:
       - name: Install mcpd
         run: |
           VERSION="${{ inputs.version }}"
-          curl -sSL "https://github.com/mozilla-ai/mcpd/releases/download/${VERSION}/mcpd_Linux_x86_64.tar.gz" \
+          ARCH="$(uname -m)"
+          curl -fsSL "https://github.com/mozilla-ai/mcpd/releases/download/${VERSION}/mcpd_Linux_${ARCH}.tar.gz" \
             | tar xz -C /usr/local/bin
           chmod +x /usr/local/bin/mcpd
-          echo "Installed mcpd ${VERSION}"
+          echo "Installed mcpd ${VERSION} (${ARCH})"
 
       - name: Generate environment contract (.env)
         run: mcpd config export --runtime-file="$RUNTIME_FILE" --contract-output=.env
