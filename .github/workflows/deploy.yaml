@@ -16,10 +16,14 @@ on:
         description: 'Version tag (e.g. v0.2.1)'
         required: true
         type: string
+      runtime_file:
+        description: 'Portable execution context file (from mcpd config export)'
+        required: false
+        default: 'secrets.prod.toml'
+        type: string
 
 env:
-  # Configurable filename for the portable execution context.
-  RUNTIME_FILE: secrets.prod.toml
+  RUNTIME_FILE: ${{ inputs.runtime_file }}
 
 jobs:
   deploy:
