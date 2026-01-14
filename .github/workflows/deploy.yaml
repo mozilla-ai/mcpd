@@ -36,7 +36,7 @@ jobs:
 
       - name: Checkout release tag
         run: |
-          git fetch --tags
+          git fetch --tags --force
           TAG="${{ inputs.version }}"
           if [ -z "$TAG" ]; then
             echo "::error ::No version tag provided"
