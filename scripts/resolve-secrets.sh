@@ -86,8 +86,10 @@ resolve_secret() {
     local value
     value=$(jq -r --arg key "$var" '.[$key]' <<< "$SECRETS_JSON")
     printf "Resolved: %s\n" "$var"
-    # Quote value to handle spaces and special characters.
-    printf '%s="%s"\n' "$var" "${value//\"/\\\"}" >> "$OUTPUT_FILE"
+    # Single-quote value and escape embedded single quotes.
+    # This prevents shell interpretation of $, `, \, etc.
+    local escaped_value="${value//\'/\'\\\'\'}"
+    printf "%s='%s'\n" "$var" "$escaped_value" >> "$OUTPUT_FILE"
     RESOLVED=$((RESOLVED + 1))
   else
     if [[ -n "${DEPLOY_ENV:-}" ]]; then
