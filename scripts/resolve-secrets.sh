@@ -60,7 +60,7 @@ validate_inputs() {
 }
 
 extract_variables() {
-  grep '^MCPD__' "$CONTRACT_FILE" | cut -d= -f1 | sed 's/^[[:space:]]*//;s/[[:space:]]*$//' | sort -u
+  grep '^MCPD__' "$CONTRACT_FILE" 2>/dev/null | cut -d= -f1 | sed 's/^[[:space:]]*//;s/[[:space:]]*$//' | sort -u || true
 }
 
 print_expected_secrets() {
