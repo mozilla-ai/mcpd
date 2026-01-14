@@ -115,3 +115,18 @@ docker run  -p 8090:8090 \
 
 !!! warning "Security Note"
     Mounting the Docker socket grants the container full access to the host's Docker daemon. Only use this with trusted images.
+
+### CI/CD Deployment (GitHub Actions)
+
+For automated deployments, a reference GitHub Actions workflow is available in the repository that demonstrates:
+
+- Version-pinned deployments using release tags
+- Secret resolution from GitHub Secrets into a `.env` file for Docker
+- Configuration validation
+
+See the following files:
+
+- [`.github/workflows/deploy.yaml`](https://github.com/mozilla-ai/mcpd/blob/main/.github/workflows/deploy.yaml) - Example workflow
+- [`scripts/resolve-secrets.sh`](https://github.com/mozilla-ai/mcpd/blob/main/scripts/resolve-secrets.sh) - Resolves `MCPD__` prefixed secrets
+
+Use `mcpd config export` to generate the portable execution context required for deployment.
