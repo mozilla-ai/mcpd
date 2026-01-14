@@ -82,7 +82,7 @@ CMD mcpd daemon \
     --config-file $MCPD_CONFIG_FILE \
     --runtime-file $MCPD_RUNTIME_FILE
 
-# Example run:
+# Example run (for local development, mount dev secrets to the container's prod path):
 # docker run -p 8090:8090 \
 #            -v $PWD/.mcpd.toml:/etc/mcpd/.mcpd.toml \
 #            -v $HOME/.config/mcpd/secrets.dev.toml:/home/mcpd/.config/mcpd/secrets.prod.toml \

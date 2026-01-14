@@ -82,7 +82,7 @@ sudo make install # Installs mcpd 'globally' to /usr/local/bin
 ### Default environment variables
 
 | Name                | Default Value                               |
-|---------------------|---------------------------------------------| 
+|---------------------|---------------------------------------------|
 | `MCPD_API_PORT`     | `8090`                                      |
 | `MCPD_LOG_LEVEL`    | `info`                                      |
 | `MCPD_LOG_PATH`     | `/var/log/mcpd/mcpd.log`                    |
