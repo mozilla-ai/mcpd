@@ -81,6 +81,6 @@ jobs:
           # docker run -d \
           #   -p 8090:8090 \
           #   -v $PWD/.mcpd.toml:/etc/mcpd/.mcpd.toml:ro \
-          #   -v $PWD/$RUNTIME_FILE:/home/mcpd/.config/mcpd/secrets.prd.toml:ro \
+          #   -v $PWD/$RUNTIME_FILE:/home/mcpd/.config/mcpd/secrets.prod.toml:ro \
           #   --env-file .env.resolved \
           #   mzdotai/mcpd:${{ inputs.version }}

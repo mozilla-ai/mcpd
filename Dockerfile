@@ -23,7 +23,7 @@ ENV MCPD_API_PORT=8090
 ENV MCPD_LOG_LEVEL=info
 ENV MCPD_LOG_PATH=/var/log/mcpd/mcpd.log
 ENV MCPD_CONFIG_FILE=/etc/mcpd/.mcpd.toml
-ENV MCPD_RUNTIME_FILE=/home/mcpd/.config/mcpd/secrets.prd.toml
+ENV MCPD_RUNTIME_FILE=/home/mcpd/.config/mcpd/secrets.prod.toml
 
 USER root
 
@@ -85,6 +85,6 @@ CMD mcpd daemon \
 # Example run:
 # docker run -p 8090:8090 \
 #            -v $PWD/.mcpd.toml:/etc/mcpd/.mcpd.toml \
-#            -v $HOME/.config/mcpd/secrets.dev.toml:/home/mcpd/.config/mcpd/secrets.prd.toml \
+#            -v $HOME/.config/mcpd/secrets.dev.toml:/home/mcpd/.config/mcpd/secrets.prod.toml \
 #            -e MCPD_LOG_LEVEL=debug \
 #            mzdotai/mcpd:v0.0.5

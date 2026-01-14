@@ -81,13 +81,13 @@ sudo make install # Installs mcpd 'globally' to /usr/local/bin
 
 ### Default environment variables
 
-| Name                | Default Value                              |
-|---------------------|--------------------------------------------| 
-| `MCPD_API_PORT`     | `8090`                                     |
-| `MCPD_LOG_LEVEL`    | `info`                                     |
-| `MCPD_LOG_PATH`     | `/var/log/mcpd/mcpd.log`                   |
-| `MCPD_CONFIG_FILE`  | `/etc/mcpd/.mcpd.toml`                     |
-| `MCPD_RUNTIME_FILE` | `/home/mcpd/.config/mcpd/secrets.prd.toml` |
+| Name                | Default Value                               |
+|---------------------|---------------------------------------------| 
+| `MCPD_API_PORT`     | `8090`                                      |
+| `MCPD_LOG_LEVEL`    | `info`                                      |
+| `MCPD_LOG_PATH`     | `/var/log/mcpd/mcpd.log`                    |
+| `MCPD_CONFIG_FILE`  | `/etc/mcpd/.mcpd.toml`                      |
+| `MCPD_RUNTIME_FILE` | `/home/mcpd/.config/mcpd/secrets.prod.toml` |
 
 
 To run `mcpd` with Docker, map the required port and bind mount your `.mcpd.toml` configuration file and runtime secrets file:
@@ -95,7 +95,7 @@ To run `mcpd` with Docker, map the required port and bind mount your `.mcpd.toml
 ```bash
 docker run  -p 8090:8090 \
             -v $PWD/.mcpd.toml:/etc/mcpd/.mcpd.toml \
-            -v $HOME/.config/mcpd/secrets.dev.toml:/home/mcpd/.config/mcpd/secrets.prd.toml \
+            -v $HOME/.config/mcpd/secrets.dev.toml:/home/mcpd/.config/mcpd/secrets.prod.toml \
             -e MCPD_LOG_LEVEL=debug \
             mzdotai/mcpd:v0.0.5
 ```
@@ -108,7 +108,7 @@ If your MCP servers use the Docker runtime, mount the host's Docker socket to al
 docker run  -p 8090:8090 \
             -v /var/run/docker.sock:/var/run/docker.sock \
             -v $PWD/.mcpd.toml:/etc/mcpd/.mcpd.toml \
-            -v $HOME/.config/mcpd/secrets.dev.toml:/home/mcpd/.config/mcpd/secrets.prd.toml \
+            -v $HOME/.config/mcpd/secrets.dev.toml:/home/mcpd/.config/mcpd/secrets.prod.toml \
             -e MCPD_LOG_LEVEL=debug \
             mzdotai/mcpd:v0.0.5
 ```
