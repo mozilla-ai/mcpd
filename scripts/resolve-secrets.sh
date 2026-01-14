@@ -132,8 +132,11 @@ main() {
 
   print_expected_secrets "$vars"
 
-  # Clear output file.
+  # Clear output file and set restrictive permissions.
+  # 600 ensures only the owner (runner user) can read the secrets.
+  # Docker's --env-file reads via the client (same user), so this is safe.
   : > "$OUTPUT_FILE"
+  chmod 600 "$OUTPUT_FILE"
 
   for var in $vars; do
     resolve_secret "$var"
