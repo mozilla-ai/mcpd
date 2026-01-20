@@ -27,6 +27,16 @@ The gap between local development and enterprise deployment kills AI initiatives
 
 `mcpd` solves this with declarative configuration, secure secrets management, and seamless environment promotion - all while keeping the developer experience simple.
 
+## How it Works
+
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="docs/assets/mcpd-architecture-dark.svg">
+    <source media="(prefers-color-scheme: light)" srcset="docs/assets/mcpd-architecture-light.svg">
+    <img alt="mcpd Architecture Diagram" src="docs/assets/mcpd-architecture-light.svg" width="800">
+  </picture>
+</p>
+
 
 ## Why `mcpd`?
 
