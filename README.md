@@ -14,7 +14,7 @@ Built by [Mozilla AI](https://mozilla.ai)
 
 ---
 
-`mcpd` is a gateway for your MCP tools. It exports command-line MCP servers as clean HTTP SSE endpoints. This bridges the gap between your agents and your infrastructure, handling the messy work of process management, secret injection, and configuration so you don't have to.
+`mcpd` is a gateway for your MCP tools. It exports command-line MCP servers as clean HTTP endpoints. This bridges the gap between your agents and your infrastructure, handling the messy work of process management, secret injection, and configuration so you don't have to.
 
 ## How it Works
 
