@@ -137,7 +137,7 @@
   font-weight: 700;
   src: local(''), url("https://mirostatic.com/app/static/fa5a3d9073cdd58f.woff2") format('woff2'), url("https://mirostatic.com/app/static/7ded243557c83342.woff") format('woff');
 }
-]]></style><path id="LineHeadArrow2" d="M-12.727272727272727,-7.545454545454545 L0,0 L-12.727272727272727,7.545454545454545 Z"></path></defs><rect id="svg-board-background-color" width="100%" height="100%" fill="#f2f2f2"></rect><g width="1035.2px" height="868.45px"  transform="translate(0.77, 0.18) scale(1) rotate(0, 517.6, 434.225)"><svg
+]]></style><path id="LineHeadArrow2" d="M-12.727272727272727,-7.545454545454545 L0,0 L-12.727272727272727,7.545454545454545 Z"></path></defs><rect id="svg-board-background-color" width="100%" height="100%" fill="#1a1a1a"></rect><g width="1035.2px" height="868.45px"  transform="translate(0.77, 0.18) scale(1) rotate(0, 517.6, 434.225)"><svg
 	width="1035.2"
 	height="868.4539325842695"
 	style="width:1035.2px; height: 868.4539325842695px;"
@@ -152,7 +152,7 @@
 	<g id="Page-1" stroke="none" stroke-width="0" fill="none" fill-rule="evenodd">
 		<rect
 			class="shape-element shape-element-rect"
-			fill="#ffffff"
+			fill="#1a1a1a"
 			fill-opacity="1"
 			x="0"
 			y="0"
@@ -209,8 +209,8 @@
 				<path d="M -2 -2 M 76.3938202247191 13.016956077630223 L 157.3938202247191 13.016956077630223 L 157.3938202247191 35.016956077630226 L 76.3938202247191 35.016956077630226 M -2 -2 L 1035.2 -2 L 1035.2 868.45 L -2 868.45" fill-rule="evenodd" clip-rule="evenodd" />
 			</clipPath><g width="79" height="20" transform="translate(78.3938202247191, 15.016956077630223) scale(1) rotate(0)"><text xml:space="preserve" x="0.6709997653961182" y="14" width="77.65800046920776" textLength="77.65800046920776" lengthAdjust="spacingAndGlyphs" letter-spacing="0" font-family='"Noto Sans", Helvetica, OpenSans, Arial, sans-serif, Noto Sans Hebrew, Noto Sans, Noto Sans JP, Noto Sans KR' font-size="14" 
 				fill="#ffffff" direction="ltr" >1. HTTP Call</text></g></g><g width="0px" height="62.29px"  transform="translate(101.68, 150.23) scale(1) rotate(0, 0, 31.145)"><path stroke-linecap="butt" 
-			stroke="#908e8e" stroke-width="2" fill="transparent"
-			d="M 0 0 L 0 52.105822267620006" /> <use xlink:href="#LineHeadArrow2" fill="#908e8e"
+			stroke="#b0b0b0" stroke-width="2" fill="transparent"
+			d="M 0 0 L 0 52.105822267620006" /> <use xlink:href="#LineHeadArrow2" fill="#b0b0b0"
 			 transform="translate(0, 62.287640449438186)  rotate(90) "  /> </g><g width="144px" height="108px"  transform="translate(208.95, 675.35) scale(1) rotate(0, 72, 54)"><g><g style="stroke: #305bab;stroke-width: 2;stroke-opacity: 1;stroke-dasharray: none;stroke-linecap: round;stroke-linejoin: round;fill: #c6dcff;fill-opacity: 0.6"><rect x="0" y="0" width="144" height="108" rx="8" /></g></g><g><g style="stroke: #305bab;stroke-width: 2;stroke-opacity: 1;stroke-dasharray: none;stroke-linecap: round;stroke-linejoin: round;fill: transparent;fill-opacity: 0"></g></g><g transform="translate(16, 16)"><text xml:space="preserve" x="27.9921875" y="36" width="56.015625" textLength="56.015625" lengthAdjust="spacingAndGlyphs" letter-spacing="0" font-family='"Arial", Arial, sans-serif, Noto Sans Hebrew, Noto Sans, Noto Sans JP, Noto Sans KR' font-size="16" 
 				fill="#ffffff" direction="ltr" >secrets.​</text><text xml:space="preserve" x="20.421875" y="54" width="75.6015625" textLength="75.6015625" lengthAdjust="spacingAndGlyphs" letter-spacing="0" font-family='"Arial", Arial, sans-serif, Noto Sans Hebrew, Noto Sans, Noto Sans JP, Noto Sans KR' font-size="16" 
 				fill="#ffffff" direction="ltr" >{env}.toml </text></g></g><g width="144px" height="108px"  transform="translate(206.72, 526.49) scale(1) rotate(0, 72, 54)"><g><g style="stroke: #305bab;stroke-width: 2;stroke-opacity: 1;stroke-dasharray: none;stroke-linecap: round;stroke-linejoin: round;fill: #c6dcff;fill-opacity: 0.6"><rect x="0" y="0" width="144" height="108" rx="8" /></g></g><g><g style="stroke: #305bab;stroke-width: 2;stroke-opacity: 1;stroke-dasharray: none;stroke-linecap: round;stroke-linejoin: round;fill: transparent;fill-opacity: 0"></g></g><g transform="translate(16, 16)"><text xml:space="preserve" x="11.98876953125" y="26" width="93.0234375" textLength="93.0234375" lengthAdjust="spacingAndGlyphs" letter-spacing="0" font-family='"Arial", Arial, sans-serif, Noto Sans Hebrew, Noto Sans, Noto Sans JP, Noto Sans KR' font-size="18" 
