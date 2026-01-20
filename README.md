@@ -76,17 +76,17 @@ mcpd config args set time -- --local-timezone=Europe/London
 mcpd daemon --dev --log-level=DEBUG --log-path=$(pwd)/mcpd.log
 ```
 
-Now that the daemon is running, let's call the `get_current_time` tool provided by the `time` MCP server 
+Now that the daemon is running, let's call the `get_current_time` tool provided by the `time` MCP server
 
-```bash 
-# Check the time 
+```bash
+# Check the time
 curl -s --request POST \
   --url http://localhost:8090/api/v1/servers/time/tools/get_current_time \
   --header 'Accept: application/json, application/problem+json' \
   --header 'Content-Type: application/json' \
   --data '{
   "timezone": "Europe/Warsaw"
-}' 
+}'
 ```
 
 API docs will be available at [http://localhost:8090/docs](http://localhost:8090/docs).
