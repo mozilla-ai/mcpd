@@ -14,9 +14,11 @@ Built by [Mozilla AI](https://mozilla.ai)
 
 ---
 
-`mcpd` is a gateway for your MCP tools. It exports command-line MCP servers as clean HTTP endpoints. This bridges the gap between your agents and your infrastructure, handling the messy work of process management, secret injection, and configuration so you don't have to.
+`mcpd` is a daemon that manages your MCP servers via declarative configuration, exposing them as clean HTTP endpoints. This bridges the gap between your agents and your infrastructure, handling the messy work of lifecycle management, secret injection, and environment promotion so you don't have to.
 
-## How it Works
+## ⚙️ How it Works
+
+Under the hood, mcpd spawns MCP servers as STDIO subprocesses and proxies requests over HTTP.
 
 <p align="center">
   <picture>
@@ -39,6 +41,8 @@ You need the following installed before running `mcpd`:
 ### Installation
 
 #### via Homebrew
+
+(Works for both macOS and Linux)
 
 Add the Mozilla.ai tap:
 
@@ -91,8 +95,15 @@ curl -s --request POST \
 
 API docs will be available at [http://localhost:8090/docs](http://localhost:8090/docs).
 
+## 💡 Why `mcpd`? 
 
-## Built for Dev & Production
+Engineering teams build agents that work locally, then struggle to make them production-ready across environments. mcpd bridges this gap with declarative configuration and secure secrets management.
+
+- Declarative & reproducible – .mcpd.toml defines your tool infrastructure
+- Language-agnostic – Python, JS, Docker containers via unified HTTP API
+- Dev-to-prod ready – Same config works locally and in containers
+
+## 🏗️ Built for Dev & Production
 
 | Development Workflow                                                              | Production Benefit                                         |
 |-----------------------------------------------------------------------------------|------------------------------------------------------------|
@@ -101,7 +112,7 @@ API docs will be available at [http://localhost:8090/docs](http://localhost:8090
 | Local secrets in `~/.config/mcpd/`                                                | Secure secrets injection via control plane                 |
 | `mcpd config export` exports version-control safe snapshot of local configuration | Sanitized secrets config and templates for CI/CD pipelines |
 
-## SDKs
+## 📦 SDKs
 
 ### `mcpd` SDKs
 
@@ -120,8 +131,6 @@ Plugin SDKs are built using the [mcpd plugin Protocol Buffers specification](htt
 | Go       | [mcpd-plugins-sdk-go](https://github.com/mozilla-ai/mcpd-plugins-sdk-go)         | ✅      |
 | .NET     | [mcpd-plugins-sdk-dotnet](https://github.com/mozilla-ai/mcpd-plugins-sdk-dotnet) | ✅      |
 | Python   | [mcpd-plugins-sdk-python](https://github.com/mozilla-ai/mcpd-plugins-sdk-python) | ✅      |
-
-More on plugins soon!
 
 ## 💻 Development
 
