@@ -1,0 +1,90 @@
+name: Deploy mcpd
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Deployment environment'
+        required: true
+        default: 'development'
+        type: choice
+        options:
+          - development
+          - staging
+          - production
+      version:
+        description: 'Version tag (e.g. v0.2.1)'
+        required: true
+        type: string
+      runtime_file:
+        description: 'Portable execution context file (from mcpd config export)'
+        required: false
+        default: 'secrets.prod.toml'
+        type: string
+
+env:
+  RUNTIME_FILE: ${{ inputs.runtime_file }}
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Checkout release tag
+        run: |
+          git fetch --tags --force
+          TAG="${{ inputs.version }}"
+          if [ -z "$TAG" ]; then
+            echo "::error ::No version tag provided"
+            exit 1
+          fi
+          if ! git rev-parse "$TAG" >/dev/null 2>&1; then
+            echo "::error ::Tag '$TAG' does not exist in repository"
+            exit 1
+          fi
+          echo "Checking out tag $TAG"
+          git checkout "$TAG"
+
+      - name: Validate configuration files
+        run: |
+          if [[ ! -f ".mcpd.toml" ]]; then
+            echo "::error ::Missing .mcpd.toml - ensure project configuration is committed"
+            exit 1
+          fi
+          if [[ ! -f "$RUNTIME_FILE" ]]; then
+            echo "::error ::Missing $RUNTIME_FILE - run 'mcpd config export' locally and commit the file"
+            exit 1
+          fi
+          echo "Configuration files validated"
+
+      - name: Install mcpd
+        run: |
+          VERSION="${{ inputs.version }}"
+          ARCH="$(uname -m)"
+          curl -fsSL "https://github.com/mozilla-ai/mcpd/releases/download/${VERSION}/mcpd_Linux_${ARCH}.tar.gz" \
+            | tar xz -C /usr/local/bin
+          chmod +x /usr/local/bin/mcpd
+          echo "Installed mcpd ${VERSION} (${ARCH})"
+
+      - name: Generate environment contract (.env)
+        run: mcpd config export --runtime-file="$RUNTIME_FILE" --contract-output=.env
+
+      - name: Resolve GitHub secrets required for mcpd
+        run: ./scripts/resolve-secrets.sh .env .env.resolved
+        env:
+          SECRETS_JSON: ${{ toJSON(secrets) }}
+          DEPLOY_ENV: ${{ inputs.environment }}
+
+      - name: Deploy mcpd (example)
+        run: |
+          echo "Deploying ${{ inputs.version }} to ${{ inputs.environment }}..."
+          # docker run -d \
+          #   -p 8090:8090 \
+          #   -v $PWD/.mcpd.toml:/etc/mcpd/.mcpd.toml:ro \
+          #   -v $PWD/$RUNTIME_FILE:/home/mcpd/.config/mcpd/secrets.prod.toml:ro \
+          #   --env-file .env.resolved \
+          #   mzdotai/mcpd:${{ inputs.version }}
