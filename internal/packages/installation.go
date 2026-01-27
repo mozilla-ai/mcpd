@@ -1,6 +1,6 @@
 package packages
 
-import "github.com/mozilla-ai/mcpd/v2/internal/runtime"
+import "github.com/mozilla-ai/mcpd/internal/runtime"
 
 type Installations map[runtime.Runtime]Installation
 

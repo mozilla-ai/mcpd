@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/mozilla-ai/mcpd/v2/internal/config"
+	"github.com/mozilla-ai/mcpd/internal/config"
 )
 
 // Options contains optional configuration for the daemon.

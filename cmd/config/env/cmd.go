@@ -3,8 +3,8 @@ package env
 import (
 	"github.com/spf13/cobra"
 
-	"github.com/mozilla-ai/mcpd/v2/internal/cmd"
-	"github.com/mozilla-ai/mcpd/v2/internal/cmd/options"
+	"github.com/mozilla-ai/mcpd/internal/cmd"
+	"github.com/mozilla-ai/mcpd/internal/cmd/options"
 )
 
 type Cmd struct {

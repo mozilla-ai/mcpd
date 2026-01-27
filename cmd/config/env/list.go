@@ -7,11 +7,11 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/mozilla-ai/mcpd/v2/internal/cmd"
-	"github.com/mozilla-ai/mcpd/v2/internal/cmd/options"
-	"github.com/mozilla-ai/mcpd/v2/internal/config"
-	"github.com/mozilla-ai/mcpd/v2/internal/context"
-	"github.com/mozilla-ai/mcpd/v2/internal/flags"
+	"github.com/mozilla-ai/mcpd/internal/cmd"
+	"github.com/mozilla-ai/mcpd/internal/cmd/options"
+	"github.com/mozilla-ai/mcpd/internal/config"
+	"github.com/mozilla-ai/mcpd/internal/context"
+	"github.com/mozilla-ai/mcpd/internal/flags"
 )
 
 type ListCmd struct {

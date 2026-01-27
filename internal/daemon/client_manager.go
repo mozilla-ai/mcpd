@@ -6,7 +6,7 @@ import (
 
 	"github.com/mark3labs/mcp-go/client"
 
-	"github.com/mozilla-ai/mcpd/v2/internal/filter"
+	"github.com/mozilla-ai/mcpd/internal/filter"
 )
 
 // ClientManager holds active client connections and their associated tool lists.

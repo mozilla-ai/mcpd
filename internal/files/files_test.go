@@ -8,7 +8,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/mozilla-ai/mcpd/v2/internal/perms"
+	"github.com/mozilla-ai/mcpd/internal/perms"
 )
 
 func TestAppDirName(t *testing.T) {

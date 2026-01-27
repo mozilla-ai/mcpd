@@ -6,9 +6,9 @@ import (
 
 	"github.com/hashicorp/go-hclog"
 
-	"github.com/mozilla-ai/mcpd/v2/internal/filter"
-	"github.com/mozilla-ai/mcpd/v2/internal/packages"
-	"github.com/mozilla-ai/mcpd/v2/internal/registry/options"
+	"github.com/mozilla-ai/mcpd/internal/filter"
+	"github.com/mozilla-ai/mcpd/internal/packages"
+	"github.com/mozilla-ai/mcpd/internal/registry/options"
 )
 
 const registryName = "aggregator"

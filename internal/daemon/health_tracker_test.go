@@ -10,9 +10,9 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/mozilla-ai/mcpd/v2/internal/api"
-	"github.com/mozilla-ai/mcpd/v2/internal/domain"
-	"github.com/mozilla-ai/mcpd/v2/internal/errors"
+	"github.com/mozilla-ai/mcpd/internal/api"
+	"github.com/mozilla-ai/mcpd/internal/domain"
+	"github.com/mozilla-ai/mcpd/internal/errors"
 )
 
 func TestHealthTracker_Add(t *testing.T) {

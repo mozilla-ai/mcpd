@@ -8,8 +8,8 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/mozilla-ai/mcpd/v2/internal/config"
-	"github.com/mozilla-ai/mcpd/v2/internal/context"
+	"github.com/mozilla-ai/mcpd/internal/config"
+	"github.com/mozilla-ai/mcpd/internal/context"
 )
 
 func TestServer_filterEnv(t *testing.T) {

@@ -7,9 +7,9 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/mozilla-ai/mcpd/v2/internal/context"
-	"github.com/mozilla-ai/mcpd/v2/internal/files"
-	"github.com/mozilla-ai/mcpd/v2/internal/filter"
+	"github.com/mozilla-ai/mcpd/internal/context"
+	"github.com/mozilla-ai/mcpd/internal/files"
+	"github.com/mozilla-ai/mcpd/internal/filter"
 )
 
 const (

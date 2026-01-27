@@ -5,11 +5,11 @@ import (
 
 	"github.com/spf13/cobra"
 
-	internalcmd "github.com/mozilla-ai/mcpd/v2/internal/cmd"
-	cmdopts "github.com/mozilla-ai/mcpd/v2/internal/cmd/options"
-	"github.com/mozilla-ai/mcpd/v2/internal/cmd/output"
-	"github.com/mozilla-ai/mcpd/v2/internal/config"
-	"github.com/mozilla-ai/mcpd/v2/internal/printer"
+	internalcmd "github.com/mozilla-ai/mcpd/internal/cmd"
+	cmdopts "github.com/mozilla-ai/mcpd/internal/cmd/options"
+	"github.com/mozilla-ai/mcpd/internal/cmd/output"
+	"github.com/mozilla-ai/mcpd/internal/config"
+	"github.com/mozilla-ai/mcpd/internal/printer"
 )
 
 // ListCmd represents the command for listing configured plugins.

@@ -5,7 +5,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/mozilla-ai/mcpd/v2/internal/config"
+	"github.com/mozilla-ai/mcpd/internal/config"
 )
 
 func TestCategoryProperties_AllCategoriesDefined(t *testing.T) {

@@ -6,8 +6,8 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/mozilla-ai/mcpd/v2/cmd/config/plugins"
-	"github.com/mozilla-ai/mcpd/v2/internal/cmd"
+	"github.com/mozilla-ai/mcpd/cmd/config/plugins"
+	"github.com/mozilla-ai/mcpd/internal/cmd"
 )
 
 func TestPlugins_NewCmd_Success(t *testing.T) {

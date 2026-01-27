@@ -15,9 +15,9 @@ import (
 	"github.com/go-chi/cors"
 	"github.com/hashicorp/go-hclog"
 
-	"github.com/mozilla-ai/mcpd/v2/internal/api"
-	"github.com/mozilla-ai/mcpd/v2/internal/contracts"
-	"github.com/mozilla-ai/mcpd/v2/internal/errors"
+	"github.com/mozilla-ai/mcpd/internal/api"
+	"github.com/mozilla-ai/mcpd/internal/contracts"
+	"github.com/mozilla-ai/mcpd/internal/errors"
 )
 
 // APIServer manages the HTTP API for the daemon.

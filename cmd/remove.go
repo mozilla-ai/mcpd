@@ -6,10 +6,10 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/mozilla-ai/mcpd/v2/internal/cmd"
-	cmdopts "github.com/mozilla-ai/mcpd/v2/internal/cmd/options"
-	"github.com/mozilla-ai/mcpd/v2/internal/config"
-	"github.com/mozilla-ai/mcpd/v2/internal/flags"
+	"github.com/mozilla-ai/mcpd/internal/cmd"
+	cmdopts "github.com/mozilla-ai/mcpd/internal/cmd/options"
+	"github.com/mozilla-ai/mcpd/internal/config"
+	"github.com/mozilla-ai/mcpd/internal/flags"
 )
 
 // RemoveCmd should be used to represent the 'remove' command.

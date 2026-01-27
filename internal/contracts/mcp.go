@@ -5,7 +5,7 @@ import (
 
 	"github.com/mark3labs/mcp-go/client"
 
-	"github.com/mozilla-ai/mcpd/v2/internal/domain"
+	"github.com/mozilla-ai/mcpd/internal/domain"
 )
 
 // MCPHealthMonitor provides a way to interact with the health status of MCP servers.

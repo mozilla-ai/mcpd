@@ -4,10 +4,10 @@ import (
 	"fmt"
 	"reflect"
 
-	"github.com/mozilla-ai/mcpd/v2/internal/cmd"
-	"github.com/mozilla-ai/mcpd/v2/internal/config"
-	"github.com/mozilla-ai/mcpd/v2/internal/context"
-	"github.com/mozilla-ai/mcpd/v2/internal/registry"
+	"github.com/mozilla-ai/mcpd/internal/cmd"
+	"github.com/mozilla-ai/mcpd/internal/config"
+	"github.com/mozilla-ai/mcpd/internal/context"
+	"github.com/mozilla-ai/mcpd/internal/registry"
 )
 
 type CmdOption func(*CmdOptions) error

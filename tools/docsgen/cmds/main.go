@@ -9,8 +9,8 @@ import (
 	"github.com/hashicorp/go-hclog"
 	"github.com/spf13/cobra/doc"
 
-	"github.com/mozilla-ai/mcpd/v2/cmd"
-	internalcmd "github.com/mozilla-ai/mcpd/v2/internal/cmd"
+	"github.com/mozilla-ai/mcpd/cmd"
+	internalcmd "github.com/mozilla-ai/mcpd/internal/cmd"
 )
 
 // main assumes it is run from the repository root.

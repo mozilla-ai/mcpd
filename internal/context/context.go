@@ -12,8 +12,8 @@ import (
 
 	"github.com/BurntSushi/toml"
 
-	"github.com/mozilla-ai/mcpd/v2/internal/files"
-	"github.com/mozilla-ai/mcpd/v2/internal/perms"
+	"github.com/mozilla-ai/mcpd/internal/files"
+	"github.com/mozilla-ai/mcpd/internal/perms"
 )
 
 // DefaultLoader loads execution context configurations.

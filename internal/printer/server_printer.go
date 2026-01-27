@@ -8,9 +8,9 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/mozilla-ai/mcpd/v2/internal/cmd/output"
-	"github.com/mozilla-ai/mcpd/v2/internal/packages"
-	"github.com/mozilla-ai/mcpd/v2/internal/runtime"
+	"github.com/mozilla-ai/mcpd/internal/cmd/output"
+	"github.com/mozilla-ai/mcpd/internal/packages"
+	"github.com/mozilla-ai/mcpd/internal/runtime"
 )
 
 var _ output.Printer[packages.Server] = (*ServerPrinter)(nil)

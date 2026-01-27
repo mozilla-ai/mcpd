@@ -8,10 +8,10 @@ import (
 	"github.com/stretchr/testify/require"
 	"gopkg.in/yaml.v3"
 
-	"github.com/mozilla-ai/mcpd/v2/internal/cmd"
-	cmdopts "github.com/mozilla-ai/mcpd/v2/internal/cmd/options"
-	"github.com/mozilla-ai/mcpd/v2/internal/config"
-	"github.com/mozilla-ai/mcpd/v2/internal/printer"
+	"github.com/mozilla-ai/mcpd/internal/cmd"
+	cmdopts "github.com/mozilla-ai/mcpd/internal/cmd/options"
+	"github.com/mozilla-ai/mcpd/internal/config"
+	"github.com/mozilla-ai/mcpd/internal/printer"
 )
 
 func TestGetCmd_FlagConstants(t *testing.T) {

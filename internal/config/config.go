@@ -8,9 +8,9 @@ import (
 
 	"github.com/BurntSushi/toml"
 
-	"github.com/mozilla-ai/mcpd/v2/internal/context"
-	"github.com/mozilla-ai/mcpd/v2/internal/flags"
-	"github.com/mozilla-ai/mcpd/v2/internal/perms"
+	"github.com/mozilla-ai/mcpd/internal/context"
+	"github.com/mozilla-ai/mcpd/internal/flags"
+	"github.com/mozilla-ai/mcpd/internal/perms"
 )
 
 // Init creates the base skeleton configuration file for the mcpd project.

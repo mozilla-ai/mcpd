@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/mozilla-ai/mcpd/v2/internal/cmd/output"
+	"github.com/mozilla-ai/mcpd/internal/cmd/output"
 )
 
 var _ output.Printer[ToolsListResult] = (*ToolsListPrinter)(nil)

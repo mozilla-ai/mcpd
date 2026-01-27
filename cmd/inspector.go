@@ -12,9 +12,9 @@ import (
 
 	"github.com/spf13/cobra"
 
-	internalcmd "github.com/mozilla-ai/mcpd/v2/internal/cmd"
-	cmdopts "github.com/mozilla-ai/mcpd/v2/internal/cmd/options"
-	"github.com/mozilla-ai/mcpd/v2/internal/runtime"
+	internalcmd "github.com/mozilla-ai/mcpd/internal/cmd"
+	cmdopts "github.com/mozilla-ai/mcpd/internal/cmd/options"
+	"github.com/mozilla-ai/mcpd/internal/runtime"
 )
 
 // InspectorCmd represents the 'inspector' command.

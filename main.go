@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/mozilla-ai/mcpd/v2/cmd"
+	"github.com/mozilla-ai/mcpd/cmd"
 )
 
 func main() {

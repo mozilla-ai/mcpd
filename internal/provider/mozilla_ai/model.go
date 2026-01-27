@@ -3,7 +3,7 @@ package mozilla_ai
 import (
 	"encoding/json"
 
-	"github.com/mozilla-ai/mcpd/v2/internal/filter"
+	"github.com/mozilla-ai/mcpd/internal/filter"
 )
 
 const (

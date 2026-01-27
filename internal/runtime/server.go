@@ -9,8 +9,8 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/mozilla-ai/mcpd/v2/internal/config"
-	"github.com/mozilla-ai/mcpd/v2/internal/context"
+	"github.com/mozilla-ai/mcpd/internal/config"
+	"github.com/mozilla-ai/mcpd/internal/context"
 )
 
 // Server composes static config with runtime overrides.

@@ -9,7 +9,7 @@ import (
 
 	pluginv1 "github.com/mozilla-ai/mcpd-plugins-sdk-go/pkg/plugins/v1/plugins"
 
-	"github.com/mozilla-ai/mcpd/v2/internal/config"
+	"github.com/mozilla-ai/mcpd/internal/config"
 )
 
 // GRPCAdapter adapts a gRPC plugin client to the Plugin interface.

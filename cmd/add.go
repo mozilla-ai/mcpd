@@ -8,17 +8,17 @@ import (
 
 	"github.com/spf13/cobra"
 
-	internalcmd "github.com/mozilla-ai/mcpd/v2/internal/cmd"
-	cmdopts "github.com/mozilla-ai/mcpd/v2/internal/cmd/options"
-	"github.com/mozilla-ai/mcpd/v2/internal/cmd/output"
-	"github.com/mozilla-ai/mcpd/v2/internal/config"
-	"github.com/mozilla-ai/mcpd/v2/internal/filter"
-	"github.com/mozilla-ai/mcpd/v2/internal/flags"
-	"github.com/mozilla-ai/mcpd/v2/internal/packages"
-	"github.com/mozilla-ai/mcpd/v2/internal/printer"
-	"github.com/mozilla-ai/mcpd/v2/internal/registry"
-	regopts "github.com/mozilla-ai/mcpd/v2/internal/registry/options"
-	"github.com/mozilla-ai/mcpd/v2/internal/runtime"
+	internalcmd "github.com/mozilla-ai/mcpd/internal/cmd"
+	cmdopts "github.com/mozilla-ai/mcpd/internal/cmd/options"
+	"github.com/mozilla-ai/mcpd/internal/cmd/output"
+	"github.com/mozilla-ai/mcpd/internal/config"
+	"github.com/mozilla-ai/mcpd/internal/filter"
+	"github.com/mozilla-ai/mcpd/internal/flags"
+	"github.com/mozilla-ai/mcpd/internal/packages"
+	"github.com/mozilla-ai/mcpd/internal/printer"
+	"github.com/mozilla-ai/mcpd/internal/registry"
+	regopts "github.com/mozilla-ai/mcpd/internal/registry/options"
+	"github.com/mozilla-ai/mcpd/internal/runtime"
 )
 
 // AddCmd should be used to represent the 'add' command.

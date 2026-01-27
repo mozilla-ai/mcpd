@@ -9,7 +9,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/mozilla-ai/mcpd/v2/internal/context"
+	"github.com/mozilla-ai/mcpd/internal/context"
 )
 
 // APIConfigSection contains API server configuration settings.

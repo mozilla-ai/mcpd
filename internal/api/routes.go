@@ -7,7 +7,7 @@ import (
 
 	"github.com/danielgtaylor/huma/v2"
 
-	"github.com/mozilla-ai/mcpd/v2/internal/contracts"
+	"github.com/mozilla-ai/mcpd/internal/contracts"
 )
 
 // APIVersion is the version used in the OpenAPI spec and URL paths.

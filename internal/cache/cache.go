@@ -11,7 +11,7 @@ import (
 
 	"github.com/hashicorp/go-hclog"
 
-	"github.com/mozilla-ai/mcpd/v2/internal/files"
+	"github.com/mozilla-ai/mcpd/internal/files"
 )
 
 // Cache manages cached registry manifests.

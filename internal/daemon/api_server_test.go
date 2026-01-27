@@ -9,7 +9,7 @@ import (
 	"github.com/hashicorp/go-hclog"
 	"github.com/stretchr/testify/require"
 
-	"github.com/mozilla-ai/mcpd/v2/internal/errors"
+	"github.com/mozilla-ai/mcpd/internal/errors"
 )
 
 func TestNewAPIServer_AppliesDefaults(t *testing.T) {
