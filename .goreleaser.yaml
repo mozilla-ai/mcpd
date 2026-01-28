@@ -21,9 +21,9 @@ builds:
     binary: mcpd
     ldflags:
       - -s -w  # Strip debug info and symbol table
-      - -X 'github.com/mozilla-ai/mcpd/v2/internal/cmd.version={{.Version}}'  # Bake in version
-      - -X 'github.com/mozilla-ai/mcpd/v2/internal/cmd.commit={{.Commit}}'    # Bake in commit hash
-      - -X 'github.com/mozilla-ai/mcpd/v2/internal/cmd.date={{.Date}}'        # Bake in build date
+      - -X 'github.com/mozilla-ai/mcpd/internal/cmd.version={{.Version}}'  # Bake in version
+      - -X 'github.com/mozilla-ai/mcpd/internal/cmd.commit={{.Commit}}'    # Bake in commit hash
+      - -X 'github.com/mozilla-ai/mcpd/internal/cmd.date={{.Date}}'        # Bake in build date
     flags:
       - -trimpath  # Remove file system paths from binary
 
