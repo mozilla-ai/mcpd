@@ -27,7 +27,13 @@ jobs:
 
       - name: Validate ldflags module path
         run: |
+          set -euo pipefail
+
           MODULE=$(go mod edit -json | jq -r '.Module.Path')
+          if [[ -z "$MODULE" ]]; then
+            echo "Error: Could not extract module path from go.mod"
+            exit 1
+          fi
           echo "Module path from go.mod: $MODULE"
 
           EXPECTED_PATH="${MODULE}/internal/cmd"
