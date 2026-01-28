@@ -1,0 +1,49 @@
+name: Validate GoReleaser Config
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - go.mod
+      - .goreleaser.yaml
+  pull_request:
+    branches: [main]
+    paths:
+      - go.mod
+      - .goreleaser.yaml
+  workflow_dispatch:
+
+jobs:
+  validate-ldflags:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
+
+      - name: Set up Go (from go.mod)
+        uses: actions/setup-go@7a3fe6cf4cb3a834922a1244abfce67bcef6a0c5 # v6.2.0
+        with:
+          go-version-file: go.mod
+
+      - name: Validate ldflags module path
+        run: |
+          set -euo pipefail
+
+          MODULE=$(go mod edit -json | jq -r '.Module.Path')
+          if [[ -z "$MODULE" ]]; then
+            echo "Error: Could not extract module path from go.mod"
+            exit 1
+          fi
+          echo "Module path from go.mod: $MODULE"
+
+          EXPECTED_PATH="${MODULE}/internal/cmd"
+          echo "Expected ldflags path: $EXPECTED_PATH"
+
+          if ! grep -q "X '${EXPECTED_PATH}.version" .goreleaser.yaml; then
+            echo "Error: .goreleaser.yaml ldflags don't reference correct module path"
+            echo "Expected: -X '${EXPECTED_PATH}.version=...'"
+            echo "Check ldflags in .goreleaser.yaml match go.mod module: $MODULE"
+            exit 1
+          fi
+
+          echo "GoReleaser ldflags module path validated successfully"
