@@ -211,6 +211,59 @@
     ],
     "transports": ["stdio"]
   },
+  "fetch": {
+    "arguments": {
+      "--ignore-robots-txt": {
+        "description": "Ignore robots.txt restrictions when fetching URLs",
+        "name": "--ignore-robots-txt",
+        "required": false,
+        "type": "argument_bool"
+      },
+      "--proxy-url": {
+        "description": "Proxy URL for fetching content",
+        "example": "http://proxy.example.com:8080",
+        "name": "--proxy-url",
+        "required": false,
+        "type": "argument"
+      },
+      "--user-agent": {
+        "description": "Custom user agent string for requests",
+        "example": "MyApp/1.0",
+        "name": "--user-agent",
+        "required": false,
+        "type": "argument"
+      }
+    },
+    "categories": ["Web Services"],
+    "description": "A Model Context Protocol server that provides web content fetching capabilities",
+    "displayName": "fetch",
+    "homepage": "https://github.com/modelcontextprotocol/servers/tree/main/src/fetch",
+    "id": "fetch",
+    "installations": {
+      "uvx": {
+        "description": "Run with Python uvx",
+        "package": "mcp-server-fetch",
+        "recommended": true,
+        "runtime": "uvx",
+        "version": "2025.4.7"
+      }
+    },
+    "isOfficial": true,
+    "license": "MIT",
+    "name": "fetch",
+    "publisher": {
+      "name": "Anthropic, PBC",
+      "url": "https://anthropic.com"
+    },
+    "tags": ["fetch", "http", "web"],
+    "tools": [
+      {
+        "description": "Fetches a URL from the internet and optionally extracts its contents as markdown",
+        "name": "fetch"
+      }
+    ],
+    "transports": ["stdio"]
+  },
   "filesystem": {
     "arguments": {
       "ALLOWED_DIRS": {
@@ -1266,6 +1319,50 @@
       {
         "description": "Perform INSERT, UPDATE, DELETE operations",
         "name": "write_query"
+      }
+    ],
+    "transports": ["stdio"]
+  },
+  "time": {
+    "arguments": {
+      "--local-timezone": {
+        "description": "Override the system's default timezone",
+        "example": "America/New_York",
+        "name": "--local-timezone",
+        "required": false,
+        "type": "argument"
+      }
+    },
+    "categories": ["System Tools"],
+    "description": "A Model Context Protocol server that provides time and timezone conversion capabilities. It automatically detects the system's timezone and offers tools for getting current time and converting between timezones.",
+    "displayName": "time",
+    "homepage": "https://github.com/modelcontextprotocol/servers/tree/main/src/time",
+    "id": "time",
+    "installations": {
+      "uvx": {
+        "description": "Run with Python uvx",
+        "package": "mcp-server-time",
+        "recommended": true,
+        "runtime": "uvx",
+        "version": "2026.1.26"
+      }
+    },
+    "isOfficial": true,
+    "license": "MIT",
+    "name": "time",
+    "publisher": {
+      "name": "Anthropic, PBC",
+      "url": "https://anthropic.com"
+    },
+    "tags": ["converter", "date", "time", "timezone"],
+    "tools": [
+      {
+        "description": "Get current time in a specific timezone",
+        "name": "get_current_time"
+      },
+      {
+        "description": "Convert time between timezones",
+        "name": "convert_time"
       }
     ],
     "transports": ["stdio"]
