@@ -66,7 +66,7 @@ func DefaultResultsHeader() output.WriteFunc[packages.Server] {
 
 func DefaultResultsFooter() output.WriteFunc[packages.Server] {
 	return func(w io.Writer, count int) {
-		_, _ = fmt.Fprintf(w, "📦 Found %d servers%s\n", count, map[bool]string{true: "s"}[count > 1])
+		_, _ = fmt.Fprintf(w, "📦 Found %d server%s\n", count, map[bool]string{true: "s"}[count != 1])
 		_, _ = fmt.Fprintln(w, "")
 	}
 }

@@ -74,15 +74,25 @@ func TestPackageListPrinter_Item(t *testing.T) {
 func TestPackageListPrinter_Footer(t *testing.T) {
 	t.Parallel()
 
-	buf := &bytes.Buffer{}
-	printer := NewServerResultsPrinter(&testPrinterInner{})
+	testCases := []struct {
+		name     string
+		count    int
+		expected string
+	}{
+		{name: "zero", count: 0, expected: "📦 Found 0 servers\n"},
+		{name: "singular", count: 1, expected: "📦 Found 1 server\n"},
+		{name: "plural", count: 2, expected: "📦 Found 2 servers\n"},
+		{name: "many", count: 10, expected: "📦 Found 10 servers\n"},
+	}
 
-	// singular
-	printer.Footer(buf, 1)
-	require.Contains(t, buf.String(), "📦 Found 1 server")
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
 
-	buf.Reset()
-	// plural
-	printer.Footer(buf, 3)
-	require.Contains(t, buf.String(), "📦 Found 3 servers")
+			buf := &bytes.Buffer{}
+			printer := NewServerResultsPrinter(&testPrinterInner{})
+			printer.Footer(buf, tc.count)
+			require.Contains(t, buf.String(), tc.expected)
+		})
+	}
 }
