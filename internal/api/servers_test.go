@@ -10,7 +10,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/mozilla-ai/mcpd/v2/internal/errors"
+	"github.com/mozilla-ai/mcpd/internal/errors"
 )
 
 // mockMCPClientAccessor implements the MCPClientAccessor interface for testing.

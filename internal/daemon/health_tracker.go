@@ -7,8 +7,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/mozilla-ai/mcpd/v2/internal/domain"
-	"github.com/mozilla-ai/mcpd/v2/internal/errors"
+	"github.com/mozilla-ai/mcpd/internal/domain"
+	"github.com/mozilla-ai/mcpd/internal/errors"
 )
 
 // HealthTracker is used to track the health of registered MCP servers.

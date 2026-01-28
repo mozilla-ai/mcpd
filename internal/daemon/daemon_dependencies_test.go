@@ -6,7 +6,7 @@ import (
 	"github.com/hashicorp/go-hclog"
 	"github.com/stretchr/testify/require"
 
-	"github.com/mozilla-ai/mcpd/v2/internal/runtime"
+	"github.com/mozilla-ai/mcpd/internal/runtime"
 )
 
 func TestDaemon_Dependencies_Validate(t *testing.T) {

@@ -9,8 +9,8 @@ import (
 	"github.com/danielgtaylor/huma/v2"
 	"github.com/mark3labs/mcp-go/mcp"
 
-	"github.com/mozilla-ai/mcpd/v2/internal/contracts"
-	errorsint "github.com/mozilla-ai/mcpd/v2/internal/errors"
+	"github.com/mozilla-ai/mcpd/internal/contracts"
+	errorsint "github.com/mozilla-ai/mcpd/internal/errors"
 )
 
 // DomainPrompt wraps mcp.Prompt for API conversion.

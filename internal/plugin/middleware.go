@@ -5,7 +5,7 @@ import (
 	"io"
 	"net/http"
 
-	"github.com/mozilla-ai/mcpd/v2/internal/api"
+	"github.com/mozilla-ai/mcpd/internal/api"
 )
 
 // Middleware returns an HTTP middleware function that processes requests through the plugin pipeline.

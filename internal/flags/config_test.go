@@ -8,7 +8,7 @@ import (
 	"github.com/spf13/pflag"
 	"github.com/stretchr/testify/require"
 
-	"github.com/mozilla-ai/mcpd/v2/internal/files"
+	"github.com/mozilla-ai/mcpd/internal/files"
 )
 
 func TestConfig_InitConfigFile_EnvVars(t *testing.T) {

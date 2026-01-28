@@ -3,7 +3,7 @@ package mcpm
 import (
 	"encoding/json"
 
-	"github.com/mozilla-ai/mcpd/v2/internal/filter"
+	"github.com/mozilla-ai/mcpd/internal/filter"
 )
 
 // MCPServers represents the root JSON object, which is a map of MCP server IDs to MCPServer.

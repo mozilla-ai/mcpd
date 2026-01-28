@@ -3,7 +3,7 @@ package plugin
 import (
 	"fmt"
 
-	"github.com/mozilla-ai/mcpd/v2/internal/config"
+	"github.com/mozilla-ai/mcpd/internal/config"
 )
 
 // categoryProps maps each category to its execution properties.

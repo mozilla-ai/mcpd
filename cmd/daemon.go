@@ -16,13 +16,13 @@ import (
 	"github.com/hashicorp/go-hclog"
 	"github.com/spf13/cobra"
 
-	"github.com/mozilla-ai/mcpd/v2/internal/cmd"
-	cmdopts "github.com/mozilla-ai/mcpd/v2/internal/cmd/options"
-	"github.com/mozilla-ai/mcpd/v2/internal/config"
-	configcontext "github.com/mozilla-ai/mcpd/v2/internal/context"
-	"github.com/mozilla-ai/mcpd/v2/internal/daemon"
-	"github.com/mozilla-ai/mcpd/v2/internal/flags"
-	"github.com/mozilla-ai/mcpd/v2/internal/runtime"
+	"github.com/mozilla-ai/mcpd/internal/cmd"
+	cmdopts "github.com/mozilla-ai/mcpd/internal/cmd/options"
+	"github.com/mozilla-ai/mcpd/internal/config"
+	configcontext "github.com/mozilla-ai/mcpd/internal/context"
+	"github.com/mozilla-ai/mcpd/internal/daemon"
+	"github.com/mozilla-ai/mcpd/internal/flags"
+	"github.com/mozilla-ai/mcpd/internal/runtime"
 )
 
 // Flag name constants for daemon command line flags.

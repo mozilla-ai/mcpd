@@ -1,8 +1,8 @@
 package mcpm
 
 import (
-	"github.com/mozilla-ai/mcpd/v2/internal/packages"
-	"github.com/mozilla-ai/mcpd/v2/internal/runtime"
+	"github.com/mozilla-ai/mcpd/internal/packages"
+	"github.com/mozilla-ai/mcpd/internal/runtime"
 )
 
 // CLIArgParser encapsulates the state and logic for parsing CLI arguments.

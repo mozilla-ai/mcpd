@@ -16,8 +16,8 @@ import (
 	"github.com/hashicorp/go-hclog"
 	"github.com/mark3labs/mcp-go/client"
 
-	"github.com/mozilla-ai/mcpd/v2/internal/api"
-	"github.com/mozilla-ai/mcpd/v2/internal/domain"
+	"github.com/mozilla-ai/mcpd/internal/api"
+	"github.com/mozilla-ai/mcpd/internal/domain"
 )
 
 // stubHealthTracker provides a stub implementation for documentation generation.

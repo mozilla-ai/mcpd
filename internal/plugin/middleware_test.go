@@ -10,8 +10,8 @@ import (
 	"github.com/hashicorp/go-hclog"
 	"github.com/stretchr/testify/require"
 
-	"github.com/mozilla-ai/mcpd/v2/internal/api"
-	"github.com/mozilla-ai/mcpd/v2/internal/config"
+	"github.com/mozilla-ai/mcpd/internal/api"
+	"github.com/mozilla-ai/mcpd/internal/config"
 )
 
 func TestMiddleware_RequestPipelineFailure(t *testing.T) {

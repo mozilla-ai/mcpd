@@ -1,4 +1,4 @@
-module github.com/mozilla-ai/mcpd/v2
+module github.com/mozilla-ai/mcpd
 
 go 1.25.1
 

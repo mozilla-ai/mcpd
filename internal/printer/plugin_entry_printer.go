@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/mozilla-ai/mcpd/v2/internal/cmd/output"
-	"github.com/mozilla-ai/mcpd/v2/internal/config"
+	"github.com/mozilla-ai/mcpd/internal/cmd/output"
+	"github.com/mozilla-ai/mcpd/internal/config"
 )
 
 var _ output.Printer[PluginEntryResult] = (*PluginEntryPrinter)(nil)

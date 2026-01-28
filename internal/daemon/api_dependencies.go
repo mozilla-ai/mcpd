@@ -6,7 +6,7 @@ import (
 
 	"github.com/hashicorp/go-hclog"
 
-	"github.com/mozilla-ai/mcpd/v2/internal/contracts"
+	"github.com/mozilla-ai/mcpd/internal/contracts"
 )
 
 // APIDependencies contains the required external dependencies for the API server.

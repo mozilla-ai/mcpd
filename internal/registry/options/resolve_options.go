@@ -1,8 +1,8 @@
 package options
 
 import (
-	"github.com/mozilla-ai/mcpd/v2/internal/filter"
-	"github.com/mozilla-ai/mcpd/v2/internal/runtime"
+	"github.com/mozilla-ai/mcpd/internal/filter"
+	"github.com/mozilla-ai/mcpd/internal/runtime"
 )
 
 type ResolveOption func(*ResolveOptions) error

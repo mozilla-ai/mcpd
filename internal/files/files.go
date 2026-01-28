@@ -6,7 +6,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/mozilla-ai/mcpd/v2/internal/perms"
+	"github.com/mozilla-ai/mcpd/internal/perms"
 )
 
 const (

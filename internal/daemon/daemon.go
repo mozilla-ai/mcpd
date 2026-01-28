@@ -20,12 +20,12 @@ import (
 	"github.com/mark3labs/mcp-go/util"
 	"golang.org/x/sync/errgroup"
 
-	"github.com/mozilla-ai/mcpd/v2/internal/cmd"
-	"github.com/mozilla-ai/mcpd/v2/internal/contracts"
-	"github.com/mozilla-ai/mcpd/v2/internal/domain"
-	"github.com/mozilla-ai/mcpd/v2/internal/filter"
-	"github.com/mozilla-ai/mcpd/v2/internal/plugin"
-	"github.com/mozilla-ai/mcpd/v2/internal/runtime"
+	"github.com/mozilla-ai/mcpd/internal/cmd"
+	"github.com/mozilla-ai/mcpd/internal/contracts"
+	"github.com/mozilla-ai/mcpd/internal/domain"
+	"github.com/mozilla-ai/mcpd/internal/filter"
+	"github.com/mozilla-ai/mcpd/internal/plugin"
+	"github.com/mozilla-ai/mcpd/internal/runtime"
 )
 
 var _ util.Logger = (*mcpLoggerAdapter)(nil)

@@ -8,12 +8,12 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	internalcmd "github.com/mozilla-ai/mcpd/v2/internal/cmd"
-	"github.com/mozilla-ai/mcpd/v2/internal/cmd/options"
-	"github.com/mozilla-ai/mcpd/v2/internal/config"
-	"github.com/mozilla-ai/mcpd/v2/internal/packages"
-	"github.com/mozilla-ai/mcpd/v2/internal/registry"
-	registryopts "github.com/mozilla-ai/mcpd/v2/internal/registry/options"
+	internalcmd "github.com/mozilla-ai/mcpd/internal/cmd"
+	"github.com/mozilla-ai/mcpd/internal/cmd/options"
+	"github.com/mozilla-ai/mcpd/internal/config"
+	"github.com/mozilla-ai/mcpd/internal/packages"
+	"github.com/mozilla-ai/mcpd/internal/registry"
+	registryopts "github.com/mozilla-ai/mcpd/internal/registry/options"
 )
 
 type mockConfigLoader struct {

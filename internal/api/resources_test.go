@@ -7,7 +7,7 @@ import (
 	"github.com/mark3labs/mcp-go/mcp"
 	"github.com/stretchr/testify/require"
 
-	internalerrors "github.com/mozilla-ai/mcpd/v2/internal/errors"
+	internalerrors "github.com/mozilla-ai/mcpd/internal/errors"
 )
 
 func TestAPI_HandleServerResources_Success(t *testing.T) {

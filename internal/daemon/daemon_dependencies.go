@@ -6,7 +6,7 @@ import (
 
 	"github.com/hashicorp/go-hclog"
 
-	"github.com/mozilla-ai/mcpd/v2/internal/runtime"
+	"github.com/mozilla-ai/mcpd/internal/runtime"
 )
 
 // Dependencies contains required dependencies for the Daemon.

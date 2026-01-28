@@ -8,7 +8,7 @@ import (
 
 	"github.com/spf13/pflag"
 
-	"github.com/mozilla-ai/mcpd/v2/internal/files"
+	"github.com/mozilla-ai/mcpd/internal/files"
 )
 
 const (

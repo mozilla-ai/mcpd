@@ -4,7 +4,7 @@ import (
 	"context"
 	"sync"
 
-	"github.com/mozilla-ai/mcpd/v2/internal/config"
+	"github.com/mozilla-ai/mcpd/internal/config"
 )
 
 // Plugin defines the interface for plugin operations.

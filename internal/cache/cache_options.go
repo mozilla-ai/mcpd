@@ -5,7 +5,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/mozilla-ai/mcpd/v2/internal/registry/options"
+	"github.com/mozilla-ai/mcpd/internal/registry/options"
 )
 
 // Option defines a functional option for configuring Cache.

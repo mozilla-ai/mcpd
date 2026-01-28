@@ -10,16 +10,16 @@ import (
 	"github.com/hashicorp/go-hclog"
 	"github.com/spf13/cobra"
 
-	"github.com/mozilla-ai/mcpd/v2/internal/cache"
-	"github.com/mozilla-ai/mcpd/v2/internal/cmd/output"
-	"github.com/mozilla-ai/mcpd/v2/internal/config"
-	"github.com/mozilla-ai/mcpd/v2/internal/flags"
-	"github.com/mozilla-ai/mcpd/v2/internal/perms"
-	"github.com/mozilla-ai/mcpd/v2/internal/provider/mcpm"
-	"github.com/mozilla-ai/mcpd/v2/internal/provider/mozilla_ai"
-	"github.com/mozilla-ai/mcpd/v2/internal/registry"
-	regopts "github.com/mozilla-ai/mcpd/v2/internal/registry/options"
-	"github.com/mozilla-ai/mcpd/v2/internal/runtime"
+	"github.com/mozilla-ai/mcpd/internal/cache"
+	"github.com/mozilla-ai/mcpd/internal/cmd/output"
+	"github.com/mozilla-ai/mcpd/internal/config"
+	"github.com/mozilla-ai/mcpd/internal/flags"
+	"github.com/mozilla-ai/mcpd/internal/perms"
+	"github.com/mozilla-ai/mcpd/internal/provider/mcpm"
+	"github.com/mozilla-ai/mcpd/internal/provider/mozilla_ai"
+	"github.com/mozilla-ai/mcpd/internal/registry"
+	regopts "github.com/mozilla-ai/mcpd/internal/registry/options"
+	"github.com/mozilla-ai/mcpd/internal/runtime"
 )
 
 var (
