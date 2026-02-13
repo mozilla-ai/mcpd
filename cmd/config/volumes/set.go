@@ -106,20 +106,24 @@ func (c *setCmd) run(cmd *cobra.Command, args []string) error {
 		server.Name = serverName
 	}
 
+	// Clone into a working map to avoid mutating the config's internal state.
 	// Use RawVolumes as the source of truth to avoid persisting expanded
 	// environment variables (e.g. ${MCPD__...} placeholders) back to disk.
 	// Fall back to Volumes if RawVolumes is nil to preserve existing mappings.
-	if server.RawVolumes == nil {
-		server.RawVolumes = maps.Clone(server.Volumes)
+	working := maps.Clone(server.RawVolumes)
+	if working == nil {
+		working = maps.Clone(server.Volumes)
 	}
-	if server.RawVolumes == nil {
-		server.RawVolumes = context.VolumeExecutionContext{}
+	if working == nil {
+		working = context.VolumeExecutionContext{}
 	}
 
-	maps.Copy(server.RawVolumes, volumeMap)
+	maps.Copy(working, volumeMap)
 
-	// Sync Volumes from RawVolumes so Upsert persists unexpanded values.
-	server.Volumes = maps.Clone(server.RawVolumes)
+	// Assign the working map back so Upsert persists unexpanded values.
+	// RawVolumes is the single source of truth; Volumes is derived.
+	server.RawVolumes = working
+	server.Volumes = maps.Clone(working)
 
 	res, err := cfg.Upsert(server)
 	if err != nil {
