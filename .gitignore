@@ -60,3 +60,4 @@ node_modules/
 
 # Image thumbnails
 .DS_Store
+CLAUDE.local.md

@@ -16,9 +16,9 @@ func NewCmd(baseCmd *cmd.BaseCmd, opt ...cmdopts.CmdOption) (*cobra.Command, err
 			"dealing with setting, removing, clearing and listing volume mappings.",
 	}
 
-	// Sub-commands for: mcpd config volumes
 	fns := []func(baseCmd *cmd.BaseCmd, opt ...cmdopts.CmdOption) (*cobra.Command, error){
-		NewSetCmd, // set
+		NewRemoveCmd,
+		NewSetCmd,
 	}
 
 	for _, fn := range fns {
