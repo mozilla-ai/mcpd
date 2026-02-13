@@ -115,7 +115,7 @@ func (c *setCmd) run(cmd *cobra.Command, args []string) error {
 	maps.Copy(server.RawVolumes, volumeMap)
 
 	// Sync Volumes from RawVolumes so Upsert persists unexpanded values.
-	server.Volumes = server.RawVolumes
+	server.Volumes = maps.Clone(server.RawVolumes)
 
 	res, err := cfg.Upsert(server)
 	if err != nil {

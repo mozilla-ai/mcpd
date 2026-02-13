@@ -130,7 +130,7 @@ func TestSetCmd_run(t *testing.T) {
 			serverName:      "test-server",
 			volumeArgs:      []string{"--workspace=/Users/foo/repos", "--gdrive=/mcp/gdrive"},
 			existingServers: map[string]context.ServerExecutionContext{},
-			expectedOutput:  "✓ Volumes set for server 'test-server' (operation: created):",
+			expectedOutput:  "✓ Volumes set for server 'test-server' (operation: created): [gdrive workspace]",
 			expectedVolumes: context.VolumeExecutionContext{"workspace": "/Users/foo/repos", "gdrive": "/mcp/gdrive"},
 		},
 		{
@@ -188,6 +188,7 @@ func TestSetCmd_run(t *testing.T) {
 			// Verify the volumes were set correctly.
 			if tc.expectedVolumes != nil {
 				require.Equal(t, tc.expectedVolumes, modifier.lastUpsert.Volumes)
+				require.Equal(t, tc.expectedVolumes, modifier.lastUpsert.RawVolumes)
 			}
 		})
 	}
