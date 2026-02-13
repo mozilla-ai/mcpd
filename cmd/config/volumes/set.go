@@ -106,12 +106,16 @@ func (c *setCmd) run(cmd *cobra.Command, args []string) error {
 		server.Name = serverName
 	}
 
-	// VolumeExecutionContext may be nil for servers without prior volume config.
-	if server.Volumes == nil {
-		server.Volumes = context.VolumeExecutionContext{}
+	// Use RawVolumes as the source of truth to avoid persisting expanded
+	// environment variables (e.g. ${MCPD__...} placeholders) back to disk.
+	if server.RawVolumes == nil {
+		server.RawVolumes = context.VolumeExecutionContext{}
 	}
 
-	maps.Copy(server.Volumes, volumeMap)
+	maps.Copy(server.RawVolumes, volumeMap)
+
+	// Sync Volumes from RawVolumes so Upsert persists unexpanded values.
+	server.Volumes = server.RawVolumes
 
 	res, err := cfg.Upsert(server)
 	if err != nil {
