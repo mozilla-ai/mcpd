@@ -112,6 +112,19 @@ func TestSetCmd_run(t *testing.T) {
 			expectedVolumes: context.VolumeExecutionContext{"workspace": "/existing/path", "gdrive": "/mcp/gdrive"},
 		},
 		{
+			name:       "add volume to existing server with nil RawVolumes",
+			serverName: "test-server",
+			volumeArgs: []string{"--gdrive=/mcp/gdrive"},
+			existingServers: map[string]context.ServerExecutionContext{
+				"test-server": {
+					Name:    "test-server",
+					Volumes: context.VolumeExecutionContext{"workspace": "/existing/path"},
+				},
+			},
+			expectedOutput:  "✓ Volumes set for server 'test-server' (operation: updated): [gdrive]",
+			expectedVolumes: context.VolumeExecutionContext{"workspace": "/existing/path", "gdrive": "/mcp/gdrive"},
+		},
+		{
 			name:       "update existing volume",
 			serverName: "test-server",
 			volumeArgs: []string{"--workspace=/new/path"},

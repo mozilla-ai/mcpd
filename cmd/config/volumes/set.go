@@ -108,6 +108,10 @@ func (c *setCmd) run(cmd *cobra.Command, args []string) error {
 
 	// Use RawVolumes as the source of truth to avoid persisting expanded
 	// environment variables (e.g. ${MCPD__...} placeholders) back to disk.
+	// Fall back to Volumes if RawVolumes is nil to preserve existing mappings.
+	if server.RawVolumes == nil {
+		server.RawVolumes = maps.Clone(server.Volumes)
+	}
 	if server.RawVolumes == nil {
 		server.RawVolumes = context.VolumeExecutionContext{}
 	}
