@@ -12,7 +12,8 @@ The following versions are currently supported for security updates:
 
 | Version | Supported          |
 |---------|--------------------|
-| 0.0.x   | :white_check_mark: |
+| 0.3.x   | :white_check_mark: |
+| < 0.3   | :x:                |
 
 **Please ensure you are using a supported version when reporting a vulnerability.**
 
