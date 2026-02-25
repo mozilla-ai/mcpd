@@ -1,4 +1,4 @@
-MODULE_PATH := github.com/mozilla-ai/mcpd/v2
+MODULE_PATH := github.com/mozilla-ai/mcpd
 
 # /usr/local/bin is a common default for user-installed binaries
 INSTALL_DIR := /usr/local/bin
@@ -35,7 +35,7 @@ check-licenses:
 	@echo "Checking licenses..."
 	@go install github.com/google/go-licenses/v2@latest
 	@set -e; \
-	if go-licenses check ./... --ignore github.com/mozilla-ai/mcpd/v2 --allowed_licenses=$(ALLOWED_LICENSES); then \
+	if go-licenses check ./... --ignore github.com/mozilla-ai/mcpd --allowed_licenses=$(ALLOWED_LICENSES); then \
 		echo "✓ All licenses are allowed."; \
 	else \
 		echo "License check failed: some dependencies have disallowed licenses."; \
@@ -48,7 +48,7 @@ check-notice:
 	@go install github.com/google/go-licenses/v2@latest
 	@tmp=$$(mktemp); \
 	trap "rm -f $$tmp" EXIT; \
-	go-licenses report ./... --ignore github.com/mozilla-ai/mcpd/v2 --template build/licenses/notice.tpl > $$tmp; \
+	go-licenses report ./... --ignore github.com/mozilla-ai/mcpd --template build/licenses/notice.tpl > $$tmp; \
 	if ! cmp -s NOTICE $$tmp; then \
 		echo "NOTICE is out of date. Regenerate it with 'make notice'"; \
 		exit 1; \
@@ -60,7 +60,7 @@ check-notice:
 notice:
 	@echo "Generating NOTICE..."
 	@go install github.com/google/go-licenses/v2@latest
-	@go-licenses report ./... --ignore github.com/mozilla-ai/mcpd/v2 --template build/licenses/notice.tpl > NOTICE
+	@go-licenses report ./... --ignore github.com/mozilla-ai/mcpd --template build/licenses/notice.tpl > NOTICE
 	@echo "✓ NOTICE generated"
 
 .PHONY: lint

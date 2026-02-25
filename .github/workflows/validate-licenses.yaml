@@ -38,11 +38,11 @@ jobs:
         run: go install github.com/google/go-licenses/v2@latest
 
       - name: Check allowed licenses
-        run: go-licenses check ./... --ignore github.com/mozilla-ai/mcpd/v2 --allowed_licenses=${ALLOWED_LICENSES}
+        run: go-licenses check ./... --ignore github.com/mozilla-ai/mcpd --allowed_licenses=${ALLOWED_LICENSES}
 
       - name: Check NOTICE file
         run: |
-          go-licenses report ./... --ignore github.com/mozilla-ai/mcpd/v2 --template build/licenses/notice.tpl > NOTICE.new
+          go-licenses report ./... --ignore github.com/mozilla-ai/mcpd --template build/licenses/notice.tpl > NOTICE.new
           if ! cmp -s NOTICE NOTICE.new; then
             echo "NOTICE is out of date. Please regenerate it with 'make notice'"
             diff -u NOTICE NOTICE.new || true
