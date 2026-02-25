@@ -56,8 +56,8 @@ github.com/mattn/go-isatty v0.0.12/go.mod h1:cbi8OIDigv2wuxKPP5vlRcQ1OAZbq2CE4Ky
 github.com/mattn/go-isatty v0.0.14/go.mod h1:7GGIvUiUoEMVVmxf/4nioHXj79iQHKdU27kJ6hsGG94=
 github.com/mattn/go-isatty v0.0.20 h1:xfD0iDuEKnDkl03q4limB+vH+GxLEtL/jb4xVJSWWEY=
 github.com/mattn/go-isatty v0.0.20/go.mod h1:W+V8PltTTMOvKvAeJH7IuucS94S2C6jfK/D7dTCTo3Y=
-github.com/mozilla-ai/mcpd-plugins-sdk-go v0.0.4-0.20260220221128-bc01873619f8 h1:Ztmtv1wqcS/d2dFTstdCFX2cQETPg8b8UcSqVUw1id8=
-github.com/mozilla-ai/mcpd-plugins-sdk-go v0.0.4-0.20260220221128-bc01873619f8/go.mod h1:lVV+2SgN7Tfs6XyszftQWLB2Sv+2OziOQdbVPrXb5UE=
+github.com/mozilla-ai/mcpd-plugins-sdk-go v0.1.0 h1:tC8ehTFKKEqDAxfLycviOkIBABuEfXuiRRXnYx9TGCA=
+github.com/mozilla-ai/mcpd-plugins-sdk-go v0.1.0/go.mod h1:lVV+2SgN7Tfs6XyszftQWLB2Sv+2OziOQdbVPrXb5UE=
 github.com/pmezard/go-difflib v1.0.0 h1:4DBwDE0NGyQoBHbLQYPwSUPoCMWR5BEzIk/f1lZbAQM=
 github.com/pmezard/go-difflib v1.0.0/go.mod h1:iKH77koFhYxTK1pcRnkKkqfTogsbg7gZNVY4sRDYZ/4=
 github.com/rogpeppe/go-internal v1.11.0 h1:cWPaGQEPrBb5/AsnsZesgZZ9yb1OQ+GOISoDNXVBh4M=
