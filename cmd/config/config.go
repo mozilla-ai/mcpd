@@ -9,6 +9,7 @@ import (
 	"github.com/mozilla-ai/mcpd/cmd/config/export"
 	"github.com/mozilla-ai/mcpd/cmd/config/plugins"
 	"github.com/mozilla-ai/mcpd/cmd/config/tools"
+	"github.com/mozilla-ai/mcpd/cmd/config/volumes"
 	"github.com/mozilla-ai/mcpd/internal/cmd"
 	"github.com/mozilla-ai/mcpd/internal/cmd/options"
 )
@@ -27,6 +28,7 @@ func NewConfigCmd(baseCmd *cmd.BaseCmd, opt ...options.CmdOption) (*cobra.Comman
 		env.NewCmd,     // env
 		plugins.NewCmd, // plugins
 		tools.NewCmd,   // tools
+		volumes.NewCmd, // volumes
 		export.NewCmd,  // export
 	}
 
