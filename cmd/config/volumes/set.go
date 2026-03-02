@@ -54,13 +54,13 @@ func NewSetCmd(baseCmd *cmd.BaseCmd, opt ...cmdopts.CmdOption) (*cobra.Command, 
 }
 
 // validateSetArgs validates the arguments for the set command.
-// It wraps validateArgs to extract the dash position from the cobra command.
+// It wraps validateSetArgsCore to extract the dash position from the cobra command.
 func validateSetArgs(cmd *cobra.Command, args []string) error {
-	return validateArgs(cmd.ArgsLenAtDash(), args)
+	return validateSetArgsCore(cmd.ArgsLenAtDash(), args)
 }
 
-// validateArgs validates the set command arguments given the dash position and args slice.
-func validateArgs(dashPos int, args []string) error {
+// validateSetArgsCore validates the set command arguments given the dash position and args slice.
+func validateSetArgsCore(dashPos int, args []string) error {
 	// No args at all.
 	if len(args) == 0 {
 		return fmt.Errorf("server-name is required")
@@ -71,8 +71,11 @@ func validateArgs(dashPos int, args []string) error {
 			"missing '--' separator: usage: mcpd config volumes set <server-name> -- --<volume>=<path>",
 		)
 	}
-	// -- at position 0 (no server name before it) or server name is empty.
-	if dashPos < 1 || strings.TrimSpace(args[0]) == "" {
+	// -- at position 0 means no server name before it.
+	if dashPos < 1 {
+		return fmt.Errorf("server-name is required")
+	}
+	if strings.TrimSpace(args[0]) == "" {
 		return fmt.Errorf("server-name is required")
 	}
 	if dashPos > 1 {
@@ -85,7 +88,7 @@ func validateArgs(dashPos int, args []string) error {
 }
 
 // run executes the set command, parsing volume mappings and updating the server config.
-func (c *setCmd) run(cmd *cobra.Command, args []string) error {
+func (c *setCmd) run(cobraCmd *cobra.Command, args []string) error {
 	serverName := strings.TrimSpace(args[0])
 
 	// volumeArgs contains everything after the -- separator.
@@ -101,29 +104,19 @@ func (c *setCmd) run(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("failed to load execution context config: %w", err)
 	}
 
+	// Get returns a value copy; safe to modify.
 	server, exists := cfg.Get(serverName)
 	if !exists {
 		server.Name = serverName
 	}
 
-	// Clone into a working map to avoid mutating the config's internal state.
-	// Use RawVolumes as the source of truth to avoid persisting expanded
-	// environment variables (e.g. ${MCPD__...} placeholders) back to disk.
-	// Fall back to Volumes if RawVolumes is nil to preserve existing mappings.
 	working := maps.Clone(server.RawVolumes)
-	if working == nil {
-		working = maps.Clone(server.Volumes)
-	}
 	if working == nil {
 		working = context.VolumeExecutionContext{}
 	}
-
+	// Overwrite existing mappings for provided volume names.
 	maps.Copy(working, volumeMap)
-
-	// Assign the working map back so Upsert persists unexpanded values.
-	// RawVolumes is the single source of truth; Volumes is derived.
-	server.RawVolumes = working
-	server.Volumes = maps.Clone(working)
+	server = withVolumes(server, working)
 
 	res, err := cfg.Upsert(server)
 	if err != nil {
@@ -132,10 +125,18 @@ func (c *setCmd) run(cmd *cobra.Command, args []string) error {
 
 	volumeNames := slices.Collect(maps.Keys(volumeMap))
 	slices.Sort(volumeNames)
-	if _, err := fmt.Fprintf(
-		cmd.OutOrStdout(),
-		"✓ Volumes set for server '%s' (operation: %s): %v\n", serverName, string(res), volumeNames,
-	); err != nil {
+
+	out := cobraCmd.OutOrStdout()
+
+	var msg string
+	switch res {
+	case context.Noop:
+		msg = fmt.Sprintf("No changes — volumes already match for server '%s': %v", serverName, volumeNames)
+	default:
+		msg = fmt.Sprintf("✓ Volumes set for server '%s' (operation: %s): %v", serverName, string(res), volumeNames)
+	}
+
+	if _, err := fmt.Fprintln(out, msg); err != nil {
 		return fmt.Errorf("failed to write output: %w", err)
 	}
 
@@ -143,30 +144,28 @@ func (c *setCmd) run(cmd *cobra.Command, args []string) error {
 }
 
 // parseVolumeArgs parses volume arguments in the format --name=path or --name="path".
-func parseVolumeArgs(args []string) (map[string]string, error) {
-	volumes := make(map[string]string, len(args))
+func parseVolumeArgs(args []string) (context.VolumeExecutionContext, error) {
+	volumes := make(context.VolumeExecutionContext, len(args))
 
 	for _, arg := range args {
-		originalArg := arg
-
-		// Expect format: --name=path
+		// Expect format: --name=path.
 		if !strings.HasPrefix(arg, "--") {
 			return nil, fmt.Errorf("invalid volume format '%s': must start with --", arg)
 		}
 
 		// Remove the -- prefix for parsing.
-		arg = strings.TrimPrefix(arg, "--")
+		trimmed := strings.TrimPrefix(arg, "--")
 
-		parts := strings.SplitN(arg, "=", 2)
+		parts := strings.SplitN(trimmed, "=", 2)
 		if len(parts) != 2 {
-			return nil, fmt.Errorf("invalid volume format '%s': expected --<volume-name>=<host-path>", originalArg)
+			return nil, fmt.Errorf("invalid volume format '%s': expected --<volume-name>=<host-path>", arg)
 		}
 
 		name := strings.TrimSpace(parts[0])
 		path := strings.TrimSpace(parts[1])
 
 		if name == "" {
-			return nil, fmt.Errorf("volume name cannot be empty in '%s'", originalArg)
+			return nil, fmt.Errorf("volume name cannot be empty in '%s'", arg)
 		}
 
 		if path == "" {
@@ -185,7 +184,9 @@ func parseVolumeArgs(args []string) (map[string]string, error) {
 	return volumes, nil
 }
 
-// trimQuotes removes surrounding single or double quotes from a string.
+// trimQuotes removes a single pair of matching outer quotes from a string.
+// This handles cases where quotes survive shell processing (e.g., programmatic
+// invocations or certain Windows shells).
 func trimQuotes(s string) string {
 	if len(s) >= 2 {
 		if (s[0] == '"' && s[len(s)-1] == '"') || (s[0] == '\'' && s[len(s)-1] == '\'') {
