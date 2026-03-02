@@ -147,7 +147,7 @@ func (p *ServerPrinter) printRuntimes(w io.Writer, pkg packages.Server) {
 		var b strings.Builder
 		b.WriteString(string(inst.Runtime))
 		if inst.Version != "" {
-			b.WriteString(fmt.Sprintf(" (version: %s)", inst.Version))
+			fmt.Fprintf(&b, " (version: %s)", inst.Version)
 		}
 
 		// Pad to align with other sections
