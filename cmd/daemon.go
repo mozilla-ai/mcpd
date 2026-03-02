@@ -1060,18 +1060,18 @@ func (c *DaemonCmd) formatConfigInfo(addr string) string {
 
 	// API configuration (only show if non-default).
 	if addr != "" && addr != "0.0.0.0:8090" {
-		info.WriteString(fmt.Sprintf("  API address:\t%s\n", addr))
+		fmt.Fprintf(&info, "  API address:\t%s\n", addr)
 	}
 
 	// CORS configuration.
 	if c.config.cors.enable {
-		info.WriteString(fmt.Sprintf("  CORS enabled:\t%v (origins: %s)\n",
+		fmt.Fprintf(&info, "  CORS enabled:\t%v (origins: %s)\n",
 			c.config.cors.enable,
-			strings.Join(c.config.cors.origins, ", ")))
+			strings.Join(c.config.cors.origins, ", "))
 
 		if len(c.config.cors.methods) > 0 {
-			info.WriteString(fmt.Sprintf("  CORS methods:\t%s\n",
-				strings.Join(c.config.cors.methods, ", ")))
+			fmt.Fprintf(&info, "  CORS methods:\t%s\n",
+				strings.Join(c.config.cors.methods, ", "))
 		}
 
 		if c.config.cors.credentials {
@@ -1079,24 +1079,24 @@ func (c *DaemonCmd) formatConfigInfo(addr string) string {
 		}
 
 		if c.config.cors.maxAge != "" {
-			info.WriteString(fmt.Sprintf("  CORS max age:\t%s\n", c.config.cors.maxAge))
+			fmt.Fprintf(&info, "  CORS max age:\t%s\n", c.config.cors.maxAge)
 		}
 	}
 
 	// Timeout configuration.
 	if v := c.config.timeout.apiShutdown; v != "" && v != daemon.DefaultAPIShutdownTimeout().String() {
-		info.WriteString(fmt.Sprintf("  API shutdown timeout:\t%s\n", v))
+		fmt.Fprintf(&info, "  API shutdown timeout:\t%s\n", v)
 	}
 	if v := c.config.timeout.mcpInit; v != "" && v != daemon.DefaultClientInitTimeout().String() {
-		info.WriteString(fmt.Sprintf("  MCP init timeout:\t%s\n", v))
+		fmt.Fprintf(&info, "  MCP init timeout:\t%s\n", v)
 	}
 
 	if v := c.config.timeout.healthCheck; v != "" && v != daemon.DefaultHealthCheckTimeout().String() {
-		info.WriteString(fmt.Sprintf("  MCP health check timeout:\t%s\n", v))
+		fmt.Fprintf(&info, "  MCP health check timeout:\t%s\n", v)
 	}
 
 	if v := c.config.interval.healthCheck; v != "" && v != daemon.DefaultHealthCheckInterval().String() {
-		info.WriteString(fmt.Sprintf("  MCP health check interval:\t%s\n", v))
+		fmt.Fprintf(&info, "  MCP health check interval:\t%s\n", v)
 	}
 
 	return info.String()
