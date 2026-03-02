@@ -135,7 +135,7 @@ Plugin SDKs are built using the [mcpd plugin Protocol Buffers specification](htt
 ## 💻 Development
 
 If you are developing `mcpd`, you will need:
-- [**Go**](https://go.dev/doc/install) (v1.25.6+ recommended)
+- [**Go**](https://go.dev/doc/install) (v1.26.0+ recommended)
 
 Build local code:
 ```bash
