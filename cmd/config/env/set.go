@@ -87,7 +87,10 @@ func (c *SetCmd) run(cmd *cobra.Command, args []string) error {
 
 	if _, err := fmt.Fprintf(
 		cmd.OutOrStdout(),
-		"✓ Environment variables set for server '%s' (operation: %s): %v\n", serverName, string(res), slices.Collect(maps.Keys(envMap)),
+		"✓ Environment variables set for server '%s' (operation: %s): %v\n",
+		serverName,
+		string(res),
+		slices.Collect(maps.Keys(envMap)),
 	); err != nil {
 		return err
 	}

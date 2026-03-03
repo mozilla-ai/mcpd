@@ -99,7 +99,11 @@ func (c *SetCmd) run(cmd *cobra.Command, args []string) error {
 
 	if _, err := fmt.Fprintf(
 		cmd.OutOrStdout(),
-		"✓ Startup arguments %s for server '%s' (operation: %s): %v\n", operation, serverName, string(res), normalizedArgs,
+		"✓ Startup arguments %s for server '%s' (operation: %s): %v\n",
+		operation,
+		serverName,
+		string(res),
+		normalizedArgs,
 	); err != nil {
 		return err
 	}

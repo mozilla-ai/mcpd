@@ -262,7 +262,10 @@ func (a *APIConfigSection) Validate() error {
 		if *a.Addr == "" {
 			validationErrors = append(validationErrors, fmt.Errorf("API address cannot be empty"))
 		} else if !isValidAddr(*a.Addr) {
-			validationErrors = append(validationErrors, fmt.Errorf("API address \"%s\" appears to be invalid (expected format: host:port)", *a.Addr))
+			validationErrors = append(
+				validationErrors,
+				fmt.Errorf("API address \"%s\" appears to be invalid (expected format: host:port)", *a.Addr),
+			)
 		}
 	}
 
