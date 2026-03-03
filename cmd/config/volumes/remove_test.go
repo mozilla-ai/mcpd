@@ -363,6 +363,11 @@ func TestParseRemoveArgs(t *testing.T) {
 			args:          []string{"--"},
 			expectedError: "volume name cannot be empty in '--'",
 		},
+		{
+			name:          "rejects key=value format",
+			args:          []string{"--workspace=/tmp"},
+			expectedError: "invalid volume name '--workspace=/tmp': expected --<volume-name>",
+		},
 	}
 
 	for _, tc := range tests {

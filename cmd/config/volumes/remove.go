@@ -152,6 +152,9 @@ func parseRemoveArgs(args []string) ([]string, error) {
 		if name == "" {
 			return nil, fmt.Errorf("volume name cannot be empty in '%s'", arg)
 		}
+		if strings.Contains(name, "=") {
+			return nil, fmt.Errorf("invalid volume name '%s': expected --<volume-name>", arg)
+		}
 
 		names = append(names, name)
 	}
