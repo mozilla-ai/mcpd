@@ -1,7 +1,9 @@
 package volumes
 
 import (
+	"fmt"
 	"maps"
+	"strings"
 
 	"github.com/spf13/cobra"
 
@@ -35,6 +37,14 @@ func NewCmd(baseCmd *cmd.BaseCmd, opt ...cmdopts.CmdOption) (*cobra.Command, err
 	}
 
 	return cobraCmd, nil
+}
+
+// stripDashPrefix validates that arg starts with "--" and returns the content after the prefix.
+func stripDashPrefix(arg string) (string, error) {
+	if !strings.HasPrefix(arg, "--") {
+		return "", fmt.Errorf("'%s': must start with --", arg)
+	}
+	return strings.TrimPrefix(arg, "--"), nil
 }
 
 // withVolumes returns a new ServerExecutionContext with both volume fields

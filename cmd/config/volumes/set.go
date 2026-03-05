@@ -148,13 +148,10 @@ func parseVolumeArgs(args []string) (context.VolumeExecutionContext, error) {
 	volumes := make(context.VolumeExecutionContext, len(args))
 
 	for _, arg := range args {
-		// Expect format: --name=path.
-		if !strings.HasPrefix(arg, "--") {
-			return nil, fmt.Errorf("invalid volume format '%s': must start with --", arg)
+		trimmed, err := stripDashPrefix(arg)
+		if err != nil {
+			return nil, fmt.Errorf("invalid volume format %w", err)
 		}
-
-		// Remove the -- prefix for parsing.
-		trimmed := strings.TrimPrefix(arg, "--")
 
 		parts := strings.SplitN(trimmed, "=", 2)
 		if len(parts) != 2 {

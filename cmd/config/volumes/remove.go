@@ -144,11 +144,12 @@ func parseRemoveArgs(args []string) ([]string, error) {
 	names := make([]string, 0, len(args))
 
 	for _, arg := range args {
-		if !strings.HasPrefix(arg, "--") {
-			return nil, fmt.Errorf("invalid volume name '%s': must start with --", arg)
+		trimmed, err := stripDashPrefix(arg)
+		if err != nil {
+			return nil, fmt.Errorf("invalid volume name %w", err)
 		}
 
-		name := strings.TrimSpace(strings.TrimPrefix(arg, "--"))
+		name := strings.TrimSpace(trimmed)
 		if name == "" {
 			return nil, fmt.Errorf("volume name cannot be empty in '%s'", arg)
 		}
