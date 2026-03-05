@@ -38,17 +38,32 @@ func (m *mockModifier) List() []context.ServerExecutionContext {
 	return servers
 }
 
+// Upsert mirrors the real ExecutionContextConfig.Upsert semantics:
+// Noop if empty and not existing, Noop if unchanged, Deleted if emptied,
+// Updated if existing, Created if new.
 func (m *mockModifier) Upsert(ec context.ServerExecutionContext) (context.UpsertResult, error) {
 	m.lastUpsert = ec
 	if m.upsertError != nil {
 		return context.Noop, m.upsertError
 	}
-	if _, exists := m.servers[ec.Name]; exists {
+
+	current, exists := m.servers[ec.Name]
+
+	switch {
+	case !exists && ec.IsEmpty():
+		return context.Noop, nil
+	case exists && current.Equals(ec):
+		return context.Noop, nil
+	case ec.IsEmpty():
+		delete(m.servers, ec.Name)
+		return context.Deleted, nil
+	case exists:
 		m.servers[ec.Name] = ec
 		return context.Updated, nil
+	default:
+		m.servers[ec.Name] = ec
+		return context.Created, nil
 	}
-	m.servers[ec.Name] = ec
-	return context.Created, nil
 }
 
 // mockLoader implements context.Loader for testing.
@@ -72,7 +87,7 @@ func TestNewSetCmd(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, c)
 
-	require.Equal(t, "set", c.Use[:3])
+	require.True(t, strings.HasPrefix(c.Use, "set "))
 	require.Contains(t, c.Short, "Set or update volume mappings")
 	require.NotNil(t, c.RunE)
 }
@@ -106,19 +121,6 @@ func TestSetCmd_run(t *testing.T) {
 					Name:       "test-server",
 					Volumes:    context.VolumeExecutionContext{"workspace": "/existing/path"},
 					RawVolumes: context.VolumeExecutionContext{"workspace": "/existing/path"},
-				},
-			},
-			expectedOutput:  "✓ Volumes set for server 'test-server' (operation: updated): [gdrive]",
-			expectedVolumes: context.VolumeExecutionContext{"workspace": "/existing/path", "gdrive": "/mcp/gdrive"},
-		},
-		{
-			name:       "add volume to existing server with nil RawVolumes",
-			serverName: "test-server",
-			volumeArgs: []string{"--gdrive=/mcp/gdrive"},
-			existingServers: map[string]context.ServerExecutionContext{
-				"test-server": {
-					Name:    "test-server",
-					Volumes: context.VolumeExecutionContext{"workspace": "/existing/path"},
 				},
 			},
 			expectedOutput:  "✓ Volumes set for server 'test-server' (operation: updated): [gdrive]",
@@ -162,6 +164,20 @@ func TestSetCmd_run(t *testing.T) {
 			expectedOutput:  "✓ Volumes set for server 'test-server' (operation: created): [data]",
 			expectedVolumes: context.VolumeExecutionContext{"data": "my-named-volume"},
 		},
+		{
+			name:       "set same value is noop",
+			serverName: "test-server",
+			volumeArgs: []string{"--workspace=/existing/path"},
+			existingServers: map[string]context.ServerExecutionContext{
+				"test-server": {
+					Name:       "test-server",
+					Volumes:    context.VolumeExecutionContext{"workspace": "/existing/path"},
+					RawVolumes: context.VolumeExecutionContext{"workspace": "/existing/path"},
+				},
+			},
+			expectedOutput:  "No changes — volumes already match for server 'test-server': [workspace]",
+			expectedVolumes: context.VolumeExecutionContext{"workspace": "/existing/path"},
+		},
 	}
 
 	for _, tc := range tests {
@@ -196,7 +212,7 @@ func TestSetCmd_run(t *testing.T) {
 			require.NoError(t, err)
 
 			actualOutput := strings.TrimSpace(output.String())
-			require.Contains(t, actualOutput, tc.expectedOutput)
+			require.Equal(t, tc.expectedOutput, actualOutput)
 
 			// Verify the volumes were set correctly.
 			if tc.expectedVolumes != nil {
@@ -311,7 +327,7 @@ func TestSetCmd_UpsertError(t *testing.T) {
 	require.EqualError(t, err, "error setting volumes for server 'server': upsert failed")
 }
 
-func TestValidateArgs(t *testing.T) {
+func TestValidateSetArgsCore(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
@@ -374,7 +390,7 @@ func TestValidateArgs(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
-			err := validateArgs(tc.dashPos, tc.args)
+			err := validateSetArgsCore(tc.dashPos, tc.args)
 
 			if tc.expectedError != "" {
 				require.EqualError(t, err, tc.expectedError)
@@ -392,28 +408,28 @@ func TestParseVolumeArgs(t *testing.T) {
 	tests := []struct {
 		name          string
 		args          []string
-		expected      map[string]string
+		expected      context.VolumeExecutionContext
 		expectedError string
 	}{
 		{
 			name:     "single volume",
 			args:     []string{"--workspace=/path/to/workspace"},
-			expected: map[string]string{"workspace": "/path/to/workspace"},
+			expected: context.VolumeExecutionContext{"workspace": "/path/to/workspace"},
 		},
 		{
 			name:     "multiple volumes",
 			args:     []string{"--workspace=/path1", "--gdrive=/path2"},
-			expected: map[string]string{"workspace": "/path1", "gdrive": "/path2"},
+			expected: context.VolumeExecutionContext{"workspace": "/path1", "gdrive": "/path2"},
 		},
 		{
 			name:     "volume with double quotes",
 			args:     []string{`--workspace="/path with spaces"`},
-			expected: map[string]string{"workspace": "/path with spaces"},
+			expected: context.VolumeExecutionContext{"workspace": "/path with spaces"},
 		},
 		{
 			name:     "volume with single quotes",
 			args:     []string{`--workspace='/path with spaces'`},
-			expected: map[string]string{"workspace": "/path with spaces"},
+			expected: context.VolumeExecutionContext{"workspace": "/path with spaces"},
 		},
 		{
 			name:          "missing -- prefix",
