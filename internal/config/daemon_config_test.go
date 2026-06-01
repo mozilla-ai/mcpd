@@ -896,6 +896,19 @@ func TestMCPConfigSection_Set(t *testing.T) {
 			},
 		},
 		{
+			name:           "request timeout subsection routes correctly",
+			config:         &MCPConfigSection{},
+			path:           "timeout.request",
+			value:          "45s",
+			expectedResult: context.Created,
+			validateFn: func(t *testing.T, config *MCPConfigSection) {
+				t.Helper()
+				require.NotNil(t, config.Timeout)
+				require.NotNil(t, config.Timeout.Request)
+				require.Equal(t, Duration(45*time.Second), *config.Timeout.Request)
+			},
+		},
+		{
 			name:           "interval subsection routes correctly",
 			config:         &MCPConfigSection{},
 			path:           "interval.health",
@@ -1316,6 +1329,7 @@ func TestMCPTimeoutConfigSection_Validate(t *testing.T) {
 				Shutdown: testDurationPtr(t, 30*time.Second),
 				Init:     testDurationPtr(t, 60*time.Second),
 				Health:   testDurationPtr(t, 5*time.Second),
+				Request:  testDurationPtr(t, 15*time.Second),
 			},
 			expectError: false,
 		},
@@ -1344,6 +1358,14 @@ func TestMCPTimeoutConfigSection_Validate(t *testing.T) {
 			errorMsg:    "MCP health timeout must be positive",
 		},
 		{
+			name: "zero request timeout is invalid",
+			config: &MCPTimeoutConfigSection{
+				Request: testDurationPtr(t, 0),
+			},
+			expectError: true,
+			errorMsg:    "MCP request timeout must be positive",
+		},
+		{
 			name: "negative shutdown timeout is invalid",
 			config: &MCPTimeoutConfigSection{
 				Shutdown: testDurationPtr(t, -5*time.Second),
@@ -1357,9 +1379,10 @@ func TestMCPTimeoutConfigSection_Validate(t *testing.T) {
 				Shutdown: testDurationPtr(t, 0),
 				Init:     testDurationPtr(t, -10*time.Second),
 				Health:   testDurationPtr(t, 0),
+				Request:  testDurationPtr(t, -1*time.Second),
 			},
 			expectError: true,
-			errorMsg:    "MCP shutdown timeout must be positive\nMCP init timeout must be positive\nMCP health timeout must be positive",
+			errorMsg:    "MCP shutdown timeout must be positive\nMCP init timeout must be positive\nMCP health timeout must be positive\nMCP request timeout must be positive",
 		},
 	}
 
@@ -2248,6 +2271,7 @@ func TestMCPConfigSection_Get(t *testing.T) {
 			Shutdown: testDurationPtr(t, 25*time.Second),
 			Init:     testDurationPtr(t, 90*time.Second),
 			Health:   testDurationPtr(t, 8*time.Second),
+			Request:  testDurationPtr(t, 45*time.Second),
 		},
 		Interval: &MCPIntervalConfigSection{
 			Health: testDurationPtr(t, 15*time.Second),
@@ -2270,6 +2294,7 @@ func TestMCPConfigSection_Get(t *testing.T) {
 					"shutdown": Duration(25 * time.Second),
 					"init":     Duration(90 * time.Second),
 					"health":   Duration(8 * time.Second),
+					"request":  Duration(45 * time.Second),
 				},
 				"interval": map[string]any{
 					"health": Duration(15 * time.Second),
@@ -2284,6 +2309,7 @@ func TestMCPConfigSection_Get(t *testing.T) {
 				"shutdown": Duration(25 * time.Second),
 				"init":     Duration(90 * time.Second),
 				"health":   Duration(8 * time.Second),
+				"request":  Duration(45 * time.Second),
 			},
 		},
 		{
@@ -2303,6 +2329,12 @@ func TestMCPConfigSection_Get(t *testing.T) {
 			config:         fullConfig,
 			keys:           []string{"timeout", "health"},
 			expectedResult: Duration(8 * time.Second),
+		},
+		{
+			name:           "get timeout request",
+			config:         fullConfig,
+			keys:           []string{"timeout", "request"},
+			expectedResult: Duration(45 * time.Second),
 		},
 		{
 			name:   "get interval section",
@@ -2462,12 +2494,14 @@ func TestMCPTimeoutConfigSection_Get(t *testing.T) {
 				Shutdown: testDurationPtr(t, 30*time.Second),
 				Init:     testDurationPtr(t, 120*time.Second),
 				Health:   testDurationPtr(t, 10*time.Second),
+				Request:  testDurationPtr(t, 45*time.Second),
 			},
 			keys: []string{},
 			expectedResult: map[string]any{
 				"shutdown": Duration(30 * time.Second),
 				"init":     Duration(120 * time.Second),
 				"health":   Duration(10 * time.Second),
+				"request":  Duration(45 * time.Second),
 			},
 		},
 		{
@@ -2493,6 +2527,14 @@ func TestMCPTimeoutConfigSection_Get(t *testing.T) {
 			},
 			keys:           []string{"health"},
 			expectedResult: Duration(12 * time.Second),
+		},
+		{
+			name: "get request timeout",
+			config: &MCPTimeoutConfigSection{
+				Request: testDurationPtr(t, 90*time.Second),
+			},
+			keys:           []string{"request"},
+			expectedResult: Duration(90 * time.Second),
 		},
 		{
 			name:           "get from empty config returns empty map",
@@ -2825,6 +2867,7 @@ func TestMCPTimeoutConfigSection_AvailableKeys(t *testing.T) {
 		"shutdown",
 		"init",
 		"health",
+		"request",
 	}
 
 	// Extract key paths for comparison

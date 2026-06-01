@@ -126,6 +126,9 @@ type MCPTimeoutConfigSection struct {
 	// Health check timeout for MCP servers
 	// Maps to CLI flag --timeout-mcp-health
 	Health *Duration `json:"health,omitempty" toml:"health,omitempty" yaml:"health,omitempty"`
+
+	// Request timeout for MCP tool calls
+	Request *Duration `json:"request,omitempty" toml:"request,omitempty" yaml:"request,omitempty"`
 }
 
 // AvailableKeys implements SchemaProvider for APIConfigSection.
@@ -932,6 +935,7 @@ func (m *MCPTimeoutConfigSection) AvailableKeys() []SchemaKey {
 		{Path: "shutdown", Type: "duration", Description: "MCP server shutdown timeout"},
 		{Path: "init", Type: "duration", Description: "MCP server initialization timeout"},
 		{Path: "health", Type: "duration", Description: "Health check timeout for MCP servers"},
+		{Path: "request", Type: "duration", Description: "MCP tool call request timeout"},
 	}
 }
 
@@ -964,6 +968,11 @@ func (m *MCPTimeoutConfigSection) Get(keys ...string) (any, error) {
 			return nil, fmt.Errorf("mcp.timeout.health not set")
 		}
 		return *m.Health, nil
+	case "request":
+		if m.Request == nil {
+			return nil, fmt.Errorf("mcp.timeout.request not set")
+		}
+		return *m.Request, nil
 	default:
 		return nil, fmt.Errorf("unknown MCP timeout config key: %s", key)
 	}
@@ -1015,6 +1024,18 @@ func (m *MCPTimeoutConfigSection) Set(path string, value string) (context.Upsert
 			m.Health = &duration
 		}
 		return determineDurationPtrResult(oldValue, m.Health), nil
+	case "request":
+		oldValue := m.Request
+		if value == "" {
+			m.Request = nil
+		} else {
+			duration, err := parseDuration(value)
+			if err != nil {
+				return context.Noop, fmt.Errorf("invalid duration for request: %w", err)
+			}
+			m.Request = &duration
+		}
+		return determineDurationPtrResult(oldValue, m.Request), nil
 	default:
 		return context.Noop, fmt.Errorf("unknown MCP timeout config key: %s", key)
 	}
@@ -1044,6 +1065,12 @@ func (m *MCPTimeoutConfigSection) Validate() error {
 	if m.Health != nil {
 		if *m.Health <= 0 {
 			validationErrors = append(validationErrors, fmt.Errorf("MCP health timeout must be positive"))
+		}
+	}
+
+	if m.Request != nil {
+		if *m.Request <= 0 {
+			validationErrors = append(validationErrors, fmt.Errorf("MCP request timeout must be positive"))
 		}
 	}
 
@@ -1208,6 +1235,9 @@ func (m *MCPTimeoutConfigSection) getAll() (any, error) {
 	}
 	if m.Health != nil {
 		result["health"] = *m.Health
+	}
+	if m.Request != nil {
+		result["request"] = *m.Request
 	}
 
 	return result, nil

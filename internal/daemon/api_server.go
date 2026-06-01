@@ -41,6 +41,9 @@ type APIServer struct {
 	// ShutdownTimeout specifies how long to wait for graceful shutdown.
 	shutdownTimeout time.Duration
 
+	// toolCallTimeout specifies how long to wait for MCP tool calls.
+	toolCallTimeout time.Duration
+
 	// middlewareProvider lazily provides HTTP middleware during server startup.
 	middlewareProvider func(context.Context) (func(http.Handler) http.Handler, error)
 }
@@ -65,6 +68,7 @@ func NewAPIServer(deps APIDependencies, opt ...APIOption) (*APIServer, error) {
 		addr:               deps.Addr,
 		cors:               apiOpts.CORS,
 		shutdownTimeout:    apiOpts.ShutdownTimeout,
+		toolCallTimeout:    apiOpts.ToolCallTimeout,
 		middlewareProvider: apiOpts.MiddlewareProvider,
 	}, nil
 }
@@ -102,7 +106,12 @@ func (a *APIServer) Start(ctx context.Context) error {
 	huma.NewErrorWithContext = errorHandler(a.logger)
 
 	// Register all API routes.
-	apiPathPrefix, err := api.RegisterRoutes(router, a.healthTracker, a.clientManager)
+	apiPathPrefix, err := api.RegisterRoutes(
+		router,
+		a.healthTracker,
+		a.clientManager,
+		api.WithToolCallTimeout(a.toolCallTimeout),
+	)
 	if err != nil {
 		return fmt.Errorf("failed to register API routes: %w", err)
 	}
