@@ -144,6 +144,9 @@ type timeoutFlagConfig struct {
 	// healthCheck specifies how long to wait for health check responses from MCP servers.
 	healthCheck string
 
+	// mcpRequest specifies how long to wait for MCP tool call requests.
+	mcpRequest string
+
 	// clientShutdown specifies how long to wait for MCP clients to close (maps to ClientShutdownTimeout in daemon options).
 	clientShutdown string
 }
@@ -680,6 +683,13 @@ func (c *DaemonCmd) loadConfigMCPTimeout(
 		}
 	}
 
+	// Handle MCP request timeout.
+	if timeout.Request != nil {
+		parsed := timeout.Request.String()
+		logger.Debug("Using config file value", "setting", "mcp.timeout.request", "value", parsed)
+		c.config.timeout.mcpRequest = parsed
+	}
+
 	return warnings
 }
 
@@ -937,6 +947,12 @@ func (c *DaemonCmd) validateFlags(cmd *cobra.Command) error {
 		}
 	}
 
+	if c.config.timeout.mcpRequest != "" {
+		if _, err := time.ParseDuration(c.config.timeout.mcpRequest); err != nil {
+			return fmt.Errorf("invalid mcp.timeout.request duration: %w", err)
+		}
+	}
+
 	if c.config.interval.healthCheck != "" {
 		if _, err := time.ParseDuration(c.config.interval.healthCheck); err != nil {
 			return fmt.Errorf("invalid --%s duration: %w", flagIntervalMCPHealth, err)
@@ -992,6 +1008,15 @@ func (c *DaemonCmd) buildAPIOptions() ([]daemon.APIOption, error) {
 			return nil, fmt.Errorf("invalid %s: %w", flagTimeoutAPIShutdown, err)
 		}
 		apiOpts = append(apiOpts, daemon.WithShutdownTimeout(timeout))
+	}
+
+	// Add MCP tool call request timeout if specified.
+	if c.config.timeout.mcpRequest != "" {
+		timeout, err := time.ParseDuration(c.config.timeout.mcpRequest)
+		if err != nil {
+			return nil, fmt.Errorf("invalid mcp.timeout.request: %w", err)
+		}
+		apiOpts = append(apiOpts, daemon.WithToolCallTimeout(timeout))
 	}
 
 	return apiOpts, nil
@@ -1093,6 +1118,10 @@ func (c *DaemonCmd) formatConfigInfo(addr string) string {
 
 	if v := c.config.timeout.healthCheck; v != "" && v != daemon.DefaultHealthCheckTimeout().String() {
 		fmt.Fprintf(&info, "  MCP health check timeout:\t%s\n", v)
+	}
+
+	if v := c.config.timeout.mcpRequest; v != "" && v != daemon.DefaultToolCallTimeout().String() {
+		fmt.Fprintf(&info, "  MCP request timeout:\t%s\n", v)
 	}
 
 	if v := c.config.interval.healthCheck; v != "" && v != daemon.DefaultHealthCheckInterval().String() {
