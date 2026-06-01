@@ -466,6 +466,19 @@ func TestDaemon_DaemonCmd_BuildAPIOptions(t *testing.T) {
 			},
 		},
 		{
+			name: "MCP request timeout",
+			config: daemonFlagConfig{
+				timeout: timeoutFlagConfig{
+					mcpRequest: "45s",
+				},
+			},
+			validateResult: func(t *testing.T, opts []daemon.APIOption) {
+				apiOpts, err := daemon.NewAPIOptions(opts...)
+				require.NoError(t, err)
+				assert.Equal(t, 45*time.Second, apiOpts.ToolCallTimeout)
+			},
+		},
+		{
 			name: "invalid CORS max age",
 			config: daemonFlagConfig{
 				cors: corsFlagConfig{
@@ -661,12 +674,14 @@ func TestDaemon_DaemonCmd_FormatConfigInfo(t *testing.T) {
 					apiShutdown: "10s",
 					mcpInit:     "20s",
 					healthCheck: "2s",
+					mcpRequest:  "45s",
 				},
 			},
 			expectedInInfo: []string{
 				"API shutdown timeout", "10s",
 				"MCP init timeout", "20s",
 				"MCP health check timeout", "2s",
+				"MCP request timeout", "45s",
 				"API address", "localhost:8090", // Runtime address shown
 			},
 		},
@@ -1305,8 +1320,9 @@ func TestDaemon_ApplyConfigTimeout(t *testing.T) {
 			},
 			mcpConfig: &config.MCPConfigSection{
 				Timeout: &config.MCPTimeoutConfigSection{
-					Init:   testDurationPtr(t, 60*time.Second),
-					Health: testDurationPtr(t, 10*time.Second),
+					Init:    testDurationPtr(t, 60*time.Second),
+					Health:  testDurationPtr(t, 10*time.Second),
+					Request: testDurationPtr(t, 45*time.Second),
 				},
 			},
 			apiShutdownFlagChanged: true,  // will warn
@@ -1326,6 +1342,7 @@ func TestDaemon_ApplyConfigTimeout(t *testing.T) {
 				apiShutdown:    "30s", // flag wins
 				mcpInit:        "1m",  // config used (no flag set)
 				healthCheck:    "5s",  // flag wins
+				mcpRequest:     "45s", // config used
 				clientShutdown: "15s", // unchanged
 			},
 		},
@@ -1650,6 +1667,7 @@ func TestDaemon_LoadConfigurationLayers_Integration(t *testing.T) {
 						Shutdown: testDurationPtr(t, 20*time.Second),
 						Init:     testDurationPtr(t, 30*time.Second),
 						Health:   testDurationPtr(t, 5*time.Second),
+						Request:  testDurationPtr(t, 45*time.Second),
 					},
 					Interval: &config.MCPIntervalConfigSection{
 						Health: testDurationPtr(t, 15*time.Second),
@@ -1713,7 +1731,12 @@ func TestDaemon_LoadConfigurationLayers_Integration(t *testing.T) {
 			"5s",
 			daemonCmd.config.timeout.healthCheck,
 		) // From config (stored as string)
-		// Note: mcpShutdown is not loaded from config - only Init and Health are handled
+		assert.Equal(
+			t,
+			"45s",
+			daemonCmd.config.timeout.mcpRequest,
+		) // From config (stored as string)
+		// Note: mcpShutdown is not loaded from config - only Init, Health, and Request are handled.
 		assert.Equal(
 			t,
 			"60s",

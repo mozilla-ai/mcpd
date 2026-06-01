@@ -18,6 +18,9 @@ type APIOptions struct {
 	// ShutdownTimeout specifies how long to wait for graceful shutdown.
 	ShutdownTimeout time.Duration
 
+	// ToolCallTimeout specifies how long to wait for MCP tool calls.
+	ToolCallTimeout time.Duration
+
 	// MiddlewareProvider lazily provides HTTP middleware when called during API server startup.
 	// This allows plugin initialization to be deferred until the server actually starts.
 	MiddlewareProvider func(context.Context) (func(http.Handler) http.Handler, error)
@@ -69,6 +72,7 @@ func NewAPIOptions(opts ...APIOption) (APIOptions, error) {
 			MaxAge:           DefaultCORSMaxAge(),
 		},
 		ShutdownTimeout:    DefaultAPIShutdownTimeout(),
+		ToolCallTimeout:    DefaultToolCallTimeout(),
 		MiddlewareProvider: DefaultMiddlewareProvider(),
 	}
 
@@ -155,6 +159,17 @@ func WithShutdownTimeout(timeout time.Duration) APIOption {
 	}
 }
 
+// WithToolCallTimeout configures how long to wait for MCP tool calls.
+func WithToolCallTimeout(timeout time.Duration) APIOption {
+	return func(o *APIOptions) error {
+		if timeout <= 0 {
+			return fmt.Errorf("tool call timeout must be positive, got %v", timeout)
+		}
+		o.ToolCallTimeout = timeout
+		return nil
+	}
+}
+
 // WithMiddlewareProvider configures a provider function that returns HTTP middleware.
 // The provider is called during API server startup to lazily initialize middleware.
 func WithMiddlewareProvider(provider func(context.Context) (func(http.Handler) http.Handler, error)) APIOption {
@@ -201,6 +216,11 @@ func DefaultCORSMaxAge() time.Duration {
 // DefaultAPIShutdownTimeout is the default time allowed for API server graceful shutdown.
 func DefaultAPIShutdownTimeout() time.Duration {
 	return 5 * time.Second
+}
+
+// DefaultToolCallTimeout is the default timeout for MCP tool calls.
+func DefaultToolCallTimeout() time.Duration {
+	return 15 * time.Second
 }
 
 // DefaultMiddlewareProvider returns a provider that supplies no-op middleware.
