@@ -32,10 +32,19 @@ Under the hood, mcpd spawns MCP servers as STDIO subprocesses and proxies reques
 
 ### Prerequisites
 
-You need the following installed before running `mcpd`:
-- [**Docker**](https://www.docker.com/products/docker-desktop/)
-- [**npx**](https://docs.npmjs.com/downloading-and-installing-node-js-and-npm) (Node.js package runner)
-- [**uvx**](https://docs.astral.sh/uv/getting-started/installation/) (Universal virtual environment manager)
+Install the `mcpd` binary first, then install the runtime(s) used by the MCP servers you want to run:
+
+- [**uv**](https://docs.astral.sh/uv/getting-started/installation/) for servers whose package starts with `uvx::`
+- [**Node.js / npx**](https://docs.npmjs.com/downloading-and-installing-node-js-and-npm) for servers whose package starts with `npx::`, and for `mcpd inspector`
+- [**Docker**](https://www.docker.com/products/docker-desktop/) for servers whose package starts with `docker::`, or if you plan to run `mcpd` in Docker
+
+The quick start below uses the `time` server via `uvx`, so `uv` is required for that example.
+
+Optional helpers used in some docs examples:
+- `curl` to call the HTTP API
+- `jq` to pretty-print JSON responses
+
+If you are building `mcpd` from source or contributing, you will also need [**Go**](https://go.dev/doc/install) (`v1.26.0+` recommended).
 
 
 ### Installation
@@ -175,4 +184,3 @@ Please see our [Contributing to mcpd](CONTRIBUTING.md) guide for more informatio
 ## 📄 License
 
 [Licensed](LICENSE) under the [Apache License 2.0](https://www.apache.org/licenses/LICENSE-2.0).
-

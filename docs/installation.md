@@ -1,5 +1,11 @@
 # Installing `mcpd`
 
+!!! note "Runtime prerequisites"
+    Installing the `mcpd` binary is separate from installing MCP server runtimes.
+    After installation, install only the runtime(s) your servers use:
+    `uv` for `uvx::...`, `npx` for `npx::...`, and Docker for `docker::...`.
+    See [Requirements](requirements.md) for details.
+
 ## via Homebrew
 
 Add the Mozilla.ai tap:
