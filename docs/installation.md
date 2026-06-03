@@ -122,6 +122,8 @@ docker run  -p 8090:8090 \
 !!! warning "Security Note"
     Mounting the Docker socket grants the container full access to the host's Docker daemon. Only use this with trusted images.
 
+If Docker-based MCP servers do not work when `mcpd` itself is running in Docker, see [Troubleshooting](troubleshooting.md).
+
 ### CI/CD Deployment (GitHub Actions)
 
 For automated deployments, a reference GitHub Actions workflow is available in the repository that demonstrates:

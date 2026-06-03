@@ -196,3 +196,5 @@ Common validation errors:
 - Invalid address formats (must be `host:port`)
 - Invalid duration formats  
 - Invalid CORS origin URLs
+
+For step-by-step diagnosis of browser requests, CORS issues, or unexpected API addresses, see [Troubleshooting](troubleshooting.md).

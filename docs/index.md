@@ -107,6 +107,7 @@ Use the sidebar to explore:
 - ⚙️ [Configuration](configuration.md)
 - 🧭 [CLI Reference](commands/mcpd.md)
 - 🧵 [Execution context and secrets](execution-context.md)
+- 🩺 [Troubleshooting](troubleshooting.md)
 - 🛠️ [Makefile and tooling](makefile.md)
 - 📚 [Tutorial](tutorial.md)
 

@@ -209,6 +209,9 @@ This ensures the daemon never runs in an inconsistent or partially-failed state,
 !!! warning "Reload Failures"
     Unlike some systems that allow partial reloads, `mcpd` exits on any reload error to prevent inconsistent state. You'll need to fix the configuration and restart the daemon.
 
+!!! tip "Diagnosing reload issues"
+    If a change did not take effect, or the daemon exited during reload, see [Troubleshooting](troubleshooting.md).
+
 ---
 
 ## Configuration Export

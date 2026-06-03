@@ -97,31 +97,17 @@ mcpd search api --cache-dir ./project-cache --refresh-cache
 mcpd add server --no-cache --cache-dir /unused/path
 ```
 
-## Troubleshooting
+## Common Issues
 
-### Cache Issues
-
-If you experience issues with cached data:
-
-1. **Force Refresh**: Use `--refresh-cache` to download fresh manifests
-2. **Clear Cache**: Delete cache directory contents manually
-3. **Disable Temporarily**: Use `--no-cache` to bypass cache entirely
-
-### Disk Space
-
-Cache files are relatively small JSON manifests (typically a few MB each), but you can:
-
-- Set shorter TTL to reduce cache lifetime: `--cache-ttl 1h`
-- Use `--no-cache` for one-off operations
-- Periodically clean the cache directory
-
-### Permissions
+If registry results look stale, retry with `--refresh-cache` or bypass cache once with `--no-cache`.
 
 If cache directory creation fails, ensure:
 
 - Parent directory is writable
-- Sufficient disk space is available  
-- No conflicting files exist at the cache path
+- Sufficient disk space is available
+- No conflicting file already exists at the cache path
+
+For step-by-step diagnosis of registry lookup or cache problems, see [Troubleshooting](troubleshooting.md).
 
 !!! tip "Performance"
     Caching significantly improves performance for repeated operations. The default 24-hour TTL 
