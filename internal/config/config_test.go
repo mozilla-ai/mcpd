@@ -15,6 +15,7 @@ func TestInit_CreatesNewConfigFile(t *testing.T) {
 	tempFile, err := os.CreateTemp(t.TempDir(), ".mcpd.toml")
 	require.NoError(t, err)
 	tempFilePath := tempFile.Name()
+	require.NoError(t, tempFile.Close())
 	require.NoError(t, os.Remove(tempFilePath)) // Ensure file doesn't exist
 
 	loader := &DefaultLoader{}
@@ -75,6 +76,7 @@ package = "x::test@latest"
 func TestAddServer_AppendsServerAndPersists(t *testing.T) {
 	tempFile, err := os.CreateTemp(t.TempDir(), ".mcpd.toml")
 	require.NoError(t, err)
+	require.NoError(t, tempFile.Close())
 
 	cfg := &Config{
 		configFilePath: tempFile.Name(),
@@ -100,6 +102,7 @@ func TestAddServer_AppendsServerAndPersists(t *testing.T) {
 func TestRemoveServer_RemovesCorrectEntry(t *testing.T) {
 	tempFile, err := os.CreateTemp(t.TempDir(), ".mcpd.toml")
 	require.NoError(t, err)
+	require.NoError(t, tempFile.Close())
 
 	cfg := &Config{
 		configFilePath: tempFile.Name(),
