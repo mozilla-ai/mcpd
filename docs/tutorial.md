@@ -2,6 +2,12 @@
 
 This tutorial walks you through using `mcpd` from setup to making requests to a running MCP server.
 
+!!! note "What you need for this tutorial"
+    This tutorial adds the `time` server, which uses the `uvx` runtime.
+    Install `uv` before starting.
+    The API examples use `curl`.
+    If you have `jq` installed, you can optionally append `| jq` to pretty-print the JSON responses.
+
 ---
 
 ## 1. Install `mcpd` via Homebrew
@@ -43,6 +49,7 @@ mcpd add time --tool get_current_time
     ```bash
     mcpd inspector
     ```
+    This optional tool requires `npx`.
     For more information, please refer to the [official documentation](https://modelcontextprotocol.io/docs/tools/inspector)
     of the tool.
 
@@ -73,7 +80,7 @@ mcpd daemon
 
 List all running servers:
 ```bash
-curl -s http://localhost:8090/api/v1/servers | jq
+curl -s http://localhost:8090/api/v1/servers
 ```
 
 ---
@@ -84,7 +91,7 @@ Make a request to a tool on a specific MCP server:
 ```bash
 curl -s -X POST -H "Content-Type: application/json" \
      -d '{"timezone": "America/New_York"}' \
-     http://localhost:8090/api/v1/servers/time/tools/get_current_time | jq
+     http://localhost:8090/api/v1/servers/time/tools/get_current_time
 ```
 
 ## 8. Use `mcpd` in your Agentic Python application

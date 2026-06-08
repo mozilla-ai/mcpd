@@ -19,7 +19,7 @@ Traditional agent frameworks often embed complex subprocess logic, brittle start
 `mcpd` replaces this with:
 
 **Zero-Config Tool Setup**  
-  No cloning repos or installing language-specific dependencies. `mcpd add` and `mcpd daemon` handle everything.
+  No cloning repos or manual per-server setup. Install the runtime your chosen server uses, then `mcpd add` and `mcpd daemon` handle the rest.
 
 **Language-Agnostic Tooling**  
   Use MCP servers written in Python (`uvx`), JavaScript/TypeScript (`npx`) in your code via a HTTP REST API that supports routing to MCP Servers.
@@ -60,7 +60,7 @@ Never commit dev specific vars to Git again.
 
 `mcpd` is runtime-flexible and infrastructure-agnostic:
 
-- ⚙️ Works in any container or host with `uv` and `npx`
+- ⚙️ Works in any container or host where the runtimes required by your configured servers are available (`uv`, `npx`, and/or Docker)
 - ☁️ Multi-cloud ready (AWS, GCP, Azure, on-prem)
 - ♻️ Low resource overhead via in-process server management
 
@@ -91,6 +91,12 @@ brew install --cask mozilla-ai/tap/mcpd
 !!! tip "Installation methods"
     Please see our [Installation](installation.md) page for additional ways to install and run `mcpd`.
 
+!!! info "Runtime prerequisites"
+    Installing the `mcpd` binary is separate from installing MCP server runtimes.
+    Install only the runtime(s) your configured servers use:
+    `uv` for `uvx::...`, `npx` for `npx::...`, and Docker for `docker::...`.
+    The tutorial and most examples on this site use `uvx`, so `uv` is the most common first requirement.
+
 ---
 
 ## 📚 Explore the Docs
@@ -101,6 +107,7 @@ Use the sidebar to explore:
 - ⚙️ [Configuration](configuration.md)
 - 🧭 [CLI Reference](commands/mcpd.md)
 - 🧵 [Execution context and secrets](execution-context.md)
+- 🩺 [Troubleshooting](troubleshooting.md)
 - 🛠️ [Makefile and tooling](makefile.md)
 - 📚 [Tutorial](tutorial.md)
 

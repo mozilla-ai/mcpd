@@ -297,3 +297,5 @@ Plugin configurations are validated when the daemon starts or during hot reload.
 * Missing or empty `flows` array
 * Invalid flow values (must be `request` or `response`)
 * Duplicate flow values
+
+For runtime plugin failures or binary checks, see [Troubleshooting](troubleshooting.md).

@@ -45,6 +45,7 @@ nav:
   - Requirements: requirements.md
   - Installation: installation.md
   - Tutorial: tutorial.md
+  - Troubleshooting: troubleshooting.md
   - Configuration:
       - Overview: configuration.md
       - Daemon Configuration: daemon-configuration.md
