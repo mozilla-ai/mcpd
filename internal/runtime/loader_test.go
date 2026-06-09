@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"os"
 	"path/filepath"
 	"testing"
@@ -50,8 +51,12 @@ func TestLoadFromURL_File(t *testing.T) {
 	require.NoError(t, err)
 
 	// Test with file:// URL.
-	fileURL := "file://" + tempFile
-	result, err := LoadFromURL[testStruct](fileURL, "test-registry")
+	fileURL := url.URL{
+		Scheme: "file",
+		Path:   filepath.ToSlash(tempFile),
+	}
+	result, err := LoadFromURL[testStruct](fileURL.String(), "test-registry")
+
 	require.NoError(t, err)
 	require.Equal(t, testData, result)
 }
@@ -88,8 +93,12 @@ func TestLoadFromURL_InvalidJSON(t *testing.T) {
 	err := os.WriteFile(tempFile, []byte(content), 0o644)
 	require.NoError(t, err)
 
-	fileURL := "file://" + tempFile
-	_, err = LoadFromURL[testStruct](fileURL, "test-registry")
+	fileURL := url.URL{
+		Scheme: "file",
+		Path:   filepath.ToSlash(tempFile),
+	}
+	_, err = LoadFromURL[testStruct](fileURL.String(), "test-registry")
+
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "failed to unmarshal")
 }

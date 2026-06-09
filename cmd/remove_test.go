@@ -97,6 +97,7 @@ package = "modelcontextprotocol/second-server@latest"
 			tmpDir := t.TempDir()
 			tempFile, err := os.CreateTemp(tmpDir, ".mcpd.toml")
 			require.NoError(t, err)
+			require.NoError(t, tempFile.Close())
 
 			if tc.setupFunc != nil {
 				tc.setupFunc(t, tempFile.Name())
