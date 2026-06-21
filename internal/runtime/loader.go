@@ -7,6 +7,8 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+
+	"github.com/mozilla-ai/mcpd/internal/files"
 )
 
 // LoadFromURL retrieves and decodes JSON from the given URL into the target registry object.
@@ -25,7 +27,7 @@ func LoadFromURL[T any](registryURL string, registryName string) (T, error) {
 	switch parsedURL.Scheme {
 	case "file":
 		// Handle file:// URLs
-		path := parsedURL.Path
+		path := files.FileURLToPath(parsedURL)
 
 		body, err = os.ReadFile(path)
 		if err != nil {
