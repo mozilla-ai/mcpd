@@ -6,8 +6,10 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log/slog"
 	"net"
 	"net/http"
+	"slices"
 	"strconv"
 	"strings"
 	"sync"
@@ -17,7 +19,6 @@ import (
 	"github.com/mark3labs/mcp-go/client"
 	"github.com/mark3labs/mcp-go/client/transport"
 	"github.com/mark3labs/mcp-go/mcp"
-	"github.com/mark3labs/mcp-go/util"
 	"golang.org/x/sync/errgroup"
 
 	"github.com/mozilla-ai/mcpd/internal/cmd"
@@ -27,8 +28,6 @@ import (
 	"github.com/mozilla-ai/mcpd/internal/plugin"
 	"github.com/mozilla-ai/mcpd/internal/runtime"
 )
-
-var _ util.Logger = (*mcpLoggerAdapter)(nil)
 
 // Daemon manages MCP server lifecycles, client connections, and health monitoring.
 // It should only be created using NewDaemon to ensure proper initialization.
@@ -54,9 +53,79 @@ type Daemon struct {
 	clientHealthCheckInterval time.Duration
 }
 
-// mcpLoggerAdapter adapts hclog.Logger to mcp-go's util.Logger interface.
-type mcpLoggerAdapter struct {
+// hclogSlogHandler routes slog records to an hclog.Logger, so components that
+// accept a *slog.Logger emit through the daemon's hclog logger with consistent
+// levels and naming.
+type hclogSlogHandler struct {
 	logger hclog.Logger
+	// attrs holds group-qualified key/value pairs accumulated via WithAttrs.
+	attrs []any
+	// groups holds the open group names used to qualify subsequent attribute keys.
+	groups []string
+}
+
+// newHclogSlogHandler returns a slog.Handler backed by the given hclog.Logger.
+func newHclogSlogHandler(logger hclog.Logger) *hclogSlogHandler {
+	return &hclogSlogHandler{logger: logger}
+}
+
+// Enabled reports whether a record at the given level would be logged.
+func (h *hclogSlogHandler) Enabled(_ context.Context, level slog.Level) bool {
+	return slogToHclogLevel(level) >= h.logger.GetLevel()
+}
+
+// Handle forwards the record to the underlying hclog.Logger.
+func (h *hclogSlogHandler) Handle(_ context.Context, r slog.Record) error {
+	args := make([]any, 0, len(h.attrs)+r.NumAttrs()*2)
+	args = append(args, h.attrs...)
+	r.Attrs(func(a slog.Attr) bool {
+		args = append(args, h.qualify(a.Key), a.Value.Any())
+		return true
+	})
+	h.logger.Log(slogToHclogLevel(r.Level), r.Message, args...)
+	return nil
+}
+
+// WithAttrs returns a handler that prepends the given attributes to every record.
+func (h *hclogSlogHandler) WithAttrs(attrs []slog.Attr) slog.Handler {
+	if len(attrs) == 0 {
+		return h
+	}
+	merged := slices.Clone(h.attrs)
+	for _, a := range attrs {
+		merged = append(merged, h.qualify(a.Key), a.Value.Any())
+	}
+	return &hclogSlogHandler{logger: h.logger, attrs: merged, groups: h.groups}
+}
+
+// WithGroup returns a handler that qualifies subsequent attribute keys with name.
+func (h *hclogSlogHandler) WithGroup(name string) slog.Handler {
+	if name == "" {
+		return h
+	}
+	return &hclogSlogHandler{logger: h.logger, attrs: h.attrs, groups: append(slices.Clone(h.groups), name)}
+}
+
+// qualify prefixes an attribute key with the open groups, dot-separated, per slog convention.
+func (h *hclogSlogHandler) qualify(key string) string {
+	if len(h.groups) == 0 {
+		return key
+	}
+	return strings.Join(h.groups, ".") + "." + key
+}
+
+// slogToHclogLevel maps an slog level onto the nearest hclog level.
+func slogToHclogLevel(level slog.Level) hclog.Level {
+	switch {
+	case level >= slog.LevelError:
+		return hclog.Error
+	case level >= slog.LevelWarn:
+		return hclog.Warn
+	case level >= slog.LevelInfo:
+		return hclog.Info
+	default:
+		return hclog.Debug
+	}
 }
 
 // NewDaemon creates a new Daemon instance with proper initialization.
@@ -136,12 +205,6 @@ func NewDaemon(deps Dependencies, opt ...Option) (*Daemon, error) {
 		clientHealthCheckTimeout:  opts.ClientHealthCheckTimeout,
 		clientHealthCheckInterval: opts.ClientHealthCheckInterval,
 	}, nil
-}
-
-func newMCPLoggerAdapter(logger hclog.Logger) *mcpLoggerAdapter {
-	return &mcpLoggerAdapter{
-		logger: logger,
-	}
 }
 
 // StartAndManage is a long-running method that starts configured MCP servers, and the API.
@@ -259,7 +322,7 @@ func (d *Daemon) startMCPServer(ctx context.Context, server runtime.Server) erro
 
 	logger.Debug("attempting to start server", "binary", runtimeBinary)
 
-	mcpLogger := newMCPLoggerAdapter(logger.Named("transport"))
+	mcpLogger := slog.New(newHclogSlogHandler(logger.Named("transport")))
 	stdioClient, err := client.NewStdioMCPClientWithOptions(
 		runtimeBinary,
 		environ,
@@ -460,16 +523,6 @@ func (d *Daemon) pingAllServers(ctx context.Context, maxTimeout time.Duration) e
 		d.logger.Warn("Ping operation interrupted due to context cancellation, some pings may not have completed")
 		return ctx.Err()
 	}
-}
-
-// Infof implements mcp-go's Logger interface.
-func (a *mcpLoggerAdapter) Infof(format string, v ...any) {
-	a.logger.Info(fmt.Sprintf(format, v...))
-}
-
-// Errorf implements mcp-go's Logger interface.
-func (a *mcpLoggerAdapter) Errorf(format string, v ...any) {
-	a.logger.Error(fmt.Sprintf(format, v...))
 }
 
 // IsValidAddr returns an error if the address is not a valid "host:port" string.
