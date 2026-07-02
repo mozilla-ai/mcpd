@@ -18,6 +18,7 @@ func TestAppDirName(t *testing.T) {
 }
 
 func TestUserSpecificConfigDir(t *testing.T) {
+	tempCustomXDGPath := filepath.Join(os.TempDir(), "custom", "xdg", "path")
 	tests := []struct {
 		name        string
 		xdgValue    string
@@ -25,16 +26,16 @@ func TestUserSpecificConfigDir(t *testing.T) {
 	}{
 		{
 			name:     "XDG_CONFIG_HOME is set and used",
-			xdgValue: "/custom/xdg/path",
+			xdgValue: tempCustomXDGPath,
 			expectedDir: func(t *testing.T) string {
-				return filepath.Join("/custom/xdg/path", AppDirName())
+				return filepath.Join(tempCustomXDGPath, AppDirName())
 			},
 		},
 		{
 			name:     "XDG_CONFIG_HOME is set with whitespace and trimmed",
-			xdgValue: "  /trimmed/xdg/path  ",
+			xdgValue: "  " + tempCustomXDGPath + "  ",
 			expectedDir: func(t *testing.T) string {
-				return filepath.Join("/trimmed/xdg/path", AppDirName())
+				return filepath.Join(tempCustomXDGPath, AppDirName())
 			},
 		},
 		{
@@ -69,6 +70,7 @@ func TestUserSpecificConfigDir(t *testing.T) {
 }
 
 func TestUserSpecificCacheDir(t *testing.T) {
+	tempCustomCachePath := filepath.Join(os.TempDir(), "custom", "cache", "path")
 	tests := []struct {
 		name        string
 		xdgValue    string
@@ -76,16 +78,16 @@ func TestUserSpecificCacheDir(t *testing.T) {
 	}{
 		{
 			name:     "XDG_CACHE_HOME is set and used",
-			xdgValue: "/custom/cache/path",
+			xdgValue: tempCustomCachePath,
 			expectedDir: func(t *testing.T) string {
-				return filepath.Join("/custom/cache/path", AppDirName())
+				return filepath.Join(tempCustomCachePath, AppDirName())
 			},
 		},
 		{
 			name:     "XDG_CACHE_HOME is set with whitespace and trimmed",
-			xdgValue: "  /trimmed/cache/path  ",
+			xdgValue: "  " + tempCustomCachePath + "  ",
 			expectedDir: func(t *testing.T) string {
-				return filepath.Join("/trimmed/cache/path", AppDirName())
+				return filepath.Join(tempCustomCachePath, AppDirName())
 			},
 		},
 		{
