@@ -79,7 +79,7 @@ func (h *hclogSlogHandler) Handle(_ context.Context, r slog.Record) error {
 	args := make([]any, 0, len(h.attrs)+r.NumAttrs()*2)
 	args = append(args, h.attrs...)
 	r.Attrs(func(a slog.Attr) bool {
-		args = append(args, h.qualify(a.Key), a.Value.Any())
+		args = append(args, h.qualify(a.Key), a.Value.Resolve().Any())
 		return true
 	})
 	h.logger.Log(slogToHclogLevel(r.Level), r.Message, args...)
@@ -93,7 +93,7 @@ func (h *hclogSlogHandler) WithAttrs(attrs []slog.Attr) slog.Handler {
 	}
 	merged := slices.Clone(h.attrs)
 	for _, a := range attrs {
-		merged = append(merged, h.qualify(a.Key), a.Value.Any())
+		merged = append(merged, h.qualify(a.Key), a.Value.Resolve().Any())
 	}
 	return &hclogSlogHandler{logger: h.logger, attrs: merged, groups: h.groups}
 }

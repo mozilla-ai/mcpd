@@ -653,6 +653,46 @@ func TestHclogSlogHandler(t *testing.T) {
 		require.Len(t, sink.messages, 1)
 		assert.Equal(t, []any{"transport.server", "everything"}, sink.messages[0].args)
 	})
+
+	t.Run("resolves LogValuer attrs before forwarding", func(t *testing.T) {
+		t.Parallel()
+
+		// A LogValuer attribute passed directly on the record (Handle path) and
+		// one accumulated via With (WithAttrs path) must both be resolved, so a
+		// redacting LogValuer masks its value instead of leaking the raw one.
+		testCases := []struct {
+			name string
+			log  func(*slog.Logger)
+		}{
+			{
+				name: "record attr",
+				log:  func(l *slog.Logger) { l.Info("auth", "token", redactedSecret("s3cr3t")) },
+			},
+			{
+				name: "with attr",
+				log:  func(l *slog.Logger) { l.With("token", redactedSecret("s3cr3t")).Info("auth") },
+			},
+		}
+
+		for _, tc := range testCases {
+			t.Run(tc.name, func(t *testing.T) {
+				t.Parallel()
+
+				sink, logger := newInterceptLogger(hclog.Trace)
+				tc.log(slog.New(newHclogSlogHandler(logger)))
+
+				require.Len(t, sink.messages, 1)
+				assert.Equal(t, []any{"token", "REDACTED"}, sink.messages[0].args)
+			})
+		}
+	})
+}
+
+// redactedSecret is a test slog.LogValuer that masks its value when logged.
+type redactedSecret string
+
+func (redactedSecret) LogValue() slog.Value {
+	return slog.StringValue("REDACTED")
 }
 
 // Test that client closing happens with proper timeout handling
