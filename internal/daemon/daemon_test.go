@@ -3,6 +3,7 @@ package daemon
 import (
 	"context"
 	"errors"
+	"log/slog"
 	"strings"
 	"sync"
 	"testing"
@@ -584,6 +585,114 @@ func TestParseAndLogMCPMessage(t *testing.T) {
 			assert.Equal(t, tc.expectedMsg, logEntry.message, "Logged with incorrect message")
 		})
 	}
+}
+
+func TestHclogSlogHandler(t *testing.T) {
+	t.Parallel()
+
+	newInterceptLogger := func(level hclog.Level) (*testLoggerSink, hclog.Logger) {
+		sink := &testLoggerSink{}
+		logger := hclog.NewInterceptLogger(&hclog.LoggerOptions{
+			Name:  "test-logger",
+			Level: level,
+		})
+		logger.RegisterSink(sink)
+		return sink, logger
+	}
+
+	t.Run("maps slog levels onto hclog and forwards message and attrs", func(t *testing.T) {
+		t.Parallel()
+
+		testCases := []struct {
+			name          string
+			logAt         slog.Level
+			expectedLevel hclog.Level
+		}{
+			{"debug", slog.LevelDebug, hclog.Debug},
+			{"info", slog.LevelInfo, hclog.Info},
+			{"warn", slog.LevelWarn, hclog.Warn},
+			{"error", slog.LevelError, hclog.Error},
+		}
+
+		for _, tc := range testCases {
+			t.Run(tc.name, func(t *testing.T) {
+				t.Parallel()
+
+				sink, logger := newInterceptLogger(hclog.Trace)
+				slog.New(newHclogSlogHandler(logger)).
+					Log(context.Background(), tc.logAt, "hello", "key", "value")
+
+				require.Len(t, sink.messages, 1)
+				entry := sink.messages[0]
+				assert.Equal(t, tc.expectedLevel, entry.level)
+				assert.Equal(t, "hello", entry.message)
+				assert.Equal(t, []any{"key", "value"}, entry.args)
+			})
+		}
+	})
+
+	t.Run("Enabled gates on the hclog logger level", func(t *testing.T) {
+		t.Parallel()
+
+		_, logger := newInterceptLogger(hclog.Warn)
+		handler := newHclogSlogHandler(logger)
+
+		assert.False(t, handler.Enabled(context.Background(), slog.LevelInfo))
+		assert.True(t, handler.Enabled(context.Background(), slog.LevelError))
+	})
+
+	t.Run("WithGroup qualifies subsequent attribute keys", func(t *testing.T) {
+		t.Parallel()
+
+		sink, logger := newInterceptLogger(hclog.Trace)
+		slog.New(newHclogSlogHandler(logger)).
+			WithGroup("transport").
+			With("server", "everything").
+			Info("started")
+
+		require.Len(t, sink.messages, 1)
+		assert.Equal(t, []any{"transport.server", "everything"}, sink.messages[0].args)
+	})
+
+	t.Run("resolves LogValuer attrs before forwarding", func(t *testing.T) {
+		t.Parallel()
+
+		// A LogValuer attribute passed directly on the record (Handle path) and
+		// one accumulated via With (WithAttrs path) must both be resolved, so a
+		// redacting LogValuer masks its value instead of leaking the raw one.
+		testCases := []struct {
+			name string
+			log  func(*slog.Logger)
+		}{
+			{
+				name: "record attr",
+				log:  func(l *slog.Logger) { l.Info("auth", "token", redactedSecret("s3cr3t")) },
+			},
+			{
+				name: "with attr",
+				log:  func(l *slog.Logger) { l.With("token", redactedSecret("s3cr3t")).Info("auth") },
+			},
+		}
+
+		for _, tc := range testCases {
+			t.Run(tc.name, func(t *testing.T) {
+				t.Parallel()
+
+				sink, logger := newInterceptLogger(hclog.Trace)
+				tc.log(slog.New(newHclogSlogHandler(logger)))
+
+				require.Len(t, sink.messages, 1)
+				assert.Equal(t, []any{"token", "REDACTED"}, sink.messages[0].args)
+			})
+		}
+	})
+}
+
+// redactedSecret is a test slog.LogValuer that masks its value when logged.
+type redactedSecret string
+
+func (redactedSecret) LogValue() slog.Value {
+	return slog.StringValue("REDACTED")
 }
 
 // Test that client closing happens with proper timeout handling

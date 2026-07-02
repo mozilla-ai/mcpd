@@ -128,7 +128,11 @@ func (d DomainPrompt) ToAPIType() (Prompt, error) {
 
 // ToAPIType converts a domain prompt argument to an API prompt argument.
 func (d DomainPromptArgument) ToAPIType() (PromptArgument, error) {
-	return PromptArgument(d), nil
+	return PromptArgument{
+		Name:        d.Name,
+		Description: d.Description,
+		Required:    d.Required,
+	}, nil
 }
 
 // ToAPIType converts a domain prompt message to an API prompt message.
