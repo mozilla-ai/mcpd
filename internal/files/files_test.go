@@ -26,7 +26,7 @@ func TestUserSpecificConfigDir(t *testing.T) {
 	}{
 		{
 			name:     "XDG_CONFIG_HOME is set and used",
-			xdgValue: tempCustomXdgPath,
+			xdgValue: tempCustomXDGPath,
 			expectedDir: func(t *testing.T) string {
 				return filepath.Join(tempCustomXDGPath, AppDirName())
 			},
