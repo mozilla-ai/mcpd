@@ -35,7 +35,7 @@ func TestUserSpecificConfigDir(t *testing.T) {
 			name:     "XDG_CONFIG_HOME is set with whitespace and trimmed",
 			xdgValue: "  " + tempCustomXdgPath + "  ",
 			expectedDir: func(t *testing.T) string {
-				return filepath.Join(tempCustomXdgPath, AppDirName())
+				return filepath.Join(tempCustomXDGPath, AppDirName())
 			},
 		},
 		{
