@@ -18,7 +18,7 @@ func TestAppDirName(t *testing.T) {
 }
 
 func TestUserSpecificConfigDir(t *testing.T) {
-	tempCustomXdgPath := filepath.Join(os.TempDir(), "custom", "xdg", "path")
+	tempCustomXDGPath := filepath.Join(os.TempDir(), "custom", "xdg", "path")
 	tests := []struct {
 		name        string
 		xdgValue    string
