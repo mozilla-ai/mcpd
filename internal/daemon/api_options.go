@@ -7,6 +7,8 @@ import (
 	"net/http"
 	"strconv"
 	"time"
+
+	"github.com/mozilla-ai/mcpd/internal/api"
 )
 
 // APIOptions contains optional configuration for the API server.
@@ -219,8 +221,9 @@ func DefaultAPIShutdownTimeout() time.Duration {
 }
 
 // DefaultToolCallTimeout is the default timeout for MCP tool calls.
+// It delegates to the API layer so the default has a single source of truth.
 func DefaultToolCallTimeout() time.Duration {
-	return 15 * time.Second
+	return api.DefaultToolCallTimeout()
 }
 
 // DefaultMiddlewareProvider returns a provider that supplies no-op middleware.
