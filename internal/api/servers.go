@@ -37,7 +37,8 @@ type ServerToolCallRequest struct {
 	Body   map[string]any `doc:"Body of the tool to call"                            path:"body"`
 }
 
-// RegisterServerRoutes sets up health-related API endpoints
+// RegisterServerRoutes registers the server listing endpoint along with the
+// tool, prompt, and resource routes on the provided API group.
 func RegisterServerRoutes(
 	routerAPI huma.API,
 	accessor contracts.MCPClientAccessor,

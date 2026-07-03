@@ -128,6 +128,7 @@ type MCPTimeoutConfigSection struct {
 	Health *Duration `json:"health,omitempty" toml:"health,omitempty" yaml:"health,omitempty"`
 
 	// Request timeout for MCP tool calls
+	// Maps to CLI flag --timeout-mcp-request
 	Request *Duration `json:"request,omitempty" toml:"request,omitempty" yaml:"request,omitempty"`
 }
 

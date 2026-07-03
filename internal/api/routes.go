@@ -14,24 +14,13 @@ import (
 // APIVersion is the version used in the OpenAPI spec and URL paths.
 const APIVersion = "v1"
 
-// RouteOptions contains API route behavior that is configured by the daemon.
-type RouteOptions struct {
-	ToolCallTimeout time.Duration
-}
-
 // RouteOption configures route behavior.
 type RouteOption func(*RouteOptions)
 
-// WithToolCallTimeout sets the timeout applied to MCP tool calls.
-func WithToolCallTimeout(timeout time.Duration) RouteOption {
-	return func(o *RouteOptions) {
-		o.ToolCallTimeout = timeout
-	}
-}
-
-// DefaultToolCallTimeout returns the default timeout for MCP tool calls.
-func DefaultToolCallTimeout() time.Duration {
-	return 15 * time.Second
+// RouteOptions contains API route behavior that is configured by the daemon.
+type RouteOptions struct {
+	// ToolCallTimeout bounds how long a single MCP tool call may run.
+	ToolCallTimeout time.Duration
 }
 
 func newRouteOptions(opts ...RouteOption) RouteOptions {
@@ -48,6 +37,11 @@ func newRouteOptions(opts ...RouteOption) RouteOptions {
 	return options
 }
 
+// DefaultToolCallTimeout returns the default timeout for MCP tool calls.
+func DefaultToolCallTimeout() time.Duration {
+	return 15 * time.Second
+}
+
 // RegisterRoutes registers all API routes on the provided Huma router.
 // This is the single source of truth for the API route structure.
 // Returns the API path prefix (e.g., "/api/v1") under which the routes are created.
@@ -60,14 +54,14 @@ func RegisterRoutes(
 	if router == nil || reflect.ValueOf(router).IsNil() {
 		return "", fmt.Errorf("router cannot be nil")
 	}
-
-	routeOptions := newRouteOptions(opts...)
 	if clientManager == nil || reflect.ValueOf(clientManager).IsNil() {
 		return "", fmt.Errorf("client manager cannot be nil")
 	}
 	if healthTracker == nil || reflect.ValueOf(healthTracker).IsNil() {
 		return "", fmt.Errorf("health tracker cannot be nil")
 	}
+
+	routeOptions := newRouteOptions(opts...)
 
 	// Extract API version from the router's OpenAPI spec.
 	apiVersionID := router.OpenAPI().Info.Version
@@ -84,4 +78,11 @@ func RegisterRoutes(
 	RegisterServerRoutes(versionedGroup, clientManager, "/servers", routeOptions)
 
 	return apiPathPrefix, nil
+}
+
+// WithToolCallTimeout sets the timeout applied to MCP tool calls.
+func WithToolCallTimeout(timeout time.Duration) RouteOption {
+	return func(o *RouteOptions) {
+		o.ToolCallTimeout = timeout
+	}
 }

@@ -244,6 +244,7 @@ func (a *ToolAnnotations) IsZero() bool {
 	return true
 }
 
+// RegisterToolRoutes registers the tool listing and tool call endpoints on the provided API group.
 func RegisterToolRoutes(parentAPI huma.API, accessor contracts.MCPClientAccessor, options RouteOptions) {
 	tags := []string{"Tools"}
 
