@@ -58,6 +58,7 @@ Model Context Protocol server management settings.
 | `mcp.timeout.init`     | `duration` | Server initialization timeout | `30s`   | `60s`   |
 | `mcp.timeout.shutdown` | `duration` | Server shutdown timeout       | `10s`   | `30s`   |
 | `mcp.timeout.health`   | `duration` | Health check timeout          | `5s`    | `10s`   |
+| `mcp.timeout.request`  | `duration` | Tool call request timeout     | `15s`   | `60s`   |
 | `mcp.interval.health`  | `duration` | Health check interval         | `30s`   | `60s`   |
 
 ## Configuration Examples
@@ -99,6 +100,9 @@ mcpd config daemon set mcp.interval.health="60s"
 
 # Set health check timeout
 mcpd config daemon set mcp.timeout.health="10s"
+
+# Set tool call request timeout
+mcpd config daemon set mcp.timeout.request="60s"
 ```
 
 ### Retrieving Configuration

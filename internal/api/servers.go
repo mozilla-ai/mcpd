@@ -37,8 +37,14 @@ type ServerToolCallRequest struct {
 	Body   map[string]any `doc:"Body of the tool to call"                            path:"body"`
 }
 
-// RegisterServerRoutes sets up health-related API endpoints
-func RegisterServerRoutes(routerAPI huma.API, accessor contracts.MCPClientAccessor, apiPathPrefix string) {
+// RegisterServerRoutes registers the server listing endpoint along with the
+// tool, prompt, and resource routes on the provided API group.
+func RegisterServerRoutes(
+	routerAPI huma.API,
+	accessor contracts.MCPClientAccessor,
+	apiPathPrefix string,
+	options RouteOptions,
+) {
 	serversAPI := huma.NewGroup(routerAPI, apiPathPrefix)
 	tags := []string{"Servers"}
 
@@ -57,7 +63,7 @@ func RegisterServerRoutes(routerAPI huma.API, accessor contracts.MCPClientAccess
 	)
 
 	// Register tool routes.
-	RegisterToolRoutes(serversAPI, accessor)
+	RegisterToolRoutes(serversAPI, accessor, options)
 
 	// Register prompt routes.
 	RegisterPromptRoutes(serversAPI, accessor)
@@ -122,10 +128,12 @@ func handleServerTools(accessor contracts.MCPClientAccessor, name string) (*Tool
 
 // handleServerToolCall handles making a call to a specific tool which exists on an MCP server.
 func handleServerToolCall(
+	ctx context.Context,
 	accessor contracts.MCPClientAccessor,
 	server string,
 	tool string,
 	data map[string]any,
+	timeout time.Duration,
 ) (*ToolCallResponse, error) {
 	mcpClient, clientOk := accessor.Client(server)
 	if !clientOk {
@@ -143,8 +151,11 @@ func handleServerToolCall(
 		return nil, fmt.Errorf("%w: %s/%s", errors.ErrToolForbidden, server, tool)
 	}
 
-	// TODO: How to get context from Huma/request for the instance of the request without passing it in?
-	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	if timeout <= 0 {
+		timeout = DefaultToolCallTimeout()
+	}
+
+	ctx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
 
 	result, err := mcpClient.CallTool(ctx, mcp.CallToolRequest{

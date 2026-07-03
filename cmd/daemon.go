@@ -64,6 +64,9 @@ const (
 	// flagTimeoutMCPShutdown is the flag name for timeout when shutting down the MCP client.
 	flagTimeoutMCPShutdown = "timeout-mcp-shutdown"
 
+	// flagTimeoutMCPRequest is the flag name for the MCP tool call request timeout.
+	flagTimeoutMCPRequest = "timeout-mcp-request"
+
 	// flagIntervalMCPHealth is the flag name for MCP server health check interval.
 	flagIntervalMCPHealth = "interval-mcp-health"
 )
@@ -143,6 +146,9 @@ type timeoutFlagConfig struct {
 
 	// healthCheck specifies how long to wait for health check responses from MCP servers.
 	healthCheck string
+
+	// mcpRequest specifies how long to wait for MCP tool call requests.
+	mcpRequest string
 
 	// clientShutdown specifies how long to wait for MCP clients to close (maps to ClientShutdownTimeout in daemon options).
 	clientShutdown string
@@ -311,6 +317,13 @@ func newDaemonCobraCmd(daemonCmd *DaemonCmd) *cobra.Command {
 		flagTimeoutMCPShutdown,
 		daemon.DefaultClientShutdownTimeout().String(),
 		"Timeout in seconds to wait for shutdown of MCP servers (e.g. 5s, 10s)",
+	)
+
+	cobraCommand.Flags().StringVar(
+		&daemonCmd.config.timeout.mcpRequest,
+		flagTimeoutMCPRequest,
+		daemon.DefaultToolCallTimeout().String(),
+		"Timeout to wait for MCP tool call requests; a bare number is seconds (e.g. 15, 30s, 1m)",
 	)
 
 	// Add interval flags (aligned with daemon defaults).
@@ -680,6 +693,27 @@ func (c *DaemonCmd) loadConfigMCPTimeout(
 		}
 	}
 
+	// Handle MCP request timeout.
+	if timeout.Request != nil {
+		parsed := timeout.Request.String()
+
+		if cmd.Flags().Changed(flagTimeoutMCPRequest) {
+			warnings = append(
+				warnings,
+				flagOverrideWarning(flagTimeoutMCPRequest, parsed, c.config.timeout.mcpRequest),
+			)
+			logger.Debug(
+				"Flag overriding config value",
+				"flag", flagTimeoutMCPRequest,
+				"config", parsed,
+				"using", c.config.timeout.mcpRequest,
+			)
+		} else {
+			logger.Debug("Using config file value", "setting", "mcp.timeout.request", "value", parsed)
+			c.config.timeout.mcpRequest = parsed
+		}
+	}
+
 	return warnings
 }
 
@@ -883,6 +917,29 @@ func (c *DaemonCmd) reloadServers(ctx context.Context, d *daemon.Daemon) error {
 	return nil
 }
 
+// normalizeDurationSeconds returns value with an explicit seconds unit when it is
+// a bare number, so "15" becomes "15s".
+// Values that already carry a unit, and the empty string, are returned unchanged.
+// NOTE: callers must still validate the result with time.ParseDuration; this only
+// supplies a default unit and does not guarantee a parseable duration.
+func normalizeDurationSeconds(value string) string {
+	value = strings.TrimSpace(value)
+	if value == "" {
+		return value
+	}
+
+	// A Go duration always ends in a unit (s, m, h, ...); if the value already
+	// parses, leave it. Otherwise, treat a bare number as a count of seconds.
+	if _, err := time.ParseDuration(value); err == nil {
+		return value
+	}
+	if _, err := time.ParseDuration(value + "s"); err == nil {
+		return value + "s"
+	}
+
+	return value
+}
+
 // validateFlags validates the command flags and their relationships.
 func (c *DaemonCmd) validateFlags(cmd *cobra.Command) error {
 	// Validate that other CORS flags require --cors-enable.
@@ -934,6 +991,14 @@ func (c *DaemonCmd) validateFlags(cmd *cobra.Command) error {
 	if c.config.timeout.mcpShutdown != "" {
 		if _, err := time.ParseDuration(c.config.timeout.mcpShutdown); err != nil {
 			return fmt.Errorf("invalid --%s duration: %w", flagTimeoutMCPShutdown, err)
+		}
+	}
+
+	if c.config.timeout.mcpRequest != "" {
+		// Accept a bare number as seconds (e.g. "15" -> "15s") before validating.
+		c.config.timeout.mcpRequest = normalizeDurationSeconds(c.config.timeout.mcpRequest)
+		if _, err := time.ParseDuration(c.config.timeout.mcpRequest); err != nil {
+			return fmt.Errorf("invalid --%s duration: %w", flagTimeoutMCPRequest, err)
 		}
 	}
 
@@ -992,6 +1057,15 @@ func (c *DaemonCmd) buildAPIOptions() ([]daemon.APIOption, error) {
 			return nil, fmt.Errorf("invalid %s: %w", flagTimeoutAPIShutdown, err)
 		}
 		apiOpts = append(apiOpts, daemon.WithShutdownTimeout(timeout))
+	}
+
+	// Add MCP tool call request timeout if specified.
+	if c.config.timeout.mcpRequest != "" {
+		timeout, err := time.ParseDuration(c.config.timeout.mcpRequest)
+		if err != nil {
+			return nil, fmt.Errorf("invalid %s: %w", flagTimeoutMCPRequest, err)
+		}
+		apiOpts = append(apiOpts, daemon.WithToolCallTimeout(timeout))
 	}
 
 	return apiOpts, nil
@@ -1093,6 +1167,10 @@ func (c *DaemonCmd) formatConfigInfo(addr string) string {
 
 	if v := c.config.timeout.healthCheck; v != "" && v != daemon.DefaultHealthCheckTimeout().String() {
 		fmt.Fprintf(&info, "  MCP health check timeout:\t%s\n", v)
+	}
+
+	if v := c.config.timeout.mcpRequest; v != "" && v != daemon.DefaultToolCallTimeout().String() {
+		fmt.Fprintf(&info, "  MCP request timeout:\t%s\n", v)
 	}
 
 	if v := c.config.interval.healthCheck; v != "" && v != daemon.DefaultHealthCheckInterval().String() {
