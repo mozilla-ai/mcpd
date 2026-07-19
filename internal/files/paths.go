@@ -28,7 +28,12 @@ func PathToFileURL(path string) string {
 }
 
 // Strips the leading slash added before a Windows drive letter ("/C:/..." → "C:/...").
+// Also handles file://C:/... URLs where net/url places the drive letter in u.Host.
 func FileURLToPath(u *url.URL) string {
+	if windowsDrivePath.MatchString(u.Host) {
+		return u.Host + u.Path
+	}
+
 	path := u.Path
 	if windowsURIDrivePath.MatchString(path) {
 		return path[1:]

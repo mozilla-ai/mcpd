@@ -54,6 +54,11 @@ func TestFileURLToPath(t *testing.T) {
 			fileURL:  "file:///C:/Users/test/registry.json",
 			expected: "C:/Users/test/registry.json",
 		},
+		{
+			name:     "Windows file URL with drive letter as host (file://C:/...)",
+			fileURL:  "file://C:/Users/test/registry.json",
+			expected: "C:/Users/test/registry.json",
+		},
 	}
 
 	for _, tc := range tests {
