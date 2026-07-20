@@ -9,6 +9,8 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
+
+	"github.com/mozilla-ai/mcpd/internal/files"
 )
 
 type testStruct struct {
@@ -50,7 +52,7 @@ func TestLoadFromURL_File(t *testing.T) {
 	require.NoError(t, err)
 
 	// Test with file:// URL.
-	fileURL := "file://" + tempFile
+	fileURL := files.PathToFileURL(tempFile)
 	result, err := LoadFromURL[testStruct](fileURL, "test-registry")
 	require.NoError(t, err)
 	require.Equal(t, testData, result)
@@ -88,7 +90,7 @@ func TestLoadFromURL_InvalidJSON(t *testing.T) {
 	err := os.WriteFile(tempFile, []byte(content), 0o644)
 	require.NoError(t, err)
 
-	fileURL := "file://" + tempFile
+	fileURL := files.PathToFileURL(tempFile)
 	_, err = LoadFromURL[testStruct](fileURL, "test-registry")
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "failed to unmarshal")

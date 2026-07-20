@@ -2,7 +2,6 @@ package mozilla_ai
 
 import (
 	"encoding/json"
-	"net/url"
 	"os"
 	"path/filepath"
 	"testing"
@@ -10,6 +9,7 @@ import (
 	"github.com/hashicorp/go-hclog"
 	"github.com/stretchr/testify/require"
 
+	"github.com/mozilla-ai/mcpd/internal/files"
 	"github.com/mozilla-ai/mcpd/internal/packages"
 	"github.com/mozilla-ai/mcpd/internal/registry/options"
 	"github.com/mozilla-ai/mcpd/internal/runtime"
@@ -677,10 +677,10 @@ func TestNewRegistry_NormalizationIntegration(t *testing.T) {
 	// Test NewRegistry with file URL pointing to our test data.
 	abs, err := filepath.Abs(filepath.Join("testdata", "registry_normalization.json"))
 	require.NoError(t, err)
-	fileURL := url.URL{Scheme: "file", Path: filepath.ToSlash(abs)}
+	fileURL := files.PathToFileURL(abs)
 
 	logger := newTestLogger(t)
-	registry, err := NewRegistry(logger, fileURL.String(), runtime.WithSupportedRuntimes(runtime.UVX))
+	registry, err := NewRegistry(logger, fileURL, runtime.WithSupportedRuntimes(runtime.UVX))
 	require.NoError(t, err)
 
 	// Test search to verify normalization happened during registry loading.

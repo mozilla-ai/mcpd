@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
-	"net/url"
 	"os"
 	"path/filepath"
 	"testing"
@@ -13,6 +12,7 @@ import (
 	"github.com/hashicorp/go-hclog"
 	"github.com/stretchr/testify/require"
 
+	"github.com/mozilla-ai/mcpd/internal/files"
 	"github.com/mozilla-ai/mcpd/internal/packages"
 	"github.com/mozilla-ai/mcpd/internal/registry/options"
 	"github.com/mozilla-ai/mcpd/internal/runtime"
@@ -1243,10 +1243,10 @@ func TestNewRegistry_NormalizationIntegration(t *testing.T) {
 	// Create file URL for test data with mixed case server and tool names.
 	abs, err := filepath.Abs(filepath.Join("testdata", "registry_normalization.json"))
 	require.NoError(t, err)
-	fileURL := url.URL{Scheme: "file", Path: filepath.ToSlash(abs)}
+	fileURL := files.PathToFileURL(abs)
 
 	logger := newTestLogger(t)
-	registry, err := NewRegistry(logger, fileURL.String())
+	registry, err := NewRegistry(logger, fileURL)
 	require.NoError(t, err)
 	require.NotNil(t, registry)
 
