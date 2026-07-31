@@ -1560,6 +1560,51 @@ func TestPluginConfig_movePlugin(t *testing.T) {
 			wantErr:    true,
 			errMsg:     "no move operation",
 		},
+		{
+			name: "before and after are mutually exclusive",
+			initial: &PluginConfig{
+				Authentication: []PluginEntry{
+					{Name: "a", Flows: []Flow{FlowRequest}},
+					{Name: "b", Flows: []Flow{FlowRequest}},
+				},
+			},
+			category:   CategoryAuthentication,
+			pluginName: "a",
+			opts:       []MoveOption{WithBefore("b"), WithAfter("b")},
+			wantResult: context.Noop,
+			wantErr:    true,
+			errMsg:     "mutually exclusive, got: before, after",
+		},
+		{
+			name: "before and position are mutually exclusive",
+			initial: &PluginConfig{
+				Authentication: []PluginEntry{
+					{Name: "a", Flows: []Flow{FlowRequest}},
+					{Name: "b", Flows: []Flow{FlowRequest}},
+				},
+			},
+			category:   CategoryAuthentication,
+			pluginName: "a",
+			opts:       []MoveOption{WithBefore("b"), WithPosition(1)},
+			wantResult: context.Noop,
+			wantErr:    true,
+			errMsg:     "mutually exclusive, got: before, position",
+		},
+		{
+			name: "all three positional options are mutually exclusive",
+			initial: &PluginConfig{
+				Authentication: []PluginEntry{
+					{Name: "a", Flows: []Flow{FlowRequest}},
+					{Name: "b", Flows: []Flow{FlowRequest}},
+				},
+			},
+			category:   CategoryAuthentication,
+			pluginName: "a",
+			opts:       []MoveOption{WithBefore("b"), WithAfter("b"), WithPosition(1)},
+			wantResult: context.Noop,
+			wantErr:    true,
+			errMsg:     "mutually exclusive, got: before, after, position",
+		},
 	}
 
 	for _, tc := range tests {
@@ -1576,6 +1621,45 @@ func TestPluginConfig_movePlugin(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestPluginConfig_movePlugin_rollsBackCategoryMoveOnPositionalFailure(t *testing.T) {
+	t.Parallel()
+
+	cfg := &PluginConfig{
+		Authentication: []PluginEntry{
+			{Name: "jwt-auth", Flows: []Flow{FlowRequest}},
+			{Name: "basic-auth", Flows: []Flow{FlowRequest}},
+		},
+		Audit: []PluginEntry{
+			{Name: "audit-a", Flows: []Flow{FlowRequest}},
+		},
+	}
+
+	// The category move succeeds, then the positional move fails because the
+	// anchor plugin does not exist in the target category.
+	result, err := cfg.movePlugin(
+		CategoryAuthentication,
+		"jwt-auth",
+		WithToCategory(CategoryAudit),
+		WithBefore("does-not-exist"),
+	)
+
+	require.Error(t, err)
+	require.Equal(t, context.Noop, result)
+
+	// jwt-auth must not have been stranded in Audit.
+	require.Equal(t, []string{"jwt-auth", "basic-auth"}, pluginNames(cfg.Authentication))
+	require.Equal(t, []string{"audit-a"}, pluginNames(cfg.Audit))
+}
+
+func pluginNames(entries []PluginEntry) []string {
+	names := make([]string, len(entries))
+	for i, e := range entries {
+		names[i] = e.Name
+	}
+
+	return names
 }
 
 func TestMoveOptions(t *testing.T) {

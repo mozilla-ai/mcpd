@@ -612,6 +612,25 @@ func newMoveOptions(opts ...MoveOption) (moveOptions, error) {
 		}
 	}
 
+	// movePlugin honours only the first of these that is set, so accepting more
+	// than one would silently discard the rest.
+	var positional []string
+	if o.before != nil {
+		positional = append(positional, "before")
+	}
+	if o.after != nil {
+		positional = append(positional, "after")
+	}
+	if o.position != nil {
+		positional = append(positional, "position")
+	}
+	if len(positional) > 1 {
+		return moveOptions{}, fmt.Errorf(
+			"before, after and position are mutually exclusive, got: %s",
+			strings.Join(positional, ", "),
+		)
+	}
+
 	return o, nil
 }
 
@@ -667,7 +686,16 @@ func (p *PluginConfig) movePlugin(category Category, name string, opts ...MoveOp
 	err = fmt.Errorf("no move operation specified")
 
 	// Cross-category moves can occur in addition to positional moves.
+	var rollback func()
 	if options.toCategory != nil {
+		// The two steps below must land together: a positional failure after a
+		// successful category move would otherwise strand the plugin in the
+		// target category, appended at the end.
+		rollback, err = p.categorySnapshot(category, *options.toCategory)
+		if err != nil {
+			return context.Noop, err
+		}
+
 		res, err = p.moveToCategory(category, name, *options.toCategory, options.force)
 		if err != nil {
 			return res, err
@@ -680,14 +708,50 @@ func (p *PluginConfig) movePlugin(category Category, name string, opts ...MoveOp
 	// Positional moves (within whatever category the plugin is now in).
 	switch {
 	case options.before != nil:
-		return p.moveBefore(category, name, *options.before)
+		res, err = p.moveBefore(category, name, *options.before)
 	case options.after != nil:
-		return p.moveAfter(category, name, *options.after)
+		res, err = p.moveAfter(category, name, *options.after)
 	case options.position != nil:
-		return p.moveToPosition(category, name, *options.position)
+		res, err = p.moveToPosition(category, name, *options.position)
 	default:
 		return res, err
 	}
+
+	if err != nil {
+		if rollback != nil {
+			rollback()
+		}
+
+		return context.Noop, err
+	}
+
+	return res, nil
+}
+
+// categorySnapshot captures the current contents of the given categories and
+// returns a function that restores them, allowing a multi-step move to be
+// undone if a later step fails.
+func (p *PluginConfig) categorySnapshot(categories ...Category) (func(), error) {
+	type snapshot struct {
+		slice   *[]PluginEntry
+		entries []PluginEntry
+	}
+
+	snapshots := make([]snapshot, 0, len(categories))
+	for _, category := range categories {
+		s, err := p.categorySlice(category)
+		if err != nil {
+			return nil, err
+		}
+
+		snapshots = append(snapshots, snapshot{slice: s, entries: slices.Clone(*s)})
+	}
+
+	return func() {
+		for _, s := range snapshots {
+			*s.slice = s.entries
+		}
+	}, nil
 }
 
 // moveToCategory moves a plugin from one category to another (appends to end).
