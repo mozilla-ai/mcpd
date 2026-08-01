@@ -50,6 +50,7 @@ nav:
       - Overview: configuration.md
       - Daemon Configuration: daemon-configuration.md
       - Plugin Configuration: plugin-configuration.md
+      - Writing a Plugin: writing-a-plugin.md
       - Execution Context: execution-context.md
       - Registry Caching: caching.md
   - Makefile: makefile.md
