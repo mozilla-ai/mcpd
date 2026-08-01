@@ -3,6 +3,7 @@ package api
 import (
 	"context"
 	"crypto/tls"
+	"encoding/json"
 	"io"
 	"mime/multipart"
 	"net/url"
@@ -10,6 +11,7 @@ import (
 	"time"
 
 	"github.com/danielgtaylor/huma/v2"
+	"github.com/mark3labs/mcp-go/mcp"
 	"github.com/stretchr/testify/require"
 )
 
@@ -329,5 +331,52 @@ func TestToolAnnotations_IsZero(t *testing.T) {
 			t.Parallel()
 			require.Equal(t, tc.expected, tc.input.IsZero())
 		})
+	}
+}
+
+func TestDomainTool_ToAPIType_PreservesDefsAndAdditionalProperties(t *testing.T) {
+	t.Parallel()
+
+	addressDef := map[string]any{
+		"type":       "object",
+		"properties": map[string]any{"street": map[string]any{"type": "string"}},
+	}
+
+	tool := mcp.Tool{
+		Name: "create-user",
+		InputSchema: mcp.ToolInputSchema{
+			Type:                 "object",
+			Defs:                 map[string]any{"Address": addressDef},
+			Properties:           map[string]any{"home": map[string]any{"$ref": "#/$defs/Address"}},
+			Required:             []string{"home"},
+			AdditionalProperties: false,
+		},
+		OutputSchema: mcp.ToolOutputSchema{
+			Type:                 "object",
+			Defs:                 map[string]any{"Address": addressDef},
+			Properties:           map[string]any{"billing": map[string]any{"$ref": "#/$defs/Address"}},
+			AdditionalProperties: map[string]any{"type": "string"},
+		},
+	}
+
+	got, err := domainTool(tool).ToAPIType()
+	require.NoError(t, err)
+
+	// Assert on the serialised form rather than the struct: the wire output is
+	// what clients actually consume, and a $ref that survives without its $defs
+	// sibling is a dangling pointer to a subschema that no longer exists.
+	for name, schema := range map[string]any{
+		"inputSchema":  got.InputSchema,
+		"outputSchema": got.OutputSchema,
+	} {
+		raw, err := json.Marshal(schema)
+		require.NoError(t, err)
+
+		var wire map[string]any
+		require.NoError(t, json.Unmarshal(raw, &wire))
+
+		require.Contains(t, wire, "$defs", "%s dropped $defs, leaving its $ref dangling", name)
+		require.Contains(t, wire["$defs"], "Address", "%s lost the referenced subschema", name)
+		require.Contains(t, wire, "additionalProperties", "%s dropped additionalProperties", name)
 	}
 }

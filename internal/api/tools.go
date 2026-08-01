@@ -93,6 +93,10 @@ type Tool struct {
 
 // JSONSchema defines the structure for a JSON schema object.
 type JSONSchema struct {
+	// Defs holds reusable subschemas referenced by $ref from elsewhere in the schema.
+	// Dropping these would leave any $ref in Properties pointing at nothing.
+	Defs map[string]any `json:"$defs,omitempty"` //nolint:tagliatelle
+
 	// Type defines the type for this schema, e.g. "object".
 	Type string `json:"type"`
 
@@ -101,6 +105,10 @@ type JSONSchema struct {
 
 	// Required lists the (keys of) Properties that are required.
 	Required []string `json:"required,omitempty"`
+
+	// AdditionalProperties constrains properties not listed in Properties.
+	// It is either a bool or a nested schema, so it is typed as any to match the spec.
+	AdditionalProperties any `json:"additionalProperties,omitempty"`
 }
 
 // ToolAnnotations provides additional properties describing a Tool to clients.
@@ -157,17 +165,21 @@ func (d domainTool) ToAPIType() (Tool, error) {
 	title := d.Annotations.Title
 
 	inputSchema := &JSONSchema{
-		Type:       d.InputSchema.Type,
-		Properties: d.InputSchema.Properties,
-		Required:   d.InputSchema.Required,
+		Defs:                 d.InputSchema.Defs,
+		Type:                 d.InputSchema.Type,
+		Properties:           d.InputSchema.Properties,
+		Required:             d.InputSchema.Required,
+		AdditionalProperties: d.InputSchema.AdditionalProperties,
 	}
 
 	var outputSchema *JSONSchema
 	if d.OutputSchema.Type != "" {
 		outputSchema = &JSONSchema{
-			Type:       d.OutputSchema.Type,
-			Properties: d.OutputSchema.Properties,
-			Required:   d.OutputSchema.Required,
+			Defs:                 d.OutputSchema.Defs,
+			Type:                 d.OutputSchema.Type,
+			Properties:           d.OutputSchema.Properties,
+			Required:             d.OutputSchema.Required,
+			AdditionalProperties: d.OutputSchema.AdditionalProperties,
 		}
 	}
 
