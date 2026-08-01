@@ -106,6 +106,25 @@ docker run  -p 8090:8090 \
             mzdotai/mcpd:v0.4.0
 ```
 
+### Mounting plugin binaries
+
+If you have `[plugins]` configured, bind mount the plugin directory as well and point
+`[plugins].dir` at the in-container path:
+
+```bash
+docker run  -p 8090:8090 \
+            -v $PWD/.mcpd.toml:/etc/mcpd/.mcpd.toml \
+            -v $PWD/plugins:/etc/mcpd/plugins:ro \
+            -v $HOME/.config/mcpd/secrets.dev.toml:/home/mcpd/.config/mcpd/secrets.prod.toml \
+            mzdotai/mcpd:v0.0.5
+```
+
+!!! warning "Plugins must match the container, not the host"
+    Plugin binaries are executed inside the container, so they must be built for the image's OS,
+    architecture and C library — the published image is Alpine-based (musl). A plugin built on an
+    arm64 macOS host will fail with `exec format error` in a `linux/amd64` container. See
+    [Plugin Configuration](plugin-configuration.md#architecture-and-libc-compatibility).
+
 ### Running Docker-based MCP servers from containerized `mcpd`
 
 If your MCP servers use the Docker runtime, mount the host's Docker socket to allow mcpd to manage containers on the host:
