@@ -52,7 +52,7 @@ func buildEnvVarName(appName, serverName, argName string) string {
 // transformValueArg converts a raw CLI argument into its transformed representations.
 // Only use this for value-type arguments (e.g. --foo=bar or ["--foo", "bar"]).
 // Do not use for boolean flags (e.g. --enable-feature) that do not take a value.
-func transformValueArg(appName, serverName, rawArg string) *valueArgTransformation {
+func transformValueArg(appName, serverName, rawArg string) valueArgTransformation {
 	argName := extractArgName(rawArg)
 	envVarName := buildEnvVarName(appName, serverName, argName)
 	argPrefix := extractArgNameWithPrefix(rawArg)
@@ -60,7 +60,7 @@ func transformValueArg(appName, serverName, rawArg string) *valueArgTransformati
 	// Value argument: --foo=bar => --foo=${MCPD__TEST__FOO}
 	formattedArg := fmt.Sprintf("%s=${%s}", argPrefix, envVarName)
 
-	return &valueArgTransformation{
+	return valueArgTransformation{
 		Raw:             rawArg,
 		Name:            argName,
 		EnvVarName:      envVarName,
