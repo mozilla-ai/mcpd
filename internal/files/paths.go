@@ -1,6 +1,3 @@
-// net/url parses "file://C:/path" as host="C:", path="/path" — the drive letter becomes
-// the URL host, not part of the path. PathToFileURL and FileURLToPath encapsulate the
-// Windows workaround (a leading slash before the drive letter) so callers don't need to.
 package files
 
 import (
@@ -9,12 +6,14 @@ import (
 	"regexp"
 )
 
-// matches a Windows drive-letter path (e.g. "C:/Users/...").
+// windowsDrivePath matches a Windows drive-letter path (e.g. "C:/Users/...").
 var windowsDrivePath = regexp.MustCompile(`^[a-zA-Z]:`)
 
-// matches a Windows drive-letter path as file URI (e.g. "/C:/Users/...").
+// windowsURIDrivePath matches a Windows drive-letter path as a file URI (e.g. "/C:/Users/...").
 var windowsURIDrivePath = regexp.MustCompile(`^/[a-zA-Z]:`)
 
+// PathToFileURL converts a filesystem path to a file:// URL.
+//
 // On Windows, a leading slash is prepended before the drive letter so it isn't
 // misread as the URL host by net/url ("file:///C:/..." rather than "file://C:/...").
 func PathToFileURL(path string) string {
@@ -27,8 +26,10 @@ func PathToFileURL(path string) string {
 	return u.String()
 }
 
-// Strips the leading slash added before a Windows drive letter ("/C:/..." → "C:/...").
-// Also handles file://C:/... URLs where net/url places the drive letter in u.Host.
+// FileURLToPath converts a parsed file:// URL back to a filesystem path.
+//
+// It strips the leading slash added before a Windows drive letter ("/C:/..." → "C:/...")
+// and also handles file://C:/... URLs where net/url places the drive letter in u.Host.
 func FileURLToPath(u *url.URL) string {
 	if windowsDrivePath.MatchString(u.Host) {
 		return u.Host + u.Path
