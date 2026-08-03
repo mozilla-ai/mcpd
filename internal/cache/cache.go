@@ -99,7 +99,7 @@ func (c *Cache) URL(remoteURL string) (string, error) {
 
 	// Return file:// URL if cache exists.
 	if _, err := os.Stat(cachePath); err == nil {
-		fileURL := "file://" + cachePath
+		fileURL := files.PathToFileURL(cachePath)
 		c.logger.Debug("Using cached file", "url", fileURL, "remote", remoteURL)
 
 		return fileURL, nil
