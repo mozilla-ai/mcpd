@@ -295,28 +295,28 @@ func newDaemonCobraCmd(daemonCmd *DaemonCmd) *cobra.Command {
 		&daemonCmd.config.timeout.apiShutdown,
 		flagTimeoutAPIShutdown,
 		daemon.DefaultAPIShutdownTimeout().String(),
-		"Timeout in seconds to wait for graceful API server shutdown (e.g. 5s, 10s)",
+		"Timeout to wait for graceful API server shutdown; a bare number is seconds (e.g. 15, 30s, 1m)",
 	)
 
 	cobraCommand.Flags().StringVar(
 		&daemonCmd.config.timeout.mcpInit,
 		flagTimeoutMCPInit,
 		daemon.DefaultClientInitTimeout().String(),
-		"Timeout in seconds to wait per MCP server for initialization (e.g. 5s, 10s)",
+		"Timeout to wait per MCP server for initialization; a bare number is seconds (e.g. 15, 30s, 1m)",
 	)
 
 	cobraCommand.Flags().StringVar(
 		&daemonCmd.config.timeout.healthCheck,
 		flagTimeoutMCPHealth,
 		daemon.DefaultHealthCheckTimeout().String(),
-		"Timeout in seconds to wait for completion of MCP server health checks (e.g. 5s, 10s)",
+		"Timeout to wait for completion of MCP server health checks; a bare number is seconds (e.g. 15, 30s, 1m)",
 	)
 
 	cobraCommand.Flags().StringVar(
 		&daemonCmd.config.timeout.mcpShutdown,
 		flagTimeoutMCPShutdown,
 		daemon.DefaultClientShutdownTimeout().String(),
-		"Timeout in seconds to wait for shutdown of MCP servers (e.g. 5s, 10s)",
+		"Timeout to wait for shutdown of MCP servers; a bare number is seconds (e.g. 15, 30s, 1m)",
 	)
 
 	cobraCommand.Flags().StringVar(
@@ -970,35 +970,28 @@ func (c *DaemonCmd) validateFlags(cmd *cobra.Command) error {
 		}
 	}
 
-	if c.config.timeout.apiShutdown != "" {
-		if _, err := time.ParseDuration(c.config.timeout.apiShutdown); err != nil {
-			return fmt.Errorf("invalid --%s duration: %w", flagTimeoutAPIShutdown, err)
-		}
+	// Every timeout flag accepts a bare number as seconds (e.g. "15" -> "15s") before
+	// validating. Kept as one table so the flags cannot drift apart again; the order
+	// here is the order errors are reported in.
+	timeouts := []struct {
+		flag  string
+		value *string
+	}{
+		{flag: flagTimeoutAPIShutdown, value: &c.config.timeout.apiShutdown},
+		{flag: flagTimeoutMCPInit, value: &c.config.timeout.mcpInit},
+		{flag: flagTimeoutMCPHealth, value: &c.config.timeout.healthCheck},
+		{flag: flagTimeoutMCPShutdown, value: &c.config.timeout.mcpShutdown},
+		{flag: flagTimeoutMCPRequest, value: &c.config.timeout.mcpRequest},
 	}
 
-	if c.config.timeout.mcpInit != "" {
-		if _, err := time.ParseDuration(c.config.timeout.mcpInit); err != nil {
-			return fmt.Errorf("invalid --%s duration: %w", flagTimeoutMCPInit, err)
+	for _, t := range timeouts {
+		if *t.value == "" {
+			continue
 		}
-	}
 
-	if c.config.timeout.healthCheck != "" {
-		if _, err := time.ParseDuration(c.config.timeout.healthCheck); err != nil {
-			return fmt.Errorf("invalid --%s duration: %w", flagTimeoutMCPHealth, err)
-		}
-	}
-
-	if c.config.timeout.mcpShutdown != "" {
-		if _, err := time.ParseDuration(c.config.timeout.mcpShutdown); err != nil {
-			return fmt.Errorf("invalid --%s duration: %w", flagTimeoutMCPShutdown, err)
-		}
-	}
-
-	if c.config.timeout.mcpRequest != "" {
-		// Accept a bare number as seconds (e.g. "15" -> "15s") before validating.
-		c.config.timeout.mcpRequest = normalizeDurationSeconds(c.config.timeout.mcpRequest)
-		if _, err := time.ParseDuration(c.config.timeout.mcpRequest); err != nil {
-			return fmt.Errorf("invalid --%s duration: %w", flagTimeoutMCPRequest, err)
+		*t.value = normalizeDurationSeconds(*t.value)
+		if _, err := time.ParseDuration(*t.value); err != nil {
+			return fmt.Errorf("invalid --%s duration: %w", t.flag, err)
 		}
 	}
 

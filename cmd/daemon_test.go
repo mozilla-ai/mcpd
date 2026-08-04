@@ -263,10 +263,14 @@ func TestDaemon_DaemonCmd_ValidateFlags(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
-		name             string
-		config           daemonFlagConfig
-		expectError      string
-		expectMCPRequest string
+		name   string
+		config daemonFlagConfig
+		// expectError is the exact error expected from validateFlags, if any.
+		expectError string
+		// expectTimeout, when set, is the whole timeout config expected after
+		// validateFlags has normalized it. Asserting the struct rather than a single
+		// field catches a flag being normalized that should not have been.
+		expectTimeout *timeoutFlagConfig
 	}{
 		{
 			name: "valid configuration",
@@ -339,7 +343,7 @@ func TestDaemon_DaemonCmd_ValidateFlags(t *testing.T) {
 					mcpRequest: "15",
 				},
 			},
-			expectMCPRequest: "15s",
+			expectTimeout: &timeoutFlagConfig{mcpRequest: "15s"},
 		},
 		{
 			name: "MCP request timeout with a unit is left unchanged",
@@ -348,7 +352,7 @@ func TestDaemon_DaemonCmd_ValidateFlags(t *testing.T) {
 					mcpRequest: "1m",
 				},
 			},
-			expectMCPRequest: "1m",
+			expectTimeout: &timeoutFlagConfig{mcpRequest: "1m"},
 		},
 		{
 			name: "invalid MCP request timeout",
@@ -358,6 +362,62 @@ func TestDaemon_DaemonCmd_ValidateFlags(t *testing.T) {
 				},
 			},
 			expectError: "invalid --timeout-mcp-request duration: time: invalid duration \"abc\"",
+		},
+		{
+			name: "bare numbers are accepted as seconds for every timeout flag",
+			config: daemonFlagConfig{
+				timeout: timeoutFlagConfig{
+					apiShutdown: "5",
+					mcpInit:     "10",
+					healthCheck: "3",
+					mcpShutdown: "7",
+					mcpRequest:  "15",
+				},
+			},
+			expectTimeout: &timeoutFlagConfig{
+				apiShutdown: "5s",
+				mcpInit:     "10s",
+				healthCheck: "3s",
+				mcpShutdown: "7s",
+				mcpRequest:  "15s",
+			},
+		},
+		{
+			name: "timeouts that already carry a unit are left unchanged",
+			config: daemonFlagConfig{
+				timeout: timeoutFlagConfig{
+					apiShutdown: "5s",
+					mcpInit:     "1m",
+					healthCheck: "1500ms",
+					mcpShutdown: "1h30m",
+					mcpRequest:  "2m",
+				},
+			},
+			expectTimeout: &timeoutFlagConfig{
+				apiShutdown: "5s",
+				mcpInit:     "1m",
+				healthCheck: "1500ms",
+				mcpShutdown: "1h30m",
+				mcpRequest:  "2m",
+			},
+		},
+		{
+			name: "invalid MCP shutdown timeout",
+			config: daemonFlagConfig{
+				timeout: timeoutFlagConfig{
+					mcpShutdown: "nope",
+				},
+			},
+			expectError: "invalid --timeout-mcp-shutdown duration: time: invalid duration \"nope\"",
+		},
+		{
+			name: "a bare number is not accepted for the health check interval",
+			config: daemonFlagConfig{
+				interval: intervalFlagConfig{
+					healthCheck: "30",
+				},
+			},
+			expectError: "invalid --interval-mcp-health duration: time: missing unit in duration \"30\"",
 		},
 	}
 
@@ -390,8 +450,8 @@ func TestDaemon_DaemonCmd_ValidateFlags(t *testing.T) {
 				require.NoError(t, err)
 			}
 
-			if tc.expectMCPRequest != "" {
-				require.Equal(t, tc.expectMCPRequest, daemonCmd.config.timeout.mcpRequest)
+			if tc.expectTimeout != nil {
+				require.Equal(t, *tc.expectTimeout, daemonCmd.config.timeout)
 			}
 		})
 	}
