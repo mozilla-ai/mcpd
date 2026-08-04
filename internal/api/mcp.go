@@ -15,7 +15,7 @@ type Meta map[string]any
 // ToAPIType converts a domain meta to an API meta type.
 // This creates a flat _meta object structure as defined by the MCP specification.
 // Returns empty Meta{} if domain type is nil.
-// See: https://modelcontextprotocol.io/specification/2025-06-18/basic/index#meta
+// See: https://modelcontextprotocol.io/specification/2025-11-25/basic#general-fields
 func (d DomainMeta) ToAPIType() (Meta, error) {
 	m := (*mcp.Meta)(&d)
 	if m == nil || m.AdditionalFields == nil {
