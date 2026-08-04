@@ -127,7 +127,7 @@ type Tool struct {
 	Annotations *ToolAnnotations `json:"annotations,omitempty"`
 
 	// Meta is reserved by MCP to allow clients and servers to attach additional metadata to their interactions.
-	// See https://modelcontextprotocol.io/specification/2026-07-28/basic#general-fields for notes on _meta usage.
+	// See https://modelcontextprotocol.io/specification/2025-11-25/basic#general-fields for notes on _meta usage.
 	Meta map[string]any `json:"_meta,omitempty"` //nolint:tagliatelle
 }
 
