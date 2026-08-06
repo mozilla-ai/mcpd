@@ -86,7 +86,7 @@ Both problems are caught at startup rather than at request time:
 
 ```console
 # dir does not exist
-Error: failed to load configuration: plugin directory /plugins: open /plugins: no such file or directory
+Error: failed to load configuration: plugin directory /etc/mcpd/plugins: open /etc/mcpd/plugins: no such file or directory
 
 # binary missing, not executable, or a dotfile
 Error: failed to load configuration: plugin jwt-auth not found in directory /etc/mcpd/plugins
@@ -330,7 +330,7 @@ docker run  -p 8090:8090 \
             -v $PWD/.mcpd.toml:/etc/mcpd/.mcpd.toml \
             -v $PWD/plugins:/etc/mcpd/plugins:ro \
             -v $HOME/.config/mcpd/secrets.dev.toml:/home/mcpd/.config/mcpd/secrets.prod.toml \
-            mzdotai/mcpd:v0.0.5
+            mzdotai/mcpd:v0.4.0
 ```
 
 ```toml
@@ -348,16 +348,23 @@ Plugins are separate executables that `mcpd` launches and talks to over gRPC, so
 built for the OS, architecture, **and C library** of whatever runs `mcpd` — which is the container
 image, not your laptop, whenever `mcpd` itself is containerized.
 
-The published image is Alpine-based (musl), so a plugin built on an arm64 macOS host will not run
-inside a `linux/amd64` container, and a plugin dynamically linked against glibc will not run on
-musl even at the correct architecture. For Go plugins, build a static binary matching the image:
+The published image is multi-arch — `mzdotai/mcpd:v0.4.0` ships both `linux/amd64` and
+`linux/arm64` — so Docker pulls the variant matching your host, and the plugin must be built for
+*that* architecture. It is also Alpine-based (musl), so a plugin dynamically linked against glibc
+will not run even at the correct architecture. For Go plugins, build a static binary for the
+architecture Docker pulled:
 
 ```bash
+# arm64 host (Apple Silicon, arm64 Linux)
+CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build -o plugins/jwt-auth ./cmd/jwt-auth
+
+# amd64 host
 CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o plugins/jwt-auth ./cmd/jwt-auth
 ```
 
-Use `GOARCH=arm64` instead if you run an arm64 image. `CGO_ENABLED=0` produces a static binary and
-sidesteps the glibc/musl question entirely; if you need cgo, build against musl.
+Run `docker image inspect mzdotai/mcpd:v0.4.0 --format '{{.Architecture}}'` if you are unsure which
+one you have, or if you pinned a platform with `--platform`. `CGO_ENABLED=0` produces a static
+binary and sidesteps the glibc/musl question entirely; if you need cgo, build against musl.
 
 The failure is easy to misread, because discovery succeeds and only the launch fails:
 
@@ -365,11 +372,16 @@ The failure is easy to misread, because discovery succeeds and only the launch f
 |--------------------------------------|----------------------------------------------------------|
 | `exec format error`                  | Wrong architecture or OS for the running platform        |
 | `no such file or directory`, but the binary exists | Dynamically linked against a libc the image lacks (typically glibc on musl) |
-| `permission denied`                  | Execute bit missing, or unreadable by the `mcpd` user    |
+| `permission denied`                  | Execute bit set, but not executable by the `mcpd` user (wrong owner/group), or unreadable |
 
-The second one is genuinely confusing: the kernel reports the missing *interpreter*, not the
-missing binary. Check with `ldd plugins/jwt-auth` — anything other than "statically linked" means
-the image needs that loader present.
+A binary with no execute bit at all never reaches this stage — it is skipped during discovery and
+produces the *"plugin … not found in directory"* startup error described above instead.
+
+The second row is genuinely confusing: the kernel reports the missing *interpreter*, not the
+missing binary. Check with `file plugins/jwt-auth` — it is portable and reports "statically linked"
+vs "dynamically linked". (`ldd` is Linux-only, so it is unavailable on the macOS host you may be
+cross-compiling from, and glibc's `ldd` prints "not a dynamic executable" for a correct
+`CGO_ENABLED=0` binary.)
 
 ---
 

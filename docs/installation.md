@@ -116,13 +116,14 @@ docker run  -p 8090:8090 \
             -v $PWD/.mcpd.toml:/etc/mcpd/.mcpd.toml \
             -v $PWD/plugins:/etc/mcpd/plugins:ro \
             -v $HOME/.config/mcpd/secrets.dev.toml:/home/mcpd/.config/mcpd/secrets.prod.toml \
-            mzdotai/mcpd:v0.0.5
+            mzdotai/mcpd:v0.4.0
 ```
 
 !!! warning "Plugins must match the container, not the host"
     Plugin binaries are executed inside the container, so they must be built for the image's OS,
-    architecture and C library — the published image is Alpine-based (musl). A plugin built on an
-    arm64 macOS host will fail with `exec format error` in a `linux/amd64` container. See
+    architecture and C library — the published image is multi-arch (`linux/amd64` and
+    `linux/arm64`) and Alpine-based (musl). Build for the architecture Docker pulled for your host,
+    not for your host's toolchain default; a mismatch fails with `exec format error`. See
     [Plugin Configuration](plugin-configuration.md#architecture-and-libc-compatibility).
 
 ### Running Docker-based MCP servers from containerized `mcpd`
