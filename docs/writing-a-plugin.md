@@ -24,7 +24,8 @@ Four SDKs wrap the generated stubs and the startup handshake:
 | Rust     | [mcpd-plugins-sdk-rust](https://github.com/mozilla-ai/mcpd-plugins-sdk-rust)         | `cargo add mcpd-plugins-sdk`                                   |
 | .NET     | [mcpd-plugins-sdk-dotnet](https://github.com/mozilla-ai/mcpd-plugins-sdk-dotnet)     | `dotnet add package MozillaAI.Mcpd.Plugins.Sdk`                |
 
-Each repository has an `examples/` directory with a runnable plugin.
+The Python, Rust, and .NET repositories each include an `examples/` directory with runnable
+plugins.
 
 For background, see
 [mcpd plugins: extend your agent infrastructure without touching your code](https://blog.mozilla.ai/mcpd-plugins-extend-your-agent-infrastructure-without-touching-your-code/).
@@ -40,14 +41,16 @@ For background, see
 ```
 
 The plugin is responsible for creating and listening on that socket. `mcpd` polls the address
-until it accepts a connection, then dials it and issues the startup sequence:
+until it accepts a connection, then dials it and, in order, calls:
 
-| Step | RPC                | Purpose                                                          |
-|------|--------------------|------------------------------------------------------------------|
-| 1    | `Configure`        | Deliver plugin configuration                                     |
-| 2    | `CheckReady`       | Confirm the plugin can serve requests                            |
-| 3    | `GetMetadata`      | Read the plugin's reported name, version and commit hash         |
-| 4    | `GetCapabilities`  | Read which flows the plugin implements                           |
+| Step | RPC           | Purpose                                                  |
+|------|---------------|----------------------------------------------------------|
+| 1    | `Configure`   | Deliver plugin configuration                             |
+| 2    | `CheckReady`  | Confirm the plugin can serve requests                    |
+| 3    | `GetMetadata` | Read the plugin's reported name, version and commit hash |
+
+`GetCapabilities` is not part of startup: `mcpd` calls it lazily the first time a configured flow
+needs checking, then caches the result. A plugin must still implement it.
 
 If the socket does not accept a connection within the start timeout (10 seconds by default), the
 process is killed and the plugin fails to load. Listen on the socket before doing any slow
@@ -91,14 +94,16 @@ the plugin's honesty about its own build — treat it as a deployment guard, not
 
 ## Handling Requests
 
-Two RPCs do the actual work, and a plugin only needs to implement the flows it declares in its
-`flows` configuration:
+Two RPCs do the actual work. A plugin reports the flows it supports through `GetCapabilities`; the
+`flows` setting in `.mcpd.toml` selects which of those it is actually run for:
 
 - `HandleRequest` runs during the request phase, before the call reaches the MCP server.
 - `HandleResponse` runs during the response phase, on every upstream response regardless of status.
 
-Both return a response carrying a `Continue` flag. Returning `Continue=false` rejects the request
-and stops the pipeline. See
+Both return a response carrying a `Continue` flag. From `HandleRequest`, `Continue=false` rejects
+the request before it reaches the MCP server and returns the plugin's response to the client. From
+`HandleResponse` the upstream call has already happened, so `Continue=false` stops the remaining
+response plugins and returns that response rather than rejecting the original request. See
 [Required Plugins](plugin-configuration.md#required-plugins) for how rejections and failures differ
 depending on whether the plugin is marked `required`.
 
@@ -132,8 +137,8 @@ A plugin that does not exit within the force-kill timeout (2 seconds) is killed,
 allows 5 seconds for the graceful `Stop` call itself. Long-running flush or export work in a
 plugin's shutdown path should be bounded accordingly, or it will be cut short.
 
-Per-call RPCs are subject to their own timeout (5 seconds by default), so a plugin that blocks on
-a slow external dependency will fail the call rather than stall the pipeline.
+Request and response RPCs are each subject to a per-call timeout (5 seconds by default), so a
+plugin that blocks on a slow external dependency will fail the call rather than stall the pipeline.
 
 ---
 
