@@ -4,6 +4,8 @@
 
 The `mcpd` daemon supports a plugin subsystem for extending request/response processing.
 
+This page covers configuring plugins. To build one, see [Writing a Plugin](writing-a-plugin.md).
+
 ---
 
 ## Plugin Categories
