@@ -44,6 +44,9 @@ Plugins can execute during one or both flows/phases:
   package = "uvx::api-server@1.0.0"
   tools = ["create", "read", "update", "delete"]
 
+[plugins]
+  dir = "/etc/mcpd/plugins"
+
 [[plugins.authentication]]
   name = "jwt-auth"
   commit_hash = "abc123"
@@ -63,6 +66,34 @@ Plugins can execute during one or both flows/phases:
   name = "metrics"
   flows = ["request", "response"]
 ```
+
+---
+
+## Plugin Directory
+
+Plugins are native executables. `[plugins].dir` is the directory `mcpd` scans to find them, and
+every plugin's `name` must match a binary in that directory.
+
+| Field | Type   | Required            | Description                                    |
+|-------|--------|---------------------|------------------------------------------------|
+| `dir` | string | Yes, if any plugins | Directory containing the plugin binaries       |
+
+When scanning the directory, `mcpd` only considers **regular files with the execute bit set**.
+Subdirectories, dotfiles, and non-executable files are skipped silently, so a plugin whose binary
+lost its execute permission looks identical to one that was never there.
+
+Both problems are caught at startup rather than at request time:
+
+```console
+# dir does not exist
+Error: failed to load configuration: plugin directory /etc/mcpd/plugins: open /etc/mcpd/plugins: no such file or directory
+
+# binary missing, not executable, or a dotfile
+Error: failed to load configuration: plugin jwt-auth not found in directory /etc/mcpd/plugins
+```
+
+If you see the second error and the file is definitely there, check `ls -l` for the execute bit
+before anything else.
 
 ---
 
@@ -289,6 +320,71 @@ Plugins are optional. A configuration file without plugins is valid:
 
 ---
 
+## Running Plugins in Docker
+
+A containerized `mcpd` cannot see plugin binaries on the host unless the directory is bind
+mounted. Mount it and point `[plugins].dir` at the path **inside** the container:
+
+```bash
+docker run  -p 8090:8090 \
+            -v $PWD/.mcpd.toml:/etc/mcpd/.mcpd.toml \
+            -v $PWD/plugins:/etc/mcpd/plugins:ro \
+            -v $HOME/.config/mcpd/secrets.dev.toml:/home/mcpd/.config/mcpd/secrets.prod.toml \
+            mzdotai/mcpd:v0.4.0
+```
+
+```toml
+[plugins]
+  dir = "/etc/mcpd/plugins"
+```
+
+The image runs as the non-root `mcpd` user, so the mounted binaries must be readable and
+executable by that user, not only by whoever owns them on the host. The mount is shown read-only
+because `mcpd` only needs to execute the plugins, never write to them.
+
+### Architecture and libc compatibility
+
+Plugins are separate executables that `mcpd` launches and talks to over gRPC, so each one must be
+built for the OS, architecture, **and C library** of whatever runs `mcpd` — which is the container
+image, not your laptop, whenever `mcpd` itself is containerized.
+
+The published image is multi-arch — `mzdotai/mcpd:v0.4.0` ships both `linux/amd64` and
+`linux/arm64` — so Docker pulls the variant matching your host, and the plugin must be built for
+*that* architecture. It is also Alpine-based (musl), so a plugin dynamically linked against glibc
+will not run even at the correct architecture. For Go plugins, build a static binary for the
+architecture Docker pulled:
+
+```bash
+# arm64 host (Apple Silicon, arm64 Linux)
+CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build -o plugins/jwt-auth ./cmd/jwt-auth
+
+# amd64 host
+CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o plugins/jwt-auth ./cmd/jwt-auth
+```
+
+Run `docker image inspect mzdotai/mcpd:v0.4.0 --format '{{.Architecture}}'` if you are unsure which
+one you have, or if you pinned a platform with `--platform`. `CGO_ENABLED=0` produces a static
+binary and sidesteps the glibc/musl question entirely; if you need cgo, build against musl.
+
+The failure is easy to misread, because discovery succeeds and only the launch fails:
+
+| Symptom                              | Cause                                                    |
+|--------------------------------------|----------------------------------------------------------|
+| `exec format error`                  | Wrong architecture or OS for the running platform        |
+| `no such file or directory`, but the binary exists | Dynamically linked against a libc the image lacks (typically glibc on musl) |
+| `permission denied`                  | Execute bit set, but not executable by the `mcpd` user (wrong owner/group), or unreadable |
+
+A binary with no execute bit at all never reaches this stage — it is skipped during discovery and
+produces the *"plugin … not found in directory"* startup error described above instead.
+
+The second row is genuinely confusing: the kernel reports the missing *interpreter*, not the
+missing binary. Check with `file plugins/jwt-auth` — it is portable and reports "statically linked"
+vs "dynamically linked". (`ldd` is Linux-only, so it is unavailable on the macOS host you may be
+cross-compiling from, and glibc's `ldd` prints "not a dynamic executable" for a correct
+`CGO_ENABLED=0` binary.)
+
+---
+
 ## Validation
 
 Plugin configurations are validated when the daemon starts or during hot reload. Common validation errors:
@@ -297,5 +393,6 @@ Plugin configurations are validated when the daemon starts or during hot reload.
 * Missing or empty `flows` array
 * Invalid flow values (must be `request` or `response`)
 * Duplicate flow values
+* Plugin directory missing, or configured plugin not found in it (see [Plugin Directory](#plugin-directory))
 
 For runtime plugin failures or binary checks, see [Troubleshooting](troubleshooting.md).
