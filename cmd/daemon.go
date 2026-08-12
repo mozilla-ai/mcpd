@@ -714,6 +714,23 @@ func (c *DaemonCmd) loadConfigMCPTimeout(
 		}
 	}
 
+	// Handle MCP shutdown timeout.
+	if timeout.Shutdown != nil {
+		parsed := timeout.Shutdown.String()
+
+		if cmd.Flags().Changed(flagTimeoutMCPShutdown) {
+			warnings = append(
+				warnings,
+				flagOverrideWarning(flagTimeoutMCPShutdown, parsed, c.config.timeout.mcpShutdown),
+			)
+			logger.Debug("Flag overriding config value", "flag", flagTimeoutMCPShutdown,
+				"config", parsed, "using", c.config.timeout.mcpShutdown)
+		} else {
+			logger.Debug("Using config file value", "setting", "mcp.timeout.shutdown", "value", parsed)
+			c.config.timeout.mcpShutdown = parsed
+		}
+	}
+
 	return warnings
 }
 
@@ -1092,6 +1109,15 @@ func (c *DaemonCmd) buildDaemonOptions(apiOptions []daemon.APIOption) ([]daemon.
 		daemonOpts = append(daemonOpts, daemon.WithMCPServerHealthCheckTimeout(timeout))
 	}
 
+	// Add MCP server shutdown timeout.
+	if c.config.timeout.mcpShutdown != "" {
+		timeout, err := time.ParseDuration(c.config.timeout.mcpShutdown)
+		if err != nil {
+			return nil, fmt.Errorf("invalid %s: %w", flagTimeoutMCPShutdown, err)
+		}
+		daemonOpts = append(daemonOpts, daemon.WithMCPServerShutdownTimeout(timeout))
+	}
+
 	// Add health check interval.
 	if c.config.interval.healthCheck != "" {
 		interval, err := time.ParseDuration(c.config.interval.healthCheck)
@@ -1164,6 +1190,10 @@ func (c *DaemonCmd) formatConfigInfo(addr string) string {
 
 	if v := c.config.timeout.healthCheck; v != "" && v != daemon.DefaultHealthCheckTimeout().String() {
 		fmt.Fprintf(&info, "  MCP health check timeout:\t%s\n", v)
+	}
+
+	if v := c.config.timeout.mcpShutdown; v != "" && v != daemon.DefaultClientShutdownTimeout().String() {
+		fmt.Fprintf(&info, "  MCP shutdown timeout:\t%s\n", v)
 	}
 
 	if v := c.config.timeout.mcpRequest; v != "" && v != daemon.DefaultToolCallTimeout().String() {

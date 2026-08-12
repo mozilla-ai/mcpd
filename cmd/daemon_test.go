@@ -721,6 +721,7 @@ func TestDaemon_DaemonCmd_BuildDaemonOptions(t *testing.T) {
 				timeout: timeoutFlagConfig{
 					mcpInit:     "15s",
 					healthCheck: "5s",
+					mcpShutdown: "8s",
 				},
 				interval: intervalFlagConfig{
 					healthCheck: "20s",
@@ -731,8 +732,18 @@ func TestDaemon_DaemonCmd_BuildDaemonOptions(t *testing.T) {
 				require.NoError(t, err)
 				assert.Equal(t, 15*time.Second, opts.ClientInitTimeout)
 				assert.Equal(t, 5*time.Second, opts.ClientHealthCheckTimeout)
+				assert.Equal(t, 8*time.Second, opts.ClientShutdownTimeout)
 				assert.Equal(t, 20*time.Second, opts.ClientHealthCheckInterval)
 			},
+		},
+		{
+			name: "invalid MCP shutdown timeout",
+			config: daemonFlagConfig{
+				timeout: timeoutFlagConfig{
+					mcpShutdown: "bad-format",
+				},
+			},
+			expectError: "invalid timeout-mcp-shutdown: time: invalid duration \"bad-format\"",
 		},
 		{
 			name: "invalid MCP init timeout",
@@ -1459,6 +1470,7 @@ func TestDaemon_ApplyConfigTimeout(t *testing.T) {
 		mcpInitFlagChanged     bool
 		healthCheckFlagChanged bool
 		mcpRequestFlagChanged  bool
+		mcpShutdownFlagChanged bool
 		initialConfig          timeoutFlagConfig
 		expectWarnings         []string
 		expectFinalConfig      timeoutFlagConfig
@@ -1542,6 +1554,30 @@ func TestDaemon_ApplyConfigTimeout(t *testing.T) {
 			expectWarnings:        []string{"--timeout-mcp-request: config=45s, flag=30s (using flag)"},
 			expectFinalConfig:     timeoutFlagConfig{mcpRequest: "30s"}, // flag wins
 		},
+		{
+			name: "MCP shutdown timeout - flag not changed (config used)",
+			mcpConfig: &config.MCPConfigSection{
+				Timeout: &config.MCPTimeoutConfigSection{
+					Shutdown: testDurationPtr(t, 25*time.Second),
+				},
+			},
+			mcpShutdownFlagChanged: false,
+			initialConfig:          timeoutFlagConfig{mcpShutdown: "15s"},
+			expectWarnings:         nil,
+			expectFinalConfig:      timeoutFlagConfig{mcpShutdown: "25s"}, // config used
+		},
+		{
+			name: "MCP shutdown timeout - flag changed (override)",
+			mcpConfig: &config.MCPConfigSection{
+				Timeout: &config.MCPTimeoutConfigSection{
+					Shutdown: testDurationPtr(t, 25*time.Second),
+				},
+			},
+			mcpShutdownFlagChanged: true,
+			initialConfig:          timeoutFlagConfig{mcpShutdown: "15s"},
+			expectWarnings:         []string{"--timeout-mcp-shutdown: config=25s, flag=15s (using flag)"},
+			expectFinalConfig:      timeoutFlagConfig{mcpShutdown: "15s"}, // flag wins
+		},
 	}
 
 	for _, tc := range tests {
@@ -1562,6 +1598,7 @@ func TestDaemon_ApplyConfigTimeout(t *testing.T) {
 			command.Flags().String(flagTimeoutMCPInit, "", "test flag")
 			command.Flags().String(flagTimeoutMCPHealth, "", "test flag")
 			command.Flags().String(flagTimeoutMCPRequest, "", "test flag")
+			command.Flags().String(flagTimeoutMCPShutdown, "", "test flag")
 
 			// Simulate flags being changed if needed
 			if tc.apiShutdownFlagChanged {
@@ -1578,6 +1615,10 @@ func TestDaemon_ApplyConfigTimeout(t *testing.T) {
 			}
 			if tc.mcpRequestFlagChanged {
 				err := command.Flags().Set(flagTimeoutMCPRequest, tc.initialConfig.mcpRequest)
+				require.NoError(t, err)
+			}
+			if tc.mcpShutdownFlagChanged {
+				err := command.Flags().Set(flagTimeoutMCPShutdown, tc.initialConfig.mcpShutdown)
 				require.NoError(t, err)
 			}
 
@@ -1937,7 +1978,11 @@ func TestDaemon_LoadConfigurationLayers_Integration(t *testing.T) {
 			"45s",
 			daemonCmd.config.timeout.mcpRequest,
 		) // From config (stored as string)
-		// Note: mcpShutdown is not loaded from config - only Init, Health, and Request are handled.
+		assert.Equal(
+			t,
+			"20s",
+			daemonCmd.config.timeout.mcpShutdown,
+		) // From config (stored as string)
 		assert.Equal(
 			t,
 			"60s",
