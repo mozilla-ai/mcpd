@@ -149,9 +149,6 @@ type timeoutFlagConfig struct {
 
 	// mcpRequest specifies how long to wait for MCP tool call requests.
 	mcpRequest string
-
-	// clientShutdown specifies how long to wait for MCP clients to close (maps to ClientShutdownTimeout in daemon options).
-	clientShutdown string
 }
 
 // intervalFlagConfig groups interval-related configuration flags.

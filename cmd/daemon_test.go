@@ -1527,19 +1527,17 @@ func TestDaemon_ApplyConfigTimeout(t *testing.T) {
 			initialConfig: timeoutFlagConfig{
 				apiShutdown: "30s",
 				// mcpInit:        "45s",
-				healthCheck:    "5s",
-				clientShutdown: "15s",
+				healthCheck: "5s",
 			},
 			expectWarnings: []string{
 				"--timeout-api-shutdown: config=45s, flag=30s (using flag)",
 				"--timeout-mcp-health: config=10s, flag=5s (using flag)",
 			},
 			expectFinalConfig: timeoutFlagConfig{
-				apiShutdown:    "30s", // flag wins
-				mcpInit:        "1m",  // config used (no flag set)
-				healthCheck:    "5s",  // flag wins
-				mcpRequest:     "45s", // config used
-				clientShutdown: "15s", // unchanged
+				apiShutdown: "30s", // flag wins
+				mcpInit:     "1m",  // config used (no flag set)
+				healthCheck: "5s",  // flag wins
+				mcpRequest:  "45s", // config used
 			},
 		},
 		{
