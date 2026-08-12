@@ -941,6 +941,7 @@ func normalizeDurationSeconds(value string) string {
 }
 
 // validateFlags validates the command flags and their relationships.
+// It also normalizes bare-second timeout values (e.g. "15" -> "15s") in place.
 func (c *DaemonCmd) validateFlags(cmd *cobra.Command) error {
 	// Validate that other CORS flags require --cors-enable.
 	// NOTE: --cors-origin is already handled by MarkFlagsRequiredTogether during flag definition.
@@ -970,9 +971,8 @@ func (c *DaemonCmd) validateFlags(cmd *cobra.Command) error {
 		}
 	}
 
-	// Every timeout flag accepts a bare number as seconds (e.g. "15" -> "15s") before
-	// validating. Kept as one table so the flags cannot drift apart again; the order
-	// here is the order errors are reported in.
+	// Every timeout flag accepts a bare number as seconds (e.g. "15" -> "15s");
+	// the value is normalized in place so the canonical form is what gets validated and stored.
 	timeouts := []struct {
 		flag  string
 		value *string
