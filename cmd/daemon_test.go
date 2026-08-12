@@ -417,7 +417,7 @@ func TestDaemon_DaemonCmd_ValidateFlags(t *testing.T) {
 					mcpInit: "-5",
 				},
 			},
-			expectError: "invalid --timeout-mcp-init duration: must not be negative, got '-5s'",
+			expectError: "invalid --timeout-mcp-init duration: must be positive, got '-5s'",
 		},
 		{
 			name: "a negative timeout with a unit is rejected",
@@ -426,7 +426,52 @@ func TestDaemon_DaemonCmd_ValidateFlags(t *testing.T) {
 					mcpRequest: "-5s",
 				},
 			},
-			expectError: "invalid --timeout-mcp-request duration: must not be negative, got '-5s'",
+			expectError: "invalid --timeout-mcp-request duration: must be positive, got '-5s'",
+		},
+		{
+			name: "a zero API shutdown timeout is rejected",
+			config: daemonFlagConfig{
+				timeout: timeoutFlagConfig{
+					apiShutdown: "0",
+				},
+			},
+			expectError: "invalid --timeout-api-shutdown duration: must be positive, got '0'",
+		},
+		{
+			name: "a zero MCP init timeout is rejected",
+			config: daemonFlagConfig{
+				timeout: timeoutFlagConfig{
+					mcpInit: "0",
+				},
+			},
+			expectError: "invalid --timeout-mcp-init duration: must be positive, got '0'",
+		},
+		{
+			name: "a zero MCP health check timeout is rejected",
+			config: daemonFlagConfig{
+				timeout: timeoutFlagConfig{
+					healthCheck: "0",
+				},
+			},
+			expectError: "invalid --timeout-mcp-health duration: must be positive, got '0'",
+		},
+		{
+			name: "a zero MCP shutdown timeout is rejected",
+			config: daemonFlagConfig{
+				timeout: timeoutFlagConfig{
+					mcpShutdown: "0",
+				},
+			},
+			expectError: "invalid --timeout-mcp-shutdown duration: must be positive, got '0'",
+		},
+		{
+			name: "a zero MCP request timeout with a unit is rejected",
+			config: daemonFlagConfig{
+				timeout: timeoutFlagConfig{
+					mcpRequest: "0s",
+				},
+			},
+			expectError: "invalid --timeout-mcp-request duration: must be positive, got '0s'",
 		},
 		{
 			name: "health check interval requires an explicit unit",

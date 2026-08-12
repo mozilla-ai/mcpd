@@ -1008,8 +1008,8 @@ func (c *DaemonCmd) validateFlags(cmd *cobra.Command) error {
 		if err != nil {
 			return fmt.Errorf("invalid --%s duration: %w", t.flag, err)
 		}
-		if d < 0 {
-			return fmt.Errorf("invalid --%s duration: must not be negative, got '%s'", t.flag, *t.value)
+		if d <= 0 {
+			return fmt.Errorf("invalid --%s duration: must be positive, got '%s'", t.flag, *t.value)
 		}
 	}
 
