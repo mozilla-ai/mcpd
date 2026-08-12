@@ -990,8 +990,12 @@ func (c *DaemonCmd) validateFlags(cmd *cobra.Command) error {
 		}
 
 		*t.value = normalizeDurationSeconds(*t.value)
-		if _, err := time.ParseDuration(*t.value); err != nil {
+		d, err := time.ParseDuration(*t.value)
+		if err != nil {
 			return fmt.Errorf("invalid --%s duration: %w", t.flag, err)
+		}
+		if d < 0 {
+			return fmt.Errorf("invalid --%s duration: must not be negative, got '%s'", t.flag, *t.value)
 		}
 	}
 

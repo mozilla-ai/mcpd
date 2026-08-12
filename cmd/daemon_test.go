@@ -411,6 +411,24 @@ func TestDaemon_DaemonCmd_ValidateFlags(t *testing.T) {
 			expectError: "invalid --timeout-mcp-shutdown duration: time: invalid duration \"nope\"",
 		},
 		{
+			name: "a negative bare number timeout is rejected",
+			config: daemonFlagConfig{
+				timeout: timeoutFlagConfig{
+					mcpInit: "-5",
+				},
+			},
+			expectError: "invalid --timeout-mcp-init duration: must not be negative, got '-5s'",
+		},
+		{
+			name: "a negative timeout with a unit is rejected",
+			config: daemonFlagConfig{
+				timeout: timeoutFlagConfig{
+					mcpRequest: "-5s",
+				},
+			},
+			expectError: "invalid --timeout-mcp-request duration: must not be negative, got '-5s'",
+		},
+		{
 			name: "a bare number is not accepted for the health check interval",
 			config: daemonFlagConfig{
 				interval: intervalFlagConfig{
