@@ -429,7 +429,7 @@ func TestDaemon_DaemonCmd_ValidateFlags(t *testing.T) {
 			expectError: "invalid --timeout-mcp-request duration: must not be negative, got '-5s'",
 		},
 		{
-			name: "a bare number is not accepted for the health check interval",
+			name: "health check interval requires an explicit unit",
 			config: daemonFlagConfig{
 				interval: intervalFlagConfig{
 					healthCheck: "30",

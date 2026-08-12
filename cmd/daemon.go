@@ -331,7 +331,7 @@ func newDaemonCobraCmd(daemonCmd *DaemonCmd) *cobra.Command {
 		&daemonCmd.config.interval.healthCheck,
 		flagIntervalMCPHealth,
 		daemon.DefaultHealthCheckInterval().String(),
-		"Time interval in seconds to wait between MCP server health check attempts (e.g. 5s, 10s)",
+		"Time interval to wait between MCP server health check attempts; a unit is required (e.g. 30s, 1m)",
 	)
 
 	cobraCommand.MarkFlagsMutuallyExclusive("dev", flagAddr)
