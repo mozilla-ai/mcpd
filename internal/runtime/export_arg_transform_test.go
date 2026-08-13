@@ -251,14 +251,14 @@ func TestTransformArg(t *testing.T) {
 		appName    string
 		serverName string
 		rawArg     string
-		expected   *valueArgTransformation
+		expected   valueArgTransformation
 	}{
 		{
 			name:       "value argument",
 			appName:    "mcpd",
 			serverName: "test",
 			rawArg:     "--foo=bar",
-			expected: &valueArgTransformation{
+			expected: valueArgTransformation{
 				Raw:             "--foo=bar",
 				Name:            "foo",
 				EnvVarName:      "MCPD__TEST__FOO",
@@ -271,7 +271,7 @@ func TestTransformArg(t *testing.T) {
 			appName:    "mcpd",
 			serverName: "test",
 			rawArg:     "--my-arg",
-			expected: &valueArgTransformation{
+			expected: valueArgTransformation{
 				Raw:             "--my-arg",
 				Name:            "my-arg",
 				EnvVarName:      "MCPD__TEST__MY_ARG",
@@ -284,7 +284,7 @@ func TestTransformArg(t *testing.T) {
 			appName:    "mcpd",
 			serverName: "test",
 			rawArg:     "--my-arg=123",
-			expected: &valueArgTransformation{
+			expected: valueArgTransformation{
 				Raw:             "--my-arg=123",
 				Name:            "my-arg",
 				EnvVarName:      "MCPD__TEST__MY_ARG",
@@ -297,7 +297,7 @@ func TestTransformArg(t *testing.T) {
 			appName:    "mcpd",
 			serverName: "my-server",
 			rawArg:     "--config=file.json",
-			expected: &valueArgTransformation{
+			expected: valueArgTransformation{
 				Raw:             "--config=file.json",
 				Name:            "config",
 				EnvVarName:      "MCPD__MY_SERVER__CONFIG",
@@ -310,7 +310,7 @@ func TestTransformArg(t *testing.T) {
 			appName:    "mcpd",
 			serverName: "test",
 			rawArg:     "-f=file.txt",
-			expected: &valueArgTransformation{
+			expected: valueArgTransformation{
 				Raw:             "-f=file.txt",
 				Name:            "f",
 				EnvVarName:      "MCPD__TEST__F",
@@ -323,7 +323,7 @@ func TestTransformArg(t *testing.T) {
 			appName:    "mcpd",
 			serverName: "test",
 			rawArg:     "--empty=",
-			expected: &valueArgTransformation{
+			expected: valueArgTransformation{
 				Raw:             "--empty=",
 				Name:            "empty",
 				EnvVarName:      "MCPD__TEST__EMPTY",
