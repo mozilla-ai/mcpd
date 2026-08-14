@@ -4,7 +4,7 @@ Remove volume mappings from an MCP server
 
 ### Synopsis
 
-Remove volume mappings from an MCP server in the runtime context configuration file (e.g. /Users/pwilson/.config/mcpd/secrets.dev.toml).
+Remove volume mappings from an MCP server in the runtime context configuration file (e.g. /home/runner/.config/mcpd/secrets.dev.toml).
 
 Use -- to separate the server name from the volume names to remove.
 
@@ -25,7 +25,7 @@ mcpd config volumes remove <server-name> -- --<volume-name> [--<volume-name>...]
       --config-file string    path to config file (default ".mcpd.toml")
       --log-level string      log level for mcpd logs (default "info")
       --log-path string       log file path to use for log output
-      --runtime-file string   path to runtime (execution context) file that contains env vars, and arguments for your MCP servers (default "/Users/pwilson/.config/mcpd/secrets.dev.toml")
+      --runtime-file string   path to runtime (execution context) file that contains env vars, and arguments for your MCP servers (default "/home/runner/.config/mcpd/secrets.dev.toml")
 ```
 
 ### SEE ALSO
