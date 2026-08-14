@@ -5,7 +5,7 @@
 > *Run your agents, not your infrastructure.*
 
 {% hint style="info" icon="tag" %}
-mcpd v0.5.0 (docs v0.1.0)
+mcpd v0.5.1 (docs v0.1.1)
 {% endhint %}
 
 ---

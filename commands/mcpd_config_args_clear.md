@@ -22,7 +22,7 @@ mcpd config args clear <server-name> [flags]
       --config-file string    path to config file (default ".mcpd.toml")
       --log-level string      log level for mcpd logs (default "info")
       --log-path string       log file path to use for log output
-      --runtime-file string   path to runtime (execution context) file that contains env vars, and arguments for your MCP servers (default "/Users/pwilson/.config/mcpd/secrets.dev.toml")
+      --runtime-file string   path to runtime (execution context) file that contains env vars, and arguments for your MCP servers (default "/home/runner/.config/mcpd/secrets.dev.toml")
 ```
 
 ### SEE ALSO
