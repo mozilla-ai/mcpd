@@ -4,7 +4,7 @@
 # Final Stage: Build the production image.
 # Includes NodeJS to give mcpd access to the npx binary.
 # ==============================================================================
-FROM node:24.5.0-alpine3.22
+FROM node:26.3.0-alpine3.22
 
 # --- Metadata ---
 LABEL org.opencontainers.image.authors="Mozilla AI <security@mozilla.ai>"
