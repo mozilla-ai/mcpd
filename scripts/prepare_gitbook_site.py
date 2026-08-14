@@ -70,8 +70,11 @@ def render_summary_commands(template: str, entries: list[str]) -> str:
     return template[:begin] + block + template[end:]
 
 
-def _inject_version_badge(content: str, version: str) -> str:
+def _inject_version_badge(content: str, docs_version: str, mcpd_version: str = "") -> str:
     """Insert a version indicator after the first top-level heading."""
+    version_line = f"Version: {docs_version}"
+    if mcpd_version:
+        version_line += f" (documents mcpd {mcpd_version})"
     lines = content.split("\n")
     in_fence = False
     for i, line in enumerate(lines):
@@ -84,7 +87,7 @@ def _inject_version_badge(content: str, version: str) -> str:
                 j += 1
             lines[j:j] = [
                 '{% hint style="info" icon="tag" %}',
-                f"Version: {version}",
+                version_line,
                 "{% endhint %}",
                 "",
             ]
@@ -104,12 +107,12 @@ def generate_summary() -> None:
     )
 
 
-def stamp_version(version: str) -> None:
+def stamp_version(docs_version: str, mcpd_version: str) -> None:
     """Stamp the version badge onto the landing page."""
     index = SITE_DIR / "index.md"
     if index.exists():
         index.write_text(
-            _inject_version_badge(index.read_text(encoding="utf-8"), version),
+            _inject_version_badge(index.read_text(encoding="utf-8"), docs_version, mcpd_version),
             encoding="utf-8",
         )
 
@@ -121,6 +124,11 @@ def parse_args() -> argparse.Namespace:
         "--version",
         default="",
         help="Docs version stamped on the landing page (e.g. v1.2.3). Skipped when empty.",
+    )
+    parser.add_argument(
+        "--mcpd-version",
+        default="",
+        help="mcpd release version the docs describe (e.g. v0.4.0). Omitted when empty.",
     )
     return parser.parse_args()
 
@@ -141,7 +149,7 @@ def main() -> None:
     generate_summary()
 
     if args.version:
-        stamp_version(args.version)
+        stamp_version(args.version, args.mcpd_version)
 
     md_files = sorted(SITE_DIR.rglob("*.md"))
     print(f"Prepared {len(md_files)} markdown files in {SITE_DIR}/")

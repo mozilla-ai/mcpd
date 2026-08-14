@@ -100,6 +100,10 @@ jobs:
         with:
           python-version: "3.13"
 
+      - name: Resolve documented mcpd version
+        id: mcpd
+        run: echo "version=$(git describe --tags --match 'v*' --abbrev=0 2>/dev/null || true)" >> "$GITHUB_OUTPUT"
+
       - name: Generate CLI and OpenAPI docs
         run: |
           make docs-cli
@@ -109,9 +113,10 @@ jobs:
         run: uv run --no-project python scripts/check_docs.py
 
       - name: Build GitBook site
-        run: uv run --no-project python scripts/prepare_gitbook_site.py --version "$DOCS_VERSION"
+        run: uv run --no-project python scripts/prepare_gitbook_site.py --version "$DOCS_VERSION" --mcpd-version "$MCPD_VERSION"
         env:
           DOCS_VERSION: ${{ steps.tag.outputs.version }}
+          MCPD_VERSION: ${{ steps.mcpd.outputs.version }}
 
       - name: Deploy to gitbook-docs branch
         env:

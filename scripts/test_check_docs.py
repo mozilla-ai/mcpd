@@ -17,3 +17,11 @@ class TestStripCodeBlocks:
     def test_keeps_prose_links(self) -> None:
         text = "see [link](page.md) for details"
         assert "[link](page.md)" in strip_code_blocks(text)
+
+    def test_tilde_line_does_not_close_backtick_fence(self) -> None:
+        text = "```\n~~~\n[link](page.md)\n```\nend"
+        assert "[link](page.md)" not in strip_code_blocks(text)
+
+    def test_shorter_marker_does_not_close_longer_fence(self) -> None:
+        text = "````\n```\n[link](page.md)\n````\nend"
+        assert "[link](page.md)" not in strip_code_blocks(text)

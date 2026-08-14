@@ -91,3 +91,7 @@ class TestInjectVersionBadge:
         result = _inject_version_badge(content, "1.0.0")
         assert "Version: 1.0.0" in result
         assert result.index("Version: 1.0.0") > result.index("# Real heading")
+
+    def test_includes_mcpd_version_when_provided(self) -> None:
+        result = _inject_version_badge("# Title\n\nBody", "v1.2.3", "v0.4.0")
+        assert "Version: v1.2.3 (documents mcpd v0.4.0)" in result

@@ -21,7 +21,7 @@ DOCS_DIR = REPO_ROOT / "docs"
 
 LINK_RE = re.compile(r"!\[[^\]]*\]\(([^)\n]+)\)|(?<!!)\[([^\]]*)\]\(([^)\n]+)\)")
 HEADER_RE = re.compile(r"^(#{1,6})\s+(.+?)\s*$")
-CODE_FENCE_RE = re.compile(r"^\s*(?:```|~~~)")
+CODE_FENCE_RE = re.compile(r"^\s*(`{3,}|~{3,})")
 SKIPPED_PREFIXES = ("http://", "https://", "mailto:", "tel:", "data:", "{{")
 
 
@@ -31,16 +31,31 @@ def all_published_sources() -> set[Path]:
 
 
 def strip_code_blocks(text: str) -> str:
-    """Remove fenced code blocks so code samples are not linted as page links."""
+    """Remove fenced code blocks so code samples are not linted as page links.
+
+    Tracks the opening fence character and length, closing a block only on a line
+    of the same character at least as long, so mixed or nested fences are handled
+    correctly.
+    """
     output: list[str] = []
-    in_fence = False
+    fence_char = ""
+    fence_len = 0
 
     for line in text.splitlines():
-        if CODE_FENCE_RE.match(line):
-            in_fence = not in_fence
-            output.append("")
+        if not fence_char:
+            match = CODE_FENCE_RE.match(line)
+            if match:
+                marker = match.group(1)
+                fence_char, fence_len = marker[0], len(marker)
+                output.append("")
+            else:
+                output.append(line)
             continue
-        output.append("" if in_fence else line)
+
+        marker = line.strip()
+        if marker and marker == fence_char * len(marker) and len(marker) >= fence_len:
+            fence_char, fence_len = "", 0
+        output.append("")
 
     return "\n".join(output)
 

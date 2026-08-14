@@ -47,6 +47,19 @@ func TestRenderSortsWithinTagByPathThenMethod(t *testing.T) {
 	)
 }
 
+func TestRenderSortsByMethodWhenPathsEqual(t *testing.T) {
+	t.Parallel()
+
+	ops := []Operation{
+		{Tag: "Tools", Method: "post", Path: "/api/v1/servers/{name}/tools"},
+		{Tag: "Tools", Method: "get", Path: "/api/v1/servers/{name}/tools"},
+	}
+
+	got := Render(ops)
+
+	require.Less(t, strings.Index(got, `method="get"`), strings.Index(got, `method="post"`))
+}
+
 func TestRenderGroupsUntaggedOperationsUnderOther(t *testing.T) {
 	t.Parallel()
 
