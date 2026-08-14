@@ -30,23 +30,34 @@ permissions:
 
 jobs:
   goreleaser:
+    # Only product releases (semver v*); docs/v* is handled by the Documentation workflow.
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event_name == 'release' && startsWith(github.event.release.tag_name, 'v'))
     runs-on: ubuntu-latest
     steps:
+      - name: Validate tag
+        id: tag
+        env:
+          TAG: ${{ github.event.release.tag_name || github.event.inputs.tag }}
+        run: |
+          if [[ -z "$TAG" ]]; then
+            echo "::error::No tag provided"
+            exit 1
+          fi
+
+          if [[ ! "$TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-[a-zA-Z0-9.]+)?$ ]]; then
+            echo "::error::Tag '$TAG' does not match expected pattern vX.Y.Z"
+            exit 1
+          fi
+
+          echo "tag=${TAG}" >> "$GITHUB_OUTPUT"
+
       - name: Checkout
         uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
         with:
+          ref: ${{ steps.tag.outputs.tag }}
           fetch-depth: 0
-
-      - name: Checkout release tag
-        run: |
-          git fetch --tags
-          TAG="${{ github.event.release.tag_name || github.event.inputs.tag }}"
-          if [ -z "$TAG" ]; then
-            echo "Error: No tag provided in release event or workflow_dispatch input"
-            exit 1
-          fi
-          echo "Checking out tag $TAG"
-          git checkout "$TAG"
 
       - name: Set up Go (from go.mod)
         uses: actions/setup-go@7a3fe6cf4cb3a834922a1244abfce67bcef6a0c5 # v6.2.0
