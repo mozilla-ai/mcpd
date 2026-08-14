@@ -5,7 +5,8 @@ from __future__ import annotations
 import pytest
 
 from prepare_gitbook_site import (
-    _inject_version_badge,
+    _apply_version_badge,
+    _render_version_badge,
     command_nav_entries,
     command_title,
     render_summary_commands,
@@ -61,37 +62,32 @@ class TestRenderSummaryCommands:
             render_summary_commands("no markers here\n", ["* [x](commands/x.md)"])
 
 
-class TestInjectVersionBadge:
-    def test_inserts_after_heading_with_blank_line(self) -> None:
-        content = "# Title\n\nBody text"
-        result = _inject_version_badge(content, "1.2.3")
-        expected = (
-            '# Title\n\n{% hint style="info" icon="tag" %}\n'
-            "Version: 1.2.3\n{% endhint %}\n\nBody text"
+class TestRenderVersionBadge:
+    def test_leads_with_mcpd_version(self) -> None:
+        assert _render_version_badge("v0.1.0", "v0.5.0") == (
+            '{% hint style="info" icon="tag" %}\n'
+            "mcpd v0.5.0 (docs v0.1.0)\n"
+            "{% endhint %}"
         )
-        assert result == expected
 
-    def test_no_heading_returns_unchanged(self) -> None:
-        content = "No heading here"
-        assert _inject_version_badge(content, "1.0.0") == content
+    def test_docs_only_when_no_mcpd_version(self) -> None:
+        assert _render_version_badge("v0.1.0", "") == (
+            '{% hint style="info" icon="tag" %}\n'
+            "docs v0.1.0\n"
+            "{% endhint %}"
+        )
 
-    def test_only_first_heading_is_modified(self) -> None:
-        content = "# First\n\nText\n\n# Second\n\nMore text"
-        result = _inject_version_badge(content, "2.0.0")
-        assert result.count("Version: ") == 1
 
-    def test_heading_inside_code_fence_is_skipped(self) -> None:
-        content = "```\n# Not a heading\n```\n\n# Real heading\n\nBody"
-        result = _inject_version_badge(content, "1.0.0")
-        assert "Version: 1.0.0" in result
-        assert result.index("Version: 1.0.0") > result.index("# Real heading")
+class TestApplyVersionBadge:
+    def test_replaces_marker_in_place(self) -> None:
+        content = "# mcpd\n\n> tagline\n\n<!-- version-badge -->\n\n---\n"
+        assert _apply_version_badge(content, "v0.1.0", "v0.5.0") == (
+            "# mcpd\n\n> tagline\n\n"
+            '{% hint style="info" icon="tag" %}\n'
+            "mcpd v0.5.0 (docs v0.1.0)\n"
+            "{% endhint %}\n\n---\n"
+        )
 
-    def test_heading_inside_indented_code_fence_is_skipped(self) -> None:
-        content = "    ```\n# Not a heading\n    ```\n\n# Real heading\n\nBody"
-        result = _inject_version_badge(content, "1.0.0")
-        assert "Version: 1.0.0" in result
-        assert result.index("Version: 1.0.0") > result.index("# Real heading")
-
-    def test_includes_mcpd_version_when_provided(self) -> None:
-        result = _inject_version_badge("# Title\n\nBody", "v1.2.3", "v0.4.0")
-        assert "Version: v1.2.3 (documents mcpd v0.4.0)" in result
+    def test_raises_when_marker_missing(self) -> None:
+        with pytest.raises(ValueError):
+            _apply_version_badge("# mcpd\n\nno marker here\n", "v0.1.0", "v0.5.0")

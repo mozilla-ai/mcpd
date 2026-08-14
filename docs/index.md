@@ -2,6 +2,8 @@
 
 > *Run your agents, not your infrastructure.*
 
+<!-- version-badge -->
+
 ---
 
 `mcpd` is a toolchain and runtime developed by [Mozilla AI](https://mozilla.ai) that simplifies the configuration, 

@@ -70,29 +70,20 @@ def render_summary_commands(template: str, entries: list[str]) -> str:
     return template[:begin] + block + template[end:]
 
 
-def _inject_version_badge(content: str, docs_version: str, mcpd_version: str = "") -> str:
-    """Insert a version indicator after the first top-level heading."""
-    version_line = f"Version: {docs_version}"
-    if mcpd_version:
-        version_line += f" (documents mcpd {mcpd_version})"
-    lines = content.split("\n")
-    in_fence = False
-    for i, line in enumerate(lines):
-        if line.lstrip().startswith("```"):
-            in_fence = not in_fence
-            continue
-        if not in_fence and line.startswith("# "):
-            j = i + 1
-            while j < len(lines) and not lines[j].strip():
-                j += 1
-            lines[j:j] = [
-                '{% hint style="info" icon="tag" %}',
-                version_line,
-                "{% endhint %}",
-                "",
-            ]
-            break
-    return "\n".join(lines)
+VERSION_MARKER = "<!-- version-badge -->"
+
+
+def _render_version_badge(docs_version: str, mcpd_version: str) -> str:
+    """Return the version hint block, leading with the mcpd release when known."""
+    label = f"mcpd {mcpd_version} (docs {docs_version})" if mcpd_version else f"docs {docs_version}"
+    return f'{{% hint style="info" icon="tag" %}}\n{label}\n{{% endhint %}}'
+
+
+def _apply_version_badge(content: str, docs_version: str, mcpd_version: str) -> str:
+    """Replace the version marker with the rendered badge."""
+    if VERSION_MARKER not in content:
+        raise ValueError(f"missing {VERSION_MARKER} marker")
+    return content.replace(VERSION_MARKER, _render_version_badge(docs_version, mcpd_version))
 
 
 def generate_summary() -> None:
@@ -112,7 +103,7 @@ def stamp_version(docs_version: str, mcpd_version: str) -> None:
     index = SITE_DIR / "index.md"
     if index.exists():
         index.write_text(
-            _inject_version_badge(index.read_text(encoding="utf-8"), docs_version, mcpd_version),
+            _apply_version_badge(index.read_text(encoding="utf-8"), docs_version, mcpd_version),
             encoding="utf-8",
         )
 
