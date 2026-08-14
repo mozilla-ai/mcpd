@@ -1,0 +1,183 @@
+name: Documentation
+
+on:
+  release:
+    types: [published]
+  pull_request:
+    paths:
+      - "docs/**"
+      - "scripts/prepare_gitbook_site.py"
+      - "scripts/check_docs.py"
+      - "scripts/test_prepare_gitbook_site.py"
+      - "tools/docsgen/**"
+      - ".gitbook.yaml"
+      - ".gitbook-branch-readme.md"
+      - ".github/workflows/docs.yaml"
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Docs tag to publish (e.g. docs/v0.1.0)"
+        required: true
+
+concurrency:
+  group: docs-${{ github.event_name == 'pull_request' && github.ref || 'publish' }}
+  cancel-in-progress: false
+
+jobs:
+  validate:
+    if: github.event_name == 'pull_request'
+    permissions:
+      contents: read
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
+        with:
+          persist-credentials: false
+
+      - name: Set up Go (from go.mod)
+        uses: actions/setup-go@7a3fe6cf4cb3a834922a1244abfce67bcef6a0c5 # v6.2.0
+        with:
+          go-version-file: go.mod
+
+      - name: Install the latest version of uv
+        uses: astral-sh/setup-uv@3259c6206f993105e3a61b142c2d97bf4b9ef83d # v7.1.0
+        with:
+          python-version: "3.13"
+
+      - name: Generate CLI and OpenAPI docs
+        run: |
+          make docs-cli
+          make docs-api
+
+      - name: Run script tests
+        run: uv run --no-project --with pytest pytest scripts/test_prepare_gitbook_site.py -v
+
+      - name: Check documentation links
+        run: uv run --no-project python scripts/check_docs.py
+
+      - name: Build GitBook site
+        run: uv run --no-project python scripts/prepare_gitbook_site.py
+
+  publish:
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event_name == 'release' && startsWith(github.event.release.tag_name, 'docs/v'))
+    permissions:
+      contents: write
+    runs-on: ubuntu-latest
+    steps:
+      - name: Validate tag
+        id: tag
+        env:
+          TAG: ${{ github.event.release.tag_name || github.event.inputs.tag }}
+        run: |
+          if [[ -z "$TAG" ]]; then
+            echo "::error::No tag provided"
+            exit 1
+          fi
+
+          if [[ ! "$TAG" =~ ^docs/v[0-9]+\.[0-9]+\.[0-9]+(-[a-zA-Z0-9.]+)?$ ]]; then
+            echo "::error::Tag '$TAG' does not match expected pattern docs/vX.Y.Z"
+            exit 1
+          fi
+
+          VERSION="${TAG#docs/}"
+          echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
+          echo "tag=${TAG}" >> "$GITHUB_OUTPUT"
+
+      - name: Check out the repository
+        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
+        with:
+          persist-credentials: false
+          ref: ${{ steps.tag.outputs.tag }}
+          fetch-depth: 0
+
+      - name: Set up Go (from go.mod)
+        uses: actions/setup-go@7a3fe6cf4cb3a834922a1244abfce67bcef6a0c5 # v6.2.0
+        with:
+          go-version-file: go.mod
+
+      - name: Install the latest version of uv
+        uses: astral-sh/setup-uv@3259c6206f993105e3a61b142c2d97bf4b9ef83d # v7.1.0
+        with:
+          python-version: "3.13"
+
+      - name: Generate CLI and OpenAPI docs
+        run: |
+          make docs-cli
+          make docs-api
+
+      - name: Check documentation links
+        run: uv run --no-project python scripts/check_docs.py
+
+      - name: Build GitBook site
+        run: uv run --no-project python scripts/prepare_gitbook_site.py --version "$DOCS_VERSION"
+        env:
+          DOCS_VERSION: ${{ steps.tag.outputs.version }}
+
+      - name: Deploy to gitbook-docs branch
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          DOCS_TAG: ${{ steps.tag.outputs.tag }}
+        run: |
+          REPO="${GITHUB_REPOSITORY}"
+          SOURCE_SHA=$(git rev-parse HEAD)
+          COMMIT_MSG="docs: update GitBook documentation from ${DOCS_TAG} (${SOURCE_SHA})"
+
+          PARENT_SHA=""
+          PARENT_TREE=""
+          REF_ERR=$(mktemp)
+          if REF_DATA=$(gh api "repos/${REPO}/git/ref/heads/gitbook-docs" 2>"$REF_ERR"); then
+            PARENT_SHA=$(echo "$REF_DATA" | jq -r '.object.sha')
+            PARENT_TREE=$(gh api "repos/${REPO}/git/commits/${PARENT_SHA}" --jq '.tree.sha')
+          elif ! grep -q 'HTTP 404' "$REF_ERR"; then
+            cat "$REF_ERR" >&2
+            echo "::error::Failed to read gitbook-docs ref"
+            exit 1
+          fi
+          rm -f "$REF_ERR"
+
+          cd site/
+          TREE_ENTRIES="[]"
+          while IFS= read -r -d '' file; do
+            REL_PATH="${file#./}"
+            BLOB_SHA=$(gh api "repos/${REPO}/git/blobs" \
+              -f content="$(base64 -w 0 < "$file")" \
+              -f encoding="base64" \
+              --jq '.sha') || { echo "::error::Failed to create blob for $REL_PATH"; exit 1; }
+            TREE_ENTRIES=$(echo "$TREE_ENTRIES" | jq \
+              --arg path "$REL_PATH" \
+              --arg sha "$BLOB_SHA" \
+              '. + [{"path": $path, "mode": "100644", "type": "blob", "sha": $sha}]')
+          done < <(find . -type f -print0)
+
+          TREE_SHA=$(jq -n --argjson tree "$TREE_ENTRIES" '{"tree": $tree}' | \
+            gh api "repos/${REPO}/git/trees" --input - --jq '.sha')
+
+          if [ -n "${PARENT_TREE}" ] && [ "${TREE_SHA}" = "${PARENT_TREE}" ]; then
+            echo "No changes to deploy"
+            exit 0
+          fi
+
+          DEPLOY_SHA=$(jq -n \
+            --arg message "$COMMIT_MSG" \
+            --arg tree "$TREE_SHA" \
+            --arg parent "$PARENT_SHA" \
+            'if $parent == "" then
+              {message: $message, tree: $tree}
+            else
+              {message: $message, tree: $tree, parents: [$parent]}
+            end' | \
+            gh api "repos/${REPO}/git/commits" --input - --jq '.sha')
+
+          if [ -n "$PARENT_SHA" ]; then
+            gh api "repos/${REPO}/git/refs/heads/gitbook-docs" \
+              -X PATCH -f sha="$DEPLOY_SHA" > /dev/null
+          else
+            gh api "repos/${REPO}/git/refs" \
+              -f ref="refs/heads/gitbook-docs" \
+              -f sha="$DEPLOY_SHA" > /dev/null
+          fi
+
+          echo "Deployed commit ${DEPLOY_SHA}"
