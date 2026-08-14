@@ -2,9 +2,12 @@
 
 ## Global Configuration
 
-!!! info "Precedence"
-    The order of precedence for these options is:  
-    `CLI flag > environment variable > default value`
+{% hint style="info" %}
+**Precedence**
+
+The order of precedence for these options is:  
+`CLI flag > environment variable > default value`
+{% endhint %}
 
 ## Runtime File Path
 
@@ -17,10 +20,13 @@ You can provide this path in multiple ways:
 - Environment variable: `MCPD_RUNTIME_FILE=<path>`
 - Default: `~/.config/mcpd/secrets.dev.toml`
 
-!!! note "XDG_CONFIG_HOME environment variable"
-    mcpd honors the [XDG Base Directory Specification](https://specifications.freedesktop.org/basedir-spec/latest/), 
-    respecting the `XDG_CONFIG_HOME` environment variable. This forms the base directory where `mcpd` will create an 
-    application folder.
+{% hint style="info" %}
+**XDG_CONFIG_HOME environment variable**
+
+mcpd honors the [XDG Base Directory Specification](https://specifications.freedesktop.org/basedir-spec/latest/), 
+respecting the `XDG_CONFIG_HOME` environment variable. This forms the base directory where `mcpd` will create an 
+application folder.
+{% endhint %}
 
 ---
 
@@ -47,6 +53,9 @@ These values apply at runtime and are separate from your **project-specific** `.
       qwerty = "xyz"
 ```
 
-!!! warning "Manual Changes"
-    The Execution Context Configuration file is automatically updated by `mcpd config` commands, 
-    you shouldn't edit it by hand unless absolutely necessary.
+{% hint style="warning" %}
+**Manual Changes**
+
+The Execution Context Configuration file is automatically updated by `mcpd config` commands, 
+you shouldn't edit it by hand unless absolutely necessary.
+{% endhint %}

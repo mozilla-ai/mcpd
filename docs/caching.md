@@ -5,17 +5,20 @@ The caching system stores registry manifests locally to avoid repeated network r
 
 ## Cache Directory
 
-All commands that access remote registries ([add](/mcpd/commands/mcpd_add/) and [search](/mcpd/commands/mcpd_search/)) support optional parameters to configure caching behavior.
+All commands that access remote registries ([add](commands/mcpd_add.md) and [search](commands/mcpd_search.md)) support optional parameters to configure caching behavior.
 
 You can specify the cache directory in multiple ways:
 
 - CLI flag: `--cache-dir <path>`
 - Default: `~/.cache/mcpd/registries/`
 
-!!! note "XDG_CACHE_HOME environment variable"
-    `mcpd` honors the [XDG Base Directory Specification](https://specifications.freedesktop.org/basedir-spec/latest/), 
-    respecting the `XDG_CACHE_HOME` environment variable. This forms the base directory where `mcpd` will create a 
-    cache folder for registry manifests.
+{% hint style="info" %}
+**XDG_CACHE_HOME environment variable**
+
+`mcpd` honors the [XDG Base Directory Specification](https://specifications.freedesktop.org/basedir-spec/latest/), 
+respecting the `XDG_CACHE_HOME` environment variable. This forms the base directory where `mcpd` will create a 
+cache folder for registry manifests.
+{% endhint %}
 
 ## Cache Time-to-Live (TTL)
 
@@ -109,6 +112,9 @@ If cache directory creation fails, ensure:
 
 For step-by-step diagnosis of registry lookup or cache problems, see [Troubleshooting](troubleshooting.md).
 
-!!! tip "Performance"
-    Caching significantly improves performance for repeated operations. The default 24-hour TTL 
-    provides a good balance between freshness and performance for most use cases.
+{% hint style="success" %}
+**Performance**
+
+Caching significantly improves performance for repeated operations. The default 24-hour TTL 
+provides a good balance between freshness and performance for most use cases.
+{% endhint %}

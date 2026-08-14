@@ -1,4 +1,4 @@
-# <span class="logo-text">mcpd</span> ![mcpd](assets/mcpd-logo.png){: .logo-image}
+# mcpd
 
 > *Run your agents, not your infrastructure.*
 
@@ -88,14 +88,20 @@ Or install directly from the cask in a single command:
 brew install --cask mozilla-ai/tap/mcpd
 ```
 
-!!! tip "Installation methods"
-    Please see our [Installation](installation.md) page for additional ways to install and run `mcpd`.
+{% hint style="success" %}
+**Installation methods**
 
-!!! info "Runtime prerequisites"
-    Installing the `mcpd` binary is separate from installing MCP server runtimes.
-    Install only the runtime(s) your configured servers use:
-    `uv` for `uvx::...`, `npx` for `npx::...`, and Docker for `docker::...`.
-    The tutorial and most examples on this site use `uvx`, so `uv` is the most common first requirement.
+Please see our [Installation](installation.md) page for additional ways to install and run `mcpd`.
+{% endhint %}
+
+{% hint style="info" %}
+**Runtime prerequisites**
+
+Installing the `mcpd` binary is separate from installing MCP server runtimes.
+Install only the runtime(s) your configured servers use:
+`uv` for `uvx::...`, `npx` for `npx::...`, and Docker for `docker::...`.
+The tutorial and most examples on this site use `uvx`, so `uv` is the most common first requirement.
+{% endhint %}
 
 ---
 
@@ -113,7 +119,7 @@ Use the sidebar to explore:
 
 ---
 
-## <span><img class="heading-icon" src="assets/mozilla-ai-logo.png" alt="Mozilla.ai logo" /></span> About Mozilla.ai
+## About Mozilla.ai
 
 This project is built and maintained by [Mozilla.ai](https://mozilla.ai), a mission-driven organization reimagining AI for the public good.
 

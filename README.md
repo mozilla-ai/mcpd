@@ -10,7 +10,7 @@
 
 Built by [Mozilla AI](https://mozilla.ai)
 
-📚 [mcpd official docs](https://mozilla-ai.github.io/mcpd/)
+📚 [mcpd official docs](https://docs.mozilla.ai/mcpd)
 
 ---
 
@@ -71,7 +71,7 @@ Or install directly from the cask:
 brew install --cask mozilla-ai/tap/mcpd
 ```
 
-Please read our docs to install via [GitHub releases](https://mozilla-ai.github.io/mcpd/installation/#via-github-releases) or [local Go Binary build](https://mozilla-ai.github.io/mcpd/installation/#via-local-go-binary-build).
+Please read our docs to install via [GitHub releases](https://docs.mozilla.ai/mcpd/installation#via-github-releases) or [local Go Binary build](https://docs.mozilla.ai/mcpd/installation#via-local-go-binary-build).
 
 ### Using mcpd
 

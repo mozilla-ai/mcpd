@@ -79,6 +79,5 @@ run:
   # Build tags to include files with custom build constraints.
   build-tags:
     - docsgen_cli
-    - docsgen_nav
     - docsgen_api
     - validate_registry

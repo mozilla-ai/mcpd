@@ -2,9 +2,12 @@
 
 ## Global Configuration
 
-!!! info "Precedence"
-    The order of precedence for these options is:  
-    `CLI flag > configuration file > default value`
+{% hint style="info" %}
+**Precedence**
+
+The order of precedence for these options is:  
+`CLI flag > configuration file > default value`
+{% endhint %}
 
 The `mcpd daemon` command supports persistent configuration through configuration files and CLI commands. 
 This allows you to configure API server settings, [CORS](https://developer.mozilla.org/en-US/docs/Glossary/CORS) policies, 
@@ -18,7 +21,7 @@ The daemon configuration is managed using the following commands:
 - `mcpd config daemon list` - List currently configured and all available configuration keys
 - `mcpd config daemon validate` - Validate current configuration
 
-For further information please check visit our [CLI Overview](/mcpd/commands/mcpd).
+For further information, please visit our [CLI Overview](commands/mcpd.md).
 
 ---
 

@@ -2,9 +2,12 @@
 
 ## Global Configuration
 
-!!! info "Precedence"
-    The order of precedence for these options is:  
-    `CLI flag > environment variable > default value`
+{% hint style="info" %}
+**Precedence**
+
+The order of precedence for these options is:  
+`CLI flag > environment variable > default value`
+{% endhint %}
 
 ## Config File Path
 
@@ -60,9 +63,12 @@ Options:
 - CLI flag: `--log-path=<path>`
 - Environment variable: `MCPD_LOG_PATH=<path>`
 
-!!! warning "Setting Log Path"
-    Log entries will be discarded by default, unless a log path is configured. 
-    Output intended for the terminal is still emitted.
+{% hint style="warning" %}
+**Setting Log Path**
+
+Log entries will be discarded by default, unless a log path is configured. 
+Output intended for the terminal is still emitted.
+{% endhint %}
 
 ---
 
@@ -146,10 +152,13 @@ The daemon will:
 
 ### Execution Context and Environment Variables
 
-!!! warning "Environment Variable Visibility"
-    The `mcpd` process can only see environment variables that existed when it started.
+{% hint style="warning" %}
+**Environment Variable Visibility**
 
-    If you export new environment variables in your shell after starting `mcpd`, you must restart the daemon for those variables to become available for shell expansion.
+The `mcpd` process can only see environment variables that existed when it started.
+
+If you export new environment variables in your shell after starting `mcpd`, you must restart the daemon for those variables to become available for shell expansion.
+{% endhint %}
 
 When the execution context file is reloaded, shell expansion of environment variables (`${VAR}` syntax) 
 occurs using the environment available to the running `mcpd` process when it was started.
@@ -206,11 +215,17 @@ The reload process maintains strict consistency - any error causes the daemon to
 
 This ensures the daemon never runs in an inconsistent or partially-failed state, matching the behavior during initial startup where any server failure prevents the daemon from running.
 
-!!! warning "Reload Failures"
-    Unlike some systems that allow partial reloads, `mcpd` exits on any reload error to prevent inconsistent state. You'll need to fix the configuration and restart the daemon.
+{% hint style="warning" %}
+**Reload Failures**
 
-!!! tip "Diagnosing reload issues"
-    If a change did not take effect, or the daemon exited during reload, see [Troubleshooting](troubleshooting.md).
+Unlike some systems that allow partial reloads, `mcpd` exits on any reload error to prevent inconsistent state. You'll need to fix the configuration and restart the daemon.
+{% endhint %}
+
+{% hint style="success" %}
+**Diagnosing reload issues**
+
+If a change did not take effect, or the daemon exited during reload, see [Troubleshooting](troubleshooting.md).
+{% endhint %}
 
 ---
 
@@ -227,8 +242,11 @@ Environment variables and command-line arguments are both converted to template 
 
 ### Variable Name Collisions
 
-!!! danger "Naming Collisions"
-    If a server has both an environment variable and a command-line argument that normalize to the same name (e.g., `DATABASE_URL` and `--database-url`), they will generate the same template variable name.
+{% hint style="danger" %}
+**Naming Collisions**
+
+If a server has both an environment variable and a command-line argument that normalize to the same name (e.g., `DATABASE_URL` and `--database-url`), they will generate the same template variable name.
+{% endhint %}
     
 In most cases, this is intentional, the same configuration value is being used in different ways. The collision results in a single template variable that can be used for both the environment variable and command-line argument.
     

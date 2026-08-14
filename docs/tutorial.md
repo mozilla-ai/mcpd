@@ -2,11 +2,14 @@
 
 This tutorial walks you through using `mcpd` from setup to making requests to a running MCP server.
 
-!!! note "What you need for this tutorial"
-    This tutorial adds the `time` server, which uses the `uvx` runtime.
-    Install `uv` before starting.
-    The API examples use `curl`.
-    If you have `jq` installed, you can optionally append `| jq` to pretty-print the JSON responses.
+{% hint style="info" %}
+**What you need for this tutorial**
+
+This tutorial adds the `time` server, which uses the `uvx` runtime.
+Install `uv` before starting.
+The API examples use `curl`.
+If you have `jq` installed, you can optionally append `| jq` to pretty-print the JSON responses.
+{% endhint %}
 
 ---
 
@@ -16,8 +19,11 @@ brew tap mozilla-ai/tap
 brew install mcpd
 ```
 
-!!! tip "Installation methods"
-    Please see our [Installation](installation.md) page for additional ways to install and run `mcpd`.
+{% hint style="success" %}
+**Installation methods**
+
+Please see our [Installation](installation.md) page for additional ways to install and run `mcpd`.
+{% endhint %}
 
 ---
 
@@ -26,8 +32,11 @@ brew install mcpd
 mcpd init
 ```
 
-!!! note "Config File Location"
-    This creates an `.mcpd.toml` file in your current directory.
+{% hint style="info" %}
+**Config File Location**
+
+This creates an `.mcpd.toml` file in your current directory.
+{% endhint %}
 
 ---
 
@@ -43,15 +52,20 @@ You can also restrict access to allow only specific tools:
 mcpd add time --tool get_current_time
 ```
 
-!!! tip "Experiment with MCP servers"
-    You can quickly experiment with MCP servers before properly adding them to
-    the `mcpd` configuration, by running the inspector tool:
-    ```bash
-    mcpd inspector
-    ```
-    This optional tool requires `npx`.
-    For more information, please refer to the [official documentation](https://modelcontextprotocol.io/docs/tools/inspector)
-    of the tool.
+{% hint style="success" %}
+**Experiment with MCP servers**
+
+You can quickly experiment with MCP servers before properly adding them to
+the `mcpd` configuration, by running the inspector tool:
+
+```bash
+mcpd inspector
+```
+
+This optional tool requires `npx`.
+For more information, please refer to the [official documentation](https://modelcontextprotocol.io/docs/tools/inspector)
+of the tool.
+{% endhint %}
 
 ---
 
@@ -71,8 +85,11 @@ Start `mcpd`, which launches MCP servers and exposes the HTTP API:
 mcpd daemon
 ```
 
-!!! note "API Endpoint"
-    The API docs will be available at `http://localhost:8090/docs`
+{% hint style="info" %}
+**API Endpoint**
+
+The API docs will be available at `http://localhost:8090/docs`
+{% endhint %}
 
 ---
 

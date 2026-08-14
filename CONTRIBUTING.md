@@ -46,7 +46,7 @@ By contributing to this project, you agree to abide by our [Code of Conduct](COD
 
 ## How to Contribute
 
-We encourage contributions via GitHub pull requests. Before you start, please review our [documented requirements](https://mozilla-ai.github.io/mcpd/requirements/).
+We encourage contributions via GitHub pull requests. Before you start, please review our [documented requirements](https://docs.mozilla.ai/mcpd/requirements).
 
 ### **Browse Existing Issues** 🔍
 - Check the Issues page to see if there are any tasks you'd like to tackle.

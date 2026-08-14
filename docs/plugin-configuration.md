@@ -10,8 +10,11 @@ This page covers configuring plugins. To build one, see [Writing a Plugin](writi
 
 ## Plugin Categories
 
-!!! info Plugin execution order
-    Within each category, plugins execute in the order they appear in the configuration file.
+{% hint style="info" %}
+**Plugin execution order**
+
+Within each category, plugins execute in the order they appear in the configuration file.
+{% endhint %}
 
 Plugins are organized into categories and execute during specific phases of the request lifecycle.
 
@@ -130,9 +133,12 @@ During the request phase, `jwt-auth` executes first, followed by `api-key-auth`.
 
 ## Required Plugins
 
-!!! warning "Required Plugin Failures"
-    If a required plugin fails, the request is rejected with HTTP 500 (Internal Server Error)
-    and a `Mcpd-Error-Type` header indicating the failure phase.
+{% hint style="warning" %}
+**Required Plugin Failures**
+
+If a required plugin fails, the request is rejected with HTTP 500 (Internal Server Error)
+and a `Mcpd-Error-Type` header indicating the failure phase.
+{% endhint %}
 
 
 Mark plugins as required when their successful execution is critical:
@@ -153,9 +159,12 @@ When a required plugin fails, `mcpd` returns:
     * `request-pipeline-failure` - Plugin failed during request processing (before upstream call)
     * `response-pipeline-failure` - Plugin failed during response processing (after upstream call)
 
-!!! info "Response Pipeline Execution"
-    The response pipeline runs on all upstream responses, regardless of status (200 OK, 500 error, etc.).
-    This ensures critical plugins (PII redaction, audit logging, security headers) run consistently.
+{% hint style="info" %}
+**Response Pipeline Execution**
+
+The response pipeline runs on all upstream responses, regardless of status (200 OK, 500 error, etc.).
+This ensures critical plugins (PII redaction, audit logging, security headers) run consistently.
+{% endhint %}
 
 ### Optional Plugin Behavior
 
@@ -169,8 +178,11 @@ When `required` is not specified or set to `false`:
 
 ## Content Mutation
 
-!!! info "Content Plugin Behavior"
-    Only plugins in the `content` category may mutate requests or responses. Modified content is passed to the next plugin in the chain.
+{% hint style="info" %}
+**Content Plugin Behavior**
+
+Only plugins in the `content` category may mutate requests or responses. Modified content is passed to the next plugin in the chain.
+{% endhint %}
 
 Content plugins modify the request by setting the modified request in their response. Other plugin categories can only observe or reject requests.
 
@@ -192,8 +204,11 @@ The `encryption` plugin processes the request first and may modify it. The modif
 
 ## Observability Plugin Execution
 
-!!! note "Parallel Execution"
-    Observability plugins run in *parallel* and cannot modify requests or responses.
+{% hint style="info" %}
+**Parallel Execution**
+
+Observability plugins run in *parallel* and cannot modify requests or responses.
+{% endhint %}
 
 Observability plugins are designed for metrics collection, tracing, and monitoring. They execute concurrently for performance.
 

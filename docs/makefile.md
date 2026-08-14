@@ -2,15 +2,21 @@
 
 The `mcpd` project includes a `Makefile` to streamline common developer tasks. 
 
-!!! warning "Running make"
-    All commands should be run from the **root of the repository**.
+{% hint style="warning" %}
+**Running make**
+
+All commands should be run from the **root of the repository**.
+{% endhint %}
 
 ---
 
 ## Commands
 
-!!! note "Environment"
-    Most commands assume you have Go installed and available in your `PATH`.
+{% hint style="info" %}
+**Environment**
+
+Most commands assume you have Go installed and available in your `PATH`.
+{% endhint %}
 
 ### 🧱 Build
 
@@ -19,11 +25,14 @@ The `mcpd` project includes a `Makefile` to streamline common developer tasks.
     make build
     ```
 
-    !!! tip "Architectures and Operating Systems"
-        You can explicitly build the binary for a different architecture (`amd64/arm64`) or operating systems with:
-    
-        * `make build-linux`
-        * `make build-linux-arm64`
+    {% hint style="success" %}
+    **Architectures and Operating Systems**
+
+    You can explicitly build the binary for a different architecture (`amd64/arm64`) or operating systems with:
+
+    * `make build-linux`
+    * `make build-linux-arm64`
+    {% endhint %}
 
 - **Remove the compiled binary from the working directory**
     ```bash
@@ -35,8 +44,11 @@ The `mcpd` project includes a `Makefile` to streamline common developer tasks.
     sudo make install
     ```
 
-    !!! note "Dependency"
-        The `install` target relies on the standard `build` target.
+    {% hint style="info" %}
+    **Dependency**
+
+    The `install` target relies on the standard `build` target.
+    {% endhint %}
 
 
 - **Uninstall the binary**
@@ -67,11 +79,14 @@ The `mcpd` project includes a `Makefile` to streamline common developer tasks.
     make validate-registry
     ```
 
-    !!! note "When to use"
-        Run this command before submitting PRs that modify:
+    {% hint style="info" %}
+    **When to use**
 
-        * `internal/provider/mozilla_ai/data/registry.json`
-        * `internal/provider/mozilla_ai/data/schema.json`
+    Run this command before submitting PRs that modify:
+
+    * `internal/provider/mozilla_ai/data/registry.json`
+    * `internal/provider/mozilla_ai/data/schema.json`
+    {% endhint %}
 
 ---
 
@@ -82,8 +97,11 @@ The `mcpd` project includes a `Makefile` to streamline common developer tasks.
     make check-licenses
     ```
 
-    !!! note "Allowed licenses"
-        This validates that all dependencies use one of: `Apache-2.0`, `MIT`, `BSD-2-Clause`, `BSD-3-Clause`, `ZeroBSD`, or `Unlicense`.
+    {% hint style="info" %}
+    **Allowed licenses**
+
+    This validates that all dependencies use one of: `Apache-2.0`, `MIT`, `BSD-2-Clause`, `BSD-3-Clause`, `ZeroBSD`, or `Unlicense`.
+    {% endhint %}
 
 - **Check NOTICE file is up to date**
     ```bash
@@ -95,8 +113,11 @@ The `mcpd` project includes a `Makefile` to streamline common developer tasks.
     make notice
     ```
 
-    !!! note "Third-party attribution"
-        Regenerates the NOTICE file with current dependency license information.
+    {% hint style="info" %}
+    **Third-party attribution**
+
+    Regenerates the NOTICE file with current dependency license information.
+    {% endhint %}
 
 ---
 
@@ -107,11 +128,14 @@ The `mcpd` project includes a `Makefile` to streamline common developer tasks.
     make local-up
     ```
 
-    !!! warning "Default files"
-        By default the following files will be mounted to the container:
-        
-        * `.mcpd.toml` - the project configuration file in this repository
-        * `~/.config/mcpd/secrets.dev.toml` - the default location for runtime configuration
+    {% hint style="warning" %}
+    **Default files**
+
+    By default the following files will be mounted to the container:
+
+    * `.mcpd.toml` - the project configuration file in this repository
+    * `~/.config/mcpd/secrets.dev.toml` - the default location for runtime configuration
+    {% endhint %}
 
 - **Stop mcpd**
     ```bash
@@ -122,28 +146,34 @@ The `mcpd` project includes a `Makefile` to streamline common developer tasks.
 
 ### 📝 Documentation
 
-These commands manage the [MkDocs](https://www.mkdocs.org) developer documentation site for `mcpd`.
+These commands build the [GitBook](https://docs.mozilla.ai/mcpd) documentation site for `mcpd`.
 
-!!! note "Environment"
-    Docs commands assume you have `uv` installed and available in your `PATH` (in additon to Go).
+{% hint style="info" %}
+**Environment**
+
+Docs commands assume you have `uv` installed and available in your `PATH` (in addition to Go).
+{% endhint %}
 
 - **Generate CLI reference docs from the Cobra commands**
     ```bash
     make docs-cli
     ```
 
-- **Update `mkdocs.yaml` navigation for the CLI commands**
+- **Generate the OpenAPI specification**
     ```bash
-    make docs-nav
+    make docs-api
     ```
 
-- **Serve the docs locally using MkDocs + uv: generate CLI docs, update nav, serve locally**
+- **Build the GitBook site into `site/` (runs the generators first)**
     ```bash
     make docs
     ```
 
-    !!! tip "First time?"
-        The `docs` command will create a virtual environment using `uv`, install MkDocs + Material theme, and start the local server at [http://localhost:8000/mcpd/](http://localhost:8000/mcpd/).
+    {% hint style="info" %}
+    **Previewing**
+
+    GitBook renders the published site from the `gitbook-docs` branch, so there is no local dev server. `make docs` assembles the publishable Markdown into `site/` for inspection.
+    {% endhint %}
 
 ---
 
@@ -160,9 +190,9 @@ Here's a complete list of Makefile targets:
 | `check-licenses`    | Validate all dependency licenses are allowed             |
 | `check-notice`      | Verify NOTICE file is up to date                         |
 | `clean`             | Remove compiled binary from working directory            |
-| `docs`              | Serve docs locally via `mkdocs serve`                    |
-| `docs-local`        | Serve docs locally via `mkdocs serve`                    |
-| `docs-nav`          | Update CLI doc nav in `mkdocs.yaml`                      |
+| `docs`              | Build the GitBook documentation site into `site/`        |
+| `docs-api`          | Generate the OpenAPI specification                       |
+| `docs-cli`          | Generate CLI reference docs from the Cobra commands      |
 | `install`           | Install binary to system path                            |
 | `lint`              | Run linter with auto-fix (includes check-notice)         |
 | `local-down`        | Stop a running `mcpd` Docker container                   |

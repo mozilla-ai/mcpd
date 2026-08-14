@@ -18,6 +18,7 @@ import (
 
 	"github.com/mozilla-ai/mcpd/internal/api"
 	"github.com/mozilla-ai/mcpd/internal/domain"
+	"github.com/mozilla-ai/mcpd/tools/docsgen/apiref"
 )
 
 // stubHealthTracker provides a stub implementation for documentation generation.
@@ -72,7 +73,8 @@ func main() {
 	logger.Info("Routes registered", "prefix", apiPathPrefix)
 
 	// Get the OpenAPI spec as YAML.
-	yamlBytes, err := router.OpenAPI().YAML()
+	spec := router.OpenAPI()
+	yamlBytes, err := spec.YAML()
 	if err != nil {
 		logger.Error("failed to generate OpenAPI YAML", "error", err)
 		os.Exit(1)
@@ -92,4 +94,46 @@ func main() {
 	}
 
 	logger.Info("OpenAPI spec generated", "path", outputPath, "size", fmt.Sprintf("%d bytes", len(yamlBytes)))
+
+	// Write the GitBook API reference page derived from the same spec.
+	refPath := "./docs/api-reference.md"
+	if err := os.WriteFile(refPath, []byte(apiref.Render(operations(spec))), 0o644); err != nil {
+		logger.Error("failed to write API reference", "path", refPath, "error", err)
+		os.Exit(1)
+	}
+
+	logger.Info("API reference generated", "path", refPath)
+}
+
+// operations flattens the spec's paths into the operation list the API
+// reference page is rendered from.
+func operations(spec *huma.OpenAPI) []apiref.Operation {
+	var ops []apiref.Operation
+	for path, item := range spec.Paths {
+		for method, op := range methodOperations(item) {
+			if op == nil {
+				continue
+			}
+			tag := ""
+			if len(op.Tags) > 0 {
+				tag = op.Tags[0]
+			}
+			ops = append(ops, apiref.Operation{Tag: tag, Method: method, Path: path})
+		}
+	}
+	return ops
+}
+
+// methodOperations maps each HTTP method to its operation on a path item.
+func methodOperations(item *huma.PathItem) map[string]*huma.Operation {
+	return map[string]*huma.Operation{
+		"get":     item.Get,
+		"put":     item.Put,
+		"post":    item.Post,
+		"delete":  item.Delete,
+		"options": item.Options,
+		"head":    item.Head,
+		"patch":   item.Patch,
+		"trace":   item.Trace,
+	}
 }
