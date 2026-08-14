@@ -123,13 +123,11 @@ uninstall:
 	@echo "uninstalling mcpd from $(INSTALL_DIR)..."
 	@rm -f $(INSTALL_DIR)/mcpd
 
-# Runs MkDocs locally
+# Builds the GitBook documentation site into site/
 .PHONY: docs
-docs: docs-nav docs-api
-	@uv venv && \
-		source .venv/bin/activate && \
-		uv pip install mkdocs mkdocs-material && \
-		uv run mkdocs serve
+docs: docs-cli docs-api
+	@uv run --no-project python scripts/prepare_gitbook_site.py
+	@echo "GitBook site built in site/"
 
 # Generates CLI markdown documentation
 .PHONY: docs-cli
@@ -142,12 +140,6 @@ docs-cli:
 docs-api:
 	@go run -tags=docsgen_api ./tools/docsgen/api/openapi.go
 	@echo "OpenAPI specification generated"
-
-## Updates mkdocs.yaml nav to match generated CLI docs
-.PHONY: docs-nav
-docs-nav: docs-cli
-	@go run -tags=docsgen_nav ./tools/docsgen/nav/main.go
-	@echo "navigation updated for MkDocs site"
 
 .PHONY: local-up
 local-up: build-linux

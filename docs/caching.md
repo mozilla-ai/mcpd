@@ -5,7 +5,7 @@ The caching system stores registry manifests locally to avoid repeated network r
 
 ## Cache Directory
 
-All commands that access remote registries ([add](/mcpd/commands/mcpd_add/) and [search](/mcpd/commands/mcpd_search/)) support optional parameters to configure caching behavior.
+All commands that access remote registries ([add](commands/mcpd_add.md) and [search](commands/mcpd_search.md)) support optional parameters to configure caching behavior.
 
 You can specify the cache directory in multiple ways:
 
