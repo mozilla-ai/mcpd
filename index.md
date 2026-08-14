@@ -1,10 +1,12 @@
 # mcpd
 
-{% hint style="info" icon="tag" %}
-Version: v0.1.0 (documents mcpd v0.5.0)
-{% endhint %}
+![mcpd](assets/mcpd-logo.png)
 
 > *Run your agents, not your infrastructure.*
+
+{% hint style="info" icon="tag" %}
+mcpd v0.5.0 (docs v0.1.0)
+{% endhint %}
 
 ---
 
