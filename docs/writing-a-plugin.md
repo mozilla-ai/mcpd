@@ -56,11 +56,14 @@ If the socket does not accept a connection within the start timeout (10 seconds 
 process is killed and the plugin fails to load. Listen on the socket before doing any slow
 initialisation work.
 
-!!! note "This is not hashicorp/go-plugin"
-    Although the transport is the same idea, `mcpd` implements its own startup sequence. There is
-    no magic cookie, no handshake line written to stdout, and no protocol version negotiation via
-    environment variables. The plugin's only contract is: bind the socket it was given, then serve
-    the `Plugin` service.
+{% hint style="info" %}
+**This is not hashicorp/go-plugin**
+
+Although the transport is the same idea, `mcpd` implements its own startup sequence. There is
+no magic cookie, no handshake line written to stdout, and no protocol version negotiation via
+environment variables. The plugin's only contract is: bind the socket it was given, then serve
+the `Plugin` service.
+{% endhint %}
 
 Plugin `stdout` and `stderr` are captured and forwarded into the daemon's logs, with levels
 inferred from the output, so a plugin should log to stderr rather than trying to manage its own

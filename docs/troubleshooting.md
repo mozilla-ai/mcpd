@@ -20,8 +20,11 @@ Then:
 curl -s http://localhost:8090/api/v1/servers
 ```
 
-!!! tip "Logs are not persisted unless you set a log path"
-    `mcpd` discards log entries by default unless `--log-path` or `MCPD_LOG_PATH` is set.
+{% hint style="success" %}
+**Logs are not persisted unless you set a log path**
+
+`mcpd` discards log entries by default unless `--log-path` or `MCPD_LOG_PATH` is set.
+{% endhint %}
 
 ## `mcpd add` or `mcpd search` Cannot Find a Server
 
@@ -105,8 +108,11 @@ If a reload fails and the daemon exits:
 - Review `mcpd.log` for the first error, not just the final shutdown message.
 - Restart the daemon after fixing the problem.
 
-!!! warning "Reload failures are fatal by design"
-    `mcpd` exits on reload errors to avoid running with partially applied configuration.
+{% hint style="warning" %}
+**Reload failures are fatal by design**
+
+`mcpd` exits on reload errors to avoid running with partially applied configuration.
+{% endhint %}
 
 ## Browser Requests Fail Because of CORS
 
@@ -182,8 +188,11 @@ docker run -p 8090:8090 \
 
 Without the socket mount, containerized `mcpd` cannot control Docker-based MCP servers on the host.
 
-!!! warning "Security note"
-    Mounting the Docker socket gives the container broad access to the host Docker daemon. Use only with trusted images.
+{% hint style="warning" %}
+**Security note**
+
+Mounting the Docker socket gives the container broad access to the host Docker daemon. Use only with trusted images.
+{% endhint %}
 
 See also: [Installation](installation.md).
 

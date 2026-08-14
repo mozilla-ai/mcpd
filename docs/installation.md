@@ -1,10 +1,13 @@
 # Installing `mcpd`
 
-!!! note "Runtime prerequisites"
-    Installing the `mcpd` binary is separate from installing MCP server runtimes.
-    After installation, install only the runtime(s) your servers use:
-    `uv` for `uvx::...`, `npx` for `npx::...`, and Docker for `docker::...`.
-    See [Requirements](requirements.md) for details.
+{% hint style="info" %}
+**Runtime prerequisites**
+
+Installing the `mcpd` binary is separate from installing MCP server runtimes.
+After installation, install only the runtime(s) your servers use:
+`uv` for `uvx::...`, `npx` for `npx::...`, and Docker for `docker::...`.
+See [Requirements](requirements.md) for details.
+{% endhint %}
 
 ## via Homebrew
 
@@ -58,11 +61,14 @@ function install_mcpd() {
 }
 ```
 
-!!! info "macOS Gatekeeper quarantine"
-    If you're on macOS, remove the quarantine flag before running `mcpd`:
-    ```
-    xattr -d com.apple.quarantine mcpd
-    ```
+{% hint style="info" %}
+**macOS Gatekeeper quarantine**
+
+If you're on macOS, remove the quarantine flag before running `mcpd`:
+```
+xattr -d com.apple.quarantine mcpd
+```
+{% endhint %}
 
 ## via local Go binary build
 
@@ -82,8 +88,11 @@ sudo make install # Installs mcpd 'globally' to /usr/local/bin
 
 `mcpd` is available as the Docker image [mzdotai/mcpd](https://hub.docker.com/repository/docker/mzdotai/mcpd/general).
 
-!!! note "Dockerfile environment variables"
-    The [Dockerfile](https://github.com/mozilla-ai/mcpd/blob/main/Dockerfile) defines sensible defaults for configuration via environment variables. These can be overridden at runtime using `docker run -e KEY=VALUE`.
+{% hint style="info" %}
+**Dockerfile environment variables**
+
+The [Dockerfile](https://github.com/mozilla-ai/mcpd/blob/main/Dockerfile) defines sensible defaults for configuration via environment variables. These can be overridden at runtime using `docker run -e KEY=VALUE`.
+{% endhint %}
 
 ### Default environment variables
 
@@ -119,12 +128,15 @@ docker run  -p 8090:8090 \
             mzdotai/mcpd:v0.4.0
 ```
 
-!!! warning "Plugins must match the container, not the host"
-    Plugin binaries are executed inside the container, so they must be built for the image's OS,
-    architecture and C library — the published image is multi-arch (`linux/amd64` and
-    `linux/arm64`) and Alpine-based (musl). Build for the architecture Docker pulled for your host,
-    not for your host's toolchain default; a mismatch fails with `exec format error`. See
-    [Plugin Configuration](plugin-configuration.md#architecture-and-libc-compatibility).
+{% hint style="warning" %}
+**Plugins must match the container, not the host**
+
+Plugin binaries are executed inside the container, so they must be built for the image's OS,
+architecture and C library — the published image is multi-arch (`linux/amd64` and
+`linux/arm64`) and Alpine-based (musl). Build for the architecture Docker pulled for your host,
+not for your host's toolchain default; a mismatch fails with `exec format error`. See
+[Plugin Configuration](plugin-configuration.md#architecture-and-libc-compatibility).
+{% endhint %}
 
 ### Running Docker-based MCP servers from containerized `mcpd`
 
@@ -139,8 +151,11 @@ docker run  -p 8090:8090 \
             mzdotai/mcpd:v0.4.0
 ```
 
-!!! warning "Security Note"
-    Mounting the Docker socket grants the container full access to the host's Docker daemon. Only use this with trusted images.
+{% hint style="warning" %}
+**Security Note**
+
+Mounting the Docker socket grants the container full access to the host's Docker daemon. Only use this with trusted images.
+{% endhint %}
 
 If Docker-based MCP servers do not work when `mcpd` itself is running in Docker, see [Troubleshooting](troubleshooting.md).
 
