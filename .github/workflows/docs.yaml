@@ -74,7 +74,7 @@ jobs:
             exit 1
           fi
 
-          if [[ ! "$TAG" =~ ^docs/v[0-9]+\.[0-9]+\.[0-9]+(-[a-zA-Z0-9.]+)?$ ]]; then
+          if [[ ! "$TAG" =~ ^docs/v[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z-]+(\.[0-9A-Za-z-]+)*)?$ ]]; then
             echo "::error::Tag '$TAG' does not match expected pattern docs/vX.Y.Z"
             exit 1
           fi
