@@ -1,8 +1,0 @@
-[[servers]]
-name = "test-server"
-package = "uvx::test-package@latest"
-tools = ["test_tool"]
-
-[[plugins.authentication]]
-name = "jwt-auth"
-flows = ["request", "request"]

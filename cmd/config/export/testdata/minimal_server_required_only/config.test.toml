@@ -1,6 +1,0 @@
-[[servers]]
-name = "minimal-server"
-package = "uvx::minimal@latest"
-tools = ["minimal_tool"]
-required_env = ["REQUIRED_VAR"]
-required_args = ["--required-arg"]

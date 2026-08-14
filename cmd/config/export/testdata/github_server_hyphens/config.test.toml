@@ -1,6 +1,0 @@
-[[servers]]
-name = "github-server"
-package = "uvx::github-mcp@latest"
-tools = ["create_repo"]
-required_env = ["GITHUB_TOKEN"]
-required_args = ["--org"]

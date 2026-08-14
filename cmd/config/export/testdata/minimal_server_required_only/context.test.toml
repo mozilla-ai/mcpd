@@ -1,5 +1,0 @@
-[servers]
-  [servers.minimal-server]
-    args = ["--required-arg=${MCPD__MINIMAL_SERVER__REQUIRED_ARG}"]
-    [servers.minimal-server.env]
-      REQUIRED_VAR = "${MCPD__MINIMAL_SERVER__REQUIRED_VAR}"
