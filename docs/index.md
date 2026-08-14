@@ -1,5 +1,7 @@
 # mcpd
 
+![mcpd](assets/mcpd-logo.png)
+
 > *Run your agents, not your infrastructure.*
 
 <!-- version-badge -->
