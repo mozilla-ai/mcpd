@@ -75,7 +75,7 @@ def _inject_version_badge(content: str, version: str) -> str:
     lines = content.split("\n")
     in_fence = False
     for i, line in enumerate(lines):
-        if line.startswith("```"):
+        if line.lstrip().startswith("```"):
             in_fence = not in_fence
             continue
         if not in_fence and line.startswith("# "):

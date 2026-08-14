@@ -19,12 +19,9 @@ from pathlib import Path
 REPO_ROOT = Path(__file__).resolve().parent.parent
 DOCS_DIR = REPO_ROOT / "docs"
 
-# SUMMARY.md uses navigation paths validated by the build, not here.
-SKIP_LINK_CHECK: frozenset[Path] = frozenset({(DOCS_DIR / "SUMMARY.md").resolve()})
-
 LINK_RE = re.compile(r"!\[[^\]]*\]\(([^)\n]+)\)|(?<!!)\[([^\]]*)\]\(([^)\n]+)\)")
 HEADER_RE = re.compile(r"^(#{1,6})\s+(.+?)\s*$")
-CODE_FENCE_RE = re.compile(r"^```")
+CODE_FENCE_RE = re.compile(r"^\s*(?:```|~~~)")
 SKIPPED_PREFIXES = ("http://", "https://", "mailto:", "tel:", "data:", "{{")
 
 
@@ -136,7 +133,7 @@ def main() -> int:
 
     validate_summary(errors)
 
-    sources_to_check = [p for p in sorted(published) if p.suffix == ".md" and p not in SKIP_LINK_CHECK]
+    sources_to_check = [p for p in sorted(published) if p.suffix == ".md"]
 
     for source_path in sources_to_check:
         text = strip_code_blocks(source_path.read_text(encoding="utf-8"))

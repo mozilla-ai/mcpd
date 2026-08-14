@@ -9,7 +9,9 @@ on:
       - "scripts/prepare_gitbook_site.py"
       - "scripts/check_docs.py"
       - "scripts/test_prepare_gitbook_site.py"
+      - "scripts/test_check_docs.py"
       - "tools/docsgen/**"
+      - "Makefile"
       - ".gitbook.yaml"
       - ".gitbook-branch-readme.md"
       - ".github/workflows/docs.yaml"
@@ -45,19 +47,14 @@ jobs:
         with:
           python-version: "3.13"
 
-      - name: Generate CLI and OpenAPI docs
-        run: |
-          make docs-cli
-          make docs-api
-
       - name: Run script tests
-        run: uv run --no-project --with pytest pytest scripts/test_prepare_gitbook_site.py -v
+        run: uv run --no-project --with pytest pytest scripts/ -v
+
+      - name: Build docs site
+        run: make docs
 
       - name: Check documentation links
         run: uv run --no-project python scripts/check_docs.py
-
-      - name: Build GitBook site
-        run: uv run --no-project python scripts/prepare_gitbook_site.py
 
   publish:
     if: >-

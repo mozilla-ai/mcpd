@@ -65,9 +65,11 @@ function install_mcpd() {
 **macOS Gatekeeper quarantine**
 
 If you're on macOS, remove the quarantine flag before running `mcpd`:
-```
+
+```bash
 xattr -d com.apple.quarantine mcpd
 ```
+
 {% endhint %}
 
 ## via local Go binary build

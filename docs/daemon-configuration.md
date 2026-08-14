@@ -21,7 +21,7 @@ The daemon configuration is managed using the following commands:
 - `mcpd config daemon list` - List currently configured and all available configuration keys
 - `mcpd config daemon validate` - Validate current configuration
 
-For further information please check visit our [CLI Overview](commands/mcpd.md).
+For further information, please visit our [CLI Overview](commands/mcpd.md).
 
 ---
 
