@@ -18,6 +18,7 @@
 ## Reference
 
 * [Makefile](makefile.md)
+* [API Reference](api-reference.md)
 
 ## CLI Reference
 
