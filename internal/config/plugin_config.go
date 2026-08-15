@@ -932,6 +932,12 @@ func (p *PluginConfig) moveToPosition(category Category, name string, position i
 		return context.Noop, err
 	}
 
+	// Validate the position before any no-op fast path, so an invalid value is
+	// rejected even when the category holds too few entries to reorder.
+	if position < 1 && position != -1 {
+		return context.Noop, fmt.Errorf("invalid position %d: must be 1 or greater, or -1 for end", position)
+	}
+
 	items := *slice
 	n := len(items)
 	if n <= 1 {
@@ -950,8 +956,6 @@ func (p *PluginConfig) moveToPosition(category Category, name string, position i
 		targetIdx = n - 1
 	case position > n:
 		targetIdx = n - 1
-	case position < 1:
-		return context.Noop, fmt.Errorf("invalid position %d: must be 1 or greater, or -1 for end", position)
 	default:
 		targetIdx = position - 1
 	}
