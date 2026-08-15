@@ -851,6 +851,90 @@ func TestMovePlugin_ToCategoryAndPosition(t *testing.T) {
 	require.Equal(t, "audit-b", auditPlugins[2].Name)
 }
 
+func TestMovePlugin_ToCategoryWithNoopPosition_Persists(t *testing.T) {
+	t.Parallel()
+
+	tempFile, err := os.CreateTemp(t.TempDir(), ".mcpd.toml")
+	require.NoError(t, err)
+
+	cfg := &Config{
+		Servers: []ServerEntry{{Name: "test", Package: "x::test@latest"}},
+		Plugins: &PluginConfig{
+			Authentication: []PluginEntry{
+				{Name: "jwt-auth", Flows: []Flow{FlowRequest}},
+			},
+		},
+		configFilePath: tempFile.Name(),
+	}
+
+	require.NoError(t, cfg.saveConfig())
+
+	// The target category is empty, so the positional step is a no-op
+	// (single-element slice) — but the category move must still persist.
+	result, err := cfg.MovePlugin(
+		CategoryAuthentication,
+		"jwt-auth",
+		WithToCategory(CategoryAudit),
+		WithPosition(1),
+	)
+	require.NoError(t, err)
+	require.Equal(t, "updated", string(result))
+
+	// Verify persisted to disk, not just in memory.
+	var loaded Config
+	_, err = toml.DecodeFile(tempFile.Name(), &loaded)
+	require.NoError(t, err)
+
+	require.Empty(t, loaded.Plugins.Authentication)
+	require.Len(t, loaded.Plugins.Audit, 1)
+	require.Equal(t, "jwt-auth", loaded.Plugins.Audit[0].Name)
+}
+
+func TestMovePlugin_ToCategoryWithInvalidPosition_NotPersisted(t *testing.T) {
+	t.Parallel()
+
+	tempFile, err := os.CreateTemp(t.TempDir(), ".mcpd.toml")
+	require.NoError(t, err)
+
+	cfg := &Config{
+		Servers: []ServerEntry{{Name: "test", Package: "x::test@latest"}},
+		Plugins: &PluginConfig{
+			Authentication: []PluginEntry{
+				{Name: "jwt-auth", Flows: []Flow{FlowRequest}},
+			},
+		},
+		configFilePath: tempFile.Name(),
+	}
+
+	require.NoError(t, cfg.saveConfig())
+
+	// The plugin lands in the empty target category as its only entry, so the
+	// positional step cannot reorder it — but an invalid position must still be
+	// rejected rather than silently accepted, and the category move rolled back.
+	result, err := cfg.MovePlugin(
+		CategoryAuthentication,
+		"jwt-auth",
+		WithToCategory(CategoryAudit),
+		WithPosition(0),
+	)
+	require.ErrorContains(t, err, "invalid position")
+	require.Equal(t, "noop", string(result))
+
+	// In-memory state is rolled back to the original category.
+	require.Len(t, cfg.Plugins.Authentication, 1)
+	require.Equal(t, "jwt-auth", cfg.Plugins.Authentication[0].Name)
+	require.Empty(t, cfg.Plugins.Audit)
+
+	// Nothing was persisted: the plugin remains in its original category on disk.
+	var loaded Config
+	_, err = toml.DecodeFile(tempFile.Name(), &loaded)
+	require.NoError(t, err)
+
+	require.Len(t, loaded.Plugins.Authentication, 1)
+	require.Equal(t, "jwt-auth", loaded.Plugins.Authentication[0].Name)
+	require.Empty(t, loaded.Plugins.Audit)
+}
+
 func TestMovePlugin_NoPluginsConfigured(t *testing.T) {
 	t.Parallel()
 

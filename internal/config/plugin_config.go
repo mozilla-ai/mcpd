@@ -612,12 +612,34 @@ func newMoveOptions(opts ...MoveOption) (moveOptions, error) {
 		}
 	}
 
+	// movePlugin honours only the first of these that is set, so accepting more
+	// than one would silently discard the rest.
+	var positional []string
+	if o.before != nil {
+		positional = append(positional, "before")
+	}
+	if o.after != nil {
+		positional = append(positional, "after")
+	}
+	if o.position != nil {
+		positional = append(positional, "position")
+	}
+	if len(positional) > 1 {
+		return moveOptions{}, fmt.Errorf(
+			"before, after and position are mutually exclusive, got: %s",
+			strings.Join(positional, ", "),
+		)
+	}
+
 	return o, nil
 }
 
 // WithToCategory moves the plugin to a different category.
 func WithToCategory(category Category) MoveOption {
 	return func(o *moveOptions) error {
+		if o.toCategory != nil {
+			return fmt.Errorf("category specified more than once")
+		}
 		o.toCategory = &category
 		return nil
 	}
@@ -626,6 +648,9 @@ func WithToCategory(category Category) MoveOption {
 // WithBefore positions the plugin before the named plugin.
 func WithBefore(name string) MoveOption {
 	return func(o *moveOptions) error {
+		if o.before != nil {
+			return fmt.Errorf("before specified more than once")
+		}
 		o.before = &name
 		return nil
 	}
@@ -634,6 +659,9 @@ func WithBefore(name string) MoveOption {
 // WithAfter positions the plugin after the named plugin.
 func WithAfter(name string) MoveOption {
 	return func(o *moveOptions) error {
+		if o.after != nil {
+			return fmt.Errorf("after specified more than once")
+		}
 		o.after = &name
 		return nil
 	}
@@ -642,6 +670,9 @@ func WithAfter(name string) MoveOption {
 // WithPosition sets the absolute position (1-based).
 func WithPosition(pos int) MoveOption {
 	return func(o *moveOptions) error {
+		if o.position != nil {
+			return fmt.Errorf("position specified more than once")
+		}
 		o.position = &pos
 		return nil
 	}
@@ -666,8 +697,21 @@ func (p *PluginConfig) movePlugin(category Category, name string, opts ...MoveOp
 	res := context.Noop
 	err = fmt.Errorf("no move operation specified")
 
+	positional := options.before != nil || options.after != nil || options.position != nil
+
 	// Cross-category moves can occur in addition to positional moves.
+	var rollback func()
 	if options.toCategory != nil {
+		if positional {
+			// The two steps below must land together: a positional failure after
+			// a successful category move would otherwise strand the plugin in
+			// the target category, appended at the end.
+			rollback, err = p.categorySnapshot(category, *options.toCategory)
+			if err != nil {
+				return context.Noop, err
+			}
+		}
+
 		res, err = p.moveToCategory(category, name, *options.toCategory, options.force)
 		if err != nil {
 			return res, err
@@ -677,17 +721,61 @@ func (p *PluginConfig) movePlugin(category Category, name string, opts ...MoveOp
 		category = *options.toCategory
 	}
 
+	categoryMoved := res
+
 	// Positional moves (within whatever category the plugin is now in).
 	switch {
 	case options.before != nil:
-		return p.moveBefore(category, name, *options.before)
+		res, err = p.moveBefore(category, name, *options.before)
 	case options.after != nil:
-		return p.moveAfter(category, name, *options.after)
+		res, err = p.moveAfter(category, name, *options.after)
 	case options.position != nil:
-		return p.moveToPosition(category, name, *options.position)
+		res, err = p.moveToPosition(category, name, *options.position)
 	default:
 		return res, err
 	}
+
+	if err != nil {
+		if rollback != nil {
+			rollback()
+		}
+
+		return context.Noop, err
+	}
+
+	// A no-op positional step must not downgrade a successful category move,
+	// otherwise the move would never be persisted.
+	if categoryMoved == context.Updated {
+		res = context.Updated
+	}
+
+	return res, nil
+}
+
+// categorySnapshot captures the current contents of the given categories and
+// returns a function that restores them, allowing a multi-step move to be
+// undone if a later step fails.
+func (p *PluginConfig) categorySnapshot(categories ...Category) (func(), error) {
+	type snapshot struct {
+		slice   *[]PluginEntry
+		entries []PluginEntry
+	}
+
+	snapshots := make([]snapshot, 0, len(categories))
+	for _, category := range categories {
+		s, err := p.categorySlice(category)
+		if err != nil {
+			return nil, err
+		}
+
+		snapshots = append(snapshots, snapshot{slice: s, entries: slices.Clone(*s)})
+	}
+
+	return func() {
+		for _, s := range snapshots {
+			*s.slice = s.entries
+		}
+	}, nil
 }
 
 // moveToCategory moves a plugin from one category to another (appends to end).
@@ -844,6 +932,12 @@ func (p *PluginConfig) moveToPosition(category Category, name string, position i
 		return context.Noop, err
 	}
 
+	// Validate the position before any no-op fast path, so an invalid value is
+	// rejected even when the category holds too few entries to reorder.
+	if position < 1 && position != -1 {
+		return context.Noop, fmt.Errorf("invalid position %d: must be 1 or greater, or -1 for end", position)
+	}
+
 	items := *slice
 	n := len(items)
 	if n <= 1 {
@@ -862,8 +956,6 @@ func (p *PluginConfig) moveToPosition(category Category, name string, position i
 		targetIdx = n - 1
 	case position > n:
 		targetIdx = n - 1
-	case position < 1:
-		return context.Noop, fmt.Errorf("invalid position %d: must be 1 or greater, or -1 for end", position)
 	default:
 		targetIdx = position - 1
 	}
