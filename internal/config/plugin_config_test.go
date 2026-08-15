@@ -1709,6 +1709,34 @@ func TestMoveOptions(t *testing.T) {
 		require.True(t, opts.force)
 	})
 
+	t.Run("repeated WithBefore rejected", func(t *testing.T) {
+		t.Parallel()
+
+		_, err := newMoveOptions(WithBefore("a"), WithBefore("b"))
+		require.ErrorContains(t, err, "before specified more than once")
+	})
+
+	t.Run("repeated WithAfter rejected", func(t *testing.T) {
+		t.Parallel()
+
+		_, err := newMoveOptions(WithAfter("a"), WithAfter("b"))
+		require.ErrorContains(t, err, "after specified more than once")
+	})
+
+	t.Run("repeated WithPosition rejected", func(t *testing.T) {
+		t.Parallel()
+
+		_, err := newMoveOptions(WithPosition(1), WithPosition(2))
+		require.ErrorContains(t, err, "position specified more than once")
+	})
+
+	t.Run("repeated WithToCategory rejected", func(t *testing.T) {
+		t.Parallel()
+
+		_, err := newMoveOptions(WithToCategory(CategoryAudit), WithToCategory(CategoryRateLimiting))
+		require.ErrorContains(t, err, "category specified more than once")
+	})
+
 	t.Run("multiple options", func(t *testing.T) {
 		t.Parallel()
 

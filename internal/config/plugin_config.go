@@ -637,6 +637,9 @@ func newMoveOptions(opts ...MoveOption) (moveOptions, error) {
 // WithToCategory moves the plugin to a different category.
 func WithToCategory(category Category) MoveOption {
 	return func(o *moveOptions) error {
+		if o.toCategory != nil {
+			return fmt.Errorf("category specified more than once")
+		}
 		o.toCategory = &category
 		return nil
 	}
@@ -645,6 +648,9 @@ func WithToCategory(category Category) MoveOption {
 // WithBefore positions the plugin before the named plugin.
 func WithBefore(name string) MoveOption {
 	return func(o *moveOptions) error {
+		if o.before != nil {
+			return fmt.Errorf("before specified more than once")
+		}
 		o.before = &name
 		return nil
 	}
@@ -653,6 +659,9 @@ func WithBefore(name string) MoveOption {
 // WithAfter positions the plugin after the named plugin.
 func WithAfter(name string) MoveOption {
 	return func(o *moveOptions) error {
+		if o.after != nil {
+			return fmt.Errorf("after specified more than once")
+		}
 		o.after = &name
 		return nil
 	}
@@ -661,6 +670,9 @@ func WithAfter(name string) MoveOption {
 // WithPosition sets the absolute position (1-based).
 func WithPosition(pos int) MoveOption {
 	return func(o *moveOptions) error {
+		if o.position != nil {
+			return fmt.Errorf("position specified more than once")
+		}
 		o.position = &pos
 		return nil
 	}
