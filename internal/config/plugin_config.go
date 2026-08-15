@@ -685,15 +685,19 @@ func (p *PluginConfig) movePlugin(category Category, name string, opts ...MoveOp
 	res := context.Noop
 	err = fmt.Errorf("no move operation specified")
 
+	positional := options.before != nil || options.after != nil || options.position != nil
+
 	// Cross-category moves can occur in addition to positional moves.
 	var rollback func()
 	if options.toCategory != nil {
-		// The two steps below must land together: a positional failure after a
-		// successful category move would otherwise strand the plugin in the
-		// target category, appended at the end.
-		rollback, err = p.categorySnapshot(category, *options.toCategory)
-		if err != nil {
-			return context.Noop, err
+		if positional {
+			// The two steps below must land together: a positional failure after
+			// a successful category move would otherwise strand the plugin in
+			// the target category, appended at the end.
+			rollback, err = p.categorySnapshot(category, *options.toCategory)
+			if err != nil {
+				return context.Noop, err
+			}
 		}
 
 		res, err = p.moveToCategory(category, name, *options.toCategory, options.force)
@@ -704,6 +708,8 @@ func (p *PluginConfig) movePlugin(category Category, name string, opts ...MoveOp
 		// Position operations should now target the new category.
 		category = *options.toCategory
 	}
+
+	categoryMoved := res
 
 	// Positional moves (within whatever category the plugin is now in).
 	switch {
@@ -723,6 +729,12 @@ func (p *PluginConfig) movePlugin(category Category, name string, opts ...MoveOp
 		}
 
 		return context.Noop, err
+	}
+
+	// A no-op positional step must not downgrade a successful category move,
+	// otherwise the move would never be persisted.
+	if categoryMoved == context.Updated {
+		res = context.Updated
 	}
 
 	return res, nil
