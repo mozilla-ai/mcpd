@@ -91,7 +91,6 @@ func DefaultCacheDir() (string, error) {
 }
 
 // DefaultCacheTTL returns the default cache time-to-live.
-func DefaultCacheTTL() *config.Duration {
-	d := config.Duration(24 * time.Hour)
-	return &d
+func DefaultCacheTTL() config.Duration {
+	return config.Duration(24 * time.Hour)
 }
