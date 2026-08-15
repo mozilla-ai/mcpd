@@ -100,10 +100,11 @@ func NewListCmd(baseCmd *internalcmd.BaseCmd, opt ...cmdopts.CmdOption) (*cobra.
 		"Directory for caching registry manifests",
 	)
 
+	defaultCacheTTL := options.DefaultCacheTTL()
 	cobraCmd.Flags().StringVar(
 		&c.cacheTTL,
 		"cache-ttl",
-		options.DefaultCacheTTL().String(),
+		defaultCacheTTL.String(),
 		"Time-to-live for cached registry manifests (e.g. 1h, 30m, 24h)",
 	)
 

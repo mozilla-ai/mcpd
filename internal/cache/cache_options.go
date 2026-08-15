@@ -35,7 +35,7 @@ func NewOptions(opts ...Option) (Options, error) {
 	// Default options.
 	o := Options{
 		dir:          dir,
-		ttl:          time.Duration(*options.DefaultCacheTTL()),
+		ttl:          time.Duration(options.DefaultCacheTTL()),
 		enabled:      true,
 		refreshCache: false,
 	}
