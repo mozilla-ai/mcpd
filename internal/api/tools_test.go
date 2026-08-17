@@ -380,3 +380,123 @@ func TestDomainTool_ToAPIType_PreservesDefsAndAdditionalProperties(t *testing.T)
 		require.Contains(t, wire, "additionalProperties", "%s dropped additionalProperties", name)
 	}
 }
+
+func TestOutputSchemaPresent(t *testing.T) {
+	t.Parallel()
+
+	tests := map[string]struct {
+		schema mcp.ToolOutputSchema
+		want   bool
+	}{
+		"zero value is absent": {
+			schema: mcp.ToolOutputSchema{},
+			want:   false,
+		},
+		"empty collections are absent": {
+			schema: mcp.ToolOutputSchema{
+				Defs:       map[string]any{},
+				Properties: map[string]any{},
+				Required:   []string{},
+			},
+			want: false,
+		},
+		"type alone is present": {
+			schema: mcp.ToolOutputSchema{Type: "object"},
+			want:   true,
+		},
+		"defs alone is present": {
+			schema: mcp.ToolOutputSchema{Defs: map[string]any{"Address": map[string]any{}}},
+			want:   true,
+		},
+		"properties alone is present": {
+			schema: mcp.ToolOutputSchema{Properties: map[string]any{"name": map[string]any{}}},
+			want:   true,
+		},
+		"required alone is present": {
+			schema: mcp.ToolOutputSchema{Required: []string{"name"}},
+			want:   true,
+		},
+		// A non-nil interface holding false is content, not absence: it means
+		// "no additional properties allowed" and must not be treated as unset.
+		"additionalProperties false is present": {
+			schema: mcp.ToolOutputSchema{AdditionalProperties: false},
+			want:   true,
+		},
+		"additionalProperties schema is present": {
+			schema: mcp.ToolOutputSchema{AdditionalProperties: map[string]any{"type": "string"}},
+			want:   true,
+		},
+	}
+
+	for name, tc := range tests {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+			require.Equal(t, tc.want, outputSchemaPresent(tc.schema))
+		})
+	}
+}
+
+func TestDomainTool_ToAPIType_OutputSchema(t *testing.T) {
+	t.Parallel()
+
+	addressDef := map[string]any{
+		"type":       "object",
+		"properties": map[string]any{"street": map[string]any{"type": "string"}},
+	}
+
+	tests := map[string]struct {
+		schema mcp.ToolOutputSchema
+		// wantKeys lists wire keys that must survive conversion; a nil slice
+		// means the schema is expected to be dropped entirely.
+		wantKeys []string
+	}{
+		"empty schema is dropped": {
+			schema:   mcp.ToolOutputSchema{},
+			wantKeys: nil,
+		},
+		// A valid JSON Schema may omit a top-level "type" yet still define
+		// content. Dropping it would strip the $defs the $ref depends on.
+		"typeless schema is preserved": {
+			schema: mcp.ToolOutputSchema{
+				Defs:                 map[string]any{"Address": addressDef},
+				Properties:           map[string]any{"billing": map[string]any{"$ref": "#/$defs/Address"}},
+				AdditionalProperties: false,
+			},
+			wantKeys: []string{"$defs", "properties", "additionalProperties"},
+		},
+		"typed schema is preserved": {
+			schema: mcp.ToolOutputSchema{
+				Type:                 "object",
+				Defs:                 map[string]any{"Address": addressDef},
+				AdditionalProperties: map[string]any{"type": "string"},
+			},
+			wantKeys: []string{"type", "$defs", "additionalProperties"},
+		},
+	}
+
+	for name, tc := range tests {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			got, err := domainTool(mcp.Tool{Name: "tool", OutputSchema: tc.schema}).ToAPIType()
+			require.NoError(t, err)
+
+			if tc.wantKeys == nil {
+				require.Nil(t, got.OutputSchema, "empty output schema should be omitted")
+				return
+			}
+
+			require.NotNil(t, got.OutputSchema)
+
+			raw, err := json.Marshal(got.OutputSchema)
+			require.NoError(t, err)
+
+			var wire map[string]any
+			require.NoError(t, json.Unmarshal(raw, &wire))
+
+			for _, key := range tc.wantKeys {
+				require.Contains(t, wire, key, "output schema dropped %s", key)
+			}
+		})
+	}
+}

@@ -173,7 +173,7 @@ func (d domainTool) ToAPIType() (Tool, error) {
 	}
 
 	var outputSchema *JSONSchema
-	if d.OutputSchema.Type != "" {
+	if outputSchemaPresent(d.OutputSchema) {
 		outputSchema = &JSONSchema{
 			Defs:                 d.OutputSchema.Defs,
 			Type:                 d.OutputSchema.Type,
@@ -254,6 +254,18 @@ func (a *ToolAnnotations) IsZero() bool {
 	}
 
 	return true
+}
+
+// outputSchemaPresent reports whether an output schema carries any content and
+// should be surfaced. A schema counts as present when any field is populated,
+// not only when a top-level type is set: a valid JSON Schema may omit "type"
+// yet still define "$defs" or "additionalProperties".
+func outputSchemaPresent(s mcp.ToolOutputSchema) bool {
+	return s.Type != "" ||
+		len(s.Defs) > 0 ||
+		len(s.Properties) > 0 ||
+		len(s.Required) > 0 ||
+		s.AdditionalProperties != nil
 }
 
 // RegisterToolRoutes registers the tool listing and tool call endpoints on the provided API group.
