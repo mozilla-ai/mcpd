@@ -375,25 +375,53 @@ func (m *Manager) startPlugin(ctx context.Context, name string, binaryPath strin
 
 	l.Debug("plugin process started", "pid", cmd.Process.Pid, "address", address)
 
+	// success is set just before the only successful return below. Until
+	// then, this defer is the single cleanup path for every failure branch
+	// in the rest of this function: it kills the process we just spawned,
+	// closes conn if one was opened, and removes the unix socket file.
+	//
+	// This matters because a failure here is unrecoverable by any other
+	// means: StartPlugins returns as soon as startPlugin returns an error,
+	// without ever adding the plugin to m.plugins. StopPlugins (and the
+	// daemon's shutdown path) only ever iterates m.plugins, so a plugin
+	// that leaks here is never seen again - it outlives the daemon.
+	var (
+		success bool
+		conn    *grpc.ClientConn
+	)
+	defer func() {
+		if success {
+			return
+		}
+		if killErr := cmd.Process.Kill(); killErr != nil {
+			l.Warn("failed to kill plugin process", "error", killErr)
+		}
+		if conn != nil {
+			if closeErr := conn.Close(); closeErr != nil {
+				l.Warn("failed to close plugin connection", "error", closeErr)
+			}
+		}
+		if network == networkUnix {
+			if rmErr := os.Remove(address); rmErr != nil && !os.IsNotExist(rmErr) {
+				l.Warn("failed to remove plugin socket", "error", rmErr)
+			}
+		}
+	}()
+
 	dialCtx, cancel := context.WithTimeout(ctx, m.startTimeout)
 	defer cancel()
 
 	dialAddr := m.formatDialAddress(network, address)
 
 	if err := m.waitForSocket(dialCtx, network, address); err != nil {
-		if killErr := cmd.Process.Kill(); killErr != nil {
-			l.Warn("failed to kill plugin process", "error", killErr)
-		}
 		return nil, fmt.Errorf("plugin didn't start in time: %w", err)
 	}
 
-	conn, err := grpc.NewClient(dialAddr,
+	var err error
+	conn, err = grpc.NewClient(dialAddr,
 		grpc.WithTransportCredentials(insecure.NewCredentials()),
 	)
 	if err != nil {
-		if killErr := cmd.Process.Kill(); killErr != nil {
-			l.Warn("failed to kill plugin process", "error", killErr)
-		}
 		return nil, fmt.Errorf("failed to connect to plugin: %w", err)
 	}
 
@@ -401,8 +429,6 @@ func (m *Manager) startPlugin(ctx context.Context, name string, binaryPath strin
 
 	adapter, err := NewGRPCAdapter(client, m.callTimeout)
 	if err != nil {
-		_ = cmd.Process.Kill()
-		_ = conn.Close()
 		return nil, fmt.Errorf("error creating gRPC adapter: %w", err)
 	}
 
@@ -423,6 +449,7 @@ func (m *Manager) startPlugin(ctx context.Context, name string, binaryPath strin
 		return nil, fmt.Errorf("plugin not ready: %w", err)
 	}
 
+	success = true
 	return &runningPlugin{
 		logger: l,
 		cmd:    cmd,
