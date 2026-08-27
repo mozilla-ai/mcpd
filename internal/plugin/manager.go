@@ -393,8 +393,11 @@ func (m *Manager) startPlugin(ctx context.Context, name string, binaryPath strin
 		if success {
 			return
 		}
-		if killErr := cmd.Process.Kill(); killErr != nil {
+		if killErr := cmd.Process.Kill(); killErr != nil && !errors.Is(killErr, os.ErrProcessDone) {
 			l.Warn("failed to kill plugin process", "error", killErr)
+		}
+		if waitErr := cmd.Wait(); waitErr != nil && !errors.Is(waitErr, os.ErrProcessDone) {
+			l.Warn("failed to reap plugin process", "error", waitErr)
 		}
 		if conn != nil {
 			if closeErr := conn.Close(); closeErr != nil {
