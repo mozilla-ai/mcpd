@@ -63,7 +63,12 @@ func buildFixturePlugins() (dir string, cleanup func(), err error) {
 		return "", nil, fmt.Errorf("resolving fixture plugin source dir: %w", err)
 	}
 
-	for _, name := range []string{"healthy-plugin", "configure-fail-plugin", "checkready-fail-plugin"} {
+	for _, name := range []string{
+		"healthy-plugin",
+		"configure-fail-plugin",
+		"checkready-fail-plugin",
+		"checkready-fail-with-descendant-plugin",
+	} {
 		out := filepath.Join(dir, name)
 		cmd := exec.Command("go", "build", "-o", out, srcDir)
 		if output, buildErr := cmd.CombinedOutput(); buildErr != nil {
@@ -179,6 +184,41 @@ func TestManager_startPlugin_CleansUpOnConfigureFailure(t *testing.T) {
 		return !anyPluginSocketExists(t, binaryPath)
 	}, 2*time.Second, 20*time.Millisecond,
 		"the plugin's unix socket file must be removed when startPlugin cleans up after a Configure failure")
+}
+
+// TestManager_startPlugin_CleansUpDescendantWithinDeadline is the regression
+// guard for the process-group cleanup: a plugin that forks a descendant
+// inheriting its stdout/stderr must not leave startPlugin blocked
+// indefinitely, and the descendant must not survive as an orphan.
+func TestManager_startPlugin_CleansUpDescendantWithinDeadline(t *testing.T) {
+	logger := hclog.NewNullLogger()
+	cfg := &config.PluginConfig{Dir: fixturePluginDir}
+	m, err := NewManager(logger, cfg)
+	require.NoError(t, err)
+
+	binaryPath := fixturePluginPath(t, "checkready-fail-with-descendant-plugin")
+	t.Cleanup(func() { killAllRunningFor(binaryPath) })
+
+	ctx := context.Background()
+
+	start := time.Now()
+	plg, err := m.startPlugin(ctx, "checkready-fail-with-descendant-plugin", binaryPath)
+	elapsed := time.Since(start)
+
+	require.Error(t, err)
+	require.Nil(t, plg)
+	require.Contains(t, err.Error(), "plugin not ready")
+
+	// startPlugin's cleanup defer must complete before the call returns, so
+	// this bounds the whole call: it must not be able to block forever on a
+	// descendant that inherited stdout/stderr.
+	require.Less(t, elapsed, pluginForceKillTimeout+2*time.Second,
+		"startPlugin must not block indefinitely on a descendant holding the plugin's stdout/stderr open")
+
+	require.Eventually(t, func() bool {
+		return !anyProcessRunningFor(binaryPath)
+	}, 3*time.Second, 20*time.Millisecond,
+		"neither the plugin process nor the descendant it forked may survive startPlugin's cleanup")
 }
 
 func TestManager_startPlugin_HealthyPluginSurvivesAndIsReturned(t *testing.T) {
