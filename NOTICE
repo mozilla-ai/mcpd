@@ -72,9 +72,9 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 
 
-## github.com/go-chi/chi/v5 (v5.3.1)
+## github.com/go-chi/chi/v5 (v5.3.2)
 
-License: [MIT](https://github.com/go-chi/chi/blob/v5.3.1/LICENSE)
+License: [MIT](https://github.com/go-chi/chi/blob/v5.3.2/LICENSE)
 
 Copyright (c) 2015-present Peter Kieltyka (https://github.com/pkieltyka), Google Inc.
 
@@ -743,9 +743,9 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 
 
-## golang.org/x/net (v0.57.0)
+## golang.org/x/net (v0.58.0)
 
-License: [BSD-3-Clause](https://cs.opensource.google/go/x/net/+/v0.57.0:LICENSE)
+License: [BSD-3-Clause](https://cs.opensource.google/go/x/net/+/v0.58.0:LICENSE)
 
 Copyright 2009 The Go Authors.
 
@@ -845,9 +845,9 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 
 
-## golang.org/x/text (v0.40.0)
+## golang.org/x/text (v0.41.0)
 
-License: [BSD-3-Clause](https://cs.opensource.google/go/x/text/+/v0.40.0:LICENSE)
+License: [BSD-3-Clause](https://cs.opensource.google/go/x/text/+/v0.41.0:LICENSE)
 
 Copyright 2009 The Go Authors.
 
@@ -1088,9 +1088,9 @@ License: [Apache-2.0](https://github.com/googleapis/go-genproto/blob/3dc84a4a5aa
 
 
 
-## google.golang.org/grpc (v1.83.0)
+## google.golang.org/grpc (v1.83.2)
 
-License: [Apache-2.0](https://github.com/grpc/grpc-go/blob/v1.83.0/LICENSE)
+License: [Apache-2.0](https://github.com/grpc/grpc-go/blob/v1.83.2/LICENSE)
 
 
                                  Apache License
