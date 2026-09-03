@@ -6,21 +6,23 @@
 // excluded from wildcard package patterns by the go tool), only by the
 // tests themselves via an explicit path.
 //
-// Its behaviour is selected by the basename of the compiled binary, so
-// tests can run several failure modes in parallel without racing on
-// shared environment variables:
+// Its behaviour is fixed at build time through the mode variable, which the
+// tests set with -ldflags "-X main.mode=<mode>". Baking the mode into the
+// binary keeps each test's fixture independent of environment variables and
+// of the binary's file name, so tests can run in parallel without sharing
+// any process state. Recognised modes:
 //
-//   - a binary name containing "configure-fail" fails Configure
-//   - a binary name containing "checkready-fail" fails CheckReady
-//   - a binary name additionally containing "with-descendant" first forks a
-//     copy of itself that inherits this process's stdout/stderr and blocks
-//     forever, simulating a descendant that keeps those file descriptors
-//     open after the plugin process itself has been killed
-//   - anything else behaves like a healthy plugin
+//   - modeHealthy: behaves like a well-formed plugin
+//   - modeConfigureFail: fails Configure
+//   - modeCheckReadyFail: fails CheckReady
+//   - modeCheckReadyFailWithDescendant: first forks a copy of itself that
+//     inherits this process's stdout/stderr and blocks forever, simulating a
+//     descendant that keeps those file descriptors open after the plugin
+//     process itself has been killed, then fails CheckReady
 //
-// Setting the FIXTURE_DESCENDANT_BLOCK env var makes the binary skip
-// plugin serving entirely and just block forever: this is how the
-// "with-descendant" mode's forked copy of itself behaves.
+// Setting the FIXTURE_DESCENDANT_BLOCK env var makes the binary skip plugin
+// serving entirely and just block forever: this is how the forked descendant
+// behaves, and it is set only on that child's own environment.
 package main
 
 import (
@@ -29,13 +31,26 @@ import (
 	"log"
 	"os"
 	"os/exec"
-	"path/filepath"
-	"strings"
 
 	mcpdpluginsv1 "github.com/mozilla-ai/mcpd-plugins-sdk-go/pkg/plugins/v1"
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 
+const (
+	modeHealthy                      = "healthy"
+	modeConfigureFail                = "configure-fail"
+	modeCheckReadyFail               = "checkready-fail"
+	modeCheckReadyFailWithDescendant = "checkready-fail-with-descendant"
+)
+
+// mode selects the fixture's behaviour. It is set at build time via
+// -ldflags "-X main.mode=<mode>"; an empty or unknown value is a test bug
+// and fails fast rather than silently behaving like a healthy plugin.
+var mode string
+
+// fixturePlugin is a minimal plugin whose Configure and CheckReady RPCs can be
+// made to fail on demand, so the manager's post-spawn failure paths can be
+// exercised against a real process.
 type fixturePlugin struct {
 	mcpdpluginsv1.BasePlugin
 
@@ -43,6 +58,8 @@ type fixturePlugin struct {
 	failCheckReady bool
 }
 
+// Configure fails when the fixture was built to fail configuration, and
+// otherwise defers to BasePlugin.
 func (p *fixturePlugin) Configure(
 	ctx context.Context,
 	cfg *mcpdpluginsv1.PluginConfig,
@@ -53,6 +70,8 @@ func (p *fixturePlugin) Configure(
 	return p.BasePlugin.Configure(ctx, cfg)
 }
 
+// CheckReady fails when the fixture was built to fail readiness, and
+// otherwise defers to BasePlugin.
 func (p *fixturePlugin) CheckReady(ctx context.Context, e *emptypb.Empty) (*emptypb.Empty, error) {
 	if p.failCheckReady {
 		return nil, fmt.Errorf("fixture plugin: checkready failed on purpose")
@@ -60,10 +79,13 @@ func (p *fixturePlugin) CheckReady(ctx context.Context, e *emptypb.Empty) (*empt
 	return p.BasePlugin.CheckReady(ctx, e)
 }
 
+// GetMetadata returns a fixed name and version; the tests never inspect it.
 func (p *fixturePlugin) GetMetadata(ctx context.Context, e *emptypb.Empty) (*mcpdpluginsv1.Metadata, error) {
 	return &mcpdpluginsv1.Metadata{Name: "fixture-plugin", Version: "0.0.1"}, nil
 }
 
+// main serves the fixture plugin in the behaviour selected by mode, or blocks
+// forever when running as a forked descendant.
 func main() {
 	// A forked descendant lands here: it never serves the plugin protocol,
 	// it just holds this process's inherited stdout/stderr open forever.
@@ -71,15 +93,19 @@ func main() {
 		select {}
 	}
 
-	name := filepath.Base(os.Args[0])
+	plugin := &fixturePlugin{}
 
-	if strings.Contains(name, "with-descendant") {
+	switch mode {
+	case modeHealthy:
+	case modeConfigureFail:
+		plugin.failConfigure = true
+	case modeCheckReadyFail:
+		plugin.failCheckReady = true
+	case modeCheckReadyFailWithDescendant:
 		spawnBlockingDescendant()
-	}
-
-	plugin := &fixturePlugin{
-		failConfigure:  strings.Contains(name, "configure-fail"),
-		failCheckReady: strings.Contains(name, "checkready-fail"),
+		plugin.failCheckReady = true
+	default:
+		log.Fatalf("fixtureplugin: unknown mode %q (build with -ldflags \"-X main.mode=<mode>\")", mode)
 	}
 
 	if err := mcpdpluginsv1.Serve(plugin); err != nil {
