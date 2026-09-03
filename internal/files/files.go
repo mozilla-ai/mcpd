@@ -123,6 +123,9 @@ func UserSpecificConfigDir() (string, error) {
 // permissions. Antecedent directories may have default permissions (typically 0755), which
 // is intentional and sufficient for the intended use case. The goal is to protect the
 // contents of the final directory, not to secure the entire path hierarchy.
+//
+// The permission check is only meaningful on platforms with POSIX mode bits; on Windows the
+// directory is created and validated as a non-symlink directory, but its mode is not inspected.
 func ensureAtLeastDir(path string, perm os.FileMode) error {
 	if err := os.MkdirAll(path, perm); err != nil {
 		return fmt.Errorf("could not ensure directory exists for '%s': %w", path, err)
@@ -141,15 +144,7 @@ func ensureAtLeastDir(path string, perm os.FileMode) error {
 		return fmt.Errorf("path '%s' is not a directory", path)
 	}
 
-	if !isPermissionAcceptable(info.Mode().Perm(), perm) {
-		return fmt.Errorf(
-			"incorrect permissions for directory '%s' (%#o, want %#o or more restrictive)",
-			path, info.Mode().Perm(),
-			perm,
-		)
-	}
-
-	return nil
+	return validateDirPermissions(path, info, perm)
 }
 
 // isPermissionAcceptable checks if the actual permissions are acceptable for the required permissions.
