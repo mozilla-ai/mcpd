@@ -9,6 +9,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/mozilla-ai/mcpd/internal/perms"
+	"github.com/mozilla-ai/mcpd/internal/perms/permstest"
 )
 
 func TestAppDirName(t *testing.T) {
@@ -298,6 +299,7 @@ func TestEnsureAtLeastSecureDir(t *testing.T) {
 		{
 			name: "rejects directory with less restrictive permissions",
 			setup: func(t *testing.T) string {
+				permstest.SkipWithoutPOSIXPermissions(t)
 				dir := filepath.Join(t.TempDir(), "less-restrictive")
 				require.NoError(t, os.Mkdir(dir, 0o755))
 				return dir
@@ -338,11 +340,12 @@ func TestEnsureAtLeastSecureDirWithNestedPaths(t *testing.T) {
 	info, err := os.Stat(nestedPath)
 	require.NoError(t, err)
 	require.True(t, info.IsDir())
-	require.True(t, isPermissionAcceptable(info.Mode().Perm(), perms.SecureDir))
+	testRequireDirPermissionAcceptable(t, info, perms.SecureDir)
 }
 
 func TestEnsureAtLeastSecureDirErrorMessages(t *testing.T) {
 	t.Parallel()
+	permstest.SkipWithoutPOSIXPermissions(t)
 
 	tempDir := t.TempDir()
 	tooOpen := filepath.Join(tempDir, "too-open")
@@ -394,6 +397,7 @@ func TestEnsureAtLeastRegularDir(t *testing.T) {
 		{
 			name: "rejects directory with less restrictive permissions",
 			setup: func(t *testing.T) string {
+				permstest.SkipWithoutPOSIXPermissions(t)
 				dir := filepath.Join(t.TempDir(), "less-restrictive")
 				// NOTE: os.Mkdir applies the process umask, so passing 0o777 does not guarantee
 				// world-writable permissions (e.g. 0o777 &^ 0o022 = 0o755 on most systems).
@@ -439,11 +443,12 @@ func TestEnsureAtLeastRegularDirWithNestedPaths(t *testing.T) {
 	info, err := os.Stat(nestedPath)
 	require.NoError(t, err)
 	require.True(t, info.IsDir())
-	require.True(t, isPermissionAcceptable(info.Mode().Perm(), perms.RegularDir))
+	testRequireDirPermissionAcceptable(t, info, perms.RegularDir)
 }
 
 func TestEnsureAtLeastRegularDirErrorMessages(t *testing.T) {
 	t.Parallel()
+	permstest.SkipWithoutPOSIXPermissions(t)
 
 	tempDir := t.TempDir()
 	tooOpen := filepath.Join(tempDir, "too-open")
@@ -607,4 +612,16 @@ func TestDiscoverExecutablesWithPaths(t *testing.T) {
 		require.Contains(t, executables, "plugin")
 		require.Equal(t, filepath.Join(tempDir, "plugin"), executables["plugin"])
 	})
+}
+
+// testRequireDirPermissionAcceptable asserts that a directory's on-disk permissions satisfy required,
+// on platforms that enforce POSIX mode bits.
+func testRequireDirPermissionAcceptable(t *testing.T, info os.FileInfo, required os.FileMode) {
+	t.Helper()
+
+	if !permstest.Enforced() {
+		return
+	}
+
+	require.True(t, isPermissionAcceptable(info.Mode().Perm(), required))
 }
