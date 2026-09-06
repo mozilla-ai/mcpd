@@ -448,7 +448,8 @@ func TestDomainTool_ToAPIType_OutputSchema(t *testing.T) {
 		schema mcp.ToolOutputSchema
 		// wantKeys lists wire keys that must survive conversion; a nil slice
 		// means the schema is expected to be dropped entirely.
-		wantKeys []string
+		wantKeys        []string
+		wantOmittedKeys []string
 	}{
 		"empty schema is dropped": {
 			schema:   mcp.ToolOutputSchema{},
@@ -462,7 +463,8 @@ func TestDomainTool_ToAPIType_OutputSchema(t *testing.T) {
 				Properties:           map[string]any{"billing": map[string]any{"$ref": "#/$defs/Address"}},
 				AdditionalProperties: false,
 			},
-			wantKeys: []string{"$defs", "properties", "additionalProperties"},
+			wantKeys:        []string{"$defs", "properties", "additionalProperties"},
+			wantOmittedKeys: []string{"type"},
 		},
 		"typed schema is preserved": {
 			schema: mcp.ToolOutputSchema{
@@ -496,6 +498,9 @@ func TestDomainTool_ToAPIType_OutputSchema(t *testing.T) {
 
 			for _, key := range tc.wantKeys {
 				require.Contains(t, wire, key, "output schema dropped %s", key)
+			}
+			for _, key := range tc.wantOmittedKeys {
+				require.NotContains(t, wire, key, "output schema included %s", key)
 			}
 		})
 	}
