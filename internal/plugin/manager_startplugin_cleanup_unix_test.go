@@ -159,7 +159,12 @@ func anyPluginSocketExists(t *testing.T, binaryPath string) bool {
 
 	pattern := filepath.Join(os.TempDir(), fmt.Sprintf("plugin-%s-*.sock", filepath.Base(binaryPath)))
 	matches, err := filepath.Glob(pattern)
-	require.NoError(t, err)
+	if err != nil {
+		// Reached from require.Eventually's condition goroutine, where FailNow
+		// is not safe, so mark the failure and let the condition settle.
+		t.Errorf("globbing %q: %v", pattern, err)
+		return false
+	}
 	return len(matches) > 0
 }
 
@@ -179,7 +184,14 @@ func anyProcessRunningFor(t *testing.T, binaryPath string) bool {
 		if errors.As(err, &exitErr) && exitErr.ExitCode() == 1 {
 			return false
 		}
-		t.Fatalf("running pgrep for %q: %v", binaryPath, err)
+		// Both callers invoke this from require.Eventually's condition, which
+		// testify runs on its own goroutine. t.Fatalf there calls FailNow off
+		// the test goroutine: the message prints, the goroutine exits without
+		// signalling testify, and Eventually then blocks for its full waitFor
+		// before adding a misleading "Condition never satisfied". t.Errorf
+		// fails the test just as hard and lets the condition return.
+		t.Errorf("running pgrep for %q: %v", binaryPath, err)
+		return false
 	}
 	return len(strings.TrimSpace(string(out))) > 0
 }
