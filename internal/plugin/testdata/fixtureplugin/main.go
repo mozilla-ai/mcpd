@@ -31,6 +31,7 @@ import (
 	"log"
 	"os"
 	"os/exec"
+	"time"
 
 	mcpdpluginsv1 "github.com/mozilla-ai/mcpd-plugins-sdk-go/pkg/plugins/v1"
 	"google.golang.org/protobuf/types/known/emptypb"
@@ -90,7 +91,14 @@ func main() {
 	// A forked descendant lands here: it never serves the plugin protocol,
 	// it just holds this process's inherited stdout/stderr open forever.
 	if os.Getenv("FIXTURE_DESCENDANT_BLOCK") == "1" {
-		select {}
+		// Block forever, but not with `select {}`: with no other goroutines
+		// alive that trips Go's deadlock detector, and the process dies
+		// immediately with "all goroutines are asleep" instead of holding
+		// the inherited stdout/stderr open. A sleeping timer keeps a
+		// runnable goroutine around, so the runtime has nothing to detect.
+		for {
+			time.Sleep(time.Hour)
+		}
 	}
 
 	plugin := &fixturePlugin{}
