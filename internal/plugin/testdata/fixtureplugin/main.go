@@ -19,6 +19,10 @@
 //     inherits this process's stdout/stderr and blocks forever, simulating a
 //     descendant that keeps those file descriptors open after the plugin
 //     process itself has been killed, then fails CheckReady
+//   - modeHealthyWithDescendant: forks the same blocking descendant but then
+//     serves normally, so the plugin reaches the running state and only gets
+//     torn down later by stop(). This is the graceful-shutdown counterpart of
+//     modeCheckReadyFailWithDescendant.
 //
 // Setting the FIXTURE_DESCENDANT_BLOCK env var makes the binary skip plugin
 // serving entirely and just block forever: this is how the forked descendant
@@ -42,6 +46,7 @@ const (
 	modeConfigureFail                = "configure-fail"
 	modeCheckReadyFail               = "checkready-fail"
 	modeCheckReadyFailWithDescendant = "checkready-fail-with-descendant"
+	modeHealthyWithDescendant        = "healthy-with-descendant"
 )
 
 // mode selects the fixture's behaviour. It is set at build time via
@@ -112,6 +117,8 @@ func main() {
 	case modeCheckReadyFailWithDescendant:
 		spawnBlockingDescendant()
 		plugin.failCheckReady = true
+	case modeHealthyWithDescendant:
+		spawnBlockingDescendant()
 	default:
 		log.Fatalf("fixtureplugin: unknown mode %q (build with -ldflags \"-X main.mode=<mode>\")", mode)
 	}

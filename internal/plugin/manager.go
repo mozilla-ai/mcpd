@@ -256,13 +256,29 @@ func (p *runningPlugin) stop() error {
 	var processExitErr error
 	select {
 	case <-time.After(pluginForceKillTimeout):
-		// Process didn't exit in time, force kill it.
+		// Process didn't exit in time, force kill it. Kill the whole process
+		// group, not just the direct child: plugins are started with
+		// setProcessGroup, and a plugin that spawned descendants would
+		// otherwise leave them running after a normal daemon shutdown.
 		p.logger.Warn("plugin didn't exit gracefully, force killing", "timeout", pluginForceKillTimeout)
-		if err := p.cmd.Process.Kill(); err != nil {
+		if err := killProcessGroup(p.cmd); err != nil && !errors.Is(err, os.ErrProcessDone) {
 			// Only report if we couldn't kill a stuck process.
 			return fmt.Errorf("failed to force kill stuck plugin process: %w", err)
 		}
-		processExitErr = <-done
+		// cmd.Wait() also waits for the stdout/stderr copy goroutines (Stdout
+		// and Stderr are non-file hclog writers), so a descendant that
+		// inherited either fd can hold Wait open after the plugin process
+		// itself is dead. Bound this second wait too, or StopPlugins blocks
+		// daemon shutdown forever on exactly the case the force kill exists
+		// to handle.
+		select {
+		case processExitErr = <-done:
+		case <-time.After(pluginForceKillTimeout):
+			p.logger.Warn(
+				"timed out waiting for killed plugin process to be reaped, a descendant may still hold its stdout/stderr open",
+				"timeout", pluginForceKillTimeout,
+			)
+		}
 	case processExitErr = <-done:
 		// Process exited on its own.
 	}
