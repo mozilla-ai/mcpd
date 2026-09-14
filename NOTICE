@@ -777,9 +777,9 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 
 
-## golang.org/x/sync/errgroup (v0.22.0)
+## golang.org/x/sync/errgroup (v0.23.0)
 
-License: [BSD-3-Clause](https://cs.opensource.google/go/x/sync/+/v0.22.0:LICENSE)
+License: [BSD-3-Clause](https://cs.opensource.google/go/x/sync/+/v0.23.0:LICENSE)
 
 Copyright 2009 The Go Authors.
 
