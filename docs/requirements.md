@@ -30,7 +30,7 @@ The quick start and tutorial use the `time` server through `uvx`, so `uv` is req
 
 | Tool | Purpose | URL |
 |------|---------|-----|
-| `Go >= 1.26.0` | Building `mcpd`, running tests, and contributing to the Go codebase | [https://go.dev/doc/install](https://go.dev/doc/install) |
+| `Go >= 1.27.1` | Building `mcpd`, running tests, and contributing to the Go codebase | [https://go.dev/doc/install](https://go.dev/doc/install) |
 | `uv` | Building the GitBook docs site via `make docs` | [https://docs.astral.sh/uv/getting-started/installation/](https://docs.astral.sh/uv/getting-started/installation/) |
 
 {% hint style="info" %}

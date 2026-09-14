@@ -44,7 +44,7 @@ Optional helpers used in some docs examples:
 - `curl` to call the HTTP API
 - `jq` to pretty-print JSON responses
 
-If you are building `mcpd` from source or contributing, you will also need [**Go**](https://go.dev/doc/install) (`v1.26.0+` recommended).
+If you are building `mcpd` from source or contributing, you will also need [**Go**](https://go.dev/doc/install) (`v1.27.1+` recommended).
 
 
 ### Installation
@@ -144,7 +144,7 @@ Plugin SDKs are built using the [mcpd plugin Protocol Buffers specification](htt
 ## 💻 Development
 
 If you are developing `mcpd`, you will need:
-- [**Go**](https://go.dev/doc/install) (v1.26.0+ recommended)
+- [**Go**](https://go.dev/doc/install) (v1.27.1+ recommended)
 
 Build local code:
 ```bash
