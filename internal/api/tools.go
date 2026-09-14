@@ -98,7 +98,7 @@ type JSONSchema struct {
 	Defs map[string]any `json:"$defs,omitempty"` //nolint:tagliatelle
 
 	// Type defines the type for this schema, e.g. "object".
-	Type string `json:"type"`
+	Type string `json:"type,omitempty"`
 
 	// Properties represents a property name and associated object definition.
 	Properties map[string]any `json:"properties,omitempty"`
