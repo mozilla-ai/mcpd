@@ -360,6 +360,10 @@ func (m *Manager) startPlugin(ctx context.Context, name string, binaryPath strin
 
 	cmd := exec.CommandContext(ctx, binaryPath, "--address", address, "--network", network)
 
+	// Run the plugin in its own process group so cleanup can terminate any
+	// descendants it spawns, not just the direct child.
+	setProcessGroup(cmd)
+
 	// Use plugin specific logger to configure stdio and stderr for the plugin to emit logs.
 	stdWriter := func() io.Writer {
 		return l.StandardWriter(&hclog.StandardLoggerOptions{
@@ -375,25 +379,68 @@ func (m *Manager) startPlugin(ctx context.Context, name string, binaryPath strin
 
 	l.Debug("plugin process started", "pid", cmd.Process.Pid, "address", address)
 
+	// success is set just before the only successful return below. Until
+	// then, this defer is the single cleanup path for every failure branch
+	// in the rest of this function: it kills the process we just spawned,
+	// closes conn if one was opened, and removes the unix socket file.
+	//
+	// This matters because a failure here is unrecoverable by any other
+	// means: StartPlugins returns as soon as startPlugin returns an error,
+	// without ever adding the plugin to m.plugins. StopPlugins (and the
+	// daemon's shutdown path) only ever iterates m.plugins, so a plugin
+	// that leaks here is never seen again - it outlives the daemon.
+	var (
+		success bool
+		conn    *grpc.ClientConn
+	)
+	defer func() {
+		if success {
+			return
+		}
+		if killErr := killProcessGroup(cmd); killErr != nil && !errors.Is(killErr, os.ErrProcessDone) {
+			l.Warn("failed to kill plugin process", "error", killErr)
+		}
+		// cmd.Wait() also waits for the stdout/stderr copy goroutines (Stdout
+		// and Stderr are non-file hclog writers), so a descendant that
+		// inherited either fd can hold Wait open after the process itself
+		// has been killed. Bound the wait so a stuck descendant cannot leave
+		// startPlugin (and its caller) blocked forever.
+		waitDone := make(chan error, 1)
+		go func() { waitDone <- cmd.Wait() }()
+		select {
+		case waitErr := <-waitDone:
+			if waitErr != nil && !errors.Is(waitErr, os.ErrProcessDone) && !isExpectedShutdownError(waitErr) {
+				l.Warn("failed to reap plugin process", "error", waitErr)
+			}
+		case <-time.After(pluginForceKillTimeout):
+			l.Warn("timed out waiting to reap plugin process, a descendant may still hold its stdout/stderr open")
+		}
+		if conn != nil {
+			if closeErr := conn.Close(); closeErr != nil {
+				l.Warn("failed to close plugin connection", "error", closeErr)
+			}
+		}
+		if network == networkUnix {
+			if rmErr := os.Remove(address); rmErr != nil && !os.IsNotExist(rmErr) {
+				l.Warn("failed to remove plugin socket", "error", rmErr)
+			}
+		}
+	}()
+
 	dialCtx, cancel := context.WithTimeout(ctx, m.startTimeout)
 	defer cancel()
 
 	dialAddr := m.formatDialAddress(network, address)
 
 	if err := m.waitForSocket(dialCtx, network, address); err != nil {
-		if killErr := cmd.Process.Kill(); killErr != nil {
-			l.Warn("failed to kill plugin process", "error", killErr)
-		}
 		return nil, fmt.Errorf("plugin didn't start in time: %w", err)
 	}
 
-	conn, err := grpc.NewClient(dialAddr,
+	var err error
+	conn, err = grpc.NewClient(dialAddr,
 		grpc.WithTransportCredentials(insecure.NewCredentials()),
 	)
 	if err != nil {
-		if killErr := cmd.Process.Kill(); killErr != nil {
-			l.Warn("failed to kill plugin process", "error", killErr)
-		}
 		return nil, fmt.Errorf("failed to connect to plugin: %w", err)
 	}
 
@@ -401,8 +448,6 @@ func (m *Manager) startPlugin(ctx context.Context, name string, binaryPath strin
 
 	adapter, err := NewGRPCAdapter(client, m.callTimeout)
 	if err != nil {
-		_ = cmd.Process.Kill()
-		_ = conn.Close()
 		return nil, fmt.Errorf("error creating gRPC adapter: %w", err)
 	}
 
@@ -423,6 +468,7 @@ func (m *Manager) startPlugin(ctx context.Context, name string, binaryPath strin
 		return nil, fmt.Errorf("plugin not ready: %w", err)
 	}
 
+	success = true
 	return &runningPlugin{
 		logger: l,
 		cmd:    cmd,
