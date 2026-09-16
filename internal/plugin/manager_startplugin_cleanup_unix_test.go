@@ -60,7 +60,7 @@ func TestManager_startPlugin_CleansUpDescendantWithinDeadline(t *testing.T) {
 	// startPlugin's cleanup defer must complete before the call returns, so
 	// this bounds the whole call: it must not be able to block forever on a
 	// descendant that inherited stdout/stderr.
-	require.Less(t, elapsed, pluginForceKillTimeout+2*time.Second,
+	require.Less(t, elapsed, pluginReapTimeout+2*time.Second,
 		"startPlugin must not block indefinitely on a descendant holding the plugin's stdout/stderr open")
 
 	require.Eventually(t, func() bool {
@@ -134,7 +134,7 @@ func TestManager_startPlugin_HealthyPluginSurvivesAndIsReturned(t *testing.T) {
 		// successfully must NOT be killed by the new cleanup defer. Kill it
 		// directly here rather than via the full graceful plg.stop() RPC
 		// round trip, which this fixture doesn't implement and which would
-		// otherwise cost the pluginForceKillTimeout on every run.
+		// otherwise cost the pluginExitGraceTimeout on every run.
 		_ = plg.cmd.Process.Kill()
 		_ = plg.conn.Close()
 		_ = os.Remove(plg.address)
