@@ -308,6 +308,7 @@ func (p *runningPlugin) stop() error {
 		// descendant that isn't holding the pipes Wait just returned on.
 		if err := killProcessGroup(p.cmd); err != nil && !errors.Is(err, os.ErrProcessDone) {
 			p.logger.Warn("failed to kill plugin's process group after exit", "error", err)
+			killErr = fmt.Errorf("failed to kill plugin's process group after exit: %w", err)
 		}
 	case <-time.After(pluginExitGraceTimeout):
 		// Process didn't exit in time, force kill it (and anything left in
