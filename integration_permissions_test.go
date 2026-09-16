@@ -13,6 +13,7 @@ import (
 	"github.com/mozilla-ai/mcpd/internal/config"
 	"github.com/mozilla-ai/mcpd/internal/context"
 	"github.com/mozilla-ai/mcpd/internal/perms"
+	"github.com/mozilla-ai/mcpd/internal/perms/permstest"
 )
 
 // TestExecutionContextPermissions verifies that execution context files
@@ -46,16 +47,24 @@ func TestExecutionContextPermissions(t *testing.T) {
 	info, err := os.Stat(configPath)
 	require.NoError(t, err)
 	require.False(t, info.IsDir())
-	require.Equal(t, perms.SecureFile, info.Mode().Perm(),
-		"Execution context file should be created with secure permissions (0600)")
+	permstest.RequireMode(
+		t,
+		perms.SecureFile,
+		info,
+		"Execution context file should be created with secure permissions (0600)",
+	)
 
 	// Verify the parent directory has secure permissions.
 	parentDir := filepath.Dir(configPath)
 	parentInfo, err := os.Stat(parentDir)
 	require.NoError(t, err)
 	require.True(t, parentInfo.IsDir())
-	require.Equal(t, perms.SecureDir, parentInfo.Mode().Perm(),
-		"Execution context directory should have secure permissions (0700)")
+	permstest.RequireMode(
+		t,
+		perms.SecureDir,
+		parentInfo,
+		"Execution context directory should have secure permissions (0700)",
+	)
 }
 
 // TestConfigFilePermissions verifies that configuration files
@@ -75,8 +84,12 @@ func TestConfigFilePermissions(t *testing.T) {
 	info, err := os.Stat(configPath)
 	require.NoError(t, err)
 	require.False(t, info.IsDir())
-	require.Equal(t, perms.RegularFile, info.Mode().Perm(),
-		"Configuration file should be created with regular permissions (0644)")
+	permstest.RequireMode(
+		t,
+		perms.RegularFile,
+		info,
+		"Configuration file should be created with regular permissions (0644)",
+	)
 }
 
 // TestCacheDirectoryPermissions verifies that cache directories
@@ -102,8 +115,12 @@ func TestCacheDirectoryPermissions(t *testing.T) {
 	info, err := os.Stat(cacheDir)
 	require.NoError(t, err)
 	require.True(t, info.IsDir())
-	require.Equal(t, perms.RegularDir, info.Mode().Perm(),
-		"Cache directory should be created with regular permissions (0755)")
+	permstest.RequireMode(
+		t,
+		perms.RegularDir,
+		info,
+		"Cache directory should be created with regular permissions (0755)",
+	)
 }
 
 // TestDotEnvFilePermissions verifies that exported dotenv files
@@ -136,8 +153,7 @@ func TestDotEnvFilePermissions(t *testing.T) {
 	info, err := os.Stat(dotenvPath)
 	require.NoError(t, err)
 	require.False(t, info.IsDir())
-	require.Equal(t, perms.RegularFile, info.Mode().Perm(),
-		"Exported dotenv file should have regular permissions (0644)")
+	permstest.RequireMode(t, perms.RegularFile, info, "Exported dotenv file should have regular permissions (0644)")
 }
 
 // TestLogFilePermissions verifies that log files
@@ -162,8 +178,7 @@ func TestLogFilePermissions(t *testing.T) {
 	info, err := os.Stat(logPath)
 	require.NoError(t, err)
 	require.False(t, info.IsDir())
-	require.Equal(t, perms.RegularFile, info.Mode().Perm(),
-		"Log file should be created with regular permissions (0644)")
+	permstest.RequireMode(t, perms.RegularFile, info, "Log file should be created with regular permissions (0644)")
 }
 
 // TestPermissionConsistency verifies that different types of files
@@ -217,8 +232,7 @@ func TestPermissionConsistency(t *testing.T) {
 			// Verify permissions are as expected.
 			info, err := os.Stat(fileInfo.path)
 			require.NoError(t, err)
-			require.Equal(t, fileInfo.perm, info.Mode().Perm(),
-				"%s should have correct permissions", fileInfo.description)
+			permstest.RequireMode(t, fileInfo.perm, info, "%s should have correct permissions", fileInfo.description)
 
 			// Verify security classification is correct.
 			if fileInfo.isSecure {
@@ -272,8 +286,7 @@ func TestDirectoryPermissionConsistency(t *testing.T) {
 			info, err := os.Stat(dirInfo.path)
 			require.NoError(t, err)
 			require.True(t, info.IsDir())
-			require.Equal(t, dirInfo.perm, info.Mode().Perm(),
-				"%s should have correct permissions", dirInfo.description)
+			permstest.RequireMode(t, dirInfo.perm, info, "%s should have correct permissions", dirInfo.description)
 
 			// Verify security classification is correct.
 			if dirInfo.isSecure {

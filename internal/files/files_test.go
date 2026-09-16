@@ -8,7 +8,9 @@ import (
 
 	"github.com/stretchr/testify/require"
 
+	"github.com/mozilla-ai/mcpd/internal/files/filestest"
 	"github.com/mozilla-ai/mcpd/internal/perms"
+	"github.com/mozilla-ai/mcpd/internal/perms/permstest"
 )
 
 func TestAppDirName(t *testing.T) {
@@ -298,6 +300,7 @@ func TestEnsureAtLeastSecureDir(t *testing.T) {
 		{
 			name: "rejects directory with less restrictive permissions",
 			setup: func(t *testing.T) string {
+				permstest.SkipWithoutPOSIXPermissions(t)
 				dir := filepath.Join(t.TempDir(), "less-restrictive")
 				require.NoError(t, os.Mkdir(dir, 0o755))
 				return dir
@@ -338,11 +341,12 @@ func TestEnsureAtLeastSecureDirWithNestedPaths(t *testing.T) {
 	info, err := os.Stat(nestedPath)
 	require.NoError(t, err)
 	require.True(t, info.IsDir())
-	require.True(t, isPermissionAcceptable(info.Mode().Perm(), perms.SecureDir))
+	testRequireDirPermissionAcceptable(t, info, perms.SecureDir)
 }
 
 func TestEnsureAtLeastSecureDirErrorMessages(t *testing.T) {
 	t.Parallel()
+	permstest.SkipWithoutPOSIXPermissions(t)
 
 	tempDir := t.TempDir()
 	tooOpen := filepath.Join(tempDir, "too-open")
@@ -394,6 +398,7 @@ func TestEnsureAtLeastRegularDir(t *testing.T) {
 		{
 			name: "rejects directory with less restrictive permissions",
 			setup: func(t *testing.T) string {
+				permstest.SkipWithoutPOSIXPermissions(t)
 				dir := filepath.Join(t.TempDir(), "less-restrictive")
 				// NOTE: os.Mkdir applies the process umask, so passing 0o777 does not guarantee
 				// world-writable permissions (e.g. 0o777 &^ 0o022 = 0o755 on most systems).
@@ -439,11 +444,12 @@ func TestEnsureAtLeastRegularDirWithNestedPaths(t *testing.T) {
 	info, err := os.Stat(nestedPath)
 	require.NoError(t, err)
 	require.True(t, info.IsDir())
-	require.True(t, isPermissionAcceptable(info.Mode().Perm(), perms.RegularDir))
+	testRequireDirPermissionAcceptable(t, info, perms.RegularDir)
 }
 
 func TestEnsureAtLeastRegularDirErrorMessages(t *testing.T) {
 	t.Parallel()
+	permstest.SkipWithoutPOSIXPermissions(t)
 
 	tempDir := t.TempDir()
 	tooOpen := filepath.Join(tempDir, "too-open")
@@ -485,7 +491,7 @@ func TestDiscoverExecutables(t *testing.T) {
 		tempDir := t.TempDir()
 
 		// Create executable plugin.
-		execPath := filepath.Join(tempDir, "test-plugin")
+		execPath := filepath.Join(tempDir, filestest.ExecutableFileName("test-plugin"))
 		err := os.WriteFile(execPath, []byte("#!/bin/sh\necho test"), 0o755)
 		require.NoError(t, err)
 
@@ -501,7 +507,7 @@ func TestDiscoverExecutables(t *testing.T) {
 		tempDir := t.TempDir()
 
 		// Create executable.
-		execPath := filepath.Join(tempDir, "plugin")
+		execPath := filepath.Join(tempDir, filestest.ExecutableFileName("plugin"))
 		err := os.WriteFile(execPath, []byte("#!/bin/sh"), 0o755)
 		require.NoError(t, err)
 
@@ -523,12 +529,12 @@ func TestDiscoverExecutables(t *testing.T) {
 		tempDir := t.TempDir()
 
 		// Create visible executable.
-		visiblePath := filepath.Join(tempDir, "visible-plugin")
+		visiblePath := filepath.Join(tempDir, filestest.ExecutableFileName("visible-plugin"))
 		err := os.WriteFile(visiblePath, []byte("#!/bin/sh"), 0o755)
 		require.NoError(t, err)
 
 		// Create hidden executable.
-		hiddenPath := filepath.Join(tempDir, ".hidden-plugin")
+		hiddenPath := filepath.Join(tempDir, filestest.ExecutableFileName(".hidden-plugin"))
 		err = os.WriteFile(hiddenPath, []byte("#!/bin/sh"), 0o755)
 		require.NoError(t, err)
 
@@ -545,7 +551,7 @@ func TestDiscoverExecutables(t *testing.T) {
 		tempDir := t.TempDir()
 
 		// Create executable file.
-		execPath := filepath.Join(tempDir, "plugin")
+		execPath := filepath.Join(tempDir, filestest.ExecutableFileName("plugin"))
 		err := os.WriteFile(execPath, []byte("#!/bin/sh"), 0o755)
 		require.NoError(t, err)
 
@@ -571,7 +577,7 @@ func TestDiscoverExecutablesWithPaths(t *testing.T) {
 
 		// Create multiple executables.
 		for _, name := range []string{"plugin1", "plugin2", "plugin3"} {
-			path := filepath.Join(tempDir, name)
+			path := filepath.Join(tempDir, filestest.ExecutableFileName(name))
 			err := os.WriteFile(path, []byte("#!/bin/sh"), 0o755)
 			require.NoError(t, err)
 		}
@@ -587,8 +593,8 @@ func TestDiscoverExecutablesWithPaths(t *testing.T) {
 		require.Contains(t, executables, "plugin1")
 		require.Contains(t, executables, "plugin3")
 		require.NotContains(t, executables, "plugin2")
-		require.Equal(t, filepath.Join(tempDir, "plugin1"), executables["plugin1"])
-		require.Equal(t, filepath.Join(tempDir, "plugin3"), executables["plugin3"])
+		require.Equal(t, filepath.Join(tempDir, filestest.ExecutableFileName("plugin1")), executables["plugin1"])
+		require.Equal(t, filepath.Join(tempDir, filestest.ExecutableFileName("plugin3")), executables["plugin3"])
 	})
 
 	t.Run("nil allowed list includes all executables", func(t *testing.T) {
@@ -597,7 +603,7 @@ func TestDiscoverExecutablesWithPaths(t *testing.T) {
 		tempDir := t.TempDir()
 
 		// Create executables.
-		execPath := filepath.Join(tempDir, "plugin")
+		execPath := filepath.Join(tempDir, filestest.ExecutableFileName("plugin"))
 		err := os.WriteFile(execPath, []byte("#!/bin/sh"), 0o755)
 		require.NoError(t, err)
 
@@ -605,6 +611,18 @@ func TestDiscoverExecutablesWithPaths(t *testing.T) {
 		require.NoError(t, err)
 		require.Len(t, executables, 1)
 		require.Contains(t, executables, "plugin")
-		require.Equal(t, filepath.Join(tempDir, "plugin"), executables["plugin"])
+		require.Equal(t, filepath.Join(tempDir, filestest.ExecutableFileName("plugin")), executables["plugin"])
 	})
+}
+
+// testRequireDirPermissionAcceptable asserts that a directory's on-disk permissions satisfy required,
+// on platforms that enforce POSIX mode bits.
+func testRequireDirPermissionAcceptable(t *testing.T, info os.FileInfo, required os.FileMode) {
+	t.Helper()
+
+	if !permstest.Enforced() {
+		return
+	}
+
+	require.True(t, isPermissionAcceptable(info.Mode().Perm(), required))
 }

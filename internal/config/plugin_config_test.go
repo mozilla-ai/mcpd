@@ -8,6 +8,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/mozilla-ai/mcpd/internal/context"
+	"github.com/mozilla-ai/mcpd/internal/files/filestest"
 )
 
 func testPluginStringPtr(t *testing.T, s string) *string {
@@ -432,7 +433,7 @@ func TestValidatePluginBinaries(t *testing.T) {
 		dir := t.TempDir()
 
 		// Create executable file.
-		pluginPath := filepath.Join(dir, "my-plugin")
+		pluginPath := filepath.Join(dir, filestest.ExecutableFileName("my-plugin"))
 		require.NoError(t, os.WriteFile(pluginPath, []byte("#!/bin/sh\n"), 0o755))
 
 		cfg := &Config{
@@ -455,7 +456,7 @@ func TestValidatePluginBinaries(t *testing.T) {
 
 		// Create executable files.
 		for _, name := range []string{"auth-plugin", "rate-plugin"} {
-			pluginPath := filepath.Join(dir, name)
+			pluginPath := filepath.Join(dir, filestest.ExecutableFileName(name))
 			require.NoError(t, os.WriteFile(pluginPath, []byte("#!/bin/sh\n"), 0o755))
 		}
 
