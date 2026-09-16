@@ -37,8 +37,27 @@ const (
 	// pluginGracefulStopTimeout is the time allowed for graceful plugin shutdown.
 	pluginGracefulStopTimeout = 5 * time.Second
 
-	// pluginForceKillTimeout is the time to wait before force killing a plugin process.
-	pluginForceKillTimeout = 2 * time.Second
+	// pluginExitGraceTimeout is the time to wait for a plugin process to exit
+	// on its own, whether after a graceful Stop RPC in stop() or during
+	// startPlugin, before it is force killed.
+	pluginExitGraceTimeout = 2 * time.Second
+
+	// pluginReapTimeout bounds the wait for cmd.Wait to return once a plugin
+	// process has been force killed, in both stop() and startPlugin's
+	// cleanup defer. cmd.Wait also waits on the stdout/stderr copy
+	// goroutines, so a descendant that inherited either fd can hold it open
+	// after the plugin process itself is dead; this timeout keeps that from
+	// blocking cleanup forever.
+	pluginReapTimeout = 2 * time.Second
+
+	// pluginWaitDelay bounds how long cmd.Wait keeps the stdout/stderr copy
+	// goroutines open after the plugin process has exited, or its start
+	// context has been cancelled, before os/exec force-closes the
+	// underlying pipes so Wait can return. It must stay longer than
+	// pluginReapTimeout: equal values let Wait's ExitError land at the same
+	// moment the reap timeout fires, which could make stop() take the
+	// "exited cleanly" branch instead of reporting the timeout.
+	pluginWaitDelay = pluginReapTimeout + time.Second
 
 	// socketPollInterval is how often to check if a socket is ready.
 	socketPollInterval = 50 * time.Millisecond
@@ -225,12 +244,31 @@ func (p *runningPlugin) validate(ctx context.Context, pluginEntry config.PluginE
 	return fmt.Errorf("commit hash mismatch: expected %q, got %q", *pluginEntry.CommitHash, metadata.CommitHash)
 }
 
-// stop gracefully stops a single plugin.
-// It attempts graceful shutdown first, waits for process exit, and cleans up resources.
-// Returns error only for truly unexpected failures that might indicate a problem.
+// errPluginCleanupIncomplete is returned by stop() when a plugin process was
+// force killed but could not be confirmed reaped within pluginReapTimeout.
+// It is kept separate from a wrapped processExitErr because it describes a
+// different failure: cleanup gave up, rather than the process itself
+// exiting badly.
+var errPluginCleanupIncomplete = errors.New("plugin process cleanup did not complete after force kill")
+
+// stop gracefully stops a single plugin. It attempts graceful shutdown via
+// RPC first, then waits for the process to exit, force killing its process
+// group if it doesn't exit in time, and cleans up its resources either way.
+// Returns errPluginCleanupIncomplete if the process could not be confirmed
+// reaped after a force kill, and a non-nil error only for other truly
+// unexpected failures.
 func (p *runningPlugin) stop() error {
 	if p == nil {
 		return fmt.Errorf("plugin is nil")
+	}
+
+	// Clean up the unix socket no matter which path below returns.
+	if p.network == networkUnix {
+		defer func() {
+			if err := os.Remove(p.address); err != nil && !os.IsNotExist(err) {
+				p.logger.Debug("error removing unix socket", "error", err)
+			}
+		}()
 	}
 
 	// Attempt graceful shutdown via RPC.
@@ -247,31 +285,58 @@ func (p *runningPlugin) stop() error {
 		p.logger.Debug("error closing gRPC connection", "error", err)
 	}
 
-	// Wait for process to exit gracefully.
+	// Wait for the process to exit gracefully. Plugins are started with
+	// setProcessGroup (process_unix.go), so once cmd.Wait returns below -
+	// whether the process exited on its own or was force killed - anything
+	// still running in its process group is also signalled, so a plugin
+	// that spawned descendants doesn't leave them running after a normal
+	// daemon shutdown.
 	done := make(chan error, 1)
 	go func() {
 		done <- p.cmd.Wait()
 	}()
 
-	var processExitErr error
+	var (
+		processExitErr    error
+		killErr           error
+		cleanupIncomplete bool
+	)
 	select {
-	case <-time.After(pluginForceKillTimeout):
-		// Process didn't exit in time, force kill it.
-		p.logger.Warn("plugin didn't exit gracefully, force killing", "timeout", pluginForceKillTimeout)
-		if err := p.cmd.Process.Kill(); err != nil {
-			// Only report if we couldn't kill a stuck process.
-			return fmt.Errorf("failed to force kill stuck plugin process: %w", err)
-		}
-		processExitErr = <-done
 	case processExitErr = <-done:
-		// Process exited on its own.
+		// Process exited on its own within the grace period. Exiting does
+		// not imply its process group is empty, so still signal it for any
+		// descendant that isn't holding the pipes Wait just returned on.
+		if err := killProcessGroup(p.cmd); err != nil && !errors.Is(err, os.ErrProcessDone) {
+			p.logger.Warn("failed to kill plugin's process group after exit", "error", err)
+			killErr = fmt.Errorf("failed to kill plugin's process group after exit: %w", err)
+		}
+	case <-time.After(pluginExitGraceTimeout):
+		// Process didn't exit in time, force kill it (and anything left in
+		// its process group) to unblock the wait below.
+		p.logger.Warn("plugin didn't exit gracefully, force killing", "timeout", pluginExitGraceTimeout)
+		if err := killProcessGroup(p.cmd); err != nil && !errors.Is(err, os.ErrProcessDone) {
+			// Record rather than return here: the rest of cleanup still
+			// needs to run, and the process may still exit on its own even
+			// though the kill failed.
+			killErr = fmt.Errorf("failed to force kill stuck plugin process: %w", err)
+		}
+		// cmd.Wait() also waits for the stdout/stderr copy goroutines (Stdout
+		// and Stderr are non-file hclog writers), so a descendant that
+		// inherited either fd can hold Wait open after the plugin process
+		// itself is dead. Bound this second wait too.
+		select {
+		case processExitErr = <-done:
+		case <-time.After(pluginReapTimeout):
+			cleanupIncomplete = true
+			p.logger.Warn(
+				"timed out waiting for killed plugin process to be reaped, a descendant may still hold its stdout/stderr open",
+				"timeout", pluginReapTimeout,
+			)
+		}
 	}
 
-	// Clean up unix sockets.
-	if p.network == networkUnix {
-		if err := os.Remove(p.address); err != nil && !os.IsNotExist(err) {
-			p.logger.Debug("error removing unix socket", "error", err)
-		}
+	if cleanupIncomplete {
+		return errors.Join(killErr, errPluginCleanupIncomplete)
 	}
 
 	// Check if process exited cleanly.
@@ -279,10 +344,14 @@ func (p *runningPlugin) stop() error {
 		// Check for expected exit conditions during shutdown.
 		if isExpectedShutdownError(processExitErr) {
 			p.logger.Debug("plugin process exit", "status", processExitErr)
-			return nil
+			return killErr
 		}
 		// Unexpected error - report it.
-		return fmt.Errorf("plugin process exited with unexpected error: %w", processExitErr)
+		return errors.Join(killErr, fmt.Errorf("plugin process exited with unexpected error: %w", processExitErr))
+	}
+
+	if killErr != nil {
+		return killErr
 	}
 
 	p.logger.Debug("plugin stopped successfully")
@@ -360,9 +429,21 @@ func (m *Manager) startPlugin(ctx context.Context, name string, binaryPath strin
 
 	cmd := exec.CommandContext(ctx, binaryPath, "--address", address, "--network", network)
 
-	// Run the plugin in its own process group so cleanup can terminate any
-	// descendants it spawns, not just the direct child.
+	// exec.CommandContext's default Cancel only kills the direct process.
+	// Set it before Start so a cancelled ctx (e.g. a signal-driven daemon
+	// shutdown) uses the same kill policy as an explicit stop(): the whole
+	// process group, not just the plugin binary itself.
+	cmd.Cancel = func() error { return killProcessGroup(cmd) }
+
+	// Run the plugin in its own process group so cleanup can also terminate
+	// descendants that remain in that group, not just the direct child.
 	setProcessGroup(cmd)
+
+	// Once the process has exited (or ctx has been cancelled), give the
+	// stdout/stderr copy goroutines pluginWaitDelay to drain before os/exec
+	// force-closes the underlying pipes so Wait can return. Without this, a
+	// descendant that inherited either fd can hold Wait open indefinitely.
+	cmd.WaitDelay = pluginWaitDelay
 
 	// Use plugin specific logger to configure stdio and stderr for the plugin to emit logs.
 	stdWriter := func() io.Writer {
@@ -412,7 +493,7 @@ func (m *Manager) startPlugin(ctx context.Context, name string, binaryPath strin
 			if waitErr != nil && !errors.Is(waitErr, os.ErrProcessDone) && !isExpectedShutdownError(waitErr) {
 				l.Warn("failed to reap plugin process", "error", waitErr)
 			}
-		case <-time.After(pluginForceKillTimeout):
+		case <-time.After(pluginReapTimeout):
 			l.Warn("timed out waiting to reap plugin process, a descendant may still hold its stdout/stderr open")
 		}
 		if conn != nil {

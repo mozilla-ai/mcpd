@@ -1,6 +1,7 @@
 // Command fixtureplugin is a test-only plugin binary used by
 // internal/plugin's manager tests to exercise startPlugin's post-spawn
-// failure paths against a real process and a real gRPC socket.
+// failure paths, and stop()'s cleanup path, against a real process and a
+// real gRPC socket.
 //
 // It is never built by `go build ./...` (the "testdata" directory is
 // excluded from wildcard package patterns by the go tool), only by the
@@ -19,6 +20,15 @@
 //     inherits this process's stdout/stderr and blocks forever, simulating a
 //     descendant that keeps those file descriptors open after the plugin
 //     process itself has been killed, then fails CheckReady
+//   - modeHealthyWithDescendant: forks the same blocking descendant but then
+//     serves normally, so the plugin reaches the running state and only gets
+//     torn down later by stop(). This is the graceful-shutdown counterpart of
+//     modeCheckReadyFailWithDescendant.
+//   - modeHealthyWithEscapedDescendant: like modeHealthyWithDescendant, but
+//     the forked descendant also calls setsid, leaving the plugin's process
+//     group entirely while still holding its stdout/stderr open. This
+//     simulates a descendant that killProcessGroup cannot reach at all,
+//     which stop() can only detect via its post-kill reap timeout.
 //
 // Setting the FIXTURE_DESCENDANT_BLOCK env var makes the binary skip plugin
 // serving entirely and just block forever: this is how the forked descendant
@@ -42,6 +52,8 @@ const (
 	modeConfigureFail                = "configure-fail"
 	modeCheckReadyFail               = "checkready-fail"
 	modeCheckReadyFailWithDescendant = "checkready-fail-with-descendant"
+	modeHealthyWithDescendant        = "healthy-with-descendant"
+	modeHealthyWithEscapedDescendant = "healthy-with-escaped-descendant"
 )
 
 // mode selects the fixture's behaviour. It is set at build time via
@@ -112,6 +124,10 @@ func main() {
 	case modeCheckReadyFailWithDescendant:
 		spawnBlockingDescendant()
 		plugin.failCheckReady = true
+	case modeHealthyWithDescendant:
+		spawnBlockingDescendant()
+	case modeHealthyWithEscapedDescendant:
+		spawnEscapedDescendant()
 	default:
 		log.Fatalf("fixtureplugin: unknown mode %q (build with -ldflags \"-X main.mode=<mode>\")", mode)
 	}
@@ -126,6 +142,21 @@ func main() {
 // and deliberately not waited on, so it outlives this process's own
 // lifecycle exactly like a real plugin's runaway grandchild would.
 func spawnBlockingDescendant() {
+	startBlockingDescendant(false)
+}
+
+// spawnEscapedDescendant is spawnBlockingDescendant, except the descendant
+// also calls setsid (see setsid in spawn_unix.go), leaving the plugin's
+// process group entirely while still holding this process's stdout/stderr
+// open. killProcessGroup only reaches processes still in that group, so
+// this simulates a descendant it can never touch.
+func spawnEscapedDescendant() {
+	startBlockingDescendant(true)
+}
+
+// startBlockingDescendant is the shared implementation behind
+// spawnBlockingDescendant and spawnEscapedDescendant.
+func startBlockingDescendant(escapeProcessGroup bool) {
 	self, err := os.Executable()
 	if err != nil {
 		log.Fatal(err)
@@ -135,6 +166,9 @@ func spawnBlockingDescendant() {
 	cmd.Env = append(os.Environ(), "FIXTURE_DESCENDANT_BLOCK=1")
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
+	if escapeProcessGroup {
+		setsid(cmd)
+	}
 
 	if err := cmd.Start(); err != nil {
 		log.Fatal(err)
