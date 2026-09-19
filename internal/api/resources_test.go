@@ -71,7 +71,7 @@ func TestAPI_HandleServerResources_Success(t *testing.T) {
 			accessor := newMockMCPClientAccessor()
 			accessor.Add(tc.serverName, mockClient, []string{})
 
-			result, err := handleServerResources(accessor, tc.serverName, "")
+			result, err := newTestServerRoutes(accessor).handleServerResources(tc.serverName, "")
 
 			require.NoError(t, err)
 			require.NotNil(t, result)
@@ -99,7 +99,7 @@ func TestAPI_HandleServerResources_WithCursor(t *testing.T) {
 	accessor := newMockMCPClientAccessor()
 	accessor.Add("test-server", mockClient, []string{})
 
-	result, err := handleServerResources(accessor, "test-server", cursor)
+	result, err := newTestServerRoutes(accessor).handleServerResources("test-server", cursor)
 
 	require.NoError(t, err)
 	require.NotNil(t, result)
@@ -111,7 +111,7 @@ func TestAPI_HandleServerResources_ServerNotFound(t *testing.T) {
 
 	accessor := newMockMCPClientAccessor()
 
-	result, err := handleServerResources(accessor, "nonexistent-server", "")
+	result, err := newTestServerRoutes(accessor).handleServerResources("nonexistent-server", "")
 
 	require.Error(t, err)
 	require.Nil(t, result)
@@ -128,7 +128,7 @@ func TestAPI_HandleServerResources_MCPError(t *testing.T) {
 	accessor := newMockMCPClientAccessor()
 	accessor.Add("test-server", mockClient, []string{})
 
-	result, err := handleServerResources(accessor, "test-server", "")
+	result, err := newTestServerRoutes(accessor).handleServerResources("test-server", "")
 
 	require.Error(t, err)
 	require.Nil(t, result)
@@ -145,7 +145,7 @@ func TestAPI_HandleServerResources_NilResult(t *testing.T) {
 	accessor := newMockMCPClientAccessor()
 	accessor.Add("test-server", mockClient, []string{})
 
-	result, err := handleServerResources(accessor, "test-server", "")
+	result, err := newTestServerRoutes(accessor).handleServerResources("test-server", "")
 
 	require.Error(t, err)
 	require.Nil(t, result)
@@ -174,7 +174,7 @@ func TestAPI_HandleServerResourceTemplates_Success(t *testing.T) {
 	accessor := newMockMCPClientAccessor()
 	accessor.Add("test-server", mockClient, []string{})
 
-	result, err := handleServerResourceTemplates(accessor, "test-server", "")
+	result, err := newTestServerRoutes(accessor).handleServerResourceTemplates("test-server", "")
 
 	require.NoError(t, err)
 	require.NotNil(t, result)
@@ -189,7 +189,7 @@ func TestAPI_HandleServerResourceTemplates_ServerNotFound(t *testing.T) {
 
 	accessor := newMockMCPClientAccessor()
 
-	result, err := handleServerResourceTemplates(accessor, "nonexistent-server", "")
+	result, err := newTestServerRoutes(accessor).handleServerResourceTemplates("nonexistent-server", "")
 
 	require.Error(t, err)
 	require.Nil(t, result)
@@ -206,7 +206,7 @@ func TestAPI_HandleServerResourceTemplates_ListError(t *testing.T) {
 	accessor := newMockMCPClientAccessor()
 	accessor.Add("test-server", mockClient, []string{})
 
-	result, err := handleServerResourceTemplates(accessor, "test-server", "")
+	result, err := newTestServerRoutes(accessor).handleServerResourceTemplates("test-server", "")
 
 	require.Error(t, err)
 	require.Nil(t, result)
@@ -233,7 +233,7 @@ func TestAPI_HandleServerResourceContent_TextContent(t *testing.T) {
 
 	uri := "file:///test.txt"
 
-	result, err := handleServerResourceContent(accessor, "test-server", uri)
+	result, err := newTestServerRoutes(accessor).handleServerResourceContent("test-server", uri)
 
 	require.NoError(t, err)
 	require.NotNil(t, result)
@@ -263,7 +263,7 @@ func TestAPI_HandleServerResourceContent_BlobContent(t *testing.T) {
 
 	uri := "file:///image.png"
 
-	result, err := handleServerResourceContent(accessor, "test-server", uri)
+	result, err := newTestServerRoutes(accessor).handleServerResourceContent("test-server", uri)
 
 	require.NoError(t, err)
 	require.NotNil(t, result)
@@ -298,7 +298,7 @@ func TestAPI_HandleServerResourceContent_MultipleContents(t *testing.T) {
 
 	uri := "file:///multi"
 
-	result, err := handleServerResourceContent(accessor, "test-server", uri)
+	result, err := newTestServerRoutes(accessor).handleServerResourceContent("test-server", uri)
 
 	require.NoError(t, err)
 	require.NotNil(t, result)
@@ -314,7 +314,7 @@ func TestAPI_HandleServerResourceContent_ServerNotFound(t *testing.T) {
 
 	uri := "file:///test.txt"
 
-	result, err := handleServerResourceContent(accessor, "nonexistent-server", uri)
+	result, err := newTestServerRoutes(accessor).handleServerResourceContent("nonexistent-server", uri)
 
 	require.Error(t, err)
 	require.Nil(t, result)
@@ -333,7 +333,7 @@ func TestAPI_HandleServerResourceContent_ReadError(t *testing.T) {
 
 	uri := "file:///nonexistent.txt"
 
-	result, err := handleServerResourceContent(accessor, "test-server", uri)
+	result, err := newTestServerRoutes(accessor).handleServerResourceContent("test-server", uri)
 
 	require.Error(t, err)
 	require.Nil(t, result)
@@ -352,7 +352,7 @@ func TestAPI_HandleServerResourceContent_NilResult(t *testing.T) {
 
 	uri := "file:///test.txt"
 
-	result, err := handleServerResourceContent(accessor, "test-server", uri)
+	result, err := newTestServerRoutes(accessor).handleServerResourceContent("test-server", uri)
 
 	require.Error(t, err)
 	require.Nil(t, result)

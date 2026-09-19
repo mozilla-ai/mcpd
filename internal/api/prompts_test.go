@@ -86,7 +86,7 @@ func TestAPI_HandleServerPrompts_Success(t *testing.T) {
 			accessor := newMockMCPClientAccessor()
 			accessor.Add(tc.serverName, mockClient, []string{})
 
-			result, err := handleServerPrompts(accessor, tc.serverName, "")
+			result, err := newTestServerRoutes(accessor).handleServerPrompts(tc.serverName, "")
 
 			require.NoError(t, err)
 			require.NotNil(t, result)
@@ -114,7 +114,7 @@ func TestAPI_HandleServerPrompts_WithCursor(t *testing.T) {
 	accessor := newMockMCPClientAccessor()
 	accessor.Add("test-server", mockClient, []string{})
 
-	result, err := handleServerPrompts(accessor, "test-server", cursor)
+	result, err := newTestServerRoutes(accessor).handleServerPrompts("test-server", cursor)
 
 	require.NoError(t, err)
 	require.NotNil(t, result)
@@ -126,7 +126,7 @@ func TestAPI_HandleServerPrompts_ServerNotFound(t *testing.T) {
 
 	accessor := newMockMCPClientAccessor()
 
-	result, err := handleServerPrompts(accessor, "nonexistent-server", "")
+	result, err := newTestServerRoutes(accessor).handleServerPrompts("nonexistent-server", "")
 
 	require.Error(t, err)
 	require.Nil(t, result)
@@ -143,7 +143,7 @@ func TestAPI_HandleServerPrompts_ListError(t *testing.T) {
 	accessor := newMockMCPClientAccessor()
 	accessor.Add("test-server", mockClient, []string{})
 
-	result, err := handleServerPrompts(accessor, "test-server", "")
+	result, err := newTestServerRoutes(accessor).handleServerPrompts("test-server", "")
 
 	require.Error(t, err)
 	require.Nil(t, result)
@@ -160,7 +160,7 @@ func TestAPI_HandleServerPrompts_NilResult(t *testing.T) {
 	accessor := newMockMCPClientAccessor()
 	accessor.Add("test-server", mockClient, []string{})
 
-	result, err := handleServerPrompts(accessor, "test-server", "")
+	result, err := newTestServerRoutes(accessor).handleServerPrompts("test-server", "")
 
 	require.Error(t, err)
 	require.Nil(t, result)
@@ -177,7 +177,7 @@ func TestAPI_HandleServerPrompts_MethodNotFound(t *testing.T) {
 	accessor := newMockMCPClientAccessor()
 	accessor.Add("test-server", mockClient, []string{})
 
-	result, err := handleServerPrompts(accessor, "test-server", "")
+	result, err := newTestServerRoutes(accessor).handleServerPrompts("test-server", "")
 
 	require.Error(t, err)
 	require.Nil(t, result)
@@ -205,7 +205,7 @@ func TestAPI_HandleServerPromptGenerate_Success(t *testing.T) {
 	promptName := "test-prompt"
 	arguments := map[string]string{}
 
-	result, err := handleServerPromptGenerate(accessor, "test-server", promptName, arguments)
+	result, err := newTestServerRoutes(accessor).handleServerPromptGenerate("test-server", promptName, arguments)
 
 	require.NoError(t, err)
 	require.NotNil(t, result)
@@ -238,7 +238,7 @@ func TestAPI_HandleServerPromptGenerate_WithArguments(t *testing.T) {
 		"param2": "value2",
 	}
 
-	result, err := handleServerPromptGenerate(accessor, "test-server", promptName, arguments)
+	result, err := newTestServerRoutes(accessor).handleServerPromptGenerate("test-server", promptName, arguments)
 
 	require.NoError(t, err)
 	require.NotNil(t, result)
@@ -272,7 +272,7 @@ func TestAPI_HandleServerPromptGenerate_MultipleMessages(t *testing.T) {
 	promptName := "multi-prompt"
 	arguments := map[string]string{}
 
-	result, err := handleServerPromptGenerate(accessor, "test-server", promptName, arguments)
+	result, err := newTestServerRoutes(accessor).handleServerPromptGenerate("test-server", promptName, arguments)
 
 	require.NoError(t, err)
 	require.NotNil(t, result)
@@ -289,7 +289,7 @@ func TestAPI_HandleServerPromptGenerate_ServerNotFound(t *testing.T) {
 	promptName := "test-prompt"
 	arguments := map[string]string{}
 
-	result, err := handleServerPromptGenerate(accessor, "nonexistent-server", promptName, arguments)
+	result, err := newTestServerRoutes(accessor).handleServerPromptGenerate("nonexistent-server", promptName, arguments)
 
 	require.Error(t, err)
 	require.Nil(t, result)
@@ -309,7 +309,7 @@ func TestAPI_HandleServerPromptGenerate_GenerateError(t *testing.T) {
 	promptName := "nonexistent-prompt"
 	arguments := map[string]string{}
 
-	result, err := handleServerPromptGenerate(accessor, "test-server", promptName, arguments)
+	result, err := newTestServerRoutes(accessor).handleServerPromptGenerate("test-server", promptName, arguments)
 
 	require.Error(t, err)
 	require.Nil(t, result)
@@ -329,7 +329,7 @@ func TestAPI_HandleServerPromptGenerate_NilResult(t *testing.T) {
 	promptName := "test-prompt"
 	arguments := map[string]string{}
 
-	result, err := handleServerPromptGenerate(accessor, "test-server", promptName, arguments)
+	result, err := newTestServerRoutes(accessor).handleServerPromptGenerate("test-server", promptName, arguments)
 
 	require.Error(t, err)
 	require.Nil(t, result)
@@ -349,7 +349,7 @@ func TestAPI_HandleServerPromptGenerate_MethodNotFound(t *testing.T) {
 	promptName := "test-prompt"
 	arguments := map[string]string{}
 
-	result, err := handleServerPromptGenerate(accessor, "test-server", promptName, arguments)
+	result, err := newTestServerRoutes(accessor).handleServerPromptGenerate("test-server", promptName, arguments)
 
 	require.Error(t, err)
 	require.Nil(t, result)

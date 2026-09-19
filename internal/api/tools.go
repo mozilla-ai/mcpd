@@ -8,7 +8,6 @@ import (
 	"github.com/danielgtaylor/huma/v2"
 	"github.com/mark3labs/mcp-go/mcp"
 
-	"github.com/mozilla-ai/mcpd/internal/contracts"
 	"github.com/mozilla-ai/mcpd/internal/filter"
 )
 
@@ -268,8 +267,8 @@ func outputSchemaPresent(s mcp.ToolOutputSchema) bool {
 		s.AdditionalProperties != nil
 }
 
-// RegisterToolRoutes registers the tool listing and tool call endpoints on the provided API group.
-func RegisterToolRoutes(parentAPI huma.API, accessor contracts.MCPClientAccessor, options RouteOptions) {
+// registerToolRoutes registers the tool listing and tool call endpoints on the provided API group.
+func (r *serverRoutes) registerToolRoutes(parentAPI huma.API) {
 	tags := []string{"Tools"}
 
 	huma.Register(
@@ -283,7 +282,7 @@ func RegisterToolRoutes(parentAPI huma.API, accessor contracts.MCPClientAccessor
 			Tags:        tags,
 		},
 		func(ctx context.Context, input *ServerToolsRequest) (*ToolsResponse[Tool], error) {
-			return handleServerTools(accessor, input.Name)
+			return r.handleServerTools(input.Name)
 		},
 	)
 
@@ -297,7 +296,7 @@ func RegisterToolRoutes(parentAPI huma.API, accessor contracts.MCPClientAccessor
 			Tags:        tags,
 		},
 		func(ctx context.Context, input *ServerToolCallRequest) (*ToolCallResponse, error) {
-			return handleServerToolCall(ctx, accessor, input.Server, input.Tool, input.Body, options.ToolCallTimeout)
+			return r.handleServerToolCall(ctx, input.Server, input.Tool, input.Body)
 		},
 	)
 }
