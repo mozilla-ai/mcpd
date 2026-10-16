@@ -162,8 +162,8 @@ func (d DomainResourceTemplate) ToAPIType() (ResourceTemplate, error) {
 	}, nil
 }
 
-// handleServerResources returns the list of resources for a given server.
-func (r *serverRoutes) handleServerResources(
+// handleResources returns the list of resources for a given server.
+func (r *serverRoutes) handleResources(
 	name string,
 	cursor string,
 ) (*ResourcesResponse, error) {
@@ -211,8 +211,8 @@ func (r *serverRoutes) handleServerResources(
 	return resp, nil
 }
 
-// handleServerResourceTemplates returns the list of resource templates for a given server.
-func (r *serverRoutes) handleServerResourceTemplates(
+// handleResourceTemplates returns the list of resource templates for a given server.
+func (r *serverRoutes) handleResourceTemplates(
 	name string,
 	cursor string,
 ) (*ResourceTemplatesResponse, error) {
@@ -260,8 +260,8 @@ func (r *serverRoutes) handleServerResourceTemplates(
 	return resp, nil
 }
 
-// handleServerResourceContent gets the content of a specific resource from a server.
-func (r *serverRoutes) handleServerResourceContent(
+// handleResourceContent gets the content of a specific resource from a server.
+func (r *serverRoutes) handleResourceContent(
 	name string,
 	uri string,
 ) (*ResourceContentResponse, error) {
@@ -314,8 +314,8 @@ func (r *serverRoutes) handleServerResourceContent(
 	return resp, nil
 }
 
-// registerResourceRoutes registers resource-related routes under the servers API.
-func (r *serverRoutes) registerResourceRoutes(parentAPI huma.API) {
+// registerResources registers resource-related routes under the servers API.
+func (r *serverRoutes) registerResources(parentAPI huma.API) {
 	tags := []string{"Resources"}
 
 	huma.Register(
@@ -328,7 +328,7 @@ func (r *serverRoutes) registerResourceRoutes(parentAPI huma.API) {
 			Tags:        tags,
 		},
 		func(ctx context.Context, input *ServerResourcesRequest) (*ResourcesResponse, error) {
-			return r.handleServerResources(input.Name, input.Cursor)
+			return r.handleResources(input.Name, input.Cursor)
 		},
 	)
 
@@ -342,7 +342,7 @@ func (r *serverRoutes) registerResourceRoutes(parentAPI huma.API) {
 			Tags:        tags,
 		},
 		func(ctx context.Context, input *ServerResourceTemplatesRequest) (*ResourceTemplatesResponse, error) {
-			return r.handleServerResourceTemplates(input.Name, input.Cursor)
+			return r.handleResourceTemplates(input.Name, input.Cursor)
 		},
 	)
 
@@ -357,7 +357,7 @@ func (r *serverRoutes) registerResourceRoutes(parentAPI huma.API) {
 			Tags:        tags,
 		},
 		func(ctx context.Context, input *ServerResourceContentRequest) (*ResourceContentResponse, error) {
-			return r.handleServerResourceContent(input.Name, input.URI)
+			return r.handleResourceContent(input.Name, input.URI)
 		},
 	)
 }

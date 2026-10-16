@@ -142,8 +142,8 @@ func (d DomainPromptMessage) ToAPIType() (PromptMessage, error) {
 	}, nil
 }
 
-// handleServerPrompts returns the list of prompts for a given server.
-func (r *serverRoutes) handleServerPrompts(
+// handlePrompts returns the list of prompts for a given server.
+func (r *serverRoutes) handlePrompts(
 	name string,
 	cursor string,
 ) (*PromptsListResponse, error) {
@@ -191,8 +191,8 @@ func (r *serverRoutes) handleServerPrompts(
 	return resp, nil
 }
 
-// handleServerPromptGenerate generates a prompt from a template on a server.
-func (r *serverRoutes) handleServerPromptGenerate(
+// handlePromptGenerate generates a prompt from a template on a server.
+func (r *serverRoutes) handlePromptGenerate(
 	serverName string,
 	promptName string,
 	arguments map[string]string,
@@ -237,8 +237,8 @@ func (r *serverRoutes) handleServerPromptGenerate(
 	return resp, nil
 }
 
-// registerPromptRoutes registers prompt-related routes under the servers API.
-func (r *serverRoutes) registerPromptRoutes(parentAPI huma.API) {
+// registerPrompts registers prompt-related routes under the servers API.
+func (r *serverRoutes) registerPrompts(parentAPI huma.API) {
 	tags := []string{"Prompts"}
 
 	huma.Register(
@@ -251,7 +251,7 @@ func (r *serverRoutes) registerPromptRoutes(parentAPI huma.API) {
 			Tags:        tags,
 		},
 		func(ctx context.Context, input *ServerPromptsListRequest) (*PromptsListResponse, error) {
-			return r.handleServerPrompts(input.Name, input.Cursor)
+			return r.handlePrompts(input.Name, input.Cursor)
 		},
 	)
 
@@ -266,7 +266,7 @@ func (r *serverRoutes) registerPromptRoutes(parentAPI huma.API) {
 			Tags:        tags,
 		},
 		func(ctx context.Context, input *ServerPromptGenerateRequest) (*GeneratePromptResponse, error) {
-			return r.handleServerPromptGenerate(input.ServerName, input.PromptName, input.Body.Arguments)
+			return r.handlePromptGenerate(input.ServerName, input.PromptName, input.Body.Arguments)
 		},
 	)
 }

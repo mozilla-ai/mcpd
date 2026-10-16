@@ -15,6 +15,15 @@ import (
 	"github.com/mozilla-ai/mcpd/internal/filter"
 )
 
+// serverRoutes holds the shared dependencies for the server, tool, prompt, and resource endpoints.
+type serverRoutes struct {
+	// accessor looks up MCP clients and their allowed tools by server name.
+	accessor contracts.MCPClientAccessor
+
+	// toolCallTimeout bounds how long a single MCP tool call may run.
+	toolCallTimeout time.Duration
+}
+
 // ServersResponse represents the wrapped API response for a list of servers.
 type ServersResponse struct {
 	Body []string
@@ -37,16 +46,6 @@ type ServerToolCallRequest struct {
 	Body   map[string]any `doc:"Body of the tool to call"                            path:"body"`
 }
 
-// serverRoutes holds the shared dependencies for the server, tool, prompt, and resource endpoints.
-type serverRoutes struct {
-	// accessor looks up MCP clients and their allowed tools by server name.
-	accessor contracts.MCPClientAccessor
-
-	// toolCallTimeout bounds how long a single MCP tool call may run.
-	// A zero or negative value means the default timeout applies.
-	toolCallTimeout time.Duration
-}
-
 // RegisterServerRoutes registers the server listing endpoint along with the
 // tool, prompt, and resource routes on the provided API group.
 func RegisterServerRoutes(
@@ -56,10 +55,7 @@ func RegisterServerRoutes(
 	options RouteOptions,
 ) {
 	serversAPI := huma.NewGroup(routerAPI, apiPathPrefix)
-	routes := &serverRoutes{
-		accessor:        accessor,
-		toolCallTimeout: options.ToolCallTimeout,
-	}
+	routes := newServerRoutes(accessor, options)
 	tags := []string{"Servers"}
 
 	// Add route at the root of the group (no path specified).
@@ -72,22 +68,36 @@ func RegisterServerRoutes(
 			Tags:        tags,
 		},
 		func(ctx context.Context, _ *struct{}) (*ServersResponse, error) {
-			return routes.handleServers()
+			return routes.handleList()
 		},
 	)
 
 	// Register tool routes.
-	routes.registerToolRoutes(serversAPI)
+	routes.registerTools(serversAPI)
 
 	// Register prompt routes.
-	routes.registerPromptRoutes(serversAPI)
+	routes.registerPrompts(serversAPI)
 
 	// Register resource routes.
-	routes.registerResourceRoutes(serversAPI)
+	routes.registerResources(serversAPI)
 }
 
-// handleServers returns the list of configured MCP servers.
-func (r *serverRoutes) handleServers() (*ServersResponse, error) {
+// newServerRoutes returns serverRoutes for the accessor.
+// A non-positive tool call timeout is replaced with the default.
+func newServerRoutes(accessor contracts.MCPClientAccessor, options RouteOptions) *serverRoutes {
+	timeout := options.ToolCallTimeout
+	if timeout <= 0 {
+		timeout = DefaultToolCallTimeout()
+	}
+
+	return &serverRoutes{
+		accessor:        accessor,
+		toolCallTimeout: timeout,
+	}
+}
+
+// handleList returns the list of configured MCP servers.
+func (r *serverRoutes) handleList() (*ServersResponse, error) {
 	servers := r.accessor.List()
 	slices.Sort(servers)
 
@@ -97,9 +107,9 @@ func (r *serverRoutes) handleServers() (*ServersResponse, error) {
 	return resp, nil
 }
 
-// handleServerTools returns the schemas for the allowed tools that exist for a given server.
+// handleTools returns the schemas for the allowed tools that exist for a given server.
 // This always returns full tool details (Tool), which can be filtered by the transformer.
-func (r *serverRoutes) handleServerTools(name string) (*ToolsResponse[Tool], error) {
+func (r *serverRoutes) handleTools(name string) (*ToolsResponse[Tool], error) {
 	mcpClient, clientOk := r.accessor.Client(name)
 	if !clientOk {
 		return nil, fmt.Errorf("%w: %s", errors.ErrServerNotFound, name)
@@ -140,8 +150,8 @@ func (r *serverRoutes) handleServerTools(name string) (*ToolsResponse[Tool], err
 	return resp, nil
 }
 
-// handleServerToolCall handles making a call to a specific tool which exists on an MCP server.
-func (r *serverRoutes) handleServerToolCall(
+// handleToolCall handles making a call to a specific tool which exists on an MCP server.
+func (r *serverRoutes) handleToolCall(
 	ctx context.Context,
 	server string,
 	tool string,
@@ -163,12 +173,7 @@ func (r *serverRoutes) handleServerToolCall(
 		return nil, fmt.Errorf("%w: %s/%s", errors.ErrToolForbidden, server, tool)
 	}
 
-	timeout := r.toolCallTimeout
-	if timeout <= 0 {
-		timeout = DefaultToolCallTimeout()
-	}
-
-	ctx, cancel := context.WithTimeout(ctx, timeout)
+	ctx, cancel := context.WithTimeout(ctx, r.toolCallTimeout)
 	defer cancel()
 
 	result, err := mcpClient.CallTool(ctx, mcp.CallToolRequest{

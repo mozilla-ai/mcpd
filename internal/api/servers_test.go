@@ -27,11 +27,6 @@ func newMockMCPClientAccessor() *mockMCPClientAccessor {
 	}
 }
 
-// newTestServerRoutes returns serverRoutes backed by the mock accessor.
-func newTestServerRoutes(accessor *mockMCPClientAccessor) *serverRoutes {
-	return &serverRoutes{accessor: accessor}
-}
-
 func (m *mockMCPClientAccessor) Add(name string, c client.MCPClient, tools []string) {
 	m.clients[name] = c
 	m.tools[name] = tools
@@ -189,7 +184,7 @@ func (m *mockMCPClient) Close() error {
 
 func (m *mockMCPClient) OnNotification(_ func(notification mcp.JSONRPCNotification)) {}
 
-func TestHandleServerTools_CaseInsensitiveFiltering(t *testing.T) {
+func TestHandleTools_CaseInsensitiveFiltering(t *testing.T) {
 	t.Parallel()
 
 	accessor := newMockMCPClientAccessor()
@@ -209,7 +204,7 @@ func TestHandleServerTools_CaseInsensitiveFiltering(t *testing.T) {
 	allowedTools := []string{"gettime", "set_alarm"}
 	accessor.Add("testserver", mockClient, allowedTools)
 
-	result, err := newTestServerRoutes(accessor).handleServerTools("testserver")
+	result, err := newServerRoutes(accessor, RouteOptions{}).handleTools("testserver")
 	require.NoError(t, err)
 	require.NotNil(t, result)
 
@@ -227,7 +222,7 @@ func TestHandleServerTools_CaseInsensitiveFiltering(t *testing.T) {
 	assert.NotContains(t, toolNames, "list_events")
 }
 
-func TestHandleServerToolCall_ToolNameNormalization(t *testing.T) {
+func TestHandleToolCall_ToolNameNormalization(t *testing.T) {
 	t.Parallel()
 
 	accessor := newMockMCPClientAccessor()
@@ -246,7 +241,7 @@ func TestHandleServerToolCall_ToolNameNormalization(t *testing.T) {
 	accessor.Add("testserver", mockClient, allowedTools)
 
 	// Call with mixed case tool name - should be normalized and match.
-	result, err := newTestServerRoutes(accessor).handleServerToolCall(
+	result, err := newServerRoutes(accessor, RouteOptions{}).handleToolCall(
 		context.Background(),
 		"testserver",
 		" GetTime ",
@@ -258,7 +253,30 @@ func TestHandleServerToolCall_ToolNameNormalization(t *testing.T) {
 	assert.Equal(t, "Tool executed successfully", result.Body)
 }
 
-func TestHandleServerToolCall_UsesConfiguredTimeout(t *testing.T) {
+func TestNewServerRoutes_ToolCallTimeout(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name     string
+		timeout  time.Duration
+		expected time.Duration
+	}{
+		{name: "zero uses default", timeout: 0, expected: DefaultToolCallTimeout()},
+		{name: "negative uses default", timeout: -time.Second, expected: DefaultToolCallTimeout()},
+		{name: "positive is kept", timeout: 30 * time.Second, expected: 30 * time.Second},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			routes := newServerRoutes(newMockMCPClientAccessor(), RouteOptions{ToolCallTimeout: tc.timeout})
+			require.Equal(t, tc.expected, routes.toolCallTimeout)
+		})
+	}
+}
+
+func TestHandleToolCall_UsesConfiguredTimeout(t *testing.T) {
 	t.Parallel()
 
 	accessor := newMockMCPClientAccessor()
@@ -272,9 +290,8 @@ func TestHandleServerToolCall_UsesConfiguredTimeout(t *testing.T) {
 	accessor.Add("testserver", mockClient, []string{"gettime"})
 
 	timeout := 30 * time.Second
-	routes := newTestServerRoutes(accessor)
-	routes.toolCallTimeout = timeout
-	result, err := routes.handleServerToolCall(
+	routes := newServerRoutes(accessor, RouteOptions{ToolCallTimeout: timeout})
+	result, err := routes.handleToolCall(
 		context.Background(),
 		"testserver",
 		"gettime",
@@ -292,7 +309,7 @@ func TestHandleServerToolCall_UsesConfiguredTimeout(t *testing.T) {
 	assert.LessOrEqual(t, remaining, timeout)
 }
 
-func TestHandleServerToolCall_ToolNotAllowed(t *testing.T) {
+func TestHandleToolCall_ToolNotAllowed(t *testing.T) {
 	t.Parallel()
 
 	accessor := newMockMCPClientAccessor()
@@ -302,7 +319,7 @@ func TestHandleServerToolCall_ToolNotAllowed(t *testing.T) {
 	accessor.Add("testserver", mockClient, allowedTools)
 
 	// Try to call a tool that's not in the allowed list.
-	result, err := newTestServerRoutes(accessor).handleServerToolCall(
+	result, err := newServerRoutes(accessor, RouteOptions{}).handleToolCall(
 		context.Background(),
 		"testserver",
 		"forbidden_tool",
@@ -314,12 +331,12 @@ func TestHandleServerToolCall_ToolNotAllowed(t *testing.T) {
 	assert.ErrorIs(t, err, errors.ErrToolForbidden)
 }
 
-func TestHandleServerToolCall_ServerNotFound(t *testing.T) {
+func TestHandleToolCall_ServerNotFound(t *testing.T) {
 	t.Parallel()
 
 	accessor := newMockMCPClientAccessor()
 
-	result, err := newTestServerRoutes(accessor).handleServerToolCall(
+	result, err := newServerRoutes(accessor, RouteOptions{}).handleToolCall(
 		context.Background(),
 		"nonexistent",
 		"tool",
@@ -331,19 +348,19 @@ func TestHandleServerToolCall_ServerNotFound(t *testing.T) {
 	assert.ErrorIs(t, err, errors.ErrServerNotFound)
 }
 
-func TestHandleServerTools_ServerNotFound(t *testing.T) {
+func TestHandleTools_ServerNotFound(t *testing.T) {
 	t.Parallel()
 
 	accessor := newMockMCPClientAccessor()
 
-	result, err := newTestServerRoutes(accessor).handleServerTools("nonexistent")
+	result, err := newServerRoutes(accessor, RouteOptions{}).handleTools("nonexistent")
 	require.Error(t, err)
 	require.Nil(t, result)
 
 	assert.ErrorIs(t, err, errors.ErrServerNotFound)
 }
 
-func TestHandleServerTools_NoTools(t *testing.T) {
+func TestHandleTools_NoTools(t *testing.T) {
 	t.Parallel()
 
 	accessor := newMockMCPClientAccessor()
@@ -352,7 +369,7 @@ func TestHandleServerTools_NoTools(t *testing.T) {
 	// Add server with no tools.
 	accessor.Add("testserver", mockClient, []string{})
 
-	result, err := newTestServerRoutes(accessor).handleServerTools("testserver")
+	result, err := newServerRoutes(accessor, RouteOptions{}).handleTools("testserver")
 	require.Error(t, err)
 	require.Nil(t, result)
 

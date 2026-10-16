@@ -81,11 +81,6 @@ func newMockHealthMonitor() *mockHealthMonitor {
 	}
 }
 
-// newTestHealthRoutes returns healthRoutes backed by the mock monitor.
-func newTestHealthRoutes(monitor *mockHealthMonitor) *healthRoutes {
-	return &healthRoutes{monitor: monitor}
-}
-
 func (m *mockHealthMonitor) Status(name string) (domain.ServerHealth, error) {
 	if health, ok := m.servers[name]; ok {
 		return health, nil
@@ -110,20 +105,20 @@ func (m *mockHealthMonitor) Update(name string, status domain.HealthStatus, late
 	return nil
 }
 
-func TestHandleHealthServer_ServerNotTracked(t *testing.T) {
+func TestHandleServer_ServerNotTracked(t *testing.T) {
 	t.Parallel()
 
 	monitor := newMockHealthMonitor()
 
 	// Try to get health for a server that doesn't exist.
-	result, err := newTestHealthRoutes(monitor).handleHealthServer("nonexistent-server")
+	result, err := (&healthRoutes{monitor: monitor}).handleServer("nonexistent-server")
 	require.Error(t, err)
 	require.Nil(t, result)
 
 	require.ErrorIs(t, err, errors.ErrHealthNotTracked)
 }
 
-func TestHandleHealthServer_ServerExists(t *testing.T) {
+func TestHandleServer_ServerExists(t *testing.T) {
 	t.Parallel()
 
 	monitor := newMockHealthMonitor()
@@ -134,7 +129,7 @@ func TestHandleHealthServer_ServerExists(t *testing.T) {
 	require.NoError(t, err)
 
 	// Get health for existing server.
-	result, err := newTestHealthRoutes(monitor).handleHealthServer("test-server")
+	result, err := (&healthRoutes{monitor: monitor}).handleServer("test-server")
 	require.NoError(t, err)
 	require.NotNil(t, result)
 

@@ -267,8 +267,8 @@ func outputSchemaPresent(s mcp.ToolOutputSchema) bool {
 		s.AdditionalProperties != nil
 }
 
-// registerToolRoutes registers the tool listing and tool call endpoints on the provided API group.
-func (r *serverRoutes) registerToolRoutes(parentAPI huma.API) {
+// registerTools registers the tool listing and tool call endpoints on the provided API group.
+func (r *serverRoutes) registerTools(parentAPI huma.API) {
 	tags := []string{"Tools"}
 
 	huma.Register(
@@ -282,7 +282,7 @@ func (r *serverRoutes) registerToolRoutes(parentAPI huma.API) {
 			Tags:        tags,
 		},
 		func(ctx context.Context, input *ServerToolsRequest) (*ToolsResponse[Tool], error) {
-			return r.handleServerTools(input.Name)
+			return r.handleTools(input.Name)
 		},
 	)
 
@@ -296,7 +296,7 @@ func (r *serverRoutes) registerToolRoutes(parentAPI huma.API) {
 			Tags:        tags,
 		},
 		func(ctx context.Context, input *ServerToolCallRequest) (*ToolCallResponse, error) {
-			return r.handleServerToolCall(ctx, input.Server, input.Tool, input.Body)
+			return r.handleToolCall(ctx, input.Server, input.Tool, input.Body)
 		},
 	)
 }
