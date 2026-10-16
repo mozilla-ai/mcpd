@@ -59,6 +59,12 @@ type ServerHealthResponse struct {
 	Body ServerHealth
 }
 
+// healthRoutes holds the shared dependencies for the health endpoints.
+type healthRoutes struct {
+	// monitor reports the tracked health of running MCP servers.
+	monitor contracts.MCPHealthMonitor
+}
+
 // ToAPIType can be used to convert a wrapped domain type to an API-safe type.
 func (d DomainServerHealth) ToAPIType() (ServerHealth, error) {
 	status, err := parseHealthStatus(d.Status)
@@ -83,6 +89,7 @@ func (d DomainServerHealth) ToAPIType() (ServerHealth, error) {
 // RegisterHealthRoutes sets up health-related API endpoint routes.
 func RegisterHealthRoutes(routerAPI huma.API, monitor contracts.MCPHealthMonitor, apiPathPrefix string) {
 	healthAPI := huma.NewGroup(routerAPI, apiPathPrefix)
+	routes := &healthRoutes{monitor: monitor}
 	tags := []string{"Health"}
 
 	huma.Register(
@@ -95,7 +102,7 @@ func RegisterHealthRoutes(routerAPI huma.API, monitor contracts.MCPHealthMonitor
 			Tags:        tags,
 		},
 		func(ctx context.Context, _ *struct{}) (*ServersHealthResponse, error) {
-			return handleHealthServers(monitor)
+			return routes.handleHealthServers()
 		},
 	)
 
@@ -109,14 +116,14 @@ func RegisterHealthRoutes(routerAPI huma.API, monitor contracts.MCPHealthMonitor
 			Tags:        tags,
 		},
 		func(ctx context.Context, input *ServerHealthRequest) (*ServerHealthResponse, error) {
-			return handleHealthServer(monitor, input.Name)
+			return routes.handleHealthServer(input.Name)
 		},
 	)
 }
 
 // handleHealthServers is the handler for retrieving the current health for all registered MCP servers.
-func handleHealthServers(monitor contracts.MCPHealthMonitor) (*ServersHealthResponse, error) {
-	servers := monitor.List()
+func (r *healthRoutes) handleHealthServers() (*ServersHealthResponse, error) {
+	servers := r.monitor.List()
 
 	slices.SortFunc(servers, func(a, b domain.ServerHealth) int {
 		return strings.Compare(a.Name, b.Name)
@@ -138,8 +145,8 @@ func handleHealthServers(monitor contracts.MCPHealthMonitor) (*ServersHealthResp
 }
 
 // handleHealthServer is the handler for retrieving the current health the specified registered MCP server.
-func handleHealthServer(monitor contracts.MCPHealthMonitor, name string) (*ServerHealthResponse, error) {
-	health, err := monitor.Status(name)
+func (r *healthRoutes) handleHealthServer(name string) (*ServerHealthResponse, error) {
+	health, err := r.monitor.Status(name)
 	if err != nil {
 		return nil, err
 	}

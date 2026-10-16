@@ -9,7 +9,6 @@ import (
 	"github.com/danielgtaylor/huma/v2"
 	"github.com/mark3labs/mcp-go/mcp"
 
-	"github.com/mozilla-ai/mcpd/internal/contracts"
 	errorsint "github.com/mozilla-ai/mcpd/internal/errors"
 )
 
@@ -164,12 +163,11 @@ func (d DomainResourceTemplate) ToAPIType() (ResourceTemplate, error) {
 }
 
 // handleServerResources returns the list of resources for a given server.
-func handleServerResources(
-	accessor contracts.MCPClientAccessor,
+func (r *serverRoutes) handleServerResources(
 	name string,
 	cursor string,
 ) (*ResourcesResponse, error) {
-	mcpClient, clientOk := accessor.Client(name)
+	mcpClient, clientOk := r.accessor.Client(name)
 	if !clientOk {
 		return nil, fmt.Errorf("%w: %s", errorsint.ErrServerNotFound, name)
 	}
@@ -214,12 +212,11 @@ func handleServerResources(
 }
 
 // handleServerResourceTemplates returns the list of resource templates for a given server.
-func handleServerResourceTemplates(
-	accessor contracts.MCPClientAccessor,
+func (r *serverRoutes) handleServerResourceTemplates(
 	name string,
 	cursor string,
 ) (*ResourceTemplatesResponse, error) {
-	mcpClient, clientOk := accessor.Client(name)
+	mcpClient, clientOk := r.accessor.Client(name)
 	if !clientOk {
 		return nil, fmt.Errorf("%w: %s", errorsint.ErrServerNotFound, name)
 	}
@@ -264,12 +261,11 @@ func handleServerResourceTemplates(
 }
 
 // handleServerResourceContent gets the content of a specific resource from a server.
-func handleServerResourceContent(
-	accessor contracts.MCPClientAccessor,
+func (r *serverRoutes) handleServerResourceContent(
 	name string,
 	uri string,
 ) (*ResourceContentResponse, error) {
-	mcpClient, clientOk := accessor.Client(name)
+	mcpClient, clientOk := r.accessor.Client(name)
 	if !clientOk {
 		return nil, fmt.Errorf("%w: %s", errorsint.ErrServerNotFound, name)
 	}
@@ -318,8 +314,8 @@ func handleServerResourceContent(
 	return resp, nil
 }
 
-// RegisterResourceRoutes registers resource-related routes under the servers API.
-func RegisterResourceRoutes(parentAPI huma.API, accessor contracts.MCPClientAccessor) {
+// registerResourceRoutes registers resource-related routes under the servers API.
+func (r *serverRoutes) registerResourceRoutes(parentAPI huma.API) {
 	tags := []string{"Resources"}
 
 	huma.Register(
@@ -332,7 +328,7 @@ func RegisterResourceRoutes(parentAPI huma.API, accessor contracts.MCPClientAcce
 			Tags:        tags,
 		},
 		func(ctx context.Context, input *ServerResourcesRequest) (*ResourcesResponse, error) {
-			return handleServerResources(accessor, input.Name, input.Cursor)
+			return r.handleServerResources(input.Name, input.Cursor)
 		},
 	)
 
@@ -346,7 +342,7 @@ func RegisterResourceRoutes(parentAPI huma.API, accessor contracts.MCPClientAcce
 			Tags:        tags,
 		},
 		func(ctx context.Context, input *ServerResourceTemplatesRequest) (*ResourceTemplatesResponse, error) {
-			return handleServerResourceTemplates(accessor, input.Name, input.Cursor)
+			return r.handleServerResourceTemplates(input.Name, input.Cursor)
 		},
 	)
 
@@ -361,7 +357,7 @@ func RegisterResourceRoutes(parentAPI huma.API, accessor contracts.MCPClientAcce
 			Tags:        tags,
 		},
 		func(ctx context.Context, input *ServerResourceContentRequest) (*ResourceContentResponse, error) {
-			return handleServerResourceContent(accessor, input.Name, input.URI)
+			return r.handleServerResourceContent(input.Name, input.URI)
 		},
 	)
 }

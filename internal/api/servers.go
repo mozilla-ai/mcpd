@@ -37,6 +37,16 @@ type ServerToolCallRequest struct {
 	Body   map[string]any `doc:"Body of the tool to call"                            path:"body"`
 }
 
+// serverRoutes holds the shared dependencies for the server, tool, prompt, and resource endpoints.
+type serverRoutes struct {
+	// accessor looks up MCP clients and their allowed tools by server name.
+	accessor contracts.MCPClientAccessor
+
+	// toolCallTimeout bounds how long a single MCP tool call may run.
+	// A zero or negative value means the default timeout applies.
+	toolCallTimeout time.Duration
+}
+
 // RegisterServerRoutes registers the server listing endpoint along with the
 // tool, prompt, and resource routes on the provided API group.
 func RegisterServerRoutes(
@@ -46,6 +56,10 @@ func RegisterServerRoutes(
 	options RouteOptions,
 ) {
 	serversAPI := huma.NewGroup(routerAPI, apiPathPrefix)
+	routes := &serverRoutes{
+		accessor:        accessor,
+		toolCallTimeout: options.ToolCallTimeout,
+	}
 	tags := []string{"Servers"}
 
 	// Add route at the root of the group (no path specified).
@@ -58,23 +72,23 @@ func RegisterServerRoutes(
 			Tags:        tags,
 		},
 		func(ctx context.Context, _ *struct{}) (*ServersResponse, error) {
-			return handleServers(accessor)
+			return routes.handleServers()
 		},
 	)
 
 	// Register tool routes.
-	RegisterToolRoutes(serversAPI, accessor, options)
+	routes.registerToolRoutes(serversAPI)
 
 	// Register prompt routes.
-	RegisterPromptRoutes(serversAPI, accessor)
+	routes.registerPromptRoutes(serversAPI)
 
 	// Register resource routes.
-	RegisterResourceRoutes(serversAPI, accessor)
+	routes.registerResourceRoutes(serversAPI)
 }
 
 // handleServers returns the list of configured MCP servers.
-func handleServers(accessor contracts.MCPClientAccessor) (*ServersResponse, error) {
-	servers := accessor.List()
+func (r *serverRoutes) handleServers() (*ServersResponse, error) {
+	servers := r.accessor.List()
 	slices.Sort(servers)
 
 	resp := &ServersResponse{}
@@ -85,13 +99,13 @@ func handleServers(accessor contracts.MCPClientAccessor) (*ServersResponse, erro
 
 // handleServerTools returns the schemas for the allowed tools that exist for a given server.
 // This always returns full tool details (Tool), which can be filtered by the transformer.
-func handleServerTools(accessor contracts.MCPClientAccessor, name string) (*ToolsResponse[Tool], error) {
-	mcpClient, clientOk := accessor.Client(name)
+func (r *serverRoutes) handleServerTools(name string) (*ToolsResponse[Tool], error) {
+	mcpClient, clientOk := r.accessor.Client(name)
 	if !clientOk {
 		return nil, fmt.Errorf("%w: %s", errors.ErrServerNotFound, name)
 	}
 
-	allowedTools, toolsOk := accessor.Tools(name)
+	allowedTools, toolsOk := r.accessor.Tools(name)
 	if !toolsOk || len(allowedTools) == 0 {
 		return nil, fmt.Errorf("%w: %s", errors.ErrToolsNotFound, name)
 	}
@@ -127,20 +141,18 @@ func handleServerTools(accessor contracts.MCPClientAccessor, name string) (*Tool
 }
 
 // handleServerToolCall handles making a call to a specific tool which exists on an MCP server.
-func handleServerToolCall(
+func (r *serverRoutes) handleServerToolCall(
 	ctx context.Context,
-	accessor contracts.MCPClientAccessor,
 	server string,
 	tool string,
 	data map[string]any,
-	timeout time.Duration,
 ) (*ToolCallResponse, error) {
-	mcpClient, clientOk := accessor.Client(server)
+	mcpClient, clientOk := r.accessor.Client(server)
 	if !clientOk {
 		return nil, fmt.Errorf("%w: %s", errors.ErrServerNotFound, server)
 	}
 
-	allowedTools, toolsOk := accessor.Tools(server)
+	allowedTools, toolsOk := r.accessor.Tools(server)
 	if !toolsOk || len(allowedTools) == 0 {
 		return nil, fmt.Errorf("%w: %s", errors.ErrToolsNotFound, server)
 	}
@@ -151,6 +163,7 @@ func handleServerToolCall(
 		return nil, fmt.Errorf("%w: %s/%s", errors.ErrToolForbidden, server, tool)
 	}
 
+	timeout := r.toolCallTimeout
 	if timeout <= 0 {
 		timeout = DefaultToolCallTimeout()
 	}
