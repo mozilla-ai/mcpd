@@ -60,7 +60,7 @@ func TestManager_startPlugin_CleansUpDescendantWithinDeadline(t *testing.T) {
 	// startPlugin's cleanup defer must complete before the call returns, so
 	// this bounds the whole call: it must not be able to block forever on a
 	// descendant that inherited stdout/stderr.
-	require.Less(t, elapsed, pluginForceKillTimeout+2*time.Second,
+	require.Less(t, elapsed, pluginReapTimeout+2*time.Second,
 		"startPlugin must not block indefinitely on a descendant holding the plugin's stdout/stderr open")
 
 	require.Eventually(t, func() bool {
@@ -134,7 +134,7 @@ func TestManager_startPlugin_HealthyPluginSurvivesAndIsReturned(t *testing.T) {
 		// successfully must NOT be killed by the new cleanup defer. Kill it
 		// directly here rather than via the full graceful plg.stop() RPC
 		// round trip, which this fixture doesn't implement and which would
-		// otherwise cost the pluginForceKillTimeout on every run.
+		// otherwise cost the pluginExitGraceTimeout on every run.
 		_ = plg.cmd.Process.Kill()
 		_ = plg.conn.Close()
 		_ = os.Remove(plg.address)
@@ -219,7 +219,7 @@ func killAllRunningFor(t *testing.T, binaryPath string) {
 // given behaviour baked in via -ldflags, registers a cleanup that kills any
 // process still running from it, and returns the binary's path. Each test
 // builds exactly the one binary it uses, so no test pays for another's
-// compile, and the basename (the mode) keeps sockets distinguishable
+// compile, and the unique basename keeps sockets distinguishable
 // between parallel tests.
 func newFixturePlugin(t *testing.T, mode string) string {
 	t.Helper()
@@ -227,7 +227,13 @@ func newFixturePlugin(t *testing.T, mode string) string {
 	srcDir, err := filepath.Abs("testdata/fixtureplugin")
 	require.NoError(t, err, "resolving fixture plugin source dir")
 
-	binaryPath := filepath.Join(t.TempDir(), "fixture-"+mode)
+	// Socket addresses include the binary basename. Keep it unique even
+	// when parallel tests use the same fixture mode, and short enough for
+	// Unix socket path limits under os.TempDir().
+	binary, err := os.CreateTemp(t.TempDir(), "fixture-*")
+	require.NoError(t, err)
+	require.NoError(t, binary.Close())
+	binaryPath := binary.Name()
 	cmd := exec.Command("go", "build", "-ldflags", "-X main.mode="+mode, "-o", binaryPath, srcDir)
 	output, err := cmd.CombinedOutput()
 	require.NoError(t, err, "building fixture plugin in mode %q:\n%s", mode, output)
