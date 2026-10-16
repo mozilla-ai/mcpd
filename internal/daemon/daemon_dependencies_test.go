@@ -56,7 +56,7 @@ func TestDaemon_Dependencies_Validate(t *testing.T) {
 			name: "logger interface pointing to nil",
 			deps: Dependencies{
 				APIAddr:        "localhost:8090",
-				Logger:         (hclog.Logger)(nil),
+				Logger:         hclog.Logger(nil),
 				RuntimeServers: []runtime.Server{},
 			},
 			wantErr: "logger cannot be nil",

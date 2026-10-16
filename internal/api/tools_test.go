@@ -25,7 +25,8 @@ func (m *mockHumaContext) Query(name string) string {
 }
 
 // Minimal no-op implementations for other required methods.
-func (m *mockHumaContext) Operation() *huma.Operation                 { return nil }
+func (m *mockHumaContext) Operation() *huma.Operation { return nil }
+
 func (m *mockHumaContext) Context() context.Context                   { return context.Background() }
 func (m *mockHumaContext) TLS() *tls.ConnectionState                  { return nil }
 func (m *mockHumaContext) Version() huma.ProtoVersion                 { return huma.ProtoVersion{} }
