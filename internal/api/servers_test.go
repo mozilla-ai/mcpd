@@ -27,6 +27,7 @@ func newMockMCPClientAccessor() *mockMCPClientAccessor {
 	}
 }
 
+// newTestServerRoutes returns serverRoutes backed by the mock accessor.
 func newTestServerRoutes(accessor *mockMCPClientAccessor) *serverRoutes {
 	return &serverRoutes{accessor: accessor}
 }

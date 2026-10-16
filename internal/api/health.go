@@ -59,7 +59,9 @@ type ServerHealthResponse struct {
 	Body ServerHealth
 }
 
+// healthRoutes holds the shared dependencies for the health endpoints.
 type healthRoutes struct {
+	// monitor reports the tracked health of running MCP servers.
 	monitor contracts.MCPHealthMonitor
 }
 

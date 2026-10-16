@@ -81,6 +81,7 @@ func newMockHealthMonitor() *mockHealthMonitor {
 	}
 }
 
+// newTestHealthRoutes returns healthRoutes backed by the mock monitor.
 func newTestHealthRoutes(monitor *mockHealthMonitor) *healthRoutes {
 	return &healthRoutes{monitor: monitor}
 }
