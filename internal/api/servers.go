@@ -37,8 +37,13 @@ type ServerToolCallRequest struct {
 	Body   map[string]any `doc:"Body of the tool to call"                            path:"body"`
 }
 
+// serverRoutes holds the shared dependencies for the server, tool, prompt, and resource endpoints.
 type serverRoutes struct {
-	accessor        contracts.MCPClientAccessor
+	// accessor looks up MCP clients and their allowed tools by server name.
+	accessor contracts.MCPClientAccessor
+
+	// toolCallTimeout bounds how long a single MCP tool call may run.
+	// A zero or negative value means the default timeout applies.
 	toolCallTimeout time.Duration
 }
 
