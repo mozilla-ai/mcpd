@@ -52,11 +52,10 @@ const (
 
 	// pluginWaitDelay bounds how long cmd.Wait keeps the stdout/stderr copy
 	// goroutines open after the plugin process has exited, or its start
-	// context has been cancelled, before os/exec force-closes the
-	// underlying pipes so Wait can return. It must stay longer than
-	// pluginReapTimeout: equal values let Wait's ExitError land at the same
-	// moment the reap timeout fires, which could make stop() take the
-	// "exited cleanly" branch instead of reporting the timeout.
+	// context has been canceled, before os/exec force-closes the
+	// underlying pipes so Wait can return. On the force-kill path it stays
+	// longer than pluginReapTimeout so the reap timeout reports incomplete
+	// cleanup before Wait can return the kill's ExitError.
 	pluginWaitDelay = pluginReapTimeout + time.Second
 
 	// socketPollInterval is how often to check if a socket is ready.
@@ -244,19 +243,18 @@ func (p *runningPlugin) validate(ctx context.Context, pluginEntry config.PluginE
 	return fmt.Errorf("commit hash mismatch: expected %q, got %q", *pluginEntry.CommitHash, metadata.CommitHash)
 }
 
-// errPluginCleanupIncomplete is returned by stop() when a plugin process was
-// force killed but could not be confirmed reaped within pluginReapTimeout.
+// errPluginCleanupIncomplete is returned by stop() when the reap timeout
+// expires or cmd.Wait gives up draining inherited stdout/stderr pipes.
 // It is kept separate from a wrapped processExitErr because it describes a
 // different failure: cleanup gave up, rather than the process itself
 // exiting badly.
-var errPluginCleanupIncomplete = errors.New("plugin process cleanup did not complete after force kill")
+var errPluginCleanupIncomplete = errors.New("plugin process cleanup did not complete")
 
 // stop gracefully stops a single plugin. It attempts graceful shutdown via
 // RPC first, then waits for the process to exit, force killing its process
 // group if it doesn't exit in time, and cleans up its resources either way.
-// Returns errPluginCleanupIncomplete if the process could not be confirmed
-// reaped after a force kill, and a non-nil error only for other truly
-// unexpected failures.
+// Returns errPluginCleanupIncomplete if reaping or draining inherited pipes
+// times out, and a non-nil error for other unexpected failures.
 func (p *runningPlugin) stop() error {
 	if p == nil {
 		return fmt.Errorf("plugin is nil")
@@ -288,7 +286,7 @@ func (p *runningPlugin) stop() error {
 	// Wait for the process to exit gracefully. Plugins are started with
 	// setProcessGroup (process_unix.go), so once cmd.Wait returns below -
 	// whether the process exited on its own or was force killed - anything
-	// still running in its process group is also signalled, so a plugin
+	// still running in its process group is also signaled, so a plugin
 	// that spawned descendants doesn't leave them running after a normal
 	// daemon shutdown.
 	done := make(chan error, 1)
@@ -330,12 +328,13 @@ func (p *runningPlugin) stop() error {
 			cleanupIncomplete = true
 			p.logger.Warn(
 				"timed out waiting for killed plugin process to be reaped, a descendant may still hold its stdout/stderr open",
-				"timeout", pluginReapTimeout,
+				"timeout",
+				pluginReapTimeout,
 			)
 		}
 	}
 
-	if cleanupIncomplete {
+	if cleanupIncomplete || errors.Is(processExitErr, exec.ErrWaitDelay) {
 		return errors.Join(killErr, errPluginCleanupIncomplete)
 	}
 
@@ -430,7 +429,7 @@ func (m *Manager) startPlugin(ctx context.Context, name string, binaryPath strin
 	cmd := exec.CommandContext(ctx, binaryPath, "--address", address, "--network", network)
 
 	// exec.CommandContext's default Cancel only kills the direct process.
-	// Set it before Start so a cancelled ctx (e.g. a signal-driven daemon
+	// Set it before Start so a canceled ctx (e.g. a signal-driven daemon
 	// shutdown) uses the same kill policy as an explicit stop(): the whole
 	// process group, not just the plugin binary itself.
 	cmd.Cancel = func() error { return killProcessGroup(cmd) }
@@ -439,7 +438,7 @@ func (m *Manager) startPlugin(ctx context.Context, name string, binaryPath strin
 	// descendants that remain in that group, not just the direct child.
 	setProcessGroup(cmd)
 
-	// Once the process has exited (or ctx has been cancelled), give the
+	// Once the process has exited (or ctx has been canceled), give the
 	// stdout/stderr copy goroutines pluginWaitDelay to drain before os/exec
 	// force-closes the underlying pipes so Wait can return. Without this, a
 	// descendant that inherited either fd can hold Wait open indefinitely.

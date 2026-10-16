@@ -29,6 +29,10 @@
 //     group entirely while still holding its stdout/stderr open. This
 //     simulates a descendant that killProcessGroup cannot reach at all,
 //     which stop() can only detect via its post-kill reap timeout.
+//   - modeGracefulWithDescendant: exits 0 on Stop and leaves an in-group
+//     descendant without inherited stdout/stderr.
+//   - modeGracefulWithEscapedDescendant: exits 0 on Stop and leaves an escaped
+//     descendant holding stdout/stderr open.
 //
 // Setting the FIXTURE_DESCENDANT_BLOCK env var makes the binary skip plugin
 // serving entirely and just block forever: this is how the forked descendant
@@ -43,17 +47,20 @@ import (
 	"os/exec"
 	"time"
 
-	mcpdpluginsv1 "github.com/mozilla-ai/mcpd-plugins-sdk-go/pkg/plugins/v1"
 	"google.golang.org/protobuf/types/known/emptypb"
+
+	mcpdpluginsv1 "github.com/mozilla-ai/mcpd-plugins-sdk-go/pkg/plugins/v1"
 )
 
 const (
-	modeHealthy                      = "healthy"
-	modeConfigureFail                = "configure-fail"
-	modeCheckReadyFail               = "checkready-fail"
-	modeCheckReadyFailWithDescendant = "checkready-fail-with-descendant"
-	modeHealthyWithDescendant        = "healthy-with-descendant"
-	modeHealthyWithEscapedDescendant = "healthy-with-escaped-descendant"
+	modeHealthy                       = "healthy"
+	modeConfigureFail                 = "configure-fail"
+	modeCheckReadyFail                = "checkready-fail"
+	modeCheckReadyFailWithDescendant  = "checkready-fail-with-descendant"
+	modeHealthyWithDescendant         = "healthy-with-descendant"
+	modeHealthyWithEscapedDescendant  = "healthy-with-escaped-descendant"
+	modeGracefulWithDescendant        = "graceful-with-descendant"
+	modeGracefulWithEscapedDescendant = "graceful-with-escaped-descendant"
 )
 
 // mode selects the fixture's behaviour. It is set at build time via
@@ -69,6 +76,15 @@ type fixturePlugin struct {
 
 	failConfigure  bool
 	failCheckReady bool
+	exitOnStop     bool
+}
+
+// Stop exits cleanly in graceful modes, leaving the descendant running.
+func (p *fixturePlugin) Stop(ctx context.Context, e *emptypb.Empty) (*emptypb.Empty, error) {
+	if p.exitOnStop {
+		os.Exit(0)
+	}
+	return p.BasePlugin.Stop(ctx, e)
 }
 
 // Configure fails when the fixture was built to fail configuration, and
@@ -128,6 +144,12 @@ func main() {
 		spawnBlockingDescendant()
 	case modeHealthyWithEscapedDescendant:
 		spawnEscapedDescendant()
+	case modeGracefulWithDescendant:
+		startBlockingDescendant(false, false)
+		plugin.exitOnStop = true
+	case modeGracefulWithEscapedDescendant:
+		startBlockingDescendant(true, true)
+		plugin.exitOnStop = true
 	default:
 		log.Fatalf("fixtureplugin: unknown mode %q (build with -ldflags \"-X main.mode=<mode>\")", mode)
 	}
@@ -142,7 +164,7 @@ func main() {
 // and deliberately not waited on, so it outlives this process's own
 // lifecycle exactly like a real plugin's runaway grandchild would.
 func spawnBlockingDescendant() {
-	startBlockingDescendant(false)
+	startBlockingDescendant(false, true)
 }
 
 // spawnEscapedDescendant is spawnBlockingDescendant, except the descendant
@@ -151,12 +173,12 @@ func spawnBlockingDescendant() {
 // open. killProcessGroup only reaches processes still in that group, so
 // this simulates a descendant it can never touch.
 func spawnEscapedDescendant() {
-	startBlockingDescendant(true)
+	startBlockingDescendant(true, true)
 }
 
-// startBlockingDescendant is the shared implementation behind
-// spawnBlockingDescendant and spawnEscapedDescendant.
-func startBlockingDescendant(escapeProcessGroup bool) {
+// startBlockingDescendant starts a child with optional group escape and
+// inherited output pipes. Without inherited pipes, exec uses the null device.
+func startBlockingDescendant(escapeProcessGroup, inheritStdio bool) {
 	self, err := os.Executable()
 	if err != nil {
 		log.Fatal(err)
@@ -164,8 +186,10 @@ func startBlockingDescendant(escapeProcessGroup bool) {
 
 	cmd := exec.Command(self)
 	cmd.Env = append(os.Environ(), "FIXTURE_DESCENDANT_BLOCK=1")
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
+	if inheritStdio {
+		cmd.Stdout = os.Stdout
+		cmd.Stderr = os.Stderr
+	}
 	if escapeProcessGroup {
 		setsid(cmd)
 	}
