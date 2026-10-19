@@ -102,7 +102,7 @@ func RegisterHealthRoutes(routerAPI huma.API, monitor contracts.MCPHealthMonitor
 			Tags:        tags,
 		},
 		func(ctx context.Context, _ *struct{}) (*ServersHealthResponse, error) {
-			return routes.handleServers()
+			return routes.handleList()
 		},
 	)
 
@@ -116,13 +116,13 @@ func RegisterHealthRoutes(routerAPI huma.API, monitor contracts.MCPHealthMonitor
 			Tags:        tags,
 		},
 		func(ctx context.Context, input *ServerHealthRequest) (*ServerHealthResponse, error) {
-			return routes.handleServer(input.Name)
+			return routes.handleStatus(input.Name)
 		},
 	)
 }
 
-// handleServers is the handler for retrieving the current health for all registered MCP servers.
-func (r *healthRoutes) handleServers() (*ServersHealthResponse, error) {
+// handleList returns the current health of every registered MCP server.
+func (r *healthRoutes) handleList() (*ServersHealthResponse, error) {
 	servers := r.monitor.List()
 
 	slices.SortFunc(servers, func(a, b domain.ServerHealth) int {
@@ -144,8 +144,8 @@ func (r *healthRoutes) handleServers() (*ServersHealthResponse, error) {
 	return resp, nil
 }
 
-// handleServer is the handler for retrieving the current health the specified registered MCP server.
-func (r *healthRoutes) handleServer(name string) (*ServerHealthResponse, error) {
+// handleStatus returns the current health of the named MCP server.
+func (r *healthRoutes) handleStatus(name string) (*ServerHealthResponse, error) {
 	health, err := r.monitor.Status(name)
 	if err != nil {
 		return nil, err

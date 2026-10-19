@@ -8,7 +8,6 @@ import (
 
 	"github.com/mark3labs/mcp-go/client"
 	"github.com/mark3labs/mcp-go/mcp"
-	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"github.com/mozilla-ai/mcpd/internal/errors"
@@ -209,7 +208,7 @@ func TestHandleTools_CaseInsensitiveFiltering(t *testing.T) {
 	require.NotNil(t, result)
 
 	// Should return 2 tools that match (case-insensitive).
-	assert.Len(t, result.Body.Tools, 2)
+	require.Len(t, result.Body.Tools, 2)
 
 	toolNames := make([]string, len(result.Body.Tools))
 	for i, tool := range result.Body.Tools {
@@ -217,9 +216,9 @@ func TestHandleTools_CaseInsensitiveFiltering(t *testing.T) {
 	}
 
 	// Verify the correct tools are returned (normalized).
-	assert.Contains(t, toolNames, "gettime")
-	assert.Contains(t, toolNames, "set_alarm")
-	assert.NotContains(t, toolNames, "list_events")
+	require.Contains(t, toolNames, "gettime")
+	require.Contains(t, toolNames, "set_alarm")
+	require.NotContains(t, toolNames, "list_events")
 }
 
 func TestHandleToolCall_ToolNameNormalization(t *testing.T) {
@@ -250,7 +249,7 @@ func TestHandleToolCall_ToolNameNormalization(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, result)
 
-	assert.Equal(t, "Tool executed successfully", result.Body)
+	require.Equal(t, "Tool executed successfully", result.Body)
 }
 
 func TestNewServerRoutes_ToolCallTimeout(t *testing.T) {
@@ -305,8 +304,8 @@ func TestHandleToolCall_UsesConfiguredTimeout(t *testing.T) {
 	require.True(t, ok)
 
 	remaining := time.Until(deadline)
-	assert.Greater(t, remaining, 29*time.Second)
-	assert.LessOrEqual(t, remaining, timeout)
+	require.Greater(t, remaining, 29*time.Second)
+	require.LessOrEqual(t, remaining, timeout)
 }
 
 func TestHandleToolCall_ToolNotAllowed(t *testing.T) {
@@ -328,7 +327,7 @@ func TestHandleToolCall_ToolNotAllowed(t *testing.T) {
 	require.Error(t, err)
 	require.Nil(t, result)
 
-	assert.ErrorIs(t, err, errors.ErrToolForbidden)
+	require.ErrorIs(t, err, errors.ErrToolForbidden)
 }
 
 func TestHandleToolCall_ServerNotFound(t *testing.T) {
@@ -345,7 +344,7 @@ func TestHandleToolCall_ServerNotFound(t *testing.T) {
 	require.Error(t, err)
 	require.Nil(t, result)
 
-	assert.ErrorIs(t, err, errors.ErrServerNotFound)
+	require.ErrorIs(t, err, errors.ErrServerNotFound)
 }
 
 func TestHandleTools_ServerNotFound(t *testing.T) {
@@ -357,7 +356,7 @@ func TestHandleTools_ServerNotFound(t *testing.T) {
 	require.Error(t, err)
 	require.Nil(t, result)
 
-	assert.ErrorIs(t, err, errors.ErrServerNotFound)
+	require.ErrorIs(t, err, errors.ErrServerNotFound)
 }
 
 func TestHandleTools_NoTools(t *testing.T) {
@@ -373,5 +372,5 @@ func TestHandleTools_NoTools(t *testing.T) {
 	require.Error(t, err)
 	require.Nil(t, result)
 
-	assert.ErrorIs(t, err, errors.ErrToolsNotFound)
+	require.ErrorIs(t, err, errors.ErrToolsNotFound)
 }

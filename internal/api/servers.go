@@ -126,7 +126,7 @@ func (r *serverRoutes) handleTools(name string) (*ToolsResponse[Tool], error) {
 
 	result, err := mcpClient.ListTools(ctx, mcp.ListToolsRequest{})
 	if err != nil {
-		return nil, fmt.Errorf("%w: %s", errors.ErrToolListFailed, name)
+		return nil, fmt.Errorf("%w: %s: %w", errors.ErrToolListFailed, name, err)
 	}
 	if result == nil {
 		return nil, fmt.Errorf("%w: %s: no result", errors.ErrToolListFailed, name)
