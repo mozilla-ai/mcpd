@@ -141,6 +141,14 @@ Plugin SDKs are built using the [mcpd plugin Protocol Buffers specification](htt
 | .NET     | [mcpd-plugins-sdk-dotnet](https://github.com/mozilla-ai/mcpd-plugins-sdk-dotnet) | ✅      |
 | Python   | [mcpd-plugins-sdk-python](https://github.com/mozilla-ai/mcpd-plugins-sdk-python) | ✅      |
 
+### Community plugin SDKs
+
+These SDKs are maintained by their authors. Mozilla AI does not maintain or test them.
+
+| Language | Repository                                                                | Maintainer                                 |
+|----------|---------------------------------------------------------------------------|--------------------------------------------|
+| PHP      | [mcpd-plugins-sdk-php](https://github.com/shoemoney/mcpd-plugins-sdk-php) | [@shoemoney](https://github.com/shoemoney) |
+
 ## 💻 Development
 
 If you are developing `mcpd`, you will need:
