@@ -109,7 +109,7 @@ func (r *serverRoutes) handleList() (*ServersResponse, error) {
 
 // handleTools returns the schemas for the allowed tools that exist for a given server.
 // This always returns full tool details (Tool), which can be filtered by the transformer.
-func (r *serverRoutes) handleTools(name string) (*ToolsResponse[Tool], error) {
+func (r *serverRoutes) handleTools(ctx context.Context, name string) (*ToolsResponse[Tool], error) {
 	mcpClient, clientOk := r.accessor.Client(name)
 	if !clientOk {
 		return nil, fmt.Errorf("%w: %s", errors.ErrServerNotFound, name)
@@ -120,8 +120,7 @@ func (r *serverRoutes) handleTools(name string) (*ToolsResponse[Tool], error) {
 		return nil, fmt.Errorf("%w: %s", errors.ErrToolsNotFound, name)
 	}
 
-	// TODO: How to get context from Huma/request for the instance of the request without passing it in?
-	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	ctx, cancel := context.WithTimeout(ctx, mcpRequestTimeout)
 	defer cancel()
 
 	result, err := mcpClient.ListTools(ctx, mcp.ListToolsRequest{})

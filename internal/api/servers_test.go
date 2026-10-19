@@ -65,11 +65,12 @@ func (m *mockMCPClientAccessor) Remove(name string) {
 // mockMCPClient implements the client.MCPClient interface for testing.
 type mockMCPClient struct {
 	// Tools
-	listToolsResult *mcp.ListToolsResult
-	listToolsError  error
-	callToolResult  *mcp.CallToolResult
-	callToolError   error
-	callToolContext context.Context
+	listToolsResult  *mcp.ListToolsResult
+	listToolsError   error
+	listToolsContext context.Context
+	callToolResult   *mcp.CallToolResult
+	callToolError    error
+	callToolContext  context.Context
 	// Prompts
 	listPromptsResult *mcp.ListPromptsResult
 	listPromptsError  error
@@ -160,7 +161,13 @@ func (m *mockMCPClient) ListToolsByPage(
 	return m.listToolsResult, m.listToolsError
 }
 
-func (m *mockMCPClient) ListTools(_ context.Context, _ mcp.ListToolsRequest) (*mcp.ListToolsResult, error) {
+func (m *mockMCPClient) ListTools(ctx context.Context, _ mcp.ListToolsRequest) (*mcp.ListToolsResult, error) {
+	m.listToolsContext = ctx
+
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
+
 	return m.listToolsResult, m.listToolsError
 }
 
@@ -203,7 +210,7 @@ func TestHandleTools_CaseInsensitiveFiltering(t *testing.T) {
 	allowedTools := []string{"gettime", "set_alarm"}
 	accessor.Add("testserver", mockClient, allowedTools)
 
-	result, err := newServerRoutes(accessor, RouteOptions{}).handleTools("testserver")
+	result, err := newServerRoutes(accessor, RouteOptions{}).handleTools(context.Background(), "testserver")
 	require.NoError(t, err)
 	require.NotNil(t, result)
 
@@ -352,7 +359,7 @@ func TestHandleTools_ServerNotFound(t *testing.T) {
 
 	accessor := newMockMCPClientAccessor()
 
-	result, err := newServerRoutes(accessor, RouteOptions{}).handleTools("nonexistent")
+	result, err := newServerRoutes(accessor, RouteOptions{}).handleTools(context.Background(), "nonexistent")
 	require.Error(t, err)
 	require.Nil(t, result)
 
@@ -368,9 +375,48 @@ func TestHandleTools_NoTools(t *testing.T) {
 	// Add server with no tools.
 	accessor.Add("testserver", mockClient, []string{})
 
-	result, err := newServerRoutes(accessor, RouteOptions{}).handleTools("testserver")
+	result, err := newServerRoutes(accessor, RouteOptions{}).handleTools(context.Background(), "testserver")
 	require.Error(t, err)
 	require.Nil(t, result)
 
 	require.ErrorIs(t, err, errors.ErrToolsNotFound)
+}
+
+func TestHandleTools_PropagatesRequestCancellation(t *testing.T) {
+	t.Parallel()
+
+	accessor := newMockMCPClientAccessor()
+	mockClient := &mockMCPClient{
+		listToolsResult: &mcp.ListToolsResult{
+			Tools: []mcp.Tool{{Name: "gettime"}},
+		},
+	}
+	accessor.Add("testserver", mockClient, []string{"gettime"})
+
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+
+	_, err := newServerRoutes(accessor, RouteOptions{}).handleTools(ctx, "testserver")
+	require.ErrorIs(t, err, context.Canceled)
+	require.ErrorIs(t, err, errors.ErrToolListFailed)
+}
+
+func TestHandleTools_AppliesRequestTimeout(t *testing.T) {
+	t.Parallel()
+
+	accessor := newMockMCPClientAccessor()
+	mockClient := &mockMCPClient{
+		listToolsResult: &mcp.ListToolsResult{
+			Tools: []mcp.Tool{{Name: "gettime"}},
+		},
+	}
+	accessor.Add("testserver", mockClient, []string{"gettime"})
+
+	_, err := newServerRoutes(accessor, RouteOptions{}).handleTools(context.Background(), "testserver")
+	require.NoError(t, err)
+	require.NotNil(t, mockClient.listToolsContext)
+
+	deadline, ok := mockClient.listToolsContext.Deadline()
+	require.True(t, ok)
+	require.LessOrEqual(t, time.Until(deadline), mcpRequestTimeout)
 }

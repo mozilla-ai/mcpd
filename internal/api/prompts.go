@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"time"
 
 	"github.com/danielgtaylor/huma/v2"
 	"github.com/mark3labs/mcp-go/mcp"
@@ -144,6 +143,7 @@ func (d DomainPromptMessage) ToAPIType() (PromptMessage, error) {
 
 // handlePrompts returns the list of prompts for a given server.
 func (r *serverRoutes) handlePrompts(
+	ctx context.Context,
 	name string,
 	cursor string,
 ) (*PromptsListResponse, error) {
@@ -152,7 +152,7 @@ func (r *serverRoutes) handlePrompts(
 		return nil, fmt.Errorf("%w: %s", errorsint.ErrServerNotFound, name)
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	ctx, cancel := context.WithTimeout(ctx, mcpRequestTimeout)
 	defer cancel()
 
 	req := mcp.ListPromptsRequest{}
@@ -193,6 +193,7 @@ func (r *serverRoutes) handlePrompts(
 
 // handlePromptGenerate generates a prompt from a template on a server.
 func (r *serverRoutes) handlePromptGenerate(
+	ctx context.Context,
 	serverName string,
 	promptName string,
 	arguments map[string]string,
@@ -202,7 +203,7 @@ func (r *serverRoutes) handlePromptGenerate(
 		return nil, fmt.Errorf("%w: %s", errorsint.ErrServerNotFound, serverName)
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	ctx, cancel := context.WithTimeout(ctx, mcpRequestTimeout)
 	defer cancel()
 
 	result, err := mcpClient.GetPrompt(ctx, mcp.GetPromptRequest{
@@ -251,7 +252,7 @@ func (r *serverRoutes) registerPrompts(parentAPI huma.API) {
 			Tags:        tags,
 		},
 		func(ctx context.Context, input *ServerPromptsListRequest) (*PromptsListResponse, error) {
-			return r.handlePrompts(input.Name, input.Cursor)
+			return r.handlePrompts(ctx, input.Name, input.Cursor)
 		},
 	)
 
@@ -266,7 +267,7 @@ func (r *serverRoutes) registerPrompts(parentAPI huma.API) {
 			Tags:        tags,
 		},
 		func(ctx context.Context, input *ServerPromptGenerateRequest) (*GeneratePromptResponse, error) {
-			return r.handlePromptGenerate(input.ServerName, input.PromptName, input.Body.Arguments)
+			return r.handlePromptGenerate(ctx, input.ServerName, input.PromptName, input.Body.Arguments)
 		},
 	)
 }

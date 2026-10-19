@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"time"
 
 	"github.com/danielgtaylor/huma/v2"
 	"github.com/mark3labs/mcp-go/mcp"
@@ -164,6 +163,7 @@ func (d DomainResourceTemplate) ToAPIType() (ResourceTemplate, error) {
 
 // handleResources returns the list of resources for a given server.
 func (r *serverRoutes) handleResources(
+	ctx context.Context,
 	name string,
 	cursor string,
 ) (*ResourcesResponse, error) {
@@ -172,7 +172,7 @@ func (r *serverRoutes) handleResources(
 		return nil, fmt.Errorf("%w: %s", errorsint.ErrServerNotFound, name)
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	ctx, cancel := context.WithTimeout(ctx, mcpRequestTimeout)
 	defer cancel()
 
 	req := mcp.ListResourcesRequest{}
@@ -213,6 +213,7 @@ func (r *serverRoutes) handleResources(
 
 // handleResourceTemplates returns the list of resource templates for a given server.
 func (r *serverRoutes) handleResourceTemplates(
+	ctx context.Context,
 	name string,
 	cursor string,
 ) (*ResourceTemplatesResponse, error) {
@@ -221,7 +222,7 @@ func (r *serverRoutes) handleResourceTemplates(
 		return nil, fmt.Errorf("%w: %s", errorsint.ErrServerNotFound, name)
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	ctx, cancel := context.WithTimeout(ctx, mcpRequestTimeout)
 	defer cancel()
 
 	req := mcp.ListResourceTemplatesRequest{}
@@ -262,6 +263,7 @@ func (r *serverRoutes) handleResourceTemplates(
 
 // handleResourceContent gets the content of a specific resource from a server.
 func (r *serverRoutes) handleResourceContent(
+	ctx context.Context,
 	name string,
 	uri string,
 ) (*ResourceContentResponse, error) {
@@ -270,7 +272,7 @@ func (r *serverRoutes) handleResourceContent(
 		return nil, fmt.Errorf("%w: %s", errorsint.ErrServerNotFound, name)
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	ctx, cancel := context.WithTimeout(ctx, mcpRequestTimeout)
 	defer cancel()
 
 	result, err := mcpClient.ReadResource(ctx, mcp.ReadResourceRequest{
@@ -328,7 +330,7 @@ func (r *serverRoutes) registerResources(parentAPI huma.API) {
 			Tags:        tags,
 		},
 		func(ctx context.Context, input *ServerResourcesRequest) (*ResourcesResponse, error) {
-			return r.handleResources(input.Name, input.Cursor)
+			return r.handleResources(ctx, input.Name, input.Cursor)
 		},
 	)
 
@@ -342,7 +344,7 @@ func (r *serverRoutes) registerResources(parentAPI huma.API) {
 			Tags:        tags,
 		},
 		func(ctx context.Context, input *ServerResourceTemplatesRequest) (*ResourceTemplatesResponse, error) {
-			return r.handleResourceTemplates(input.Name, input.Cursor)
+			return r.handleResourceTemplates(ctx, input.Name, input.Cursor)
 		},
 	)
 
@@ -357,7 +359,7 @@ func (r *serverRoutes) registerResources(parentAPI huma.API) {
 			Tags:        tags,
 		},
 		func(ctx context.Context, input *ServerResourceContentRequest) (*ResourceContentResponse, error) {
-			return r.handleResourceContent(input.Name, input.URI)
+			return r.handleResourceContent(ctx, input.Name, input.URI)
 		},
 	)
 }

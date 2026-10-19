@@ -282,7 +282,7 @@ func (r *serverRoutes) registerTools(parentAPI huma.API) {
 			Tags:        tags,
 		},
 		func(ctx context.Context, input *ServerToolsRequest) (*ToolsResponse[Tool], error) {
-			return r.handleTools(input.Name)
+			return r.handleTools(ctx, input.Name)
 		},
 	)
 
