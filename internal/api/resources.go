@@ -4,12 +4,10 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"time"
 
 	"github.com/danielgtaylor/huma/v2"
 	"github.com/mark3labs/mcp-go/mcp"
 
-	"github.com/mozilla-ai/mcpd/internal/contracts"
 	errorsint "github.com/mozilla-ai/mcpd/internal/errors"
 )
 
@@ -163,18 +161,18 @@ func (d DomainResourceTemplate) ToAPIType() (ResourceTemplate, error) {
 	}, nil
 }
 
-// handleServerResources returns the list of resources for a given server.
-func handleServerResources(
-	accessor contracts.MCPClientAccessor,
+// handleResources returns the list of resources for a given server.
+func (r *serverRoutes) handleResources(
+	ctx context.Context,
 	name string,
 	cursor string,
 ) (*ResourcesResponse, error) {
-	mcpClient, clientOk := accessor.Client(name)
+	mcpClient, clientOk := r.accessor.Client(name)
 	if !clientOk {
 		return nil, fmt.Errorf("%w: %s", errorsint.ErrServerNotFound, name)
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	ctx, cancel := context.WithTimeout(ctx, mcpRequestTimeout)
 	defer cancel()
 
 	req := mcp.ListResourcesRequest{}
@@ -213,18 +211,18 @@ func handleServerResources(
 	return resp, nil
 }
 
-// handleServerResourceTemplates returns the list of resource templates for a given server.
-func handleServerResourceTemplates(
-	accessor contracts.MCPClientAccessor,
+// handleResourceTemplates returns the list of resource templates for a given server.
+func (r *serverRoutes) handleResourceTemplates(
+	ctx context.Context,
 	name string,
 	cursor string,
 ) (*ResourceTemplatesResponse, error) {
-	mcpClient, clientOk := accessor.Client(name)
+	mcpClient, clientOk := r.accessor.Client(name)
 	if !clientOk {
 		return nil, fmt.Errorf("%w: %s", errorsint.ErrServerNotFound, name)
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	ctx, cancel := context.WithTimeout(ctx, mcpRequestTimeout)
 	defer cancel()
 
 	req := mcp.ListResourceTemplatesRequest{}
@@ -263,18 +261,18 @@ func handleServerResourceTemplates(
 	return resp, nil
 }
 
-// handleServerResourceContent gets the content of a specific resource from a server.
-func handleServerResourceContent(
-	accessor contracts.MCPClientAccessor,
+// handleResourceContent gets the content of a specific resource from a server.
+func (r *serverRoutes) handleResourceContent(
+	ctx context.Context,
 	name string,
 	uri string,
 ) (*ResourceContentResponse, error) {
-	mcpClient, clientOk := accessor.Client(name)
+	mcpClient, clientOk := r.accessor.Client(name)
 	if !clientOk {
 		return nil, fmt.Errorf("%w: %s", errorsint.ErrServerNotFound, name)
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	ctx, cancel := context.WithTimeout(ctx, mcpRequestTimeout)
 	defer cancel()
 
 	result, err := mcpClient.ReadResource(ctx, mcp.ReadResourceRequest{
@@ -318,8 +316,8 @@ func handleServerResourceContent(
 	return resp, nil
 }
 
-// RegisterResourceRoutes registers resource-related routes under the servers API.
-func RegisterResourceRoutes(parentAPI huma.API, accessor contracts.MCPClientAccessor) {
+// registerResources registers resource-related routes under the servers API.
+func (r *serverRoutes) registerResources(parentAPI huma.API) {
 	tags := []string{"Resources"}
 
 	huma.Register(
@@ -332,7 +330,7 @@ func RegisterResourceRoutes(parentAPI huma.API, accessor contracts.MCPClientAcce
 			Tags:        tags,
 		},
 		func(ctx context.Context, input *ServerResourcesRequest) (*ResourcesResponse, error) {
-			return handleServerResources(accessor, input.Name, input.Cursor)
+			return r.handleResources(ctx, input.Name, input.Cursor)
 		},
 	)
 
@@ -346,7 +344,7 @@ func RegisterResourceRoutes(parentAPI huma.API, accessor contracts.MCPClientAcce
 			Tags:        tags,
 		},
 		func(ctx context.Context, input *ServerResourceTemplatesRequest) (*ResourceTemplatesResponse, error) {
-			return handleServerResourceTemplates(accessor, input.Name, input.Cursor)
+			return r.handleResourceTemplates(ctx, input.Name, input.Cursor)
 		},
 	)
 
@@ -361,7 +359,7 @@ func RegisterResourceRoutes(parentAPI huma.API, accessor contracts.MCPClientAcce
 			Tags:        tags,
 		},
 		func(ctx context.Context, input *ServerResourceContentRequest) (*ResourceContentResponse, error) {
-			return handleServerResourceContent(accessor, input.Name, input.URI)
+			return r.handleResourceContent(ctx, input.Name, input.URI)
 		},
 	)
 }

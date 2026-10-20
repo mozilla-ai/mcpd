@@ -4,12 +4,10 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"time"
 
 	"github.com/danielgtaylor/huma/v2"
 	"github.com/mark3labs/mcp-go/mcp"
 
-	"github.com/mozilla-ai/mcpd/internal/contracts"
 	errorsint "github.com/mozilla-ai/mcpd/internal/errors"
 )
 
@@ -143,18 +141,18 @@ func (d DomainPromptMessage) ToAPIType() (PromptMessage, error) {
 	}, nil
 }
 
-// handleServerPrompts returns the list of prompts for a given server.
-func handleServerPrompts(
-	accessor contracts.MCPClientAccessor,
+// handlePrompts returns the list of prompts for a given server.
+func (r *serverRoutes) handlePrompts(
+	ctx context.Context,
 	name string,
 	cursor string,
 ) (*PromptsListResponse, error) {
-	mcpClient, clientOk := accessor.Client(name)
+	mcpClient, clientOk := r.accessor.Client(name)
 	if !clientOk {
 		return nil, fmt.Errorf("%w: %s", errorsint.ErrServerNotFound, name)
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	ctx, cancel := context.WithTimeout(ctx, mcpRequestTimeout)
 	defer cancel()
 
 	req := mcp.ListPromptsRequest{}
@@ -193,19 +191,19 @@ func handleServerPrompts(
 	return resp, nil
 }
 
-// handleServerPromptGenerate generates a prompt from a template on a server.
-func handleServerPromptGenerate(
-	accessor contracts.MCPClientAccessor,
+// handlePromptGenerate generates a prompt from a template on a server.
+func (r *serverRoutes) handlePromptGenerate(
+	ctx context.Context,
 	serverName string,
 	promptName string,
 	arguments map[string]string,
 ) (*GeneratePromptResponse, error) {
-	mcpClient, clientOk := accessor.Client(serverName)
+	mcpClient, clientOk := r.accessor.Client(serverName)
 	if !clientOk {
 		return nil, fmt.Errorf("%w: %s", errorsint.ErrServerNotFound, serverName)
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	ctx, cancel := context.WithTimeout(ctx, mcpRequestTimeout)
 	defer cancel()
 
 	result, err := mcpClient.GetPrompt(ctx, mcp.GetPromptRequest{
@@ -240,8 +238,8 @@ func handleServerPromptGenerate(
 	return resp, nil
 }
 
-// RegisterPromptRoutes registers prompt-related routes under the servers API.
-func RegisterPromptRoutes(parentAPI huma.API, accessor contracts.MCPClientAccessor) {
+// registerPrompts registers prompt-related routes under the servers API.
+func (r *serverRoutes) registerPrompts(parentAPI huma.API) {
 	tags := []string{"Prompts"}
 
 	huma.Register(
@@ -254,7 +252,7 @@ func RegisterPromptRoutes(parentAPI huma.API, accessor contracts.MCPClientAccess
 			Tags:        tags,
 		},
 		func(ctx context.Context, input *ServerPromptsListRequest) (*PromptsListResponse, error) {
-			return handleServerPrompts(accessor, input.Name, input.Cursor)
+			return r.handlePrompts(ctx, input.Name, input.Cursor)
 		},
 	)
 
@@ -269,7 +267,7 @@ func RegisterPromptRoutes(parentAPI huma.API, accessor contracts.MCPClientAccess
 			Tags:        tags,
 		},
 		func(ctx context.Context, input *ServerPromptGenerateRequest) (*GeneratePromptResponse, error) {
-			return handleServerPromptGenerate(accessor, input.ServerName, input.PromptName, input.Body.Arguments)
+			return r.handlePromptGenerate(ctx, input.ServerName, input.PromptName, input.Body.Arguments)
 		},
 	)
 }

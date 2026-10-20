@@ -1,6 +1,7 @@
 package api
 
 import (
+	"context"
 	"errors"
 	"testing"
 
@@ -10,7 +11,7 @@ import (
 	internalerrors "github.com/mozilla-ai/mcpd/internal/errors"
 )
 
-func TestAPI_HandleServerPrompts_Success(t *testing.T) {
+func TestAPI_HandlePrompts_Success(t *testing.T) {
 	t.Parallel()
 
 	testCases := []struct {
@@ -86,7 +87,10 @@ func TestAPI_HandleServerPrompts_Success(t *testing.T) {
 			accessor := newMockMCPClientAccessor()
 			accessor.Add(tc.serverName, mockClient, []string{})
 
-			result, err := handleServerPrompts(accessor, tc.serverName, "")
+			result, err := newServerRoutes(
+				accessor,
+				RouteOptions{},
+			).handlePrompts(context.Background(), tc.serverName, "")
 
 			require.NoError(t, err)
 			require.NotNil(t, result)
@@ -101,7 +105,7 @@ func TestAPI_HandleServerPrompts_Success(t *testing.T) {
 	}
 }
 
-func TestAPI_HandleServerPrompts_WithCursor(t *testing.T) {
+func TestAPI_HandlePrompts_WithCursor(t *testing.T) {
 	t.Parallel()
 
 	cursor := "test-cursor"
@@ -114,26 +118,29 @@ func TestAPI_HandleServerPrompts_WithCursor(t *testing.T) {
 	accessor := newMockMCPClientAccessor()
 	accessor.Add("test-server", mockClient, []string{})
 
-	result, err := handleServerPrompts(accessor, "test-server", cursor)
+	result, err := newServerRoutes(accessor, RouteOptions{}).handlePrompts(context.Background(), "test-server", cursor)
 
 	require.NoError(t, err)
 	require.NotNil(t, result)
 	require.Len(t, result.Body.Prompts, 1)
 }
 
-func TestAPI_HandleServerPrompts_ServerNotFound(t *testing.T) {
+func TestAPI_HandlePrompts_ServerNotFound(t *testing.T) {
 	t.Parallel()
 
 	accessor := newMockMCPClientAccessor()
 
-	result, err := handleServerPrompts(accessor, "nonexistent-server", "")
+	result, err := newServerRoutes(
+		accessor,
+		RouteOptions{},
+	).handlePrompts(context.Background(), "nonexistent-server", "")
 
 	require.Error(t, err)
 	require.Nil(t, result)
 	require.True(t, errors.Is(err, internalerrors.ErrServerNotFound))
 }
 
-func TestAPI_HandleServerPrompts_ListError(t *testing.T) {
+func TestAPI_HandlePrompts_ListError(t *testing.T) {
 	t.Parallel()
 
 	mockClient := &mockMCPClient{
@@ -143,14 +150,14 @@ func TestAPI_HandleServerPrompts_ListError(t *testing.T) {
 	accessor := newMockMCPClientAccessor()
 	accessor.Add("test-server", mockClient, []string{})
 
-	result, err := handleServerPrompts(accessor, "test-server", "")
+	result, err := newServerRoutes(accessor, RouteOptions{}).handlePrompts(context.Background(), "test-server", "")
 
 	require.Error(t, err)
 	require.Nil(t, result)
 	require.True(t, errors.Is(err, internalerrors.ErrPromptListFailed))
 }
 
-func TestAPI_HandleServerPrompts_NilResult(t *testing.T) {
+func TestAPI_HandlePrompts_NilResult(t *testing.T) {
 	t.Parallel()
 
 	mockClient := &mockMCPClient{
@@ -160,14 +167,14 @@ func TestAPI_HandleServerPrompts_NilResult(t *testing.T) {
 	accessor := newMockMCPClientAccessor()
 	accessor.Add("test-server", mockClient, []string{})
 
-	result, err := handleServerPrompts(accessor, "test-server", "")
+	result, err := newServerRoutes(accessor, RouteOptions{}).handlePrompts(context.Background(), "test-server", "")
 
 	require.Error(t, err)
 	require.Nil(t, result)
 	require.True(t, errors.Is(err, internalerrors.ErrPromptListFailed))
 }
 
-func TestAPI_HandleServerPrompts_MethodNotFound(t *testing.T) {
+func TestAPI_HandlePrompts_MethodNotFound(t *testing.T) {
 	t.Parallel()
 
 	mockClient := &mockMCPClient{
@@ -177,14 +184,14 @@ func TestAPI_HandleServerPrompts_MethodNotFound(t *testing.T) {
 	accessor := newMockMCPClientAccessor()
 	accessor.Add("test-server", mockClient, []string{})
 
-	result, err := handleServerPrompts(accessor, "test-server", "")
+	result, err := newServerRoutes(accessor, RouteOptions{}).handlePrompts(context.Background(), "test-server", "")
 
 	require.Error(t, err)
 	require.Nil(t, result)
 	require.True(t, errors.Is(err, internalerrors.ErrPromptsNotImplemented))
 }
 
-func TestAPI_HandleServerPromptGenerate_Success(t *testing.T) {
+func TestAPI_HandlePromptGenerate_Success(t *testing.T) {
 	t.Parallel()
 
 	mockClient := &mockMCPClient{
@@ -205,7 +212,10 @@ func TestAPI_HandleServerPromptGenerate_Success(t *testing.T) {
 	promptName := "test-prompt"
 	arguments := map[string]string{}
 
-	result, err := handleServerPromptGenerate(accessor, "test-server", promptName, arguments)
+	result, err := newServerRoutes(
+		accessor,
+		RouteOptions{},
+	).handlePromptGenerate(context.Background(), "test-server", promptName, arguments)
 
 	require.NoError(t, err)
 	require.NotNil(t, result)
@@ -214,7 +224,7 @@ func TestAPI_HandleServerPromptGenerate_Success(t *testing.T) {
 	require.Equal(t, "user", result.Body.Messages[0].Role)
 }
 
-func TestAPI_HandleServerPromptGenerate_WithArguments(t *testing.T) {
+func TestAPI_HandlePromptGenerate_WithArguments(t *testing.T) {
 	t.Parallel()
 
 	mockClient := &mockMCPClient{
@@ -238,7 +248,10 @@ func TestAPI_HandleServerPromptGenerate_WithArguments(t *testing.T) {
 		"param2": "value2",
 	}
 
-	result, err := handleServerPromptGenerate(accessor, "test-server", promptName, arguments)
+	result, err := newServerRoutes(
+		accessor,
+		RouteOptions{},
+	).handlePromptGenerate(context.Background(), "test-server", promptName, arguments)
 
 	require.NoError(t, err)
 	require.NotNil(t, result)
@@ -247,7 +260,7 @@ func TestAPI_HandleServerPromptGenerate_WithArguments(t *testing.T) {
 	require.Equal(t, "assistant", result.Body.Messages[0].Role)
 }
 
-func TestAPI_HandleServerPromptGenerate_MultipleMessages(t *testing.T) {
+func TestAPI_HandlePromptGenerate_MultipleMessages(t *testing.T) {
 	t.Parallel()
 
 	mockClient := &mockMCPClient{
@@ -272,7 +285,10 @@ func TestAPI_HandleServerPromptGenerate_MultipleMessages(t *testing.T) {
 	promptName := "multi-prompt"
 	arguments := map[string]string{}
 
-	result, err := handleServerPromptGenerate(accessor, "test-server", promptName, arguments)
+	result, err := newServerRoutes(
+		accessor,
+		RouteOptions{},
+	).handlePromptGenerate(context.Background(), "test-server", promptName, arguments)
 
 	require.NoError(t, err)
 	require.NotNil(t, result)
@@ -281,7 +297,7 @@ func TestAPI_HandleServerPromptGenerate_MultipleMessages(t *testing.T) {
 	require.Equal(t, "assistant", result.Body.Messages[1].Role)
 }
 
-func TestAPI_HandleServerPromptGenerate_ServerNotFound(t *testing.T) {
+func TestAPI_HandlePromptGenerate_ServerNotFound(t *testing.T) {
 	t.Parallel()
 
 	accessor := newMockMCPClientAccessor()
@@ -289,14 +305,17 @@ func TestAPI_HandleServerPromptGenerate_ServerNotFound(t *testing.T) {
 	promptName := "test-prompt"
 	arguments := map[string]string{}
 
-	result, err := handleServerPromptGenerate(accessor, "nonexistent-server", promptName, arguments)
+	result, err := newServerRoutes(
+		accessor,
+		RouteOptions{},
+	).handlePromptGenerate(context.Background(), "nonexistent-server", promptName, arguments)
 
 	require.Error(t, err)
 	require.Nil(t, result)
 	require.True(t, errors.Is(err, internalerrors.ErrServerNotFound))
 }
 
-func TestAPI_HandleServerPromptGenerate_GenerateError(t *testing.T) {
+func TestAPI_HandlePromptGenerate_GenerateError(t *testing.T) {
 	t.Parallel()
 
 	mockClient := &mockMCPClient{
@@ -309,14 +328,17 @@ func TestAPI_HandleServerPromptGenerate_GenerateError(t *testing.T) {
 	promptName := "nonexistent-prompt"
 	arguments := map[string]string{}
 
-	result, err := handleServerPromptGenerate(accessor, "test-server", promptName, arguments)
+	result, err := newServerRoutes(
+		accessor,
+		RouteOptions{},
+	).handlePromptGenerate(context.Background(), "test-server", promptName, arguments)
 
 	require.Error(t, err)
 	require.Nil(t, result)
 	require.True(t, errors.Is(err, internalerrors.ErrPromptGenerationFailed))
 }
 
-func TestAPI_HandleServerPromptGenerate_NilResult(t *testing.T) {
+func TestAPI_HandlePromptGenerate_NilResult(t *testing.T) {
 	t.Parallel()
 
 	mockClient := &mockMCPClient{
@@ -329,14 +351,17 @@ func TestAPI_HandleServerPromptGenerate_NilResult(t *testing.T) {
 	promptName := "test-prompt"
 	arguments := map[string]string{}
 
-	result, err := handleServerPromptGenerate(accessor, "test-server", promptName, arguments)
+	result, err := newServerRoutes(
+		accessor,
+		RouteOptions{},
+	).handlePromptGenerate(context.Background(), "test-server", promptName, arguments)
 
 	require.Error(t, err)
 	require.Nil(t, result)
 	require.True(t, errors.Is(err, internalerrors.ErrPromptGenerationFailed))
 }
 
-func TestAPI_HandleServerPromptGenerate_MethodNotFound(t *testing.T) {
+func TestAPI_HandlePromptGenerate_MethodNotFound(t *testing.T) {
 	t.Parallel()
 
 	mockClient := &mockMCPClient{
@@ -349,7 +374,10 @@ func TestAPI_HandleServerPromptGenerate_MethodNotFound(t *testing.T) {
 	promptName := "test-prompt"
 	arguments := map[string]string{}
 
-	result, err := handleServerPromptGenerate(accessor, "test-server", promptName, arguments)
+	result, err := newServerRoutes(
+		accessor,
+		RouteOptions{},
+	).handlePromptGenerate(context.Background(), "test-server", promptName, arguments)
 
 	require.Error(t, err)
 	require.Nil(t, result)

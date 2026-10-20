@@ -1,6 +1,7 @@
 package api
 
 import (
+	"context"
 	"errors"
 	"testing"
 
@@ -10,7 +11,7 @@ import (
 	internalerrors "github.com/mozilla-ai/mcpd/internal/errors"
 )
 
-func TestAPI_HandleServerResources_Success(t *testing.T) {
+func TestAPI_HandleResources_Success(t *testing.T) {
 	t.Parallel()
 
 	testCases := []struct {
@@ -71,7 +72,10 @@ func TestAPI_HandleServerResources_Success(t *testing.T) {
 			accessor := newMockMCPClientAccessor()
 			accessor.Add(tc.serverName, mockClient, []string{})
 
-			result, err := handleServerResources(accessor, tc.serverName, "")
+			result, err := newServerRoutes(
+				accessor,
+				RouteOptions{},
+			).handleResources(context.Background(), tc.serverName, "")
 
 			require.NoError(t, err)
 			require.NotNil(t, result)
@@ -86,7 +90,7 @@ func TestAPI_HandleServerResources_Success(t *testing.T) {
 	}
 }
 
-func TestAPI_HandleServerResources_WithCursor(t *testing.T) {
+func TestAPI_HandleResources_WithCursor(t *testing.T) {
 	t.Parallel()
 
 	cursor := "test-cursor"
@@ -99,26 +103,32 @@ func TestAPI_HandleServerResources_WithCursor(t *testing.T) {
 	accessor := newMockMCPClientAccessor()
 	accessor.Add("test-server", mockClient, []string{})
 
-	result, err := handleServerResources(accessor, "test-server", cursor)
+	result, err := newServerRoutes(
+		accessor,
+		RouteOptions{},
+	).handleResources(context.Background(), "test-server", cursor)
 
 	require.NoError(t, err)
 	require.NotNil(t, result)
 	require.Len(t, result.Body.Resources, 1)
 }
 
-func TestAPI_HandleServerResources_ServerNotFound(t *testing.T) {
+func TestAPI_HandleResources_ServerNotFound(t *testing.T) {
 	t.Parallel()
 
 	accessor := newMockMCPClientAccessor()
 
-	result, err := handleServerResources(accessor, "nonexistent-server", "")
+	result, err := newServerRoutes(
+		accessor,
+		RouteOptions{},
+	).handleResources(context.Background(), "nonexistent-server", "")
 
 	require.Error(t, err)
 	require.Nil(t, result)
 	require.True(t, errors.Is(err, internalerrors.ErrServerNotFound))
 }
 
-func TestAPI_HandleServerResources_MCPError(t *testing.T) {
+func TestAPI_HandleResources_MCPError(t *testing.T) {
 	t.Parallel()
 
 	mockClient := &mockMCPClient{
@@ -128,14 +138,14 @@ func TestAPI_HandleServerResources_MCPError(t *testing.T) {
 	accessor := newMockMCPClientAccessor()
 	accessor.Add("test-server", mockClient, []string{})
 
-	result, err := handleServerResources(accessor, "test-server", "")
+	result, err := newServerRoutes(accessor, RouteOptions{}).handleResources(context.Background(), "test-server", "")
 
 	require.Error(t, err)
 	require.Nil(t, result)
 	require.True(t, errors.Is(err, internalerrors.ErrResourceListFailed))
 }
 
-func TestAPI_HandleServerResources_NilResult(t *testing.T) {
+func TestAPI_HandleResources_NilResult(t *testing.T) {
 	t.Parallel()
 
 	mockClient := &mockMCPClient{
@@ -145,14 +155,14 @@ func TestAPI_HandleServerResources_NilResult(t *testing.T) {
 	accessor := newMockMCPClientAccessor()
 	accessor.Add("test-server", mockClient, []string{})
 
-	result, err := handleServerResources(accessor, "test-server", "")
+	result, err := newServerRoutes(accessor, RouteOptions{}).handleResources(context.Background(), "test-server", "")
 
 	require.Error(t, err)
 	require.Nil(t, result)
 	require.True(t, errors.Is(err, internalerrors.ErrResourceListFailed))
 }
 
-func TestAPI_HandleServerResourceTemplates_Success(t *testing.T) {
+func TestAPI_HandleResourceTemplates_Success(t *testing.T) {
 	t.Parallel()
 
 	templates := []mcp.ResourceTemplate{
@@ -174,7 +184,10 @@ func TestAPI_HandleServerResourceTemplates_Success(t *testing.T) {
 	accessor := newMockMCPClientAccessor()
 	accessor.Add("test-server", mockClient, []string{})
 
-	result, err := handleServerResourceTemplates(accessor, "test-server", "")
+	result, err := newServerRoutes(
+		accessor,
+		RouteOptions{},
+	).handleResourceTemplates(context.Background(), "test-server", "")
 
 	require.NoError(t, err)
 	require.NotNil(t, result)
@@ -184,19 +197,22 @@ func TestAPI_HandleServerResourceTemplates_Success(t *testing.T) {
 	require.Equal(t, "api template", result.Body.Templates[1].Name)
 }
 
-func TestAPI_HandleServerResourceTemplates_ServerNotFound(t *testing.T) {
+func TestAPI_HandleResourceTemplates_ServerNotFound(t *testing.T) {
 	t.Parallel()
 
 	accessor := newMockMCPClientAccessor()
 
-	result, err := handleServerResourceTemplates(accessor, "nonexistent-server", "")
+	result, err := newServerRoutes(
+		accessor,
+		RouteOptions{},
+	).handleResourceTemplates(context.Background(), "nonexistent-server", "")
 
 	require.Error(t, err)
 	require.Nil(t, result)
 	require.True(t, errors.Is(err, internalerrors.ErrServerNotFound))
 }
 
-func TestAPI_HandleServerResourceTemplates_ListError(t *testing.T) {
+func TestAPI_HandleResourceTemplates_ListError(t *testing.T) {
 	t.Parallel()
 
 	mockClient := &mockMCPClient{
@@ -206,14 +222,17 @@ func TestAPI_HandleServerResourceTemplates_ListError(t *testing.T) {
 	accessor := newMockMCPClientAccessor()
 	accessor.Add("test-server", mockClient, []string{})
 
-	result, err := handleServerResourceTemplates(accessor, "test-server", "")
+	result, err := newServerRoutes(
+		accessor,
+		RouteOptions{},
+	).handleResourceTemplates(context.Background(), "test-server", "")
 
 	require.Error(t, err)
 	require.Nil(t, result)
 	require.True(t, errors.Is(err, internalerrors.ErrResourceTemplateListFailed))
 }
 
-func TestAPI_HandleServerResourceContent_TextContent(t *testing.T) {
+func TestAPI_HandleResourceContent_TextContent(t *testing.T) {
 	t.Parallel()
 
 	mockClient := &mockMCPClient{
@@ -233,7 +252,10 @@ func TestAPI_HandleServerResourceContent_TextContent(t *testing.T) {
 
 	uri := "file:///test.txt"
 
-	result, err := handleServerResourceContent(accessor, "test-server", uri)
+	result, err := newServerRoutes(
+		accessor,
+		RouteOptions{},
+	).handleResourceContent(context.Background(), "test-server", uri)
 
 	require.NoError(t, err)
 	require.NotNil(t, result)
@@ -243,7 +265,7 @@ func TestAPI_HandleServerResourceContent_TextContent(t *testing.T) {
 	require.Empty(t, result.Body[0].Blob)
 }
 
-func TestAPI_HandleServerResourceContent_BlobContent(t *testing.T) {
+func TestAPI_HandleResourceContent_BlobContent(t *testing.T) {
 	t.Parallel()
 
 	mockClient := &mockMCPClient{
@@ -263,7 +285,10 @@ func TestAPI_HandleServerResourceContent_BlobContent(t *testing.T) {
 
 	uri := "file:///image.png"
 
-	result, err := handleServerResourceContent(accessor, "test-server", uri)
+	result, err := newServerRoutes(
+		accessor,
+		RouteOptions{},
+	).handleResourceContent(context.Background(), "test-server", uri)
 
 	require.NoError(t, err)
 	require.NotNil(t, result)
@@ -273,7 +298,7 @@ func TestAPI_HandleServerResourceContent_BlobContent(t *testing.T) {
 	require.Empty(t, result.Body[0].Text)
 }
 
-func TestAPI_HandleServerResourceContent_MultipleContents(t *testing.T) {
+func TestAPI_HandleResourceContent_MultipleContents(t *testing.T) {
 	t.Parallel()
 
 	mockClient := &mockMCPClient{
@@ -298,7 +323,10 @@ func TestAPI_HandleServerResourceContent_MultipleContents(t *testing.T) {
 
 	uri := "file:///multi"
 
-	result, err := handleServerResourceContent(accessor, "test-server", uri)
+	result, err := newServerRoutes(
+		accessor,
+		RouteOptions{},
+	).handleResourceContent(context.Background(), "test-server", uri)
 
 	require.NoError(t, err)
 	require.NotNil(t, result)
@@ -307,21 +335,24 @@ func TestAPI_HandleServerResourceContent_MultipleContents(t *testing.T) {
 	require.Equal(t, "YmluYXJ5", result.Body[1].Blob)
 }
 
-func TestAPI_HandleServerResourceContent_ServerNotFound(t *testing.T) {
+func TestAPI_HandleResourceContent_ServerNotFound(t *testing.T) {
 	t.Parallel()
 
 	accessor := newMockMCPClientAccessor()
 
 	uri := "file:///test.txt"
 
-	result, err := handleServerResourceContent(accessor, "nonexistent-server", uri)
+	result, err := newServerRoutes(
+		accessor,
+		RouteOptions{},
+	).handleResourceContent(context.Background(), "nonexistent-server", uri)
 
 	require.Error(t, err)
 	require.Nil(t, result)
 	require.True(t, errors.Is(err, internalerrors.ErrServerNotFound))
 }
 
-func TestAPI_HandleServerResourceContent_ReadError(t *testing.T) {
+func TestAPI_HandleResourceContent_ReadError(t *testing.T) {
 	t.Parallel()
 
 	mockClient := &mockMCPClient{
@@ -333,14 +364,17 @@ func TestAPI_HandleServerResourceContent_ReadError(t *testing.T) {
 
 	uri := "file:///nonexistent.txt"
 
-	result, err := handleServerResourceContent(accessor, "test-server", uri)
+	result, err := newServerRoutes(
+		accessor,
+		RouteOptions{},
+	).handleResourceContent(context.Background(), "test-server", uri)
 
 	require.Error(t, err)
 	require.Nil(t, result)
 	require.True(t, errors.Is(err, internalerrors.ErrResourceReadFailed))
 }
 
-func TestAPI_HandleServerResourceContent_NilResult(t *testing.T) {
+func TestAPI_HandleResourceContent_NilResult(t *testing.T) {
 	t.Parallel()
 
 	mockClient := &mockMCPClient{
@@ -352,7 +386,10 @@ func TestAPI_HandleServerResourceContent_NilResult(t *testing.T) {
 
 	uri := "file:///test.txt"
 
-	result, err := handleServerResourceContent(accessor, "test-server", uri)
+	result, err := newServerRoutes(
+		accessor,
+		RouteOptions{},
+	).handleResourceContent(context.Background(), "test-server", uri)
 
 	require.Error(t, err)
 	require.Nil(t, result)

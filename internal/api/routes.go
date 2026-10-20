@@ -11,8 +11,13 @@ import (
 	"github.com/mozilla-ai/mcpd/internal/contracts"
 )
 
-// APIVersion is the version used in the OpenAPI spec and URL paths.
-const APIVersion = "v1"
+const (
+	// APIVersion is the version used in the OpenAPI spec and URL paths.
+	APIVersion = "v1"
+
+	// mcpRequestTimeout bounds how long a single read-only MCP request may run.
+	mcpRequestTimeout = 15 * time.Second
+)
 
 // RouteOption configures route behavior.
 type RouteOption func(*RouteOptions)
