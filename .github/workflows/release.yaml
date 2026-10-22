@@ -1,13 +1,13 @@
 name: Release
 
+# Both triggers run on the tag being released. A published Release has a
+# GITHUB_REF of refs/tags/<tag_name>, and a dispatch has to target the tag, so
+# the release environment's deployment policy gates the ref GoReleaser builds.
 on:
   release:
     types: [published]
   workflow_dispatch:
     inputs:
-      tag:
-        description: "Tag to release (e.g. v0.0.1)"
-        required: true
       skip_publish:
         description: "Skip binary publish"
         required: false
@@ -35,14 +35,19 @@ jobs:
       github.event_name == 'workflow_dispatch' ||
       (github.event_name == 'release' && startsWith(github.event.release.tag_name, 'v'))
     runs-on: ubuntu-latest
+    # The publish credentials resolve from this environment, whose deployment
+    # policy limits the refs that can read them.
+    environment: release
     steps:
       - name: Validate tag
-        id: tag
         env:
-          TAG: ${{ github.event.release.tag_name || github.event.inputs.tag }}
+          REF_TYPE: ${{ github.ref_type }}
+          TAG: ${{ github.ref_name }}
         run: |
-          if [[ -z "$TAG" ]]; then
-            echo "::error::No tag provided"
+          # A branch can carry the same name as a release tag, and the pattern
+          # below cannot tell the two apart.
+          if [[ "$REF_TYPE" != "tag" ]]; then
+            echo "::error::Ref '$TAG' is a $REF_TYPE; a release runs on a tag"
             exit 1
           fi
 
@@ -51,12 +56,9 @@ jobs:
             exit 1
           fi
 
-          echo "tag=${TAG}" >> "$GITHUB_OUTPUT"
-
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          ref: ${{ steps.tag.outputs.tag }}
           fetch-depth: 0
 
       - name: Set up Go (from go.mod)
