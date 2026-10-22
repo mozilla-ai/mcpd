@@ -66,6 +66,7 @@ jobs:
           # The commit the run was created on. A tag is a mutable pointer, so
           # naming one here would let it move between approval and build.
           ref: ${{ github.sha }}
+          persist-credentials: false
           fetch-depth: 0
 
       - name: Set up Go (from go.mod)
