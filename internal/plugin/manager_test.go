@@ -11,6 +11,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/mozilla-ai/mcpd/internal/config"
+	"github.com/mozilla-ai/mcpd/internal/files/filestest"
 )
 
 func TestManager_NewManager_ValidInputs(t *testing.T) {
@@ -89,7 +90,7 @@ func TestManager_discoverPlugins_WithExecutableFiles(t *testing.T) {
 	tempDir := t.TempDir()
 
 	// Create executable file.
-	execPath := filepath.Join(tempDir, "test-plugin")
+	execPath := filepath.Join(tempDir, filestest.ExecutableFileName("test-plugin"))
 	err := os.WriteFile(execPath, []byte("#!/bin/sh\necho test"), 0o755)
 	require.NoError(t, err)
 
@@ -120,12 +121,12 @@ func TestManager_discoverPlugins_SkipsHiddenFiles(t *testing.T) {
 	tempDir := t.TempDir()
 
 	// Create hidden executable.
-	hiddenPath := filepath.Join(tempDir, ".hidden-plugin")
+	hiddenPath := filepath.Join(tempDir, filestest.ExecutableFileName(".hidden-plugin"))
 	err := os.WriteFile(hiddenPath, []byte("#!/bin/sh\necho hidden"), 0o755)
 	require.NoError(t, err)
 
 	// Create visible executable.
-	visiblePath := filepath.Join(tempDir, "visible-plugin")
+	visiblePath := filepath.Join(tempDir, filestest.ExecutableFileName("visible-plugin"))
 	err = os.WriteFile(visiblePath, []byte("#!/bin/sh\necho visible"), 0o755)
 	require.NoError(t, err)
 
@@ -156,7 +157,7 @@ func TestManager_discoverPlugins_SkipsDirectories(t *testing.T) {
 	require.NoError(t, err)
 
 	// Create executable in main dir.
-	execPath := filepath.Join(tempDir, "plugin")
+	execPath := filepath.Join(tempDir, filestest.ExecutableFileName("plugin"))
 	err = os.WriteFile(execPath, []byte("#!/bin/sh\necho test"), 0o755)
 	require.NoError(t, err)
 
@@ -182,7 +183,7 @@ func TestManager_discoverPlugins_MultipleExecutables(t *testing.T) {
 
 	pluginNames := []string{"plugin1", "plugin2", "plugin3"}
 	for _, name := range pluginNames {
-		path := filepath.Join(tempDir, name)
+		path := filepath.Join(tempDir, filestest.ExecutableFileName(name))
 		err := os.WriteFile(path, []byte("#!/bin/sh\necho "+name), 0o755)
 		require.NoError(t, err)
 	}
@@ -203,7 +204,7 @@ func TestManager_discoverPlugins_MultipleExecutables(t *testing.T) {
 
 	for _, name := range pluginNames {
 		require.Contains(t, plugins, name)
-		require.Equal(t, filepath.Join(tempDir, name), plugins[name])
+		require.Equal(t, filepath.Join(tempDir, filestest.ExecutableFileName(name)), plugins[name])
 	}
 }
 
@@ -214,7 +215,7 @@ func TestManager_discoverPlugins_OnlyDiscoverAllowed(t *testing.T) {
 
 	// Create three executables.
 	for _, name := range []string{"plugin1", "plugin2", "plugin3"} {
-		path := filepath.Join(tempDir, name)
+		path := filepath.Join(tempDir, filestest.ExecutableFileName(name))
 		err := os.WriteFile(path, []byte("#!/bin/sh\necho "+name), 0o755)
 		require.NoError(t, err)
 	}
