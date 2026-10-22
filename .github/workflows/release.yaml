@@ -63,6 +63,9 @@ jobs:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          # The commit the run was created on. A tag is a mutable pointer, so
+          # naming one here would let it move between approval and build.
+          ref: ${{ github.sha }}
           fetch-depth: 0
 
       - name: Set up Go (from go.mod)
