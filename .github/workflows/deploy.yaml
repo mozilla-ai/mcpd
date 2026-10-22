@@ -22,8 +22,13 @@ on:
         default: 'secrets.prod.toml'
         type: string
 
+# Inputs reach the shell through the environment. An input interpolated into a
+# run body is substituted before the shell parses it, so a crafted value would
+# run as code with the deployment secrets in scope.
 env:
+  DEPLOY_ENV: ${{ inputs.environment }}
   RUNTIME_FILE: ${{ inputs.runtime_file }}
+  VERSION: ${{ inputs.version }}
 
 jobs:
   deploy:
@@ -37,20 +42,24 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Stage the secret resolver
+        # The tag's tree replaces this one below, so the resolver comes from the
+        # ref that triggered the run rather than from the tag being deployed.
+        run: cp scripts/resolve-secrets.sh "$RUNNER_TEMP/resolve-secrets.sh"
+
       - name: Checkout release tag
         run: |
           git fetch --tags --force
-          TAG="${{ inputs.version }}"
-          if [ -z "$TAG" ]; then
-            echo "::error ::No version tag provided"
+          if [[ ! "$VERSION" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z-]+(\.[0-9A-Za-z-]+)*)?$ ]]; then
+            echo "::error ::Version '$VERSION' does not match expected pattern vX.Y.Z"
             exit 1
           fi
-          if ! git rev-parse "$TAG" >/dev/null 2>&1; then
-            echo "::error ::Tag '$TAG' does not exist in repository"
+          if ! git rev-parse "$VERSION" >/dev/null 2>&1; then
+            echo "::error ::Tag '$VERSION' does not exist in repository"
             exit 1
           fi
-          echo "Checking out tag $TAG"
-          git checkout "$TAG"
+          echo "Checking out tag $VERSION"
+          git checkout "$VERSION"
 
       - name: Validate configuration files
         run: |
@@ -66,7 +75,6 @@ jobs:
 
       - name: Install mcpd
         run: |
-          VERSION="${{ inputs.version }}"
           ARCH="$(uname -m)"
           curl -fsSL "https://github.com/mozilla-ai/mcpd/releases/download/${VERSION}/mcpd_Linux_${ARCH}.tar.gz" \
             | tar xz -C /usr/local/bin
@@ -77,17 +85,17 @@ jobs:
         run: mcpd config export --runtime-file="$RUNTIME_FILE" --contract-output=.env
 
       - name: Resolve GitHub secrets required for mcpd
-        run: ./scripts/resolve-secrets.sh .env .env.resolved
+        run: |
+          "$RUNNER_TEMP/resolve-secrets.sh" .env .env.resolved
         env:
           SECRETS_JSON: ${{ toJSON(secrets) }}
-          DEPLOY_ENV: ${{ inputs.environment }}
 
       - name: Deploy mcpd (example)
         run: |
-          echo "Deploying ${{ inputs.version }} to ${{ inputs.environment }}..."
+          echo "Deploying $VERSION to $DEPLOY_ENV..."
           # docker run -d \
           #   -p 8090:8090 \
           #   -v $PWD/.mcpd.toml:/etc/mcpd/.mcpd.toml:ro \
           #   -v $PWD/$RUNTIME_FILE:/home/mcpd/.config/mcpd/secrets.prod.toml:ro \
           #   --env-file .env.resolved \
-          #   mzdotai/mcpd:${{ inputs.version }}
+          #   mzdotai/mcpd:$VERSION
