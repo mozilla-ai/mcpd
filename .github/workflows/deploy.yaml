@@ -37,6 +37,18 @@ jobs:
     # limits the refs that can read them.
     environment: ${{ inputs.environment }}
     steps:
+      - name: Validate the selected environment
+        # The job's environment is bound before any step runs, so an unexpected
+        # name would bind a new environment that carries no deployment policy.
+        run: |
+          case "$DEPLOY_ENV" in
+            development|production|staging) ;;
+            *)
+              echo "::error ::Environment '$DEPLOY_ENV' is not a deployment target"
+              exit 1
+              ;;
+          esac
+
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -54,12 +66,14 @@ jobs:
             echo "::error ::Version '$VERSION' does not match expected pattern vX.Y.Z"
             exit 1
           fi
-          if ! git rev-parse "$VERSION" >/dev/null 2>&1; then
+          # The ref is qualified, so a branch sharing the name of a release
+          # tag cannot be deployed in its place.
+          if ! git rev-parse "refs/tags/$VERSION" >/dev/null 2>&1; then
             echo "::error ::Tag '$VERSION' does not exist in repository"
             exit 1
           fi
           echo "Checking out tag $VERSION"
-          git checkout "$VERSION"
+          git checkout "refs/tags/$VERSION"
 
       - name: Validate configuration files
         run: |

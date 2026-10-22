@@ -41,10 +41,18 @@ jobs:
     steps:
       - name: Validate tag
         env:
+          REF_TYPE: ${{ github.ref_type }}
           TAG: ${{ github.ref_name }}
         run: |
+          # A branch can carry the same name as a release tag, and the pattern
+          # below cannot tell the two apart.
+          if [[ "$REF_TYPE" != "tag" ]]; then
+            echo "::error::Ref '$TAG' is a $REF_TYPE; a release runs on a tag"
+            exit 1
+          fi
+
           if [[ ! "$TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z-]+(\.[0-9A-Za-z-]+)*)?$ ]]; then
-            echo "::error::Ref '$TAG' does not match expected pattern vX.Y.Z"
+            echo "::error::Tag '$TAG' does not match expected pattern vX.Y.Z"
             exit 1
           fi
 
