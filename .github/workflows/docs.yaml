@@ -15,11 +15,9 @@ on:
       - ".gitbook.yaml"
       - ".gitbook-branch-readme.md"
       - ".github/workflows/docs.yaml"
+  # Both triggers run on the tag being published. A published Release has a
+  # GITHUB_REF of refs/tags/<tag_name>, and a dispatch has to target the tag.
   workflow_dispatch:
-    inputs:
-      tag:
-        description: "Docs tag to publish (e.g. docs/v0.1.0)"
-        required: true
 
 concurrency:
   group: docs-${{ github.event_name == 'pull_request' && github.ref || 'publish' }}
@@ -67,10 +65,13 @@ jobs:
       - name: Validate tag
         id: tag
         env:
-          TAG: ${{ github.event.release.tag_name || github.event.inputs.tag }}
+          REF_TYPE: ${{ github.ref_type }}
+          TAG: ${{ github.ref_name }}
         run: |
-          if [[ -z "$TAG" ]]; then
-            echo "::error::No tag provided"
+          # A branch can carry the same name as a docs tag, and the pattern
+          # below cannot tell the two apart.
+          if [[ "$REF_TYPE" != "tag" ]]; then
+            echo "::error::Ref '$TAG' is a $REF_TYPE; a docs release runs on a tag"
             exit 1
           fi
 
@@ -79,15 +80,16 @@ jobs:
             exit 1
           fi
 
-          VERSION="${TAG#docs/}"
-          echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
+          echo "version=${TAG#docs/}" >> "$GITHUB_OUTPUT"
           echo "tag=${TAG}" >> "$GITHUB_OUTPUT"
 
       - name: Check out the repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-          ref: ${{ steps.tag.outputs.tag }}
+          # The commit the run was created on. A tag is a mutable pointer, so
+          # naming one here would let it move before the site is built.
+          ref: ${{ github.sha }}
           fetch-depth: 0
 
       - name: Set up Go (from go.mod)
