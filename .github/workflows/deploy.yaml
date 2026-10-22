@@ -28,6 +28,9 @@ env:
 jobs:
   deploy:
     runs-on: ubuntu-latest
+    # Secrets resolve from the selected environment, whose deployment policy
+    # limits the refs that can read them.
+    environment: ${{ inputs.environment }}
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1

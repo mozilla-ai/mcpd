@@ -35,6 +35,9 @@ jobs:
       github.event_name == 'workflow_dispatch' ||
       (github.event_name == 'release' && startsWith(github.event.release.tag_name, 'v'))
     runs-on: ubuntu-latest
+    # The publish credentials resolve from this environment, whose deployment
+    # policy limits the refs that can read them.
+    environment: release
     steps:
       - name: Validate tag
         id: tag
