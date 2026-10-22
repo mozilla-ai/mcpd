@@ -93,9 +93,11 @@ jobs:
           username: mzdotai
 
       # Minted here rather than earlier because the token lasts an hour and
-      # GoReleaser pushes the cask at the end of its run.
+      # GoReleaser pushes the cask at the end of its run. Skipped with the cask
+      # itself, so a broken tap credential cannot block a Docker-only release.
       - name: Generate tap token
         id: tap-token
+        if: github.event.inputs.skip_homebrew != 'true'
         uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3.3.0
         with:
           client-id: ${{ vars.TAP_APP_CLIENT_ID }}
