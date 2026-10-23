@@ -10,13 +10,13 @@
 
 Built by [Mozilla AI](https://mozilla.ai)
 
-📚 [mcpd official docs](https://docs.mozilla.ai/mcpd)
+[mcpd official docs](https://docs.mozilla.ai/mcpd)
 
 ---
 
 `mcpd` is a daemon that manages your MCP servers via declarative configuration, exposing them as clean HTTP endpoints. This bridges the gap between your agents and your infrastructure, handling the messy work of lifecycle management, secret injection, and environment promotion so you don't have to.
 
-## ⚙️ How it Works
+## How it Works
 
 Under the hood, mcpd spawns MCP servers as STDIO subprocesses and proxies requests over HTTP.
 
@@ -28,7 +28,7 @@ Under the hood, mcpd spawns MCP servers as STDIO subprocesses and proxies reques
   </picture>
 </p>
 
-## 🚀 Quick Start
+## Quick Start
 
 ### Prerequisites
 
@@ -104,7 +104,7 @@ curl -s --request POST \
 
 API docs will be available at [http://localhost:8090/docs](http://localhost:8090/docs).
 
-## 💡 Why `mcpd`? 
+## Why `mcpd`?
 
 Engineering teams build agents that work locally, then struggle to make them production-ready across environments. mcpd bridges this gap with declarative configuration and secure secrets management.
 
@@ -112,7 +112,7 @@ Engineering teams build agents that work locally, then struggle to make them pro
 - Language-agnostic – Python, JS, Docker containers via unified HTTP API
 - Dev-to-prod ready – Same config works locally and in containers
 
-## 🏗️ Built for Dev & Production
+## Built for Dev & Production
 
 | Development Workflow                                                              | Production Benefit                                         |
 |-----------------------------------------------------------------------------------|------------------------------------------------------------|
@@ -121,7 +121,7 @@ Engineering teams build agents that work locally, then struggle to make them pro
 | Local secrets in `~/.config/mcpd/`                                                | Secure secrets injection via control plane                 |
 | `mcpd config export` exports version-control safe snapshot of local configuration | Sanitized secrets config and templates for CI/CD pipelines |
 
-## 📦 SDKs
+## SDKs
 
 ### `mcpd` SDKs
 
@@ -140,6 +140,7 @@ Plugin SDKs are built using the [mcpd plugin Protocol Buffers specification](htt
 | Go       | [mcpd-plugins-sdk-go](https://github.com/mozilla-ai/mcpd-plugins-sdk-go)         | ✅      |
 | .NET     | [mcpd-plugins-sdk-dotnet](https://github.com/mozilla-ai/mcpd-plugins-sdk-dotnet) | ✅      |
 | Python   | [mcpd-plugins-sdk-python](https://github.com/mozilla-ai/mcpd-plugins-sdk-python) | ✅      |
+| Rust     | [mcpd-plugins-sdk-rust](https://github.com/mozilla-ai/mcpd-plugins-sdk-rust)     | ✅      |
 
 ### Community plugin SDKs
 
@@ -149,7 +150,21 @@ These SDKs are maintained by their authors. Mozilla AI does not maintain or test
 |----------|---------------------------------------------------------------------------|--------------------------------------------|
 | PHP      | [mcpd-plugins-sdk-php](https://github.com/shoemoney/mcpd-plugins-sdk-php) | [@shoemoney](https://github.com/shoemoney) |
 
-## 💻 Development
+Install commands for every SDK are in the [SDKs documentation](https://docs.mozilla.ai/mcpd/sdks).
+
+## IDE Integration
+
+[mcpd-proxy](https://github.com/mozilla-ai/mcpd-proxy) is an MCP server that exposes every server
+`mcpd` manages to an IDE such as VS Code or Cursor through a single connection.
+
+```bash
+npx @mozilla-ai/mcpd-proxy
+```
+
+See the [IDE integration documentation](https://docs.mozilla.ai/mcpd/ide-integration) for the VS
+Code and Cursor configuration.
+
+## Development
 
 If you are developing `mcpd`, you will need:
 - [**Go**](https://go.dev/doc/install) (v1.27.1+ required)
@@ -174,7 +189,7 @@ Run the local documentation site (requires `uv`), dynamically generates command 
 make docs
 ```
 
-## 🧩 The Mozilla.ai Stack
+## The Mozilla.ai Stack
 `mcpd` is the "Tooling Layer" of the Mozilla.ai ecosystem. These tools are designed to work together or standalone.
 
 | Layer | Tool                                                                       | Function |
@@ -185,10 +200,10 @@ make docs
 | Tools   | [mcpd](https://github.com/mozilla-ai/mcpd) | **(You are here)** Tool sandbox & router |
 | Safety  | [any-guardrail](https://github.com/mozilla-ai/any-guardrail)| Input/Output validation |
 
-## 🤝 Contributing
+## Contributing
 
 Please see our [Contributing to mcpd](CONTRIBUTING.md) guide for more information. 
 
-## 📄 License
+## License
 
 [Licensed](LICENSE) under the [Apache License 2.0](https://www.apache.org/licenses/LICENSE-2.0).

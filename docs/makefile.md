@@ -18,7 +18,7 @@ All commands should be run from the **root of the repository**.
 Most commands assume you have Go installed and available in your `PATH`.
 {% endhint %}
 
-### 🧱 Build
+### Build
 
 - **Build the binary**
     ```bash
@@ -58,7 +58,7 @@ Most commands assume you have Go installed and available in your `PATH`.
 
 ---
 
-### 🧪 Test
+### Test
 
 - **Run all Go tests**
     ```bash
@@ -67,7 +67,7 @@ Most commands assume you have Go installed and available in your `PATH`.
 
 ---
 
-### ✅ Validation
+### Validation
 
 - **Run linter with auto-fix**
     ```bash
@@ -90,7 +90,7 @@ Most commands assume you have Go installed and available in your `PATH`.
 
 ---
 
-### 📜 License and Attribution
+### License and Attribution
 
 - **Check dependency licenses**
     ```bash
@@ -121,7 +121,7 @@ Most commands assume you have Go installed and available in your `PATH`.
 
 ---
 
-### 🐳 Run
+### Run
 
 - **Start `mcpd` in a container**
     ```bash
@@ -144,7 +144,7 @@ Most commands assume you have Go installed and available in your `PATH`.
 
 ---
 
-### 📝 Documentation
+### Documentation
 
 These commands build the [GitBook](https://docs.mozilla.ai/mcpd) documentation site for `mcpd`.
 
@@ -177,7 +177,7 @@ Docs commands assume you have `uv` installed and available in your `PATH` (in ad
 
 ---
 
-## 🧭 Target Reference
+## Target Reference
 
 Here's a complete list of Makefile targets:
 
