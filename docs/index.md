@@ -64,13 +64,13 @@ Never commit dev specific vars to Git again.
 
 `mcpd` is runtime-flexible and infrastructure-agnostic:
 
-- ⚙️ Works in any container or host where the runtimes required by your configured servers are available (`uv`, `npx`, and/or Docker)
-- ☁️ Multi-cloud ready (AWS, GCP, Azure, on-prem)
-- ♻️ Low resource overhead via in-process server management
+- Works in any container or host where the runtimes required by your configured servers are available (`uv`, `npx`, and/or Docker)
+- Multi-cloud ready (AWS, GCP, Azure, on-prem)
+- Low resource overhead via in-process server management
 
 ---
 
-## 📦 Install
+## Install
 
 ### Homebrew
 
@@ -109,17 +109,17 @@ The tutorial and most examples on this site use `uvx`, so `uv` is the most commo
 
 ---
 
-## 📚 Explore the Docs
+## Explore the Docs
 
 Use the sidebar to explore:
 
-- ✅ [Requirements](requirements.md)
-- ⚙️ [Configuration](configuration.md)
-- 🧭 [CLI Reference](commands/mcpd.md)
-- 🧵 [Execution context and secrets](execution-context.md)
-- 🩺 [Troubleshooting](troubleshooting.md)
-- 🛠️ [Makefile and tooling](makefile.md)
-- 📚 [Tutorial](tutorial.md)
+- [Requirements](requirements.md)
+- [Configuration](configuration.md)
+- [CLI Reference](commands/mcpd.md)
+- [Execution context and secrets](execution-context.md)
+- [Troubleshooting](troubleshooting.md)
+- [Makefile and tooling](makefile.md)
+- [Tutorial](tutorial.md)
 
 ---
 
