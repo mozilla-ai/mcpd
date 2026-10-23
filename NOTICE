@@ -72,9 +72,9 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 
 
-## github.com/go-chi/chi/v5 (v5.4.0)
+## github.com/go-chi/chi/v5 (v5.5.0)
 
-License: [MIT](https://github.com/go-chi/chi/blob/v5.4.0/LICENSE)
+License: [MIT](https://github.com/go-chi/chi/blob/v5.5.0/LICENSE)
 
 Copyright (c) 2015-present Peter Kieltyka (https://github.com/pkieltyka), Google Inc.
 
@@ -215,9 +215,9 @@ SOFTWARE.
 
 
 
-## github.com/mark3labs/mcp-go (v1.2.1)
+## github.com/mark3labs/mcp-go (v1.3.0)
 
-License: [MIT](https://github.com/mark3labs/mcp-go/blob/v1.2.1/LICENSE)
+License: [MIT](https://github.com/mark3labs/mcp-go/blob/v1.3.0/LICENSE)
 
 MIT License
 
