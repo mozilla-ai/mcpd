@@ -98,8 +98,6 @@ components:
             - "null"
         type:
           type: string
-      required:
-        - type
       type: object
     Prompt:
       additionalProperties: false

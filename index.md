@@ -5,7 +5,7 @@
 > *Run your agents, not your infrastructure.*
 
 {% hint style="info" icon="tag" %}
-mcpd v0.5.1 (docs v0.1.1)
+mcpd v0.6.1 (docs v0.2.0)
 {% endhint %}
 
 ---
@@ -41,8 +41,8 @@ Never commit dev specific vars to Git again.
   One command: `mcpd daemon`. Starts and manages all servers behind the scenes.
 
 **Intuitive SDK Integration**  
-  The Python `mcpd_sdk` makes calling tools feel like native function calls; no HTTP, STDIO, or SSE boilerplate.
-  Even easier for users of [any-agent](https://github.com/mozilla-ai/any-agent) via `.agent_tools()`.
+  The [Python and JavaScript SDKs](sdks.md) make calling tools feel like native function calls; no HTTP, STDIO, or SSE boilerplate.
+  One call hands your framework its tools, whether that is [any-agent](https://github.com/mozilla-ai/any-agent), LangChain JS, or the Vercel AI SDK.
 
 **Seamless Local-to-Prod Transition**  
   The same `.mcpd.toml` and agent code work in dev, CI, and cloud environments without modification.
@@ -58,7 +58,7 @@ Never commit dev specific vars to Git again.
 | `mcpd config export`                                             | Discover required vars             | Populate CI/CD pipelines                    |
 | Secure secrets store                                             | Local overrides per dev            | Injected via Control Plane                  |
 | Same binary                                                      | Local builds                       | Cloud deployment                            |
-| [SDKs for Python](https://github.com/mozilla-ai/mcpd-sdk-python) | Iterate locally                    | Plug into prod orchestrators                |
+| [SDKs for Python and JavaScript](sdks.md)                        | Iterate locally                    | Plug into prod orchestrators                |
 
 ---
 
@@ -66,13 +66,13 @@ Never commit dev specific vars to Git again.
 
 `mcpd` is runtime-flexible and infrastructure-agnostic:
 
-- ⚙️ Works in any container or host where the runtimes required by your configured servers are available (`uv`, `npx`, and/or Docker)
-- ☁️ Multi-cloud ready (AWS, GCP, Azure, on-prem)
-- ♻️ Low resource overhead via in-process server management
+- Works in any container or host where the runtimes required by your configured servers are available (`uv`, `npx`, and/or Docker)
+- Multi-cloud ready (AWS, GCP, Azure, on-prem)
+- Low resource overhead via in-process server management
 
 ---
 
-## 📦 Install
+## Install
 
 ### Homebrew
 
@@ -111,17 +111,19 @@ The tutorial and most examples on this site use `uvx`, so `uv` is the most commo
 
 ---
 
-## 📚 Explore the Docs
+## Explore the Docs
 
 Use the sidebar to explore:
 
-- ✅ [Requirements](requirements.md)
-- ⚙️ [Configuration](configuration.md)
-- 🧭 [CLI Reference](commands/mcpd.md)
-- 🧵 [Execution context and secrets](execution-context.md)
-- 🩺 [Troubleshooting](troubleshooting.md)
-- 🛠️ [Makefile and tooling](makefile.md)
-- 📚 [Tutorial](tutorial.md)
+- [Requirements](requirements.md)
+- [Configuration](configuration.md)
+- [CLI Reference](commands/mcpd.md)
+- [SDKs](sdks.md)
+- [IDE Integration](ide-integration.md)
+- [Execution context and secrets](execution-context.md)
+- [Troubleshooting](troubleshooting.md)
+- [Makefile and tooling](makefile.md)
+- [Tutorial](tutorial.md)
 
 ---
 

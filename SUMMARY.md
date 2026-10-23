@@ -15,6 +15,11 @@
 * [Execution Context](execution-context.md)
 * [Registry Caching](caching.md)
 
+## Integrations
+
+* [SDKs](sdks.md)
+* [IDE Integration](ide-integration.md)
+
 ## Reference
 
 * [Makefile](makefile.md)
