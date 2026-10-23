@@ -15,17 +15,9 @@ The canonical protocol definition is [`mcpd-proto`](https://github.com/mozilla-a
 (`plugins/v1/plugin.proto`, package `mozilla.mcpd.plugins.v1`). Everything below is generated from
 or implements that service.
 
-Four SDKs wrap the generated stubs and the startup handshake:
-
-| Language | Repository                                                                          | Install                                                       |
-|----------|-------------------------------------------------------------------------------------|---------------------------------------------------------------|
-| Python   | [mcpd-plugins-sdk-python](https://github.com/mozilla-ai/mcpd-plugins-sdk-python)     | `pip install mcpd-plugins`                                     |
-| Go       | [mcpd-plugins-sdk-go](https://github.com/mozilla-ai/mcpd-plugins-sdk-go)             | `go get github.com/mozilla-ai/mcpd-plugins-sdk-go`             |
-| Rust     | [mcpd-plugins-sdk-rust](https://github.com/mozilla-ai/mcpd-plugins-sdk-rust)         | `cargo add mcpd-plugins-sdk`                                   |
-| .NET     | [mcpd-plugins-sdk-dotnet](https://github.com/mozilla-ai/mcpd-plugins-sdk-dotnet)     | `dotnet add package MozillaAI.Mcpd.Plugins.Sdk`                |
-
-The Python, Rust, and .NET repositories each include an `examples/` directory with runnable
-plugins.
+An SDK for Go, Python, Rust, or .NET wraps the generated stubs and the startup handshake described
+below, so a plugin only implements the behavior you are adding. [SDKs](sdks.md) lists them with
+install commands, along with community SDKs.
 
 For background, see
 [mcpd plugins: extend your agent infrastructure without touching your code](https://blog.mozilla.ai/mcpd-plugins-extend-your-agent-infrastructure-without-touching-your-code/).

@@ -140,6 +140,7 @@ Plugin SDKs are built using the [mcpd plugin Protocol Buffers specification](htt
 | Go       | [mcpd-plugins-sdk-go](https://github.com/mozilla-ai/mcpd-plugins-sdk-go)         | ✅      |
 | .NET     | [mcpd-plugins-sdk-dotnet](https://github.com/mozilla-ai/mcpd-plugins-sdk-dotnet) | ✅      |
 | Python   | [mcpd-plugins-sdk-python](https://github.com/mozilla-ai/mcpd-plugins-sdk-python) | ✅      |
+| Rust     | [mcpd-plugins-sdk-rust](https://github.com/mozilla-ai/mcpd-plugins-sdk-rust)     | ✅      |
 
 ### Community plugin SDKs
 
@@ -148,6 +149,20 @@ These SDKs are maintained by their authors. Mozilla AI does not maintain or test
 | Language | Repository                                                                | Maintainer                                 |
 |----------|---------------------------------------------------------------------------|--------------------------------------------|
 | PHP      | [mcpd-plugins-sdk-php](https://github.com/shoemoney/mcpd-plugins-sdk-php) | [@shoemoney](https://github.com/shoemoney) |
+
+Install commands for every SDK are in the [SDKs documentation](https://docs.mozilla.ai/mcpd/sdks).
+
+## IDE Integration
+
+[mcpd-proxy](https://github.com/mozilla-ai/mcpd-proxy) is an MCP server that exposes every server
+`mcpd` manages to an IDE such as VS Code or Cursor through a single connection.
+
+```bash
+npx @mozilla-ai/mcpd-proxy
+```
+
+See the [IDE integration documentation](https://docs.mozilla.ai/mcpd/ide-integration) for the VS
+Code and Cursor configuration.
 
 ## Development
 
