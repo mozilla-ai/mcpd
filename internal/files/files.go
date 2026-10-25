@@ -41,6 +41,11 @@ func DiscoverExecutables(dir string) (map[string]struct{}, error) {
 // DiscoverExecutablesWithPaths scans a directory and returns a map of executable names to their full paths.
 // Skips directories and hidden files (starting with ".").
 // Only includes files present in the allowed set if provided (nil allowed means include all).
+//
+// What counts as executable, and the name a file is registered under, is platform-specific:
+// on Unix-like systems a file must have an execute bit set and is registered under its file name;
+// on Windows a file must carry an extension listed in PATHEXT (e.g. .exe) and is registered
+// under its name with that extension removed, so "my-plugin.exe" is discovered as "my-plugin".
 func DiscoverExecutablesWithPaths(dir string, allowed map[string]struct{}) (map[string]string, error) {
 	entries, err := os.ReadDir(dir)
 	if err != nil {
@@ -48,6 +53,7 @@ func DiscoverExecutablesWithPaths(dir string, allowed map[string]struct{}) (map[
 	}
 
 	executables := make(map[string]string)
+	ranks := make(map[string]int)
 	for _, entry := range entries {
 		if entry.IsDir() {
 			continue
@@ -57,9 +63,11 @@ func DiscoverExecutablesWithPaths(dir string, allowed map[string]struct{}) (map[
 			continue
 		}
 
+		name := executableBaseName(entry.Name())
+
 		// Skip if not in allowed list (when allowed list is provided).
 		if allowed != nil {
-			if _, ok := allowed[entry.Name()]; !ok {
+			if _, ok := allowed[name]; !ok {
 				continue
 			}
 		}
@@ -73,10 +81,19 @@ func DiscoverExecutablesWithPaths(dir string, allowed map[string]struct{}) (map[
 			continue
 		}
 
-		// Only include regular files with execute permission.
-		if info.Mode().IsRegular() && info.Mode().Perm()&0o111 != 0 {
-			executables[entry.Name()] = fullPath
+		rank, ok := executableRank(entry.Name(), info)
+		if !ok {
+			continue
 		}
+
+		// Several files may map to the same name (e.g. plugin.exe and plugin.cmd on Windows);
+		// keep the one the platform prefers.
+		if existing, seen := ranks[name]; seen && existing <= rank {
+			continue
+		}
+
+		executables[name] = fullPath
+		ranks[name] = rank
 	}
 
 	return executables, nil
@@ -123,6 +140,9 @@ func UserSpecificConfigDir() (string, error) {
 // permissions. Antecedent directories may have default permissions (typically 0755), which
 // is intentional and sufficient for the intended use case. The goal is to protect the
 // contents of the final directory, not to secure the entire path hierarchy.
+//
+// The permission check is only meaningful on platforms with POSIX mode bits; on Windows the
+// directory is created and validated as a non-symlink directory, but its mode is not inspected.
 func ensureAtLeastDir(path string, perm os.FileMode) error {
 	if err := os.MkdirAll(path, perm); err != nil {
 		return fmt.Errorf("could not ensure directory exists for '%s': %w", path, err)
@@ -141,15 +161,7 @@ func ensureAtLeastDir(path string, perm os.FileMode) error {
 		return fmt.Errorf("path '%s' is not a directory", path)
 	}
 
-	if !isPermissionAcceptable(info.Mode().Perm(), perm) {
-		return fmt.Errorf(
-			"incorrect permissions for directory '%s' (%#o, want %#o or more restrictive)",
-			path, info.Mode().Perm(),
-			perm,
-		)
-	}
-
-	return nil
+	return validateDirPermissions(path, info, perm)
 }
 
 // isPermissionAcceptable checks if the actual permissions are acceptable for the required permissions.

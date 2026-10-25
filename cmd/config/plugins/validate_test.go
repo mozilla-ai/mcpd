@@ -11,6 +11,7 @@ import (
 	"github.com/mozilla-ai/mcpd/internal/cmd"
 	cmdopts "github.com/mozilla-ai/mcpd/internal/cmd/options"
 	"github.com/mozilla-ai/mcpd/internal/config"
+	"github.com/mozilla-ai/mcpd/internal/files/filestest"
 )
 
 func TestNewValidateCmd(t *testing.T) {
@@ -181,7 +182,7 @@ func TestValidateCmd_CheckBinaries(t *testing.T) {
 
 		// Create temp directory with a plugin binary.
 		pluginDir := t.TempDir()
-		pluginPath := filepath.Join(pluginDir, "test-plugin")
+		pluginPath := filepath.Join(pluginDir, filestest.ExecutableFileName("test-plugin"))
 		err := os.WriteFile(pluginPath, []byte("binary"), 0o755)
 		require.NoError(t, err)
 
