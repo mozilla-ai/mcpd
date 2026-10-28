@@ -150,7 +150,7 @@ These SDKs are maintained by their authors. Mozilla AI does not maintain or test
 |----------|---------------------------------------------------------------------------|--------------------------------------------|
 | PHP      | [mcpd-plugins-sdk-php](https://github.com/shoemoney/mcpd-plugins-sdk-php) | [@shoemoney](https://github.com/shoemoney) |
 
-Install commands for every SDK are in the [SDKs documentation](https://docs.mozilla.ai/mcpd/sdks).
+Install commands for every SDK are in the [SDKs documentation](https://docs.mozilla.ai/mcpd/integrations/sdks).
 
 ## IDE Integration
 
