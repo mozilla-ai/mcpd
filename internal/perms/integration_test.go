@@ -7,12 +7,15 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
+
+	"github.com/mozilla-ai/mcpd/internal/perms/permstest"
 )
 
 // TestFileCreationPermissions verifies that files created with perms constants
 // have the correct permissions on the filesystem.
 func TestFileCreationPermissions(t *testing.T) {
 	t.Parallel()
+	permstest.SkipWithoutPOSIXPermissions(t)
 
 	tests := []struct {
 		name     string
@@ -54,6 +57,7 @@ func TestFileCreationPermissions(t *testing.T) {
 // have the correct permissions on the filesystem.
 func TestDirectoryCreationPermissions(t *testing.T) {
 	t.Parallel()
+	permstest.SkipWithoutPOSIXPermissions(t)
 
 	tests := []struct {
 		name     string
@@ -96,6 +100,7 @@ func TestDirectoryCreationPermissions(t *testing.T) {
 // have the correct permissions on the filesystem.
 func TestOpenFilePermissions(t *testing.T) {
 	t.Parallel()
+	permstest.SkipWithoutPOSIXPermissions(t)
 
 	tests := []struct {
 		name     string
@@ -143,6 +148,7 @@ func TestOpenFilePermissions(t *testing.T) {
 // permissions regardless of parent directory permissions.
 func TestPermissionInheritance(t *testing.T) {
 	t.Parallel()
+	permstest.SkipWithoutPOSIXPermissions(t)
 
 	tempDir := t.TempDir()
 
