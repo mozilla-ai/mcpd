@@ -33,6 +33,13 @@ func main() {
 		return
 	}
 
+	for _, name := range []string{flags.EnvVarConfigFile, flags.EnvVarLogPath} {
+		if err := os.Unsetenv(name); err != nil {
+			logger.Error("failed to clear local path for docs generation", "variable", name, "error", err)
+			return
+		}
+	}
+
 	rootCmd, err := cmd.NewRootCmd(&cmd.RootCmd{BaseCmd: &internalcmd.BaseCmd{}})
 	if err != nil {
 		logger.Error("failed to create root command for docs generation", "error", err)
