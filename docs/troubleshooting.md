@@ -179,7 +179,7 @@ If a server ends up with no tools configured, daemon startup or reload will fail
 If `mcpd` itself is running in a container and one of your servers uses the Docker runtime, mount the host Docker socket:
 
 ```bash
-docker run -p 8090:8090 \
+docker run -p 127.0.0.1:8090:8090 \
   -v /var/run/docker.sock:/var/run/docker.sock \
   -v $PWD/.mcpd.toml:/etc/mcpd/.mcpd.toml \
   -v $HOME/.config/mcpd/secrets.dev.toml:/home/mcpd/.config/mcpd/secrets.prod.toml \
