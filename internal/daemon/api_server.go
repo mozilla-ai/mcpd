@@ -5,6 +5,7 @@ import (
 	stdErrors "errors"
 	"fmt"
 	"net/http"
+	"slices"
 	"strings"
 	"time"
 
@@ -84,6 +85,9 @@ func (a *APIServer) Start(ctx context.Context) error {
 		a.applyCORS(mux)
 	}
 
+	// Refuse a browser request from an origin the operator has not allowed.
+	mux.Use(requireAllowedOrigin(a.cors.AllowOrigins))
+
 	// Reject non-JSON bodies before any plugin or handler reads the request.
 	mux.Use(requireJSONContentType)
 
@@ -130,6 +134,12 @@ func (a *APIServer) Start(ctx context.Context) error {
 		a.logger.Info("Starting API server", "address", a.addr, "prefix", apiPathPrefix)
 		if a.cors.Enabled {
 			a.logger.Info("CORS enabled", "origins", a.cors.AllowOrigins)
+		}
+		if slices.Contains(a.cors.AllowOrigins, "*") {
+			a.logger.Warn(
+				"Wildcard CORS origin lets any website call this API",
+				"action", "name each origin that may call the API",
+			)
 		}
 		if err := srv.ListenAndServe(); err != nil && !stdErrors.Is(err, http.ErrServerClosed) {
 			errCh <- err

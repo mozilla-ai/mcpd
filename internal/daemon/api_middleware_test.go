@@ -10,6 +10,131 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+func TestRequireAllowedOrigin(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name           string
+		allowed        []string
+		method         string
+		origin         string
+		expectedStatus int
+		expectReached  bool
+	}{
+		{
+			name:           "no origin header passes",
+			allowed:        nil,
+			method:         http.MethodPost,
+			origin:         "",
+			expectedStatus: http.StatusOK,
+			expectReached:  true,
+		},
+		{
+			name:           "no origin header passes with an allowlist set",
+			allowed:        []string{"https://app.example.com"},
+			method:         http.MethodPost,
+			origin:         "",
+			expectedStatus: http.StatusOK,
+			expectReached:  true,
+		},
+		{
+			name:           "allowed origin passes",
+			allowed:        []string{"https://app.example.com"},
+			method:         http.MethodPost,
+			origin:         "https://app.example.com",
+			expectedStatus: http.StatusOK,
+			expectReached:  true,
+		},
+		{
+			name:           "allowed origin matches regardless of case",
+			allowed:        []string{"https://App.Example.com"},
+			method:         http.MethodPost,
+			origin:         "https://app.example.com",
+			expectedStatus: http.StatusOK,
+			expectReached:  true,
+		},
+		{
+			name:           "subdomain wildcard matches",
+			allowed:        []string{"https://*.example.com"},
+			method:         http.MethodPost,
+			origin:         "https://app.example.com",
+			expectedStatus: http.StatusOK,
+			expectReached:  true,
+		},
+		{
+			name:           "subdomain wildcard does not match another host",
+			allowed:        []string{"https://*.example.com"},
+			method:         http.MethodPost,
+			origin:         "https://evil.example",
+			expectedStatus: http.StatusForbidden,
+			expectReached:  false,
+		},
+		{
+			name:           "unknown origin is refused",
+			allowed:        []string{"https://app.example.com"},
+			method:         http.MethodPost,
+			origin:         "http://evil.example",
+			expectedStatus: http.StatusForbidden,
+			expectReached:  false,
+		},
+		{
+			name:           "empty allowlist refuses any origin",
+			allowed:        nil,
+			method:         http.MethodPost,
+			origin:         "http://evil.example",
+			expectedStatus: http.StatusForbidden,
+			expectReached:  false,
+		},
+		{
+			name:           "wildcard allowlist allows any origin",
+			allowed:        []string{"*"},
+			method:         http.MethodPost,
+			origin:         "http://evil.example",
+			expectedStatus: http.StatusOK,
+			expectReached:  true,
+		},
+		{
+			name:           "read methods are covered",
+			allowed:        nil,
+			method:         http.MethodGet,
+			origin:         "http://evil.example",
+			expectedStatus: http.StatusForbidden,
+			expectReached:  false,
+		},
+		{
+			name:           "rebinding origin on the daemon port is refused",
+			allowed:        nil,
+			method:         http.MethodPost,
+			origin:         "http://evil.example:8090",
+			expectedStatus: http.StatusForbidden,
+			expectReached:  false,
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			reached := false
+			next := http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+				reached = true
+				w.WriteHeader(http.StatusOK)
+			})
+
+			req := httptest.NewRequest(tc.method, "/api/v1/servers/notes/tools/write_note", strings.NewReader(`{}`))
+			if tc.origin != "" {
+				req.Header.Set("Origin", tc.origin)
+			}
+
+			rec := httptest.NewRecorder()
+			requireAllowedOrigin(tc.allowed)(next).ServeHTTP(rec, req)
+
+			require.Equal(t, tc.expectedStatus, rec.Code)
+			require.Equal(t, tc.expectReached, reached)
+		})
+	}
+}
+
 func TestRequireJSONContentType(t *testing.T) {
 	t.Parallel()
 
