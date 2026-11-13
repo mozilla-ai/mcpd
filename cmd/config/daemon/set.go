@@ -36,7 +36,7 @@ func NewSetCmd(baseCmd *cmd.BaseCmd, opt ...cmdopts.CmdOption) (*cobra.Command, 
 Examples:
   mcpd config daemon set api.addr="0.0.0.0:9090"
   mcpd config daemon set api.timeout.shutdown="30s" mcp.interval.health="10s"
-  mcpd config daemon set api.cors.enable=true api.cors.allow_origins="localhost:3000,app.example.com"`,
+  mcpd config daemon set api.cors.enable=true api.cors.allow_origins="http://localhost:3000,https://app.example.com"`,
 		RunE: c.run,
 		Args: cobra.MinimumNArgs(1),
 	}

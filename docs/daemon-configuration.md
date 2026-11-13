@@ -42,15 +42,19 @@ Controls the HTTP API server settings.
 
 Cross-Origin Resource Sharing settings for browser clients.
 
-| Setting                      | Type       | Description                   | Default                             | Example                                         |
-|------------------------------|------------|-------------------------------|-------------------------------------|-------------------------------------------------|
-| `api.cors.enable`            | `bool`     | Enable CORS support           | `false`                             | `true`                                          |
-| `api.cors.allow_origins`     | `[]string` | Allowed request origins       | `["*"]`                             | `["localhost:3000", "https://app.example.com"]` |
-| `api.cors.allow_methods`     | `[]string` | Allowed HTTP methods          | `["GET", "POST", "PUT", "DELETE"]`  | `["GET", "POST"]`                               |
-| `api.cors.allow_headers`     | `[]string` | Allowed request headers       | `["Content-Type", "Authorization"]` | `["Content-Type", "API-Key"]`                   |
-| `api.cors.expose_headers`    | `[]string` | Headers exposed to client     | `[]`                                | `["ETag", "Last-Modified"]`                     |
-| `api.cors.allow_credentials` | `bool`     | Allow credentials in requests | `false`                             | `true`                                          |
-| `api.cors.max_age`           | `duration` | Preflight cache duration      | `0s`                                | `24h`                                           |
+| Setting                      | Type       | Description                                             | Default                             | Example                                                |
+|------------------------------|------------|---------------------------------------------------------|-------------------------------------|--------------------------------------------------------|
+| `api.cors.enable`            | `bool`     | Enable CORS support                                     | `false`                             | `true`                                                 |
+| `api.cors.allow_origins`     | `[]string` | Allowed request origins (required when CORS is enabled) | `[]`                                | `["http://localhost:3000", "https://app.example.com"]` |
+| `api.cors.allow_methods`     | `[]string` | Allowed HTTP methods                                    | `["GET", "POST", "PUT", "DELETE"]`  | `["GET", "POST"]`                                      |
+| `api.cors.allow_headers`     | `[]string` | Allowed request headers                                 | `["Content-Type", "Authorization"]` | `["Content-Type", "API-Key"]`                          |
+| `api.cors.expose_headers`    | `[]string` | Headers exposed to client                               | `[]`                                | `["ETag", "Last-Modified"]`                            |
+| `api.cors.allow_credentials` | `bool`     | Allow credentials in requests                           | `false`                             | `true`                                                 |
+| `api.cors.max_age`           | `duration` | Preflight cache duration                                | `0s`                                | `24h`                                                  |
+
+An origin is a scheme, a host and an optional port, such as `http://localhost:3000`. A bare `localhost:3000` is not an origin, because a browser never sends one in the `Origin` header, so it is rejected.
+
+`api.cors.allow_origins` is required when `api.cors.enable` is `true`. An empty list allows every origin, so the choice must be explicit. Use `["*"]` to allow any origin.
 
 ### MCP Configuration (`mcp.*`)
 
@@ -79,11 +83,11 @@ mcpd config daemon set api.timeout.shutdown="60s"
 ### CORS Configuration
 
 ```bash
+# Set allowed origins, which CORS cannot be enabled without
+mcpd config daemon set api.cors.allow_origins="http://localhost:3000,https://app.example.com"
+
 # Enable CORS
 mcpd config daemon set api.cors.enable=true
-
-# Set allowed origins
-mcpd config daemon set api.cors.allow_origins="localhost:3000,https://app.example.com"
 
 # Allow credentials
 mcpd config daemon set api.cors.allow_credentials=true
@@ -157,7 +161,7 @@ Configuration is stored in the `.mcpd.toml` file in TOML format:
       shutdown = "1m0s"
     [daemon.api.cors]
       enable = true
-      allow_origins = ["localhost:3000", "https://app.example.com"]
+      allow_origins = ["http://localhost:3000", "https://app.example.com"]
       allow_credentials = true
       max_age = "24h0m0s"
   [daemon.mcp]
@@ -184,7 +188,7 @@ Duration values follow this time/duration format:
 
 String arrays can be provided as comma-separated values:
 ```bash
-mcpd config daemon set api.cors.allow_origins "localhost:3000,https://app.example.com"
+mcpd config daemon set api.cors.allow_origins "http://localhost:3000,https://app.example.com"
 ```
 
 ### Boolean Values
