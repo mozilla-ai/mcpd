@@ -8,14 +8,11 @@ This document outlines the process for reporting vulnerabilities in `mcpd`.
 
 ### Supported Versions
 
-The following versions are currently supported for security updates:
+Only the latest released version of `mcpd` receives security updates. We ship fixes in a new release rather than backporting them to earlier versions.
 
-| Version | Supported          |
-|---------|--------------------|
-| 0.3.x   | :white_check_mark: |
-| < 0.3   | :x:                |
+The current version is shown on the [latest release](https://github.com/mozilla-ai/mcpd/releases/latest) page.
 
-**Please ensure you are using a supported version when reporting a vulnerability.**
+**Please upgrade to the latest release and confirm the issue still occurs before reporting a vulnerability.**
 
 ## Reporting a Vulnerability
 
