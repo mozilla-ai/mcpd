@@ -24,3 +24,6 @@ jobs:
 
       - name: Run tests
         run: go test ./... -v
+
+      - name: Test CLI documentation generation
+        run: go test -tags=docsgen_cli ./tools/docsgen/cmds -v
