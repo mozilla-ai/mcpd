@@ -84,6 +84,9 @@ func (a *APIServer) Start(ctx context.Context) error {
 		a.applyCORS(mux)
 	}
 
+	// Reject non-JSON bodies before any plugin or handler reads the request.
+	mux.Use(requireJSONContentType)
+
 	// Initialize and apply middleware (plugins or no-op).
 	middlewareFunc, err := a.middlewareProvider(ctx)
 	if err != nil {
