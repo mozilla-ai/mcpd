@@ -252,6 +252,12 @@ func (c *Config) saveConfig() error {
 		return fmt.Errorf("config file path not present")
 	}
 
+	// Refuse to write a file that could not be loaded back, so a command cannot leave the
+	// configuration in a state no later command can repair.
+	if err := c.validate(); err != nil {
+		return err
+	}
+
 	data, err := toml.Marshal(c)
 	if err != nil {
 		return err

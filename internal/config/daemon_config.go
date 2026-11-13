@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net"
 	"net/http"
+	"net/url"
 	"strconv"
 	"strings"
 	"time"
@@ -533,6 +534,14 @@ func (c *CORSConfigSection) Set(path string, value string) (context.UpsertResult
 func (c *CORSConfigSection) Validate() error {
 	var validationErrors []error
 
+	// An enabled policy with no origins allows every origin, so require the operator to choose.
+	if c.EnableOrDefault(false) && len(c.Origins) == 0 {
+		validationErrors = append(
+			validationErrors,
+			fmt.Errorf("CORS is enabled but no origins are allowed (use '*' to allow any origin)"),
+		)
+	}
+
 	// Validate origins.
 	for _, origin := range c.Origins {
 		// Wildcard origin check.
@@ -546,8 +555,11 @@ func (c *CORSConfigSection) Validate() error {
 			continue
 		}
 
-		if !isValidAddr(origin) {
-			validationErrors = append(validationErrors, fmt.Errorf("invalid origin address: %s", origin))
+		if !isValidOrigin(origin) {
+			validationErrors = append(
+				validationErrors,
+				fmt.Errorf("invalid CORS origin '%s': expected scheme://host[:port]", origin),
+			)
 			continue
 		}
 	}
@@ -1279,6 +1291,28 @@ func isValidAddr(addr string) bool {
 	}
 
 	return true
+}
+
+// isValidOrigin reports whether origin is a well-formed HTTP origin of the form scheme://host[:port].
+//
+// NOTE: An origin is not a network address. A bare "host:port" is rejected because a browser never
+// sends one in the Origin header, so an allowlist holding one can never match.
+func isValidOrigin(origin string) bool {
+	u, err := url.Parse(origin)
+	if err != nil {
+		return false
+	}
+
+	if u.Scheme != "http" && u.Scheme != "https" {
+		return false
+	}
+
+	// An origin carries a scheme, a host and an optional port. Anything further makes it a URL.
+	if u.User != nil || u.Opaque != "" || u.Path != "" || u.RawQuery != "" || u.Fragment != "" {
+		return false
+	}
+
+	return u.Hostname() != ""
 }
 
 // normalizeKey normalizes a key by trimming whitespace and converting to lowercase.

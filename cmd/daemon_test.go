@@ -232,7 +232,7 @@ func TestDaemon_DaemonCmd_Flags(t *testing.T) {
 
 	addrFlag := flags.Lookup(flagAddr)
 	require.NotNil(t, addrFlag)
-	assert.Equal(t, "0.0.0.0:8090", addrFlag.DefValue)
+	assert.Equal(t, defaultAPIAddr, addrFlag.DefValue)
 
 	corsEnableFlag := flags.Lookup(flagCORSEnable)
 	require.NotNil(t, corsEnableFlag)
@@ -858,7 +858,7 @@ func TestDaemon_DaemonCmd_FormatConfigInfo(t *testing.T) {
 		{
 			name: "no custom config",
 			config: daemonFlagConfig{
-				api: apiFlagConfig{addr: "0.0.0.0:8090"},
+				api: apiFlagConfig{addr: defaultAPIAddr},
 			},
 			expectedInInfo: []string{},
 		},
@@ -1011,7 +1011,7 @@ func TestDaemon_DaemonCmd_DevModeOverrideWarning(t *testing.T) {
 	}{
 		{
 			name:       "default address no warning",
-			addr:       "0.0.0.0:8090",
+			addr:       defaultAPIAddr,
 			expectWarn: false,
 		},
 		{
@@ -1033,7 +1033,7 @@ func TestDaemon_DaemonCmd_DevModeOverrideWarning(t *testing.T) {
 			})
 
 			devAddr := "localhost:8090"
-			if tc.addr != "0.0.0.0:8090" {
+			if tc.addr != defaultAPIAddr {
 				logger.Warn("Development mode ignores custom address", "provided", tc.addr, "using", devAddr)
 			}
 

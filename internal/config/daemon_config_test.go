@@ -341,7 +341,7 @@ func TestDaemonConfig_StructureValidation(t *testing.T) {
 				},
 				CORS: &CORSConfigSection{
 					Enable:        testBoolPtr(t, true),
-					Origins:       []string{"localhost:3000"},
+					Origins:       []string{"http://localhost:3000"},
 					Methods:       []string{"GET", "POST"},
 					Headers:       []string{"Content-Type"},
 					ExposeHeaders: []string{"X-Custom"},
@@ -373,7 +373,7 @@ func TestDaemonConfig_StructureValidation(t *testing.T) {
 		require.NotNil(t, config.API.CORS)
 		require.NotNil(t, config.API.CORS.Enable)
 		require.True(t, *config.API.CORS.Enable)
-		require.ElementsMatch(t, []string{"localhost:3000"}, config.API.CORS.Origins)
+		require.ElementsMatch(t, []string{"http://localhost:3000"}, config.API.CORS.Origins)
 
 		require.NotNil(t, config.MCP)
 		require.NotNil(t, config.MCP.Timeout)
@@ -759,41 +759,41 @@ func TestCORSConfigSection_Set(t *testing.T) {
 			name:           "set allow_origins single value",
 			config:         &CORSConfigSection{},
 			path:           "allow_origins",
-			value:          "localhost:3000",
+			value:          "http://localhost:3000",
 			expectedResult: context.Created,
 			validateFn: func(t *testing.T, config *CORSConfigSection) {
 				t.Helper()
-				require.Equal(t, []string{"localhost:3000"}, config.Origins)
+				require.Equal(t, []string{"http://localhost:3000"}, config.Origins)
 			},
 		},
 		{
 			name:           "set allow_origins multiple values",
 			config:         &CORSConfigSection{},
 			path:           "allow_origins",
-			value:          "localhost:3000,app.example.com:443",
+			value:          "http://localhost:3000,https://app.example.com:443",
 			expectedResult: context.Created,
 			validateFn: func(t *testing.T, config *CORSConfigSection) {
 				t.Helper()
-				require.Equal(t, []string{"localhost:3000", "app.example.com:443"}, config.Origins)
+				require.Equal(t, []string{"http://localhost:3000", "https://app.example.com:443"}, config.Origins)
 			},
 		},
 		{
 			name: "update allow_origins",
 			config: &CORSConfigSection{
-				Origins: []string{"old.example.com"},
+				Origins: []string{"https://old.example.com"},
 			},
 			path:           "allow_origins",
-			value:          "new.example.com",
+			value:          "https://new.example.com",
 			expectedResult: context.Updated,
 			validateFn: func(t *testing.T, config *CORSConfigSection) {
 				t.Helper()
-				require.Equal(t, []string{"new.example.com"}, config.Origins)
+				require.Equal(t, []string{"https://new.example.com"}, config.Origins)
 			},
 		},
 		{
 			name: "clear allow_origins with empty value",
 			config: &CORSConfigSection{
-				Origins: []string{"example.com"},
+				Origins: []string{"https://example.com"},
 			},
 			path:           "allow_origins",
 			value:          "",
@@ -1127,20 +1127,62 @@ func TestCORSConfigSection_Validate(t *testing.T) {
 			expectError: false,
 		},
 		{
-			name: "origin is URL not network address (http:// -> but contains port)",
+			name: "enabled without origins is invalid",
+			config: &CORSConfigSection{
+				Enable:  testBoolPtr(t, true),
+				Methods: []string{"GET"},
+			},
+			expectError: true,
+			errorMsg:    "CORS is enabled but no origins are allowed (use '*' to allow any origin)",
+		},
+		{
+			name: "enabled with wildcard origin is valid",
+			config: &CORSConfigSection{
+				Enable:  testBoolPtr(t, true),
+				Origins: []string{"*"},
+				Methods: []string{"GET"},
+			},
+			expectError: false,
+		},
+		{
+			name: "disabled without origins is valid",
+			config: &CORSConfigSection{
+				Enable:  testBoolPtr(t, false),
+				Methods: []string{"GET"},
+			},
+			expectError: false,
+		},
+		{
+			name: "unset enable without origins is valid",
+			config: &CORSConfigSection{
+				Methods: []string{"GET"},
+			},
+			expectError: false,
+		},
+		{
+			name: "origins with scheme are valid",
 			config: &CORSConfigSection{
 				Enable:  testBoolPtr(t, false),
 				Origins: []string{"http://localhost:3000", "https://example.com"},
 				Methods: []string{"GET"},
 			},
+			expectError: false,
+		},
+		{
+			name: "origin without scheme is invalid",
+			config: &CORSConfigSection{
+				Enable:  testBoolPtr(t, true),
+				Origins: []string{"localhost:3000"},
+				Methods: []string{"GET"},
+			},
 			expectError: true,
-			errorMsg:    "invalid origin address: http://localhost:3000",
+			errorMsg:    "invalid CORS origin 'localhost:3000': expected scheme://host[:port]",
 		},
 		{
 			name: "valid enabled CORS config",
 			config: &CORSConfigSection{
 				Enable:      testBoolPtr(t, true),
-				Origins:     []string{"localhost:3000", "example.com:443"},
+				Origins:     []string{"http://localhost:3000", "https://example.com:443"},
 				Methods:     []string{"GET", "POST", "PUT"},
 				Headers:     []string{"Content-Type", "Authorization"},
 				Credentials: testBoolPtr(t, true),
@@ -1152,6 +1194,7 @@ func TestCORSConfigSection_Validate(t *testing.T) {
 			name: "wildcard methods are valid",
 			config: &CORSConfigSection{
 				Enable:  testBoolPtr(t, true),
+				Origins: []string{"*"},
 				Methods: []string{"*"},
 			},
 			expectError: false,
@@ -1160,6 +1203,7 @@ func TestCORSConfigSection_Validate(t *testing.T) {
 			name: "mixed valid and wildcard methods",
 			config: &CORSConfigSection{
 				Enable:  testBoolPtr(t, true),
+				Origins: []string{"*"},
 				Methods: []string{"GET", "*", "POST"},
 			},
 			expectError: false,
@@ -1168,7 +1212,7 @@ func TestCORSConfigSection_Validate(t *testing.T) {
 			name: "empty origin is invalid",
 			config: &CORSConfigSection{
 				Enable:  testBoolPtr(t, true),
-				Origins: []string{"localhost:3000", "", "example.com:443"},
+				Origins: []string{"http://localhost:3000", "", "https://example.com:443"},
 			},
 			expectError: true,
 			errorMsg:    "CORS origin cannot be empty",
@@ -1177,6 +1221,7 @@ func TestCORSConfigSection_Validate(t *testing.T) {
 			name: "empty method is invalid",
 			config: &CORSConfigSection{
 				Enable:  testBoolPtr(t, true),
+				Origins: []string{"*"},
 				Methods: []string{"GET", "", "POST"},
 			},
 			expectError: true,
@@ -1186,6 +1231,7 @@ func TestCORSConfigSection_Validate(t *testing.T) {
 			name: "invalid method is rejected",
 			config: &CORSConfigSection{
 				Enable:  testBoolPtr(t, true),
+				Origins: []string{"*"},
 				Methods: []string{"GET", "INVALID", "POST"},
 			},
 			expectError: true,
@@ -1194,8 +1240,9 @@ func TestCORSConfigSection_Validate(t *testing.T) {
 		{
 			name: "zero max age is invalid",
 			config: &CORSConfigSection{
-				Enable: testBoolPtr(t, true),
-				MaxAge: testDurationPtr(t, 0),
+				Enable:  testBoolPtr(t, true),
+				Origins: []string{"*"},
+				MaxAge:  testDurationPtr(t, 0),
 			},
 			expectError: true,
 			errorMsg:    "CORS max age must be positive",
@@ -1203,8 +1250,9 @@ func TestCORSConfigSection_Validate(t *testing.T) {
 		{
 			name: "negative max age is invalid",
 			config: &CORSConfigSection{
-				Enable: testBoolPtr(t, true),
-				MaxAge: testDurationPtr(t, -5*time.Minute),
+				Enable:  testBoolPtr(t, true),
+				Origins: []string{"*"},
+				MaxAge:  testDurationPtr(t, -5*time.Minute),
 			},
 			expectError: true,
 			errorMsg:    "CORS max age must be positive",
@@ -1433,7 +1481,7 @@ func TestAPIConfigSection_Validate(t *testing.T) {
 				},
 				CORS: &CORSConfigSection{
 					Enable:  testBoolPtr(t, true),
-					Origins: []string{"localhost:3000"},
+					Origins: []string{"http://localhost:3000"},
 					Methods: []string{"GET", "POST"},
 				},
 			},
@@ -1493,6 +1541,7 @@ func TestAPIConfigSection_Validate(t *testing.T) {
 				Addr: testStringPtr(t, "localhost:8080"),
 				CORS: &CORSConfigSection{
 					Enable:  testBoolPtr(t, true),
+					Origins: []string{"*"},
 					Methods: []string{"INVALID"}, // Invalid method
 				},
 			},
@@ -1508,6 +1557,7 @@ func TestAPIConfigSection_Validate(t *testing.T) {
 				},
 				CORS: &CORSConfigSection{
 					Enable:  testBoolPtr(t, true),
+					Origins: []string{"*"},
 					Methods: []string{"INVALID"},
 				},
 			},
@@ -1652,7 +1702,7 @@ func TestDaemonConfig_Validate(t *testing.T) {
 					},
 					CORS: &CORSConfigSection{
 						Enable:  testBoolPtr(t, true),
-						Origins: []string{"localhost:3000"},
+						Origins: []string{"http://localhost:3000"},
 					},
 				},
 				MCP: &MCPConfigSection{
@@ -1771,6 +1821,140 @@ func TestContainsValidAddress(t *testing.T) {
 	}
 }
 
+func TestIsValidOrigin(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name     string
+		origin   string
+		expected bool
+	}{
+		// Valid origins.
+		{
+			name:     "http host with port",
+			origin:   "http://localhost:3000",
+			expected: true,
+		},
+		{
+			name:     "https host without port",
+			origin:   "https://app.example.com",
+			expected: true,
+		},
+		{
+			name:     "https host with port",
+			origin:   "https://app.example.com:443",
+			expected: true,
+		},
+		{
+			name:     "http IPv4 with port",
+			origin:   "http://127.0.0.1:8090",
+			expected: true,
+		},
+		{
+			name:     "http IPv6 with port",
+			origin:   "http://[::1]:8090",
+			expected: true,
+		},
+		{
+			name:     "https subdomain wildcard",
+			origin:   "https://*.example.com",
+			expected: true,
+		},
+		{
+			name:     "uppercase scheme",
+			origin:   "HTTP://localhost:3000",
+			expected: true,
+		},
+
+		// Missing or wrong scheme.
+		{
+			name:     "host and port without scheme",
+			origin:   "localhost:3000",
+			expected: false,
+		},
+		{
+			name:     "bare hostname",
+			origin:   "app.example.com",
+			expected: false,
+		},
+		{
+			name:     "scheme-relative",
+			origin:   "//app.example.com",
+			expected: false,
+		},
+		{
+			name:     "non-HTTP scheme",
+			origin:   "ftp://app.example.com",
+			expected: false,
+		},
+		{
+			name:     "file scheme",
+			origin:   "file://",
+			expected: false,
+		},
+
+		// Structurally invalid origins.
+		{
+			name:     "trailing path",
+			origin:   "http://app.example.com/callback",
+			expected: false,
+		},
+		{
+			name:     "trailing slash",
+			origin:   "http://app.example.com/",
+			expected: false,
+		},
+		{
+			name:     "query string",
+			origin:   "http://app.example.com?q=1",
+			expected: false,
+		},
+		{
+			name:     "fragment",
+			origin:   "http://app.example.com#frag",
+			expected: false,
+		},
+		{
+			name:     "userinfo",
+			origin:   "http://user@app.example.com",
+			expected: false,
+		},
+		{
+			name:     "no host",
+			origin:   "http://",
+			expected: false,
+		},
+		{
+			name:     "empty string",
+			origin:   "",
+			expected: false,
+		},
+		{
+			name:     "wildcard alone",
+			origin:   "*",
+			expected: false,
+		},
+		{
+			name:     "null origin",
+			origin:   "null",
+			expected: false,
+		},
+		{
+			name:     "space in host",
+			origin:   "http://app example.com",
+			expected: false,
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			require.Equal(t, tc.expected, isValidOrigin(tc.origin), "Origin: %s", tc.origin)
+		})
+	}
+}
+
 func TestDaemonConfig_Get(t *testing.T) {
 	t.Parallel()
 
@@ -1783,7 +1967,7 @@ func TestDaemonConfig_Get(t *testing.T) {
 			},
 			CORS: &CORSConfigSection{
 				Enable:        testBoolPtr(t, true),
-				Origins:       []string{"localhost:3000", "example.com:443"},
+				Origins:       []string{"http://localhost:3000", "https://example.com:443"},
 				Methods:       []string{"GET", "POST", "PUT"},
 				Headers:       []string{"Content-Type", "Authorization"},
 				ExposeHeaders: []string{"X-Request-ID"},
@@ -1822,7 +2006,7 @@ func TestDaemonConfig_Get(t *testing.T) {
 					},
 					"cors": map[string]any{
 						"enable":            true,
-						"allow_origins":     []string{"localhost:3000", "example.com:443"},
+						"allow_origins":     []string{"http://localhost:3000", "https://example.com:443"},
 						"allow_methods":     []string{"GET", "POST", "PUT"},
 						"allow_headers":     []string{"Content-Type", "Authorization"},
 						"expose_headers":    []string{"X-Request-ID"},
@@ -1853,7 +2037,7 @@ func TestDaemonConfig_Get(t *testing.T) {
 				},
 				"cors": map[string]any{
 					"enable":            true,
-					"allow_origins":     []string{"localhost:3000", "example.com:443"},
+					"allow_origins":     []string{"http://localhost:3000", "https://example.com:443"},
 					"allow_methods":     []string{"GET", "POST", "PUT"},
 					"allow_headers":     []string{"Content-Type", "Authorization"},
 					"expose_headers":    []string{"X-Request-ID"},
@@ -1888,7 +2072,7 @@ func TestDaemonConfig_Get(t *testing.T) {
 			keys:   []string{"api", "cors"},
 			expectedResult: map[string]any{
 				"enable":            true,
-				"allow_origins":     []string{"localhost:3000", "example.com:443"},
+				"allow_origins":     []string{"http://localhost:3000", "https://example.com:443"},
 				"allow_methods":     []string{"GET", "POST", "PUT"},
 				"allow_headers":     []string{"Content-Type", "Authorization"},
 				"expose_headers":    []string{"X-Request-ID"},
@@ -1906,7 +2090,7 @@ func TestDaemonConfig_Get(t *testing.T) {
 			name:           "get api cors allow_origins",
 			config:         fullConfig,
 			keys:           []string{"api", "cors", "allow_origins"},
-			expectedResult: []string{"localhost:3000", "example.com:443"},
+			expectedResult: []string{"http://localhost:3000", "https://example.com:443"},
 		},
 		{
 			name:   "get mcp section",
@@ -2002,7 +2186,7 @@ func TestAPIConfigSection_Get(t *testing.T) {
 		},
 		CORS: &CORSConfigSection{
 			Enable:      testBoolPtr(t, false),
-			Origins:     []string{"app.example.com:443"},
+			Origins:     []string{"https://app.example.com:443"},
 			Methods:     []string{"GET", "POST"},
 			Headers:     []string{"Authorization"},
 			Credentials: testBoolPtr(t, true),
@@ -2028,7 +2212,7 @@ func TestAPIConfigSection_Get(t *testing.T) {
 				},
 				"cors": map[string]any{
 					"enable":            false,
-					"allow_origins":     []string{"app.example.com:443"},
+					"allow_origins":     []string{"https://app.example.com:443"},
 					"allow_methods":     []string{"GET", "POST"},
 					"allow_headers":     []string{"Authorization"},
 					"allow_credentials": true,
@@ -2062,7 +2246,7 @@ func TestAPIConfigSection_Get(t *testing.T) {
 			keys:   []string{"cors"},
 			expectedResult: map[string]any{
 				"enable":            false,
-				"allow_origins":     []string{"app.example.com:443"},
+				"allow_origins":     []string{"https://app.example.com:443"},
 				"allow_methods":     []string{"GET", "POST"},
 				"allow_headers":     []string{"Authorization"},
 				"allow_credentials": true,
@@ -2079,7 +2263,7 @@ func TestAPIConfigSection_Get(t *testing.T) {
 			name:           "get cors allow_origins",
 			config:         fullConfig,
 			keys:           []string{"cors", "allow_origins"},
-			expectedResult: []string{"app.example.com:443"},
+			expectedResult: []string{"https://app.example.com:443"},
 		},
 		{
 			name:           "get from empty config returns empty map",
@@ -2142,7 +2326,7 @@ func TestCORSConfigSection_Get(t *testing.T) {
 	// Create a fully populated CORS config for testing
 	fullConfig := &CORSConfigSection{
 		Enable:        testBoolPtr(t, true),
-		Origins:       []string{"localhost:3000", "example.com:443"},
+		Origins:       []string{"http://localhost:3000", "https://example.com:443"},
 		Methods:       []string{"GET", "POST", "PUT", "DELETE"},
 		Headers:       []string{"Content-Type", "Authorization", "X-Requested-With"},
 		ExposeHeaders: []string{"X-Request-ID", "X-Response-Time"},
@@ -2163,7 +2347,7 @@ func TestCORSConfigSection_Get(t *testing.T) {
 			keys:   []string{},
 			expectedResult: map[string]any{
 				"enable":            true,
-				"allow_origins":     []string{"localhost:3000", "example.com:443"},
+				"allow_origins":     []string{"http://localhost:3000", "https://example.com:443"},
 				"allow_methods":     []string{"GET", "POST", "PUT", "DELETE"},
 				"allow_headers":     []string{"Content-Type", "Authorization", "X-Requested-With"},
 				"expose_headers":    []string{"X-Request-ID", "X-Response-Time"},
@@ -2181,7 +2365,7 @@ func TestCORSConfigSection_Get(t *testing.T) {
 			name:           "get allow_origins",
 			config:         fullConfig,
 			keys:           []string{"allow_origins"},
-			expectedResult: []string{"localhost:3000", "example.com:443"},
+			expectedResult: []string{"http://localhost:3000", "https://example.com:443"},
 		},
 		{
 			name:           "get allow_methods",

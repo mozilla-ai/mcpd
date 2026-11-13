@@ -58,13 +58,15 @@ func (c *RemoveCmd) run(cmd *cobra.Command, args []string) error {
 		if err != nil {
 			return err // Already has full path context from domain object
 		}
-
-		_, _ = fmt.Fprintf(cmd.OutOrStdout(), "✓ Removed daemon config '%s'\n", key)
 	}
 
-	// Save config
+	// Save config first, then output results only if successful
 	if err := cfg.SaveConfig(); err != nil {
 		return fmt.Errorf("failed to save config: %w", err)
+	}
+
+	for _, key := range args {
+		_, _ = fmt.Fprintf(cmd.OutOrStdout(), "✓ Removed daemon config '%s'\n", key)
 	}
 
 	return nil

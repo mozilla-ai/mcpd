@@ -35,22 +35,38 @@ Controls the HTTP API server settings.
 
 | Setting                | Type       | Description                     | Default        | Example          |
 |------------------------|------------|---------------------------------|----------------|------------------|
-| `api.addr`             | `string`   | Server bind address (host:port) | `0.0.0.0:8090` | `localhost:8080` |
+| `api.addr`             | `string`   | Server bind address (host:port) | `127.0.0.1:8090` | `0.0.0.0:8080`   |
 | `api.timeout.shutdown` | `duration` | Graceful shutdown timeout       | `30s`          | `60s`            |
+
+The daemon binds a loopback address by default, so only the machine it runs on can reach the API. Set `api.addr` to `0.0.0.0:8090` to accept connections from elsewhere, and restrict who can reach that port.
+
+When the daemon is bound to a loopback address, it serves requests addressed only to `localhost`, `127.0.0.1` or `::1`, and refuses any other `Host` with `403` and the detail `Requests addressed to this host are not served.` This is what stops a web page that repoints its own name at the daemon address. When the daemon is bound to a routable address, requests for any host name are served, because the names clients use through a service alias, an ingress or a proxy cannot be known in advance.
+
+A reverse proxy in front of a loopback-bound daemon must therefore send a `Host` the daemon serves. Most proxies preserve the client's `Host` by default, so set it explicitly, for example `proxy_set_header Host 127.0.0.1:8090;` in nginx.
+
+A container is the exception. Bind `0.0.0.0` inside the container, because the container network namespace is the boundary, then publish the port on the host loopback with `-p 127.0.0.1:8090:8090`. A client on a Docker network, a Compose project, a Kubernetes cluster or a CI job reaches the daemon by service name and needs no published port.
 
 #### CORS Configuration (`api.cors.*`)
 
 Cross-Origin Resource Sharing settings for browser clients.
 
-| Setting                      | Type       | Description                   | Default                             | Example                                         |
-|------------------------------|------------|-------------------------------|-------------------------------------|-------------------------------------------------|
-| `api.cors.enable`            | `bool`     | Enable CORS support           | `false`                             | `true`                                          |
-| `api.cors.allow_origins`     | `[]string` | Allowed request origins       | `["*"]`                             | `["localhost:3000", "https://app.example.com"]` |
-| `api.cors.allow_methods`     | `[]string` | Allowed HTTP methods          | `["GET", "POST", "PUT", "DELETE"]`  | `["GET", "POST"]`                               |
-| `api.cors.allow_headers`     | `[]string` | Allowed request headers       | `["Content-Type", "Authorization"]` | `["Content-Type", "API-Key"]`                   |
-| `api.cors.expose_headers`    | `[]string` | Headers exposed to client     | `[]`                                | `["ETag", "Last-Modified"]`                     |
-| `api.cors.allow_credentials` | `bool`     | Allow credentials in requests | `false`                             | `true`                                          |
-| `api.cors.max_age`           | `duration` | Preflight cache duration      | `0s`                                | `24h`                                           |
+| Setting                      | Type       | Description                                             | Default                             | Example                                                |
+|------------------------------|------------|---------------------------------------------------------|-------------------------------------|--------------------------------------------------------|
+| `api.cors.enable`            | `bool`     | Enable CORS support                                     | `false`                             | `true`                                                 |
+| `api.cors.allow_origins`     | `[]string` | Allowed request origins (required when CORS is enabled) | `[]`                                | `["http://localhost:3000", "https://app.example.com"]` |
+| `api.cors.allow_methods`     | `[]string` | Allowed HTTP methods                                    | `["GET", "POST", "PUT", "DELETE", "OPTIONS"]`  | `["GET", "POST"]`                                      |
+| `api.cors.allow_headers`     | `[]string` | Allowed request headers                                 | `["Accept", "Accept-Language", "Content-Language", "Content-Type", "Range"]` | `["Content-Type", "API-Key"]`                          |
+| `api.cors.expose_headers`    | `[]string` | Headers exposed to client                               | `[]`                                | `["ETag", "Last-Modified"]`                            |
+| `api.cors.allow_credentials` | `bool`     | Allow credentials in requests                           | `false`                             | `true`                                                 |
+| `api.cors.max_age`           | `duration` | Preflight cache duration                                | `5m`                                | `24h`                                                  |
+
+An origin is a scheme, a host and an optional port, such as `http://localhost:3000`. A bare `localhost:3000` is not an origin, because a browser never sends one in the `Origin` header, so it is rejected.
+
+The daemon refuses a browser request whose `Origin` it does not serve, whether or not CORS is enabled. Its own origins are always served, so its API documentation page at `/docs` works with no configuration. `api.cors.allow_origins` names the additional origins a browser application may call from, and `["*"]` allows any origin. A refused request receives `403` with the detail `Requests from this origin are not allowed.`
+
+`api.cors.allow_origins` is required when `api.cors.enable` is `true`, because an empty list would otherwise instruct the CORS layer to return `Access-Control-Allow-Origin` for every origin.
+
+A request carrying no `Origin` header is always served. Only a browser sets that header, so command line clients, SDKs and service to service callers are unaffected by either rule.
 
 ### MCP Configuration (`mcp.*`)
 
@@ -79,11 +95,11 @@ mcpd config daemon set api.timeout.shutdown="60s"
 ### CORS Configuration
 
 ```bash
+# Set allowed origins, which CORS cannot be enabled without
+mcpd config daemon set api.cors.allow_origins="http://localhost:3000,https://app.example.com"
+
 # Enable CORS
 mcpd config daemon set api.cors.enable=true
-
-# Set allowed origins
-mcpd config daemon set api.cors.allow_origins="localhost:3000,https://app.example.com"
 
 # Allow credentials
 mcpd config daemon set api.cors.allow_credentials=true
@@ -157,7 +173,7 @@ Configuration is stored in the `.mcpd.toml` file in TOML format:
       shutdown = "1m0s"
     [daemon.api.cors]
       enable = true
-      allow_origins = ["localhost:3000", "https://app.example.com"]
+      allow_origins = ["http://localhost:3000", "https://app.example.com"]
       allow_credentials = true
       max_age = "24h0m0s"
   [daemon.mcp]
@@ -184,7 +200,7 @@ Duration values follow this time/duration format:
 
 String arrays can be provided as comma-separated values:
 ```bash
-mcpd config daemon set api.cors.allow_origins "localhost:3000,https://app.example.com"
+mcpd config daemon set api.cors.allow_origins "http://localhost:3000,https://app.example.com"
 ```
 
 ### Boolean Values

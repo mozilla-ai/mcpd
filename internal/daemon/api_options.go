@@ -46,6 +46,9 @@ type CORSConfig struct {
 
 	// AllowOrigins specifies which origins can access the API.
 	// Use ["*"] to allow all origins (not recommended for production).
+	//
+	// NOTE: go-chi/cors treats an empty slice as "*", so leaving this unset allows every origin
+	// rather than none.
 	AllowOrigins []string
 
 	// ExposedHeaders specifies which response headers are accessible to the client.

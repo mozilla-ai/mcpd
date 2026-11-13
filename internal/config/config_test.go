@@ -1046,3 +1046,24 @@ func TestMovePlugin_ErrorWithoutForceWhenDuplicateExists(t *testing.T) {
 	require.ErrorContains(t, err, "already exists")
 	require.Equal(t, "noop", string(result))
 }
+
+func TestSaveConfig_RefusesAConfigItCannotLoad(t *testing.T) {
+	t.Parallel()
+
+	path := t.TempDir() + "/.mcpd.toml"
+	cfg := &Config{
+		configFilePath: path,
+		Daemon: &DaemonConfig{
+			API: &APIConfigSection{
+				CORS: &CORSConfigSection{
+					Enable: testBoolPtr(t, true),
+				},
+			},
+		},
+	}
+
+	err := cfg.saveConfig()
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "CORS is enabled but no origins are allowed")
+	require.NoFileExists(t, path, "an invalid config must not reach disk")
+}

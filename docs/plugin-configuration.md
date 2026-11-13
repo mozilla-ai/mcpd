@@ -343,7 +343,7 @@ A containerized `mcpd` cannot see plugin binaries on the host unless the directo
 mounted. Mount it and point `[plugins].dir` at the path **inside** the container:
 
 ```bash
-docker run  -p 8090:8090 \
+docker run  -p 127.0.0.1:8090:8090 \
             -v $PWD/.mcpd.toml:/etc/mcpd/.mcpd.toml \
             -v $PWD/plugins:/etc/mcpd/plugins:ro \
             -v $HOME/.config/mcpd/secrets.dev.toml:/home/mcpd/.config/mcpd/secrets.prod.toml \

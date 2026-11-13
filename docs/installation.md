@@ -109,8 +109,12 @@ The [Dockerfile](https://github.com/mozilla-ai/mcpd/blob/main/Dockerfile) define
 
 To run `mcpd` with Docker, map the required port and bind mount your `.mcpd.toml` configuration file and runtime secrets file:
 
+The examples publish the port on `127.0.0.1`, so only the host can reach the API. Publishing as `-p 8090:8090` instead binds every host interface, which exposes the API to the local network. Docker installs its own packet filter rules, so a host firewall does not always prevent that.
+
+A container that reaches `mcpd` over a Docker network, a Compose project, a Kubernetes cluster or a CI job does not need the port published at all. Those clients connect by service name or alias on the internal network.
+
 ```bash
-docker run  -p 8090:8090 \
+docker run  -p 127.0.0.1:8090:8090 \
             -v $PWD/.mcpd.toml:/etc/mcpd/.mcpd.toml \
             -v $HOME/.config/mcpd/secrets.dev.toml:/home/mcpd/.config/mcpd/secrets.prod.toml \
             -e MCPD_LOG_LEVEL=debug \
@@ -123,7 +127,7 @@ If you have `[plugins]` configured, bind mount the plugin directory as well and 
 `[plugins].dir` at the in-container path:
 
 ```bash
-docker run  -p 8090:8090 \
+docker run  -p 127.0.0.1:8090:8090 \
             -v $PWD/.mcpd.toml:/etc/mcpd/.mcpd.toml \
             -v $PWD/plugins:/etc/mcpd/plugins:ro \
             -v $HOME/.config/mcpd/secrets.dev.toml:/home/mcpd/.config/mcpd/secrets.prod.toml \
@@ -145,7 +149,7 @@ not for your host's toolchain default; a mismatch fails with `exec format error`
 If your MCP servers use the Docker runtime, mount the host's Docker socket to allow mcpd to manage containers on the host:
 
 ```bash
-docker run  -p 8090:8090 \
+docker run  -p 127.0.0.1:8090:8090 \
             -v /var/run/docker.sock:/var/run/docker.sock \
             -v $PWD/.mcpd.toml:/etc/mcpd/.mcpd.toml \
             -v $HOME/.config/mcpd/secrets.dev.toml:/home/mcpd/.config/mcpd/secrets.prod.toml \

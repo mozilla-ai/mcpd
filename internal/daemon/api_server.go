@@ -5,6 +5,7 @@ import (
 	stdErrors "errors"
 	"fmt"
 	"net/http"
+	"slices"
 	"strings"
 	"time"
 
@@ -73,21 +74,67 @@ func NewAPIServer(deps APIDependencies, opt ...APIOption) (*APIServer, error) {
 	}, nil
 }
 
-// Start starts the API server and blocks until the context is canceled or an error occurs.
-func (a *APIServer) Start(ctx context.Context) error {
+// allowedOrigins returns the origins permitted to drive the API.
+//
+// The daemon's own origins are always permitted, so its API documentation page works without
+// configuration. The operator's origins are copied, because the CORS layer rewrites the slice it
+// is given.
+func (a *APIServer) allowedOrigins() []string {
+	return append(ownOrigins(a.addr), slices.Clone(a.cors.AllowOrigins)...)
+}
+
+// applyCORS applies CORS middleware to the router based on the configured options.
+func (a *APIServer) applyCORS(mux *chi.Mux) {
+	a.logger.Info("Enabling CORS", "origins", a.cors.AllowOrigins)
+
+	corsOptions := cors.Options{
+		AllowedOrigins:   slices.Clone(a.cors.AllowOrigins),
+		AllowedMethods:   a.cors.AllowMethods,
+		AllowedHeaders:   a.cors.AllowedHeaders,
+		ExposedHeaders:   a.cors.ExposedHeaders,
+		AllowCredentials: a.cors.AllowCredentials,
+		MaxAge:           int(a.cors.MaxAge.Seconds()),
+	}
+
+	// Handle wildcard origins properly.
+	for i, origin := range corsOptions.AllowedOrigins {
+		if origin == "*" {
+			corsOptions.AllowedOrigins = []string{"*"}
+			corsOptions.AllowCredentials = false
+			break
+		}
+		corsOptions.AllowedOrigins[i] = strings.TrimSpace(origin)
+	}
+
+	mux.Use(cors.Handler(corsOptions))
+}
+
+// handler builds the HTTP handler stack the API serves, and reports the path prefix it is served under.
+func (a *APIServer) handler(ctx context.Context) (http.Handler, string, error) {
 	// Create router.
 	mux := chi.NewMux()
 	mux.Use(middleware.StripSlashes)
+
+	// Refuse a host the daemon does not serve, ahead of every other check so a rebinding page
+	// cannot reach the preflight handler either.
+	mux.Use(requireAllowedHost(allowedHosts(a.addr)))
 
 	// Add CORS middleware if enabled.
 	if a.cors.Enabled {
 		a.applyCORS(mux)
 	}
 
+	// Refuse a browser request from an origin the daemon does not serve or the operator has
+	// not allowed.
+	mux.Use(requireAllowedOrigin(a.allowedOrigins()))
+
+	// Reject non-JSON bodies before any plugin or handler reads the request.
+	mux.Use(requireJSONContentType)
+
 	// Initialize and apply middleware (plugins or no-op).
 	middlewareFunc, err := a.middlewareProvider(ctx)
 	if err != nil {
-		return fmt.Errorf("failed to initialize middleware: %w", err)
+		return nil, "", fmt.Errorf("failed to initialize middleware: %w", err)
 	}
 	mux.Use(middlewareFunc)
 
@@ -102,9 +149,6 @@ func (a *APIServer) Start(ctx context.Context) error {
 
 	router := humachi.New(mux, config)
 
-	// Configure the error handling wrapping.
-	huma.NewErrorWithContext = errorHandler(a.logger)
-
 	// Register all API routes.
 	apiPathPrefix, err := api.RegisterRoutes(
 		router,
@@ -113,8 +157,22 @@ func (a *APIServer) Start(ctx context.Context) error {
 		api.WithToolCallTimeout(a.toolCallTimeout),
 	)
 	if err != nil {
-		return fmt.Errorf("failed to register API routes: %w", err)
+		return nil, "", fmt.Errorf("failed to register API routes: %w", err)
 	}
+
+	return mux, apiPathPrefix, nil
+}
+
+// Start starts the API server and blocks until the context is canceled or an error occurs.
+func (a *APIServer) Start(ctx context.Context) error {
+	mux, apiPathPrefix, err := a.handler(ctx)
+	if err != nil {
+		return err
+	}
+
+	// NOTE: The error handler is a package-level value in the API framework, so it is set once
+	// here rather than while building the handler, which a test may do concurrently.
+	huma.NewErrorWithContext = errorHandler(a.logger)
 
 	srv := &http.Server{
 		Addr:    a.addr,
@@ -127,6 +185,18 @@ func (a *APIServer) Start(ctx context.Context) error {
 		a.logger.Info("Starting API server", "address", a.addr, "prefix", apiPathPrefix)
 		if a.cors.Enabled {
 			a.logger.Info("CORS enabled", "origins", a.cors.AllowOrigins)
+		}
+		if !isLoopbackBind(a.addr) {
+			a.logger.Warn(
+				"Bound to a routable address, so requests for any host name are served",
+				"address", a.addr,
+			)
+		}
+		if slices.Contains(a.cors.AllowOrigins, "*") {
+			a.logger.Warn(
+				"Wildcard CORS origin lets any website call this API",
+				"action", "name each origin that may call the API",
+			)
 		}
 		if err := srv.ListenAndServe(); err != nil && !stdErrors.Is(err, http.ErrServerClosed) {
 			errCh <- err
@@ -148,30 +218,24 @@ func (a *APIServer) Start(ctx context.Context) error {
 	}
 }
 
-// applyCORS applies CORS middleware to the router based on the configured options.
-func (a *APIServer) applyCORS(mux *chi.Mux) {
-	a.logger.Info("Enabling CORS", "origins", a.cors.AllowOrigins)
-
-	corsOptions := cors.Options{
-		AllowedOrigins:   a.cors.AllowOrigins,
-		AllowedMethods:   a.cors.AllowMethods,
-		AllowedHeaders:   a.cors.AllowedHeaders,
-		ExposedHeaders:   a.cors.ExposedHeaders,
-		AllowCredentials: a.cors.AllowCredentials,
-		MaxAge:           int(a.cors.MaxAge.Seconds()),
-	}
-
-	// Handle wildcard origins properly.
-	for i, origin := range corsOptions.AllowedOrigins {
-		if origin == "*" {
-			corsOptions.AllowedOrigins = []string{"*"}
-			corsOptions.AllowCredentials = false
-			break
+// errorHandler wraps error handling for the application when converting to API friendly errors.
+// It allows the logger to be supplied to functions that resolve huma.StatusError,
+// and it supports different behaviors based on the variadic errors parameter.
+func errorHandler(logger hclog.Logger) func(_ huma.Context, status int, msg string, errs ...error) huma.StatusError {
+	return func(_ huma.Context, status int, msg string, errs ...error) huma.StatusError {
+		switch len(errs) {
+		case 0:
+			// No errors provided; return a generic error.
+			return huma.NewError(status, msg)
+		case 1:
+			// Single error; map it directly.
+			return mapError(logger, errs[0])
+		default:
+			// Multiple errors; join them and map.
+			combinedErr := stdErrors.Join(errs...)
+			return mapError(logger, combinedErr)
 		}
-		corsOptions.AllowedOrigins[i] = strings.TrimSpace(origin)
 	}
-
-	mux.Use(cors.Handler(corsOptions))
 }
 
 // mapError maps application domain errors to appropriate HTTP status codes.
@@ -244,25 +308,5 @@ func mapError(logger hclog.Logger, err error) huma.StatusError {
 	default:
 		logger.Error("Unexpected error interacting with MCP server", "error", err)
 		return huma.Error500InternalServerError("Internal server error", err)
-	}
-}
-
-// errorHandler wraps error handling for the application when converting to API friendly errors.
-// It allows the logger to be supplied to functions that resolve huma.StatusError,
-// and it supports different behaviors based on the variadic errors parameter.
-func errorHandler(logger hclog.Logger) func(_ huma.Context, status int, msg string, errs ...error) huma.StatusError {
-	return func(_ huma.Context, status int, msg string, errs ...error) huma.StatusError {
-		switch len(errs) {
-		case 0:
-			// No errors provided; return a generic error.
-			return huma.NewError(status, msg)
-		case 1:
-			// Single error; map it directly.
-			return mapError(logger, errs[0])
-		default:
-			// Multiple errors; join them and map.
-			combinedErr := stdErrors.Join(errs...)
-			return mapError(logger, combinedErr)
-		}
 	}
 }
