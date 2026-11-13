@@ -1,48 +1,62 @@
 package daemon
 
 import (
+	"context"
 	"fmt"
+	"net/http"
+	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/hashicorp/go-hclog"
+	"github.com/mark3labs/mcp-go/mcp"
 	"github.com/stretchr/testify/require"
 
 	"github.com/mozilla-ai/mcpd/internal/errors"
 )
 
-func TestNewAPIServer_AppliesDefaults(t *testing.T) {
-	t.Parallel()
+// mockMCPClientWithToolResult returns a successful tool result, so a permitted request reaches 200
+// and a test can tell a served request from one refused or failed further down.
+type mockMCPClientWithToolResult struct {
+	*mockMCPClient
+}
+
+func (c *mockMCPClientWithToolResult) CallTool(_ context.Context, _ mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+	return &mcp.CallToolResult{
+		Content: []mcp.Content{mcp.TextContent{Type: "text", Text: "ok"}},
+	}, nil
+}
+
+// newTestAPIHandler builds the full API handler with one server and one tool registered.
+func newTestAPIHandler(t *testing.T, opt ...APIOption) http.Handler {
 	t.Helper()
+
+	clients := NewClientManager()
+	clients.Add("notes", &mockMCPClientWithToolResult{mockMCPClient: &mockMCPClient{}}, []string{"write_note", "read_note"})
 
 	deps, err := NewAPIDependencies(
 		hclog.NewNullLogger(),
-		NewClientManager(),
-		NewHealthTracker([]string{"test-server"}),
-		"localhost:8090",
+		clients,
+		NewHealthTracker([]string{"notes"}),
+		"127.0.0.1:8090",
 	)
 	require.NoError(t, err)
 
-	// Test with no options - should get defaults
-	server, err := NewAPIServer(deps)
+	server, err := NewAPIServer(deps, opt...)
 	require.NoError(t, err)
-	require.NotNil(t, server)
-	require.Equal(t, DefaultAPIShutdownTimeout(), server.shutdownTimeout)
-	require.False(t, server.cors.Enabled)
 
-	// Test with some options - should get defaults + overrides
-	server2, err := NewAPIServer(deps, WithShutdownTimeout(10*time.Second), WithCORSEnabled(true))
+	handler, _, err := server.handler(context.Background())
 	require.NoError(t, err)
-	require.NotNil(t, server2)
-	require.Equal(t, 10*time.Second, server2.shutdownTimeout)
-	require.True(t, server2.cors.Enabled)
 
-	// Test with nil options - should still work
-	server3, err := NewAPIServer(deps, nil, WithShutdownTimeout(3*time.Second), nil)
-	require.NoError(t, err)
-	require.NotNil(t, server3)
-	require.Equal(t, 3*time.Second, server3.shutdownTimeout)
+	return handler
+}
+
+// Test helper to create a chi mux for testing
+func testNewChiMux(t *testing.T) *chi.Mux {
+	t.Helper()
+	return chi.NewMux()
 }
 
 func TestAPIServer_ApplyCORS(t *testing.T) {
@@ -282,10 +296,78 @@ func TestAPIServer_CORSIntegration(t *testing.T) {
 	})
 }
 
-// Test helper to create a chi mux for testing
-func testNewChiMux(t *testing.T) *chi.Mux {
-	t.Helper()
-	return chi.NewMux()
+// TestAPIServer_CrossSiteToolCallRefused covers a page that omits Content-Type so the browser
+// sends the request without asking permission first.
+func TestAPIServer_CrossSiteToolCallRefused(t *testing.T) {
+	t.Parallel()
+
+	req := httptest.NewRequest(
+		http.MethodPost,
+		"/api/v1/servers/notes/tools/write_note",
+		strings.NewReader(`{"text":"canary"}`),
+	)
+	req.Header.Del("Content-Type")
+	req.Header.Set("Origin", "http://evil.example")
+
+	rec := httptest.NewRecorder()
+	newTestAPIHandler(t).ServeHTTP(rec, req)
+
+	require.Equal(t, http.StatusForbidden, rec.Code)
+}
+
+// TestAPIServer_LocalClientStillServed confirms the refusals above do not reach a client that
+// sends no Origin header, such as a command line tool, an SDK or a service on an internal network.
+func TestAPIServer_LocalClientStillServed(t *testing.T) {
+	t.Parallel()
+
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/servers", nil)
+
+	rec := httptest.NewRecorder()
+	newTestAPIHandler(t).ServeHTTP(rec, req)
+
+	require.Equal(t, http.StatusOK, rec.Code)
+	require.Contains(t, rec.Body.String(), "notes")
+}
+
+// TestAPIServer_RebindingToolCallRefused covers a page that has rebound its own name to the
+// daemon address, so the browser treats the daemon as same origin and can read the reply.
+func TestAPIServer_RebindingToolCallRefused(t *testing.T) {
+	t.Parallel()
+
+	req := httptest.NewRequest(
+		http.MethodPost,
+		"/api/v1/servers/notes/tools/read_note",
+		strings.NewReader(`{}`),
+	)
+	req.Host = "evil.example:8090"
+	req.Header.Del("Content-Type")
+	req.Header.Set("Origin", "http://evil.example:8090")
+
+	rec := httptest.NewRecorder()
+	newTestAPIHandler(t).ServeHTTP(rec, req)
+
+	require.Equal(t, http.StatusForbidden, rec.Code)
+}
+
+// TestAPIServer_WildcardOriginPermitsCalls covers an operator who allowed every origin. The
+// daemon honors that, so the gate must not refuse the request.
+func TestAPIServer_WildcardOriginPermitsCalls(t *testing.T) {
+	t.Parallel()
+
+	handler := newTestAPIHandler(t, WithCORSEnabled(true), WithCORSAllowOrigins([]string{"*"}))
+
+	req := httptest.NewRequest(
+		http.MethodPost,
+		"/api/v1/servers/notes/tools/write_note",
+		strings.NewReader(`{"text":"canary"}`),
+	)
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Origin", "http://evil.example")
+
+	rec := httptest.NewRecorder()
+	handler.ServeHTTP(rec, req)
+
+	require.Equal(t, http.StatusOK, rec.Code)
 }
 
 func TestMapError(t *testing.T) {
@@ -408,4 +490,37 @@ func TestMapError(t *testing.T) {
 			require.Equal(t, tc.expectedStatus, statusErr.GetStatus())
 		})
 	}
+}
+
+func TestNewAPIServer_AppliesDefaults(t *testing.T) {
+	t.Parallel()
+	t.Helper()
+
+	deps, err := NewAPIDependencies(
+		hclog.NewNullLogger(),
+		NewClientManager(),
+		NewHealthTracker([]string{"test-server"}),
+		"localhost:8090",
+	)
+	require.NoError(t, err)
+
+	// Test with no options - should get defaults
+	server, err := NewAPIServer(deps)
+	require.NoError(t, err)
+	require.NotNil(t, server)
+	require.Equal(t, DefaultAPIShutdownTimeout(), server.shutdownTimeout)
+	require.False(t, server.cors.Enabled)
+
+	// Test with some options - should get defaults + overrides
+	server2, err := NewAPIServer(deps, WithShutdownTimeout(10*time.Second), WithCORSEnabled(true))
+	require.NoError(t, err)
+	require.NotNil(t, server2)
+	require.Equal(t, 10*time.Second, server2.shutdownTimeout)
+	require.True(t, server2.cors.Enabled)
+
+	// Test with nil options - should still work
+	server3, err := NewAPIServer(deps, nil, WithShutdownTimeout(3*time.Second), nil)
+	require.NoError(t, err)
+	require.NotNil(t, server3)
+	require.Equal(t, 3*time.Second, server3.shutdownTimeout)
 }

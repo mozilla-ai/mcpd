@@ -76,52 +76,14 @@ func NewAPIServer(deps APIDependencies, opt ...APIOption) (*APIServer, error) {
 
 // Start starts the API server and blocks until the context is canceled or an error occurs.
 func (a *APIServer) Start(ctx context.Context) error {
-	// Create router.
-	mux := chi.NewMux()
-	mux.Use(middleware.StripSlashes)
-
-	// Add CORS middleware if enabled.
-	if a.cors.Enabled {
-		a.applyCORS(mux)
-	}
-
-	// Refuse a browser request from an origin the operator has not allowed.
-	mux.Use(requireAllowedOrigin(a.cors.AllowOrigins))
-
-	// Reject non-JSON bodies before any plugin or handler reads the request.
-	mux.Use(requireJSONContentType)
-
-	// Initialize and apply middleware (plugins or no-op).
-	middlewareFunc, err := a.middlewareProvider(ctx)
+	mux, apiPathPrefix, err := a.handler(ctx)
 	if err != nil {
-		return fmt.Errorf("failed to initialize middleware: %w", err)
+		return err
 	}
-	mux.Use(middlewareFunc)
 
-	// Set the version to match the API version (not the application version).
-	config := huma.DefaultConfig("mcpd docs", api.APIVersion)
-
-	// Register API transformers.
-	// IMPORTANT: Prepend our transformers to run BEFORE Huma's defaults (including the link transformer).
-	// This ensures that when we modify response types (e.g., Tool → ToolMinimal), the link transformer
-	// adds the correct $schema for the filtered response type.
-	config.Transformers = append(api.Transformers(), config.Transformers...)
-
-	router := humachi.New(mux, config)
-
-	// Configure the error handling wrapping.
+	// NOTE: The error handler is a package-level value in the API framework, so it is set once
+	// here rather than while building the handler, which a test may do concurrently.
 	huma.NewErrorWithContext = errorHandler(a.logger)
-
-	// Register all API routes.
-	apiPathPrefix, err := api.RegisterRoutes(
-		router,
-		a.healthTracker,
-		a.clientManager,
-		api.WithToolCallTimeout(a.toolCallTimeout),
-	)
-	if err != nil {
-		return fmt.Errorf("failed to register API routes: %w", err)
-	}
 
 	srv := &http.Server{
 		Addr:    a.addr,
@@ -185,6 +147,55 @@ func (a *APIServer) applyCORS(mux *chi.Mux) {
 	}
 
 	mux.Use(cors.Handler(corsOptions))
+}
+
+// handler builds the HTTP handler stack the API serves, and reports the path prefix it is served under.
+func (a *APIServer) handler(ctx context.Context) (http.Handler, string, error) {
+	// Create router.
+	mux := chi.NewMux()
+	mux.Use(middleware.StripSlashes)
+
+	// Add CORS middleware if enabled.
+	if a.cors.Enabled {
+		a.applyCORS(mux)
+	}
+
+	// Refuse a browser request from an origin the operator has not allowed.
+	mux.Use(requireAllowedOrigin(a.cors.AllowOrigins))
+
+	// Reject non-JSON bodies before any plugin or handler reads the request.
+	mux.Use(requireJSONContentType)
+
+	// Initialize and apply middleware (plugins or no-op).
+	middlewareFunc, err := a.middlewareProvider(ctx)
+	if err != nil {
+		return nil, "", fmt.Errorf("failed to initialize middleware: %w", err)
+	}
+	mux.Use(middlewareFunc)
+
+	// Set the version to match the API version (not the application version).
+	config := huma.DefaultConfig("mcpd docs", api.APIVersion)
+
+	// Register API transformers.
+	// IMPORTANT: Prepend our transformers to run BEFORE Huma's defaults (including the link transformer).
+	// This ensures that when we modify response types (e.g., Tool → ToolMinimal), the link transformer
+	// adds the correct $schema for the filtered response type.
+	config.Transformers = append(api.Transformers(), config.Transformers...)
+
+	router := humachi.New(mux, config)
+
+	// Register all API routes.
+	apiPathPrefix, err := api.RegisterRoutes(
+		router,
+		a.healthTracker,
+		a.clientManager,
+		api.WithToolCallTimeout(a.toolCallTimeout),
+	)
+	if err != nil {
+		return nil, "", fmt.Errorf("failed to register API routes: %w", err)
+	}
+
+	return mux, apiPathPrefix, nil
 }
 
 // mapError maps application domain errors to appropriate HTTP status codes.
