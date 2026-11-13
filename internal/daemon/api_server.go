@@ -74,55 +74,6 @@ func NewAPIServer(deps APIDependencies, opt ...APIOption) (*APIServer, error) {
 	}, nil
 }
 
-// Start starts the API server and blocks until the context is canceled or an error occurs.
-func (a *APIServer) Start(ctx context.Context) error {
-	mux, apiPathPrefix, err := a.handler(ctx)
-	if err != nil {
-		return err
-	}
-
-	// NOTE: The error handler is a package-level value in the API framework, so it is set once
-	// here rather than while building the handler, which a test may do concurrently.
-	huma.NewErrorWithContext = errorHandler(a.logger)
-
-	srv := &http.Server{
-		Addr:    a.addr,
-		Handler: mux,
-	}
-	errCh := make(chan error, 1)
-
-	// Start the API.
-	go func() {
-		a.logger.Info("Starting API server", "address", a.addr, "prefix", apiPathPrefix)
-		if a.cors.Enabled {
-			a.logger.Info("CORS enabled", "origins", a.cors.AllowOrigins)
-		}
-		if slices.Contains(a.cors.AllowOrigins, "*") {
-			a.logger.Warn(
-				"Wildcard CORS origin lets any website call this API",
-				"action", "name each origin that may call the API",
-			)
-		}
-		if err := srv.ListenAndServe(); err != nil && !stdErrors.Is(err, http.ErrServerClosed) {
-			errCh <- err
-		}
-		close(errCh)
-	}()
-
-	// Handle graceful shutdown.
-	select {
-	case <-ctx.Done():
-		shutdownCtx, cancel := context.WithTimeout(context.Background(), a.shutdownTimeout)
-		defer cancel()
-		a.logger.Info("Shutting down API server...")
-		_ = srv.Shutdown(shutdownCtx)
-		a.logger.Info("Shutdown complete")
-		return ctx.Err()
-	case err := <-errCh:
-		return err
-	}
-}
-
 // applyCORS applies CORS middleware to the router based on the configured options.
 func (a *APIServer) applyCORS(mux *chi.Mux) {
 	a.logger.Info("Enabling CORS", "origins", a.cors.AllowOrigins)
@@ -198,6 +149,75 @@ func (a *APIServer) handler(ctx context.Context) (http.Handler, string, error) {
 	return mux, apiPathPrefix, nil
 }
 
+// Start starts the API server and blocks until the context is canceled or an error occurs.
+func (a *APIServer) Start(ctx context.Context) error {
+	mux, apiPathPrefix, err := a.handler(ctx)
+	if err != nil {
+		return err
+	}
+
+	// NOTE: The error handler is a package-level value in the API framework, so it is set once
+	// here rather than while building the handler, which a test may do concurrently.
+	huma.NewErrorWithContext = errorHandler(a.logger)
+
+	srv := &http.Server{
+		Addr:    a.addr,
+		Handler: mux,
+	}
+	errCh := make(chan error, 1)
+
+	// Start the API.
+	go func() {
+		a.logger.Info("Starting API server", "address", a.addr, "prefix", apiPathPrefix)
+		if a.cors.Enabled {
+			a.logger.Info("CORS enabled", "origins", a.cors.AllowOrigins)
+		}
+		if slices.Contains(a.cors.AllowOrigins, "*") {
+			a.logger.Warn(
+				"Wildcard CORS origin lets any website call this API",
+				"action", "name each origin that may call the API",
+			)
+		}
+		if err := srv.ListenAndServe(); err != nil && !stdErrors.Is(err, http.ErrServerClosed) {
+			errCh <- err
+		}
+		close(errCh)
+	}()
+
+	// Handle graceful shutdown.
+	select {
+	case <-ctx.Done():
+		shutdownCtx, cancel := context.WithTimeout(context.Background(), a.shutdownTimeout)
+		defer cancel()
+		a.logger.Info("Shutting down API server...")
+		_ = srv.Shutdown(shutdownCtx)
+		a.logger.Info("Shutdown complete")
+		return ctx.Err()
+	case err := <-errCh:
+		return err
+	}
+}
+
+// errorHandler wraps error handling for the application when converting to API friendly errors.
+// It allows the logger to be supplied to functions that resolve huma.StatusError,
+// and it supports different behaviors based on the variadic errors parameter.
+func errorHandler(logger hclog.Logger) func(_ huma.Context, status int, msg string, errs ...error) huma.StatusError {
+	return func(_ huma.Context, status int, msg string, errs ...error) huma.StatusError {
+		switch len(errs) {
+		case 0:
+			// No errors provided; return a generic error.
+			return huma.NewError(status, msg)
+		case 1:
+			// Single error; map it directly.
+			return mapError(logger, errs[0])
+		default:
+			// Multiple errors; join them and map.
+			combinedErr := stdErrors.Join(errs...)
+			return mapError(logger, combinedErr)
+		}
+	}
+}
+
 // mapError maps application domain errors to appropriate HTTP status codes.
 //
 // This function is the central place where domain errors from internal/errors are converted to HTTP responses.
@@ -268,25 +288,5 @@ func mapError(logger hclog.Logger, err error) huma.StatusError {
 	default:
 		logger.Error("Unexpected error interacting with MCP server", "error", err)
 		return huma.Error500InternalServerError("Internal server error", err)
-	}
-}
-
-// errorHandler wraps error handling for the application when converting to API friendly errors.
-// It allows the logger to be supplied to functions that resolve huma.StatusError,
-// and it supports different behaviors based on the variadic errors parameter.
-func errorHandler(logger hclog.Logger) func(_ huma.Context, status int, msg string, errs ...error) huma.StatusError {
-	return func(_ huma.Context, status int, msg string, errs ...error) huma.StatusError {
-		switch len(errs) {
-		case 0:
-			// No errors provided; return a generic error.
-			return huma.NewError(status, msg)
-		case 1:
-			// Single error; map it directly.
-			return mapError(logger, errs[0])
-		default:
-			// Multiple errors; join them and map.
-			combinedErr := stdErrors.Join(errs...)
-			return mapError(logger, combinedErr)
-		}
 	}
 }
