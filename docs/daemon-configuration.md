@@ -40,6 +40,10 @@ Controls the HTTP API server settings.
 
 The daemon binds a loopback address by default, so only the machine it runs on can reach the API. Set `api.addr` to `0.0.0.0:8090` to accept connections from elsewhere, and restrict who can reach that port.
 
+When the daemon is bound to a loopback address, it serves requests addressed only to `localhost`, `127.0.0.1` or `::1`, and refuses any other `Host` with `403` and the detail `Requests addressed to this host are not served.` This is what stops a web page that repoints its own name at the daemon address. When the daemon is bound to a routable address, requests for any host name are served, because the names clients use through a service alias, an ingress or a proxy cannot be known in advance.
+
+A reverse proxy in front of a loopback-bound daemon must therefore send a `Host` the daemon serves. Most proxies preserve the client's `Host` by default, so set it explicitly, for example `proxy_set_header Host 127.0.0.1:8090;` in nginx.
+
 A container is the exception. Bind `0.0.0.0` inside the container, because the container network namespace is the boundary, then publish the port on the host loopback with `-p 127.0.0.1:8090:8090`. A client on a Docker network, a Compose project, a Kubernetes cluster or a CI job reaches the daemon by service name and needs no published port.
 
 #### CORS Configuration (`api.cors.*`)

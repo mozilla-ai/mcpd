@@ -339,6 +339,21 @@ func TestAPIServer_LocalClientStillServed(t *testing.T) {
 	require.Contains(t, rec.Body.String(), "notes")
 }
 
+// TestAPIServer_RebindingReadRefused covers the case an origin allowlist cannot see. A browser
+// omits Origin on a same-origin GET, and a rebound page is same-origin with the daemon.
+func TestAPIServer_RebindingReadRefused(t *testing.T) {
+	t.Parallel()
+
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/servers", nil)
+	req.Host = "evil.example:8090"
+
+	rec := httptest.NewRecorder()
+	newTestAPIHandler(t).ServeHTTP(rec, req)
+
+	require.Equal(t, http.StatusForbidden, rec.Code)
+	require.NotContains(t, rec.Body.String(), "notes")
+}
+
 // TestAPIServer_RebindingToolCallRefused covers a page that has rebound its own name to the
 // daemon address, so the browser treats the daemon as same origin and can read the reply.
 func TestAPIServer_RebindingToolCallRefused(t *testing.T) {

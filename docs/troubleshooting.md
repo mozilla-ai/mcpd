@@ -114,12 +114,18 @@ If a reload fails and the daemon exits:
 `mcpd` exits on reload errors to avoid running with partially applied configuration.
 {% endhint %}
 
-## Browser Requests Fail Because of CORS
+## Browser Requests Fail but `curl` Works
 
-If browser requests to the API fail but `curl` works:
+The daemon refuses a browser request it does not recognize, and answers with `403` rather than a browser CORS error. Read the response body to tell the two refusals apart.
+
+`Requests from this origin are not allowed.` means the page's origin is not one the daemon serves. Add it to `api.cors.allow_origins`. The daemon's own origins are always served, so its page at `/docs` needs no configuration.
+
+`Requests addressed to this host are not served.` means the request arrived with a `Host` the daemon does not serve. A loopback-bound daemon serves only `localhost`, `127.0.0.1` and `::1`. Behind a reverse proxy, set the upstream `Host` to one of those, or bind a routable address with `api.addr`.
+
+A request with no `403` and no `Access-Control-Allow-Origin` on the response is an ordinary CORS problem:
 
 - Check whether CORS is enabled at all.
-- Make sure you configured at least one allowed origin.
+- Make sure you configured at least one allowed origin, with a scheme, such as `http://localhost:3000`. A bare `localhost:3000` is not an origin and is rejected.
 - If you use CLI flags, `--cors-allow-method`, `--cors-allow-header`, `--cors-expose-header`, `--cors-allow-credentials`, and `--cors-max-age` all require `--cors-enable`.
 - Validate the daemon config:
 
@@ -134,7 +140,7 @@ See also: [Daemon Configuration](daemon-configuration.md).
 
 ## The API Address or Port Is Wrong
 
-If the API is not where you expect it to be, or another process is already using the port:
+The daemon binds `127.0.0.1:8090` unless `api.addr` says otherwise, so it is not reachable from another machine by default. If the API is not where you expect it to be, or another process is already using the port:
 
 - Check the current address:
 
@@ -145,8 +151,10 @@ mcpd config daemon get api.addr
 - Set a new one if needed:
 
 ```bash
-mcpd config daemon set api.addr="localhost:8080"
+mcpd config daemon set api.addr="0.0.0.0:8080"
 ```
+
+- Binding a routable address makes the API reachable from the network, and the API has no built-in authentication. Restrict who can reach the port, or put an authentication plugin in front of it.
 
 - Restart the daemon after changing daemon config.
 - If you started the daemon with CLI flags, remember that flags override values from `.mcpd.toml`.

@@ -115,6 +115,10 @@ func (a *APIServer) handler(ctx context.Context) (http.Handler, string, error) {
 	mux := chi.NewMux()
 	mux.Use(middleware.StripSlashes)
 
+	// Refuse a host the daemon does not serve, ahead of every other check so a rebinding page
+	// cannot reach the preflight handler either.
+	mux.Use(requireAllowedHost(allowedHosts(a.addr)))
+
 	// Add CORS middleware if enabled.
 	if a.cors.Enabled {
 		a.applyCORS(mux)
@@ -181,6 +185,12 @@ func (a *APIServer) Start(ctx context.Context) error {
 		a.logger.Info("Starting API server", "address", a.addr, "prefix", apiPathPrefix)
 		if a.cors.Enabled {
 			a.logger.Info("CORS enabled", "origins", a.cors.AllowOrigins)
+		}
+		if !isLoopbackBind(a.addr) {
+			a.logger.Warn(
+				"Bound to a routable address, so requests for any host name are served",
+				"address", a.addr,
+			)
 		}
 		if slices.Contains(a.cors.AllowOrigins, "*") {
 			a.logger.Warn(

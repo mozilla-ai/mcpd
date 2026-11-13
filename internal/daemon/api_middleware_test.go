@@ -10,15 +10,197 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+func TestAllowedHosts(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name     string
+		addr     string
+		expected []string
+	}{
+		{
+			name:     "loopback IPv4 bind",
+			addr:     "127.0.0.1:8090",
+			expected: []string{"127.0.0.1", "::1", "localhost"},
+		},
+		{
+			name:     "loopback name bind as used by dev mode",
+			addr:     "localhost:8090",
+			expected: []string{"127.0.0.1", "::1", "localhost"},
+		},
+		{
+			name:     "loopback IPv6 bind",
+			addr:     "[::1]:8090",
+			expected: []string{"127.0.0.1", "::1", "localhost"},
+		},
+		{
+			name:     "alternate loopback IPv4 bind",
+			addr:     "127.0.0.2:8090",
+			expected: []string{"127.0.0.1", "::1", "localhost", "127.0.0.2"},
+		},
+		{
+			name:     "all interfaces permits any host",
+			addr:     "0.0.0.0:8090",
+			expected: nil,
+		},
+		{
+			name:     "empty host permits any host",
+			addr:     ":8090",
+			expected: nil,
+		},
+		{
+			name:     "routable address permits any host",
+			addr:     "192.168.1.5:8090",
+			expected: nil,
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			require.Equal(t, tc.expected, allowedHosts(tc.addr))
+		})
+	}
+}
+
 func TestOwnOrigins(t *testing.T) {
 	t.Parallel()
 
-	require.Equal(
-		t,
-		[]string{"http://127.0.0.1:8090", "http://[::1]:8090", "http://localhost:8090"},
-		ownOrigins("127.0.0.1:8090"),
-	)
-	require.Nil(t, ownOrigins("nonsense"))
+	loopback := []string{"http://127.0.0.1:8090", "http://[::1]:8090", "http://localhost:8090"}
+
+	tests := []struct {
+		name     string
+		addr     string
+		expected []string
+	}{
+		{
+			name:     "loopback bind is already covered",
+			addr:     "127.0.0.1:8090",
+			expected: loopback,
+		},
+		{
+			name:     "IPv6 loopback bind is already covered",
+			addr:     "[::1]:8090",
+			expected: loopback,
+		},
+		{
+			name:     "alternate loopback bind is added",
+			addr:     "127.0.0.2:8090",
+			expected: append(append([]string{}, loopback...), "http://127.0.0.2:8090"),
+		},
+		{
+			name:     "routable bind is added",
+			addr:     "192.168.1.5:8090",
+			expected: append(append([]string{}, loopback...), "http://192.168.1.5:8090"),
+		},
+		{
+			name:     "all interfaces bind is added",
+			addr:     "0.0.0.0:8090",
+			expected: append(append([]string{}, loopback...), "http://0.0.0.0:8090"),
+		},
+		{
+			name:     "empty host has nothing to add",
+			addr:     ":8090",
+			expected: loopback,
+		},
+		{
+			name:     "an address without a port has no origins",
+			addr:     "nonsense",
+			expected: nil,
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			require.Equal(t, tc.expected, ownOrigins(tc.addr))
+		})
+	}
+}
+
+func TestRequireAllowedHost(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name           string
+		allowed        []string
+		host           string
+		expectedStatus int
+		expectReached  bool
+	}{
+		{
+			name:           "empty allowlist permits any host",
+			allowed:        nil,
+			host:           "mcpd:8090",
+			expectedStatus: http.StatusOK,
+			expectReached:  true,
+		},
+		{
+			name:           "loopback name is served",
+			allowed:        []string{"127.0.0.1", "::1", "localhost"},
+			host:           "localhost:8090",
+			expectedStatus: http.StatusOK,
+			expectReached:  true,
+		},
+		{
+			name:           "loopback address is served",
+			allowed:        []string{"127.0.0.1", "::1", "localhost"},
+			host:           "127.0.0.1:8090",
+			expectedStatus: http.StatusOK,
+			expectReached:  true,
+		},
+		{
+			name:           "bracketed IPv6 loopback is served",
+			allowed:        []string{"127.0.0.1", "::1", "localhost"},
+			host:           "[::1]:8090",
+			expectedStatus: http.StatusOK,
+			expectReached:  true,
+		},
+		{
+			name:           "host without a port is served",
+			allowed:        []string{"127.0.0.1", "::1", "localhost"},
+			host:           "localhost",
+			expectedStatus: http.StatusOK,
+			expectReached:  true,
+		},
+		{
+			name:           "rebinding host is refused",
+			allowed:        []string{"127.0.0.1", "::1", "localhost"},
+			host:           "evil.example:8090",
+			expectedStatus: http.StatusForbidden,
+			expectReached:  false,
+		},
+		{
+			name:           "service name is refused on a loopback bind",
+			allowed:        []string{"127.0.0.1", "::1", "localhost"},
+			host:           "mcpd:8090",
+			expectedStatus: http.StatusForbidden,
+			expectReached:  false,
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			reached := false
+			next := http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+				reached = true
+				w.WriteHeader(http.StatusOK)
+			})
+
+			req := httptest.NewRequest(http.MethodGet, "/api/v1/servers", nil)
+			req.Host = tc.host
+
+			rec := httptest.NewRecorder()
+			requireAllowedHost(tc.allowed)(next).ServeHTTP(rec, req)
+
+			require.Equal(t, tc.expectedStatus, rec.Code)
+			require.Equal(t, tc.expectReached, reached)
+		})
+	}
 }
 
 func TestRequireAllowedOrigin(t *testing.T) {

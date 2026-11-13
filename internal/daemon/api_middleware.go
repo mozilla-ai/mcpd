@@ -2,10 +2,10 @@ package daemon
 
 import (
 	"encoding/json"
-	"fmt"
 	"mime"
 	"net"
 	"net/http"
+	"slices"
 	"strings"
 
 	"github.com/danielgtaylor/huma/v2"
@@ -14,11 +14,75 @@ import (
 // contentTypeJSON is the only media type the API accepts for a request body.
 const contentTypeJSON = "application/json"
 
+// loopbackHostNames are the names a client uses to address a daemon bound to a loopback address.
+//
+// NOTE: "localhost" is included because a bind address may name it rather than an IP, and because
+// a client resolving it reports it verbatim in the Host header.
+var loopbackHostNames = []string{"127.0.0.1", "::1", "localhost"}
+
 // methodsWithBody lists the request methods whose body the API reads.
 var methodsWithBody = map[string]struct{}{
 	http.MethodPatch: {},
 	http.MethodPost:  {},
 	http.MethodPut:   {},
+}
+
+// allowedHosts returns the host names a request may address for a daemon bound to addr.
+//
+// An empty result permits any host. A routable bind address gives no way to know the names
+// clients will use, since they reach the daemon through a service name, an ingress or a proxy.
+func allowedHosts(addr string) []string {
+	if !isLoopbackBind(addr) {
+		return nil
+	}
+
+	hosts := slices.Clone(loopbackHostNames)
+	if host := bindHost(addr); host != "" && !slices.Contains(hosts, host) {
+		hosts = append(hosts, host)
+	}
+
+	return hosts
+}
+
+// bindHost returns the lowercased host part of a bind address, without its port.
+func bindHost(addr string) string {
+	host, _, err := net.SplitHostPort(strings.TrimSpace(addr))
+	if err != nil {
+		return strings.ToLower(strings.TrimSpace(addr))
+	}
+
+	return strings.ToLower(host)
+}
+
+// isHostAllowed reports whether host, as sent in a Host header, is one the daemon serves.
+func isHostAllowed(allowed []string, host string) bool {
+	if len(allowed) == 0 {
+		return true
+	}
+
+	name := strings.ToLower(strings.TrimSpace(host))
+	if h, _, err := net.SplitHostPort(name); err == nil {
+		name = h
+	}
+	name = strings.Trim(name, "[]")
+
+	return slices.Contains(allowed, name)
+}
+
+// isLoopbackBind reports whether addr binds an address reachable only from the same machine.
+//
+// NOTE: The host part may be a name rather than an IP, so parsing it as an IP is not enough.
+func isLoopbackBind(addr string) bool {
+	host := bindHost(addr)
+	if host == "" {
+		return false
+	}
+
+	if ip := net.ParseIP(host); ip != nil {
+		return ip.IsLoopback()
+	}
+
+	return slices.Contains(loopbackHostNames, host)
 }
 
 // isOriginAllowed reports whether origin matches an entry in allowed.
@@ -59,17 +123,48 @@ func isOriginAllowed(allowed []string, origin string) bool {
 
 // ownOrigins returns the origins that address the daemon itself for a daemon bound to addr.
 //
-// The daemon serves its own API documentation page, which calls the API from these origins.
+// The daemon serves its own API documentation page, which calls the API from these origins. The
+// configured bind host is included alongside the loopback names, so the page works when the
+// daemon is reached at the address it was given.
 func ownOrigins(addr string) []string {
-	_, port, err := net.SplitHostPort(strings.TrimSpace(addr))
+	host, port, err := net.SplitHostPort(strings.TrimSpace(addr))
 	if err != nil || port == "" {
 		return nil
 	}
 
-	return []string{
-		fmt.Sprintf("http://127.0.0.1:%s", port),
-		fmt.Sprintf("http://[::1]:%s", port),
-		fmt.Sprintf("http://localhost:%s", port),
+	origins := make([]string, 0, len(loopbackHostNames)+1)
+	for _, name := range loopbackHostNames {
+		origins = append(origins, "http://"+net.JoinHostPort(name, port))
+	}
+
+	host = strings.ToLower(strings.Trim(host, "[]"))
+	if host != "" && !slices.Contains(loopbackHostNames, host) {
+		origins = append(origins, "http://"+net.JoinHostPort(host, port))
+	}
+
+	return origins
+}
+
+// requireAllowedHost refuses a request addressed to a host the daemon does not serve.
+//
+// NOTE: This is the defense against DNS rebinding. A browser omits Origin on a same-origin GET,
+// and a rebound page is same-origin with the daemon, so the origin allowlist cannot see it.
+func requireAllowedHost(allowed []string) func(http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if !isHostAllowed(allowed, r.Host) {
+				writeProblem(
+					w,
+					http.StatusForbidden,
+					"Forbidden",
+					"Requests addressed to this host are not served.",
+				)
+
+				return
+			}
+
+			next.ServeHTTP(w, r)
+		})
 	}
 }
 
@@ -77,9 +172,6 @@ func ownOrigins(addr string) []string {
 //
 // A request without an Origin header is allowed, because only a browser sets one. A wildcard
 // entry allows every origin.
-//
-// NOTE: This does not see a rebinding page, which is same-origin with the daemon and so sends no
-// Origin header on a read.
 func requireAllowedOrigin(allowed []string) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
