@@ -25,6 +25,11 @@ import (
 	"github.com/mozilla-ai/mcpd/internal/runtime"
 )
 
+// defaultAPIAddr is the address the API server binds when none is configured.
+//
+// NOTE: This is a loopback address, so a default daemon is not reachable from another machine.
+const defaultAPIAddr = "127.0.0.1:8090"
+
 // Flag name constants for daemon command line flags.
 const (
 	// flagAddr is the flag name for the API server address.
@@ -233,7 +238,7 @@ func newDaemonCobraCmd(daemonCmd *DaemonCmd) *cobra.Command {
 	cobraCommand.Flags().StringVar(
 		&daemonCmd.config.api.addr,
 		flagAddr,
-		"0.0.0.0:8090",
+		defaultAPIAddr,
 		"Address for the daemon to bind (not applicable in --dev mode)",
 	)
 
@@ -1153,7 +1158,7 @@ func (c *DaemonCmd) formatConfigInfo(addr string) string {
 	var info strings.Builder
 
 	// API configuration (only show if non-default).
-	if addr != "" && addr != "0.0.0.0:8090" {
+	if addr != "" && addr != defaultAPIAddr {
 		fmt.Fprintf(&info, "  API address:\t%s\n", addr)
 	}
 

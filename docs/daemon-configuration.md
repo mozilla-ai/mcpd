@@ -35,8 +35,12 @@ Controls the HTTP API server settings.
 
 | Setting                | Type       | Description                     | Default        | Example          |
 |------------------------|------------|---------------------------------|----------------|------------------|
-| `api.addr`             | `string`   | Server bind address (host:port) | `0.0.0.0:8090` | `localhost:8080` |
+| `api.addr`             | `string`   | Server bind address (host:port) | `127.0.0.1:8090` | `0.0.0.0:8080`   |
 | `api.timeout.shutdown` | `duration` | Graceful shutdown timeout       | `30s`          | `60s`            |
+
+The daemon binds a loopback address by default, so only the machine it runs on can reach the API. Set `api.addr` to `0.0.0.0:8090` to accept connections from elsewhere, and restrict who can reach that port.
+
+A container is the exception. Bind `0.0.0.0` inside the container, because the container network namespace is the boundary, then publish the port on the host loopback with `-p 127.0.0.1:8090:8090`. A client on a Docker network, a Compose project, a Kubernetes cluster or a CI job reaches the daemon by service name and needs no published port.
 
 #### CORS Configuration (`api.cors.*`)
 
