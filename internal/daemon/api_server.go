@@ -74,12 +74,21 @@ func NewAPIServer(deps APIDependencies, opt ...APIOption) (*APIServer, error) {
 	}, nil
 }
 
+// allowedOrigins returns the origins permitted to drive the API.
+//
+// The daemon's own origins are always permitted, so its API documentation page works without
+// configuration. The operator's origins are copied, because the CORS layer rewrites the slice it
+// is given.
+func (a *APIServer) allowedOrigins() []string {
+	return append(ownOrigins(a.addr), slices.Clone(a.cors.AllowOrigins)...)
+}
+
 // applyCORS applies CORS middleware to the router based on the configured options.
 func (a *APIServer) applyCORS(mux *chi.Mux) {
 	a.logger.Info("Enabling CORS", "origins", a.cors.AllowOrigins)
 
 	corsOptions := cors.Options{
-		AllowedOrigins:   a.cors.AllowOrigins,
+		AllowedOrigins:   slices.Clone(a.cors.AllowOrigins),
 		AllowedMethods:   a.cors.AllowMethods,
 		AllowedHeaders:   a.cors.AllowedHeaders,
 		ExposedHeaders:   a.cors.ExposedHeaders,
@@ -111,8 +120,9 @@ func (a *APIServer) handler(ctx context.Context) (http.Handler, string, error) {
 		a.applyCORS(mux)
 	}
 
-	// Refuse a browser request from an origin the operator has not allowed.
-	mux.Use(requireAllowedOrigin(a.cors.AllowOrigins))
+	// Refuse a browser request from an origin the daemon does not serve or the operator has
+	// not allowed.
+	mux.Use(requireAllowedOrigin(a.allowedOrigins()))
 
 	// Reject non-JSON bodies before any plugin or handler reads the request.
 	mux.Use(requireJSONContentType)

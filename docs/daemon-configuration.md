@@ -58,7 +58,11 @@ Cross-Origin Resource Sharing settings for browser clients.
 
 An origin is a scheme, a host and an optional port, such as `http://localhost:3000`. A bare `localhost:3000` is not an origin, because a browser never sends one in the `Origin` header, so it is rejected.
 
-`api.cors.allow_origins` is required when `api.cors.enable` is `true`. An empty list allows every origin, so the choice must be explicit. Use `["*"]` to allow any origin.
+The daemon refuses a browser request whose `Origin` it does not serve, whether or not CORS is enabled. Its own origins are always served, so its API documentation page at `/docs` works with no configuration. `api.cors.allow_origins` names the additional origins a browser application may call from, and `["*"]` allows any origin. A refused request receives `403` with the detail `Requests from this origin are not allowed.`
+
+`api.cors.allow_origins` is required when `api.cors.enable` is `true`, because an empty list would otherwise instruct the CORS layer to return `Access-Control-Allow-Origin` for every origin.
+
+A request carrying no `Origin` header is always served. Only a browser sets that header, so command line clients, SDKs and service to service callers are unaffected by either rule.
 
 ### MCP Configuration (`mcp.*`)
 

@@ -10,6 +10,17 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+func TestOwnOrigins(t *testing.T) {
+	t.Parallel()
+
+	require.Equal(
+		t,
+		[]string{"http://127.0.0.1:8090", "http://[::1]:8090", "http://localhost:8090"},
+		ownOrigins("127.0.0.1:8090"),
+	)
+	require.Nil(t, ownOrigins("nonsense"))
+}
+
 func TestRequireAllowedOrigin(t *testing.T) {
 	t.Parallel()
 

@@ -17,6 +17,9 @@ import (
 	"github.com/mozilla-ai/mcpd/internal/errors"
 )
 
+// testLocalAddr is the loopback address the test daemon binds, and the Host a local client sends.
+const testLocalAddr = "127.0.0.1:8090"
+
 // mockMCPClientWithToolResult returns a successful tool result, so a permitted request reaches 200
 // and a test can tell a served request from one refused or failed further down.
 type mockMCPClientWithToolResult struct {
@@ -34,13 +37,17 @@ func newTestAPIHandler(t *testing.T, opt ...APIOption) http.Handler {
 	t.Helper()
 
 	clients := NewClientManager()
-	clients.Add("notes", &mockMCPClientWithToolResult{mockMCPClient: &mockMCPClient{}}, []string{"write_note", "read_note"})
+	clients.Add(
+		"notes",
+		&mockMCPClientWithToolResult{mockMCPClient: &mockMCPClient{}},
+		[]string{"write_note", "read_note"},
+	)
 
 	deps, err := NewAPIDependencies(
 		hclog.NewNullLogger(),
 		clients,
 		NewHealthTracker([]string{"notes"}),
-		"127.0.0.1:8090",
+		testLocalAddr,
 	)
 	require.NoError(t, err)
 
@@ -297,7 +304,8 @@ func TestAPIServer_CORSIntegration(t *testing.T) {
 }
 
 // TestAPIServer_CrossSiteToolCallRefused covers a page that omits Content-Type so the browser
-// sends the request without asking permission first.
+// sends the request without asking permission first. The host is the daemon's own, so only the
+// origin can refuse it.
 func TestAPIServer_CrossSiteToolCallRefused(t *testing.T) {
 	t.Parallel()
 
@@ -306,6 +314,7 @@ func TestAPIServer_CrossSiteToolCallRefused(t *testing.T) {
 		"/api/v1/servers/notes/tools/write_note",
 		strings.NewReader(`{"text":"canary"}`),
 	)
+	req.Host = testLocalAddr
 	req.Header.Del("Content-Type")
 	req.Header.Set("Origin", "http://evil.example")
 
@@ -315,12 +324,13 @@ func TestAPIServer_CrossSiteToolCallRefused(t *testing.T) {
 	require.Equal(t, http.StatusForbidden, rec.Code)
 }
 
-// TestAPIServer_LocalClientStillServed confirms the refusals above do not reach a client that
+// TestAPIServer_LocalClientStillServed confirms the refusals here do not reach a client that
 // sends no Origin header, such as a command line tool, an SDK or a service on an internal network.
 func TestAPIServer_LocalClientStillServed(t *testing.T) {
 	t.Parallel()
 
 	req := httptest.NewRequest(http.MethodGet, "/api/v1/servers", nil)
+	req.Host = testLocalAddr
 
 	rec := httptest.NewRecorder()
 	newTestAPIHandler(t).ServeHTTP(rec, req)
@@ -349,6 +359,26 @@ func TestAPIServer_RebindingToolCallRefused(t *testing.T) {
 	require.Equal(t, http.StatusForbidden, rec.Code)
 }
 
+// TestAPIServer_SameOriginCallServed covers the daemon's own API documentation page, which calls
+// the API from the daemon's own origin and needs no configuration to do so.
+func TestAPIServer_SameOriginCallServed(t *testing.T) {
+	t.Parallel()
+
+	req := httptest.NewRequest(
+		http.MethodPost,
+		"/api/v1/servers/notes/tools/write_note",
+		strings.NewReader(`{"text":"canary"}`),
+	)
+	req.Host = testLocalAddr
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Origin", "http://"+testLocalAddr)
+
+	rec := httptest.NewRecorder()
+	newTestAPIHandler(t).ServeHTTP(rec, req)
+
+	require.Equal(t, http.StatusOK, rec.Code)
+}
+
 // TestAPIServer_WildcardOriginPermitsCalls covers an operator who allowed every origin. The
 // daemon honors that, so the gate must not refuse the request.
 func TestAPIServer_WildcardOriginPermitsCalls(t *testing.T) {
@@ -361,6 +391,7 @@ func TestAPIServer_WildcardOriginPermitsCalls(t *testing.T) {
 		"/api/v1/servers/notes/tools/write_note",
 		strings.NewReader(`{"text":"canary"}`),
 	)
+	req.Host = testLocalAddr
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Origin", "http://evil.example")
 

@@ -2,7 +2,9 @@ package daemon
 
 import (
 	"encoding/json"
+	"fmt"
 	"mime"
+	"net"
 	"net/http"
 	"strings"
 
@@ -53,6 +55,22 @@ func isOriginAllowed(allowed []string, origin string) bool {
 	}
 
 	return false
+}
+
+// ownOrigins returns the origins that address the daemon itself for a daemon bound to addr.
+//
+// The daemon serves its own API documentation page, which calls the API from these origins.
+func ownOrigins(addr string) []string {
+	_, port, err := net.SplitHostPort(strings.TrimSpace(addr))
+	if err != nil || port == "" {
+		return nil
+	}
+
+	return []string{
+		fmt.Sprintf("http://127.0.0.1:%s", port),
+		fmt.Sprintf("http://[::1]:%s", port),
+		fmt.Sprintf("http://localhost:%s", port),
+	}
 }
 
 // requireAllowedOrigin refuses a request whose Origin is not one the operator allowed.
