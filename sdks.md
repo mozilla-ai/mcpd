@@ -46,9 +46,10 @@ JavaScript SDK targets LangChain JS and the Vercel AI SDK.
 {% hint style="info" %}
 **The endpoint is the daemon's API address**
 
-`mcpd daemon` binds `0.0.0.0:8090` unless `api.addr` says otherwise, so `http://localhost:8090`
-works for a daemon on the same machine. See [Daemon Configuration](daemon-configuration.md) when
-the daemon runs elsewhere, and [Execution Context](execution-context.md) for API key handling.
+`mcpd daemon` binds `127.0.0.1:8090` unless `api.addr` says otherwise, so `http://localhost:8090`
+works for a daemon on the same machine. A daemon that other machines must reach needs `api.addr`
+set to an address they can route to. See [Daemon Configuration](daemon-configuration.md) when the
+daemon runs elsewhere, and [Execution Context](execution-context.md) for API key handling.
 {% endhint %}
 
 ---
