@@ -1127,6 +1127,39 @@ func TestCORSConfigSection_Validate(t *testing.T) {
 			expectError: false,
 		},
 		{
+			name: "enabled without origins is invalid",
+			config: &CORSConfigSection{
+				Enable:  testBoolPtr(t, true),
+				Methods: []string{"GET"},
+			},
+			expectError: true,
+			errorMsg:    "CORS is enabled but no origins are allowed (use '*' to allow any origin)",
+		},
+		{
+			name: "enabled with wildcard origin is valid",
+			config: &CORSConfigSection{
+				Enable:  testBoolPtr(t, true),
+				Origins: []string{"*"},
+				Methods: []string{"GET"},
+			},
+			expectError: false,
+		},
+		{
+			name: "disabled without origins is valid",
+			config: &CORSConfigSection{
+				Enable:  testBoolPtr(t, false),
+				Methods: []string{"GET"},
+			},
+			expectError: false,
+		},
+		{
+			name: "unset enable without origins is valid",
+			config: &CORSConfigSection{
+				Methods: []string{"GET"},
+			},
+			expectError: false,
+		},
+		{
 			name: "origins with scheme are valid",
 			config: &CORSConfigSection{
 				Enable:  testBoolPtr(t, false),
@@ -1161,6 +1194,7 @@ func TestCORSConfigSection_Validate(t *testing.T) {
 			name: "wildcard methods are valid",
 			config: &CORSConfigSection{
 				Enable:  testBoolPtr(t, true),
+				Origins: []string{"*"},
 				Methods: []string{"*"},
 			},
 			expectError: false,
@@ -1169,6 +1203,7 @@ func TestCORSConfigSection_Validate(t *testing.T) {
 			name: "mixed valid and wildcard methods",
 			config: &CORSConfigSection{
 				Enable:  testBoolPtr(t, true),
+				Origins: []string{"*"},
 				Methods: []string{"GET", "*", "POST"},
 			},
 			expectError: false,
@@ -1186,6 +1221,7 @@ func TestCORSConfigSection_Validate(t *testing.T) {
 			name: "empty method is invalid",
 			config: &CORSConfigSection{
 				Enable:  testBoolPtr(t, true),
+				Origins: []string{"*"},
 				Methods: []string{"GET", "", "POST"},
 			},
 			expectError: true,
@@ -1195,6 +1231,7 @@ func TestCORSConfigSection_Validate(t *testing.T) {
 			name: "invalid method is rejected",
 			config: &CORSConfigSection{
 				Enable:  testBoolPtr(t, true),
+				Origins: []string{"*"},
 				Methods: []string{"GET", "INVALID", "POST"},
 			},
 			expectError: true,
@@ -1203,8 +1240,9 @@ func TestCORSConfigSection_Validate(t *testing.T) {
 		{
 			name: "zero max age is invalid",
 			config: &CORSConfigSection{
-				Enable: testBoolPtr(t, true),
-				MaxAge: testDurationPtr(t, 0),
+				Enable:  testBoolPtr(t, true),
+				Origins: []string{"*"},
+				MaxAge:  testDurationPtr(t, 0),
 			},
 			expectError: true,
 			errorMsg:    "CORS max age must be positive",
@@ -1212,8 +1250,9 @@ func TestCORSConfigSection_Validate(t *testing.T) {
 		{
 			name: "negative max age is invalid",
 			config: &CORSConfigSection{
-				Enable: testBoolPtr(t, true),
-				MaxAge: testDurationPtr(t, -5*time.Minute),
+				Enable:  testBoolPtr(t, true),
+				Origins: []string{"*"},
+				MaxAge:  testDurationPtr(t, -5*time.Minute),
 			},
 			expectError: true,
 			errorMsg:    "CORS max age must be positive",
@@ -1502,6 +1541,7 @@ func TestAPIConfigSection_Validate(t *testing.T) {
 				Addr: testStringPtr(t, "localhost:8080"),
 				CORS: &CORSConfigSection{
 					Enable:  testBoolPtr(t, true),
+					Origins: []string{"*"},
 					Methods: []string{"INVALID"}, // Invalid method
 				},
 			},
@@ -1517,6 +1557,7 @@ func TestAPIConfigSection_Validate(t *testing.T) {
 				},
 				CORS: &CORSConfigSection{
 					Enable:  testBoolPtr(t, true),
+					Origins: []string{"*"},
 					Methods: []string{"INVALID"},
 				},
 			},

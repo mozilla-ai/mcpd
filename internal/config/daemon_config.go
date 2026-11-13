@@ -534,6 +534,14 @@ func (c *CORSConfigSection) Set(path string, value string) (context.UpsertResult
 func (c *CORSConfigSection) Validate() error {
 	var validationErrors []error
 
+	// An enabled policy with no origins allows every origin, so require the operator to choose.
+	if c.EnableOrDefault(false) && len(c.Origins) == 0 {
+		validationErrors = append(
+			validationErrors,
+			fmt.Errorf("CORS is enabled but no origins are allowed (use '*' to allow any origin)"),
+		)
+	}
+
 	// Validate origins.
 	for _, origin := range c.Origins {
 		// Wildcard origin check.
