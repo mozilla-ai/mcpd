@@ -46,7 +46,7 @@ Cross-Origin Resource Sharing settings for browser clients.
 |------------------------------|------------|---------------------------------------------------------|-------------------------------------|--------------------------------------------------------|
 | `api.cors.enable`            | `bool`     | Enable CORS support                                     | `false`                             | `true`                                                 |
 | `api.cors.allow_origins`     | `[]string` | Allowed request origins (required when CORS is enabled) | `[]`                                | `["http://localhost:3000", "https://app.example.com"]` |
-| `api.cors.allow_methods`     | `[]string` | Allowed HTTP methods                                    | `["GET", "POST", "PUT", "DELETE"]`  | `["GET", "POST"]`                                      |
+| `api.cors.allow_methods`     | `[]string` | Allowed HTTP methods                                    | `["GET", "POST", "PUT", "DELETE", "OPTIONS"]`  | `["GET", "POST"]`                                      |
 | `api.cors.allow_headers`     | `[]string` | Allowed request headers                                 | `["Content-Type", "Authorization"]` | `["Content-Type", "API-Key"]`                          |
 | `api.cors.expose_headers`    | `[]string` | Headers exposed to client                               | `[]`                                | `["ETag", "Last-Modified"]`                            |
 | `api.cors.allow_credentials` | `bool`     | Allow credentials in requests                           | `false`                             | `true`                                                 |
