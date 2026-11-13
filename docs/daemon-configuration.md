@@ -51,10 +51,10 @@ Cross-Origin Resource Sharing settings for browser clients.
 | `api.cors.enable`            | `bool`     | Enable CORS support                                     | `false`                             | `true`                                                 |
 | `api.cors.allow_origins`     | `[]string` | Allowed request origins (required when CORS is enabled) | `[]`                                | `["http://localhost:3000", "https://app.example.com"]` |
 | `api.cors.allow_methods`     | `[]string` | Allowed HTTP methods                                    | `["GET", "POST", "PUT", "DELETE", "OPTIONS"]`  | `["GET", "POST"]`                                      |
-| `api.cors.allow_headers`     | `[]string` | Allowed request headers                                 | `["Content-Type", "Authorization"]` | `["Content-Type", "API-Key"]`                          |
+| `api.cors.allow_headers`     | `[]string` | Allowed request headers                                 | `["Accept", "Accept-Language", "Content-Language", "Content-Type", "Range"]` | `["Content-Type", "API-Key"]`                          |
 | `api.cors.expose_headers`    | `[]string` | Headers exposed to client                               | `[]`                                | `["ETag", "Last-Modified"]`                            |
 | `api.cors.allow_credentials` | `bool`     | Allow credentials in requests                           | `false`                             | `true`                                                 |
-| `api.cors.max_age`           | `duration` | Preflight cache duration                                | `0s`                                | `24h`                                                  |
+| `api.cors.max_age`           | `duration` | Preflight cache duration                                | `5m`                                | `24h`                                                  |
 
 An origin is a scheme, a host and an optional port, such as `http://localhost:3000`. A bare `localhost:3000` is not an origin, because a browser never sends one in the `Origin` header, so it is rejected.
 
