@@ -1031,10 +1031,12 @@ func (c *DaemonCmd) validateFlags(cmd *cobra.Command) error {
 func (c *DaemonCmd) buildAPIOptions() ([]daemon.APIOption, error) {
 	var apiOpts []daemon.APIOption
 
+	// Allowed origins gate browser requests whether or not CORS headers are sent.
+	apiOpts = append(apiOpts, daemon.WithCORSAllowOrigins(c.config.cors.origins))
+
 	// Add CORS configuration if enabled.
 	if c.config.cors.enable {
 		apiOpts = append(apiOpts, daemon.WithCORSEnabled(true))
-		apiOpts = append(apiOpts, daemon.WithCORSAllowOrigins(c.config.cors.origins))
 
 		// Set methods if provided.
 		if v := c.config.cors.methods; len(v) > 0 {
