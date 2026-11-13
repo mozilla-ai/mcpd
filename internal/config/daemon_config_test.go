@@ -1127,20 +1127,29 @@ func TestCORSConfigSection_Validate(t *testing.T) {
 			expectError: false,
 		},
 		{
-			name: "origin is URL not network address (http:// -> but contains port)",
+			name: "origins with scheme are valid",
 			config: &CORSConfigSection{
 				Enable:  testBoolPtr(t, false),
 				Origins: []string{"http://localhost:3000", "https://example.com"},
 				Methods: []string{"GET"},
 			},
+			expectError: false,
+		},
+		{
+			name: "origin without scheme is invalid",
+			config: &CORSConfigSection{
+				Enable:  testBoolPtr(t, true),
+				Origins: []string{"localhost:3000"},
+				Methods: []string{"GET"},
+			},
 			expectError: true,
-			errorMsg:    "invalid origin address: http://localhost:3000",
+			errorMsg:    "invalid CORS origin 'localhost:3000': expected scheme://host[:port]",
 		},
 		{
 			name: "valid enabled CORS config",
 			config: &CORSConfigSection{
 				Enable:      testBoolPtr(t, true),
-				Origins:     []string{"localhost:3000", "example.com:443"},
+				Origins:     []string{"http://localhost:3000", "https://example.com:443"},
 				Methods:     []string{"GET", "POST", "PUT"},
 				Headers:     []string{"Content-Type", "Authorization"},
 				Credentials: testBoolPtr(t, true),
@@ -1168,7 +1177,7 @@ func TestCORSConfigSection_Validate(t *testing.T) {
 			name: "empty origin is invalid",
 			config: &CORSConfigSection{
 				Enable:  testBoolPtr(t, true),
-				Origins: []string{"localhost:3000", "", "example.com:443"},
+				Origins: []string{"http://localhost:3000", "", "https://example.com:443"},
 			},
 			expectError: true,
 			errorMsg:    "CORS origin cannot be empty",
@@ -1433,7 +1442,7 @@ func TestAPIConfigSection_Validate(t *testing.T) {
 				},
 				CORS: &CORSConfigSection{
 					Enable:  testBoolPtr(t, true),
-					Origins: []string{"localhost:3000"},
+					Origins: []string{"http://localhost:3000"},
 					Methods: []string{"GET", "POST"},
 				},
 			},
@@ -1652,7 +1661,7 @@ func TestDaemonConfig_Validate(t *testing.T) {
 					},
 					CORS: &CORSConfigSection{
 						Enable:  testBoolPtr(t, true),
-						Origins: []string{"localhost:3000"},
+						Origins: []string{"http://localhost:3000"},
 					},
 				},
 				MCP: &MCPConfigSection{
@@ -1767,6 +1776,140 @@ func TestContainsValidAddress(t *testing.T) {
 
 			result := isValidAddr(tc.addr)
 			require.Equal(t, tc.expected, result, "Address: %s", tc.addr)
+		})
+	}
+}
+
+func TestIsValidOrigin(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name     string
+		origin   string
+		expected bool
+	}{
+		// Valid origins.
+		{
+			name:     "http host with port",
+			origin:   "http://localhost:3000",
+			expected: true,
+		},
+		{
+			name:     "https host without port",
+			origin:   "https://app.example.com",
+			expected: true,
+		},
+		{
+			name:     "https host with port",
+			origin:   "https://app.example.com:443",
+			expected: true,
+		},
+		{
+			name:     "http IPv4 with port",
+			origin:   "http://127.0.0.1:8090",
+			expected: true,
+		},
+		{
+			name:     "http IPv6 with port",
+			origin:   "http://[::1]:8090",
+			expected: true,
+		},
+		{
+			name:     "https subdomain wildcard",
+			origin:   "https://*.example.com",
+			expected: true,
+		},
+		{
+			name:     "uppercase scheme",
+			origin:   "HTTP://localhost:3000",
+			expected: true,
+		},
+
+		// Missing or wrong scheme.
+		{
+			name:     "host and port without scheme",
+			origin:   "localhost:3000",
+			expected: false,
+		},
+		{
+			name:     "bare hostname",
+			origin:   "app.example.com",
+			expected: false,
+		},
+		{
+			name:     "scheme-relative",
+			origin:   "//app.example.com",
+			expected: false,
+		},
+		{
+			name:     "non-HTTP scheme",
+			origin:   "ftp://app.example.com",
+			expected: false,
+		},
+		{
+			name:     "file scheme",
+			origin:   "file://",
+			expected: false,
+		},
+
+		// Structurally invalid origins.
+		{
+			name:     "trailing path",
+			origin:   "http://app.example.com/callback",
+			expected: false,
+		},
+		{
+			name:     "trailing slash",
+			origin:   "http://app.example.com/",
+			expected: false,
+		},
+		{
+			name:     "query string",
+			origin:   "http://app.example.com?q=1",
+			expected: false,
+		},
+		{
+			name:     "fragment",
+			origin:   "http://app.example.com#frag",
+			expected: false,
+		},
+		{
+			name:     "userinfo",
+			origin:   "http://user@app.example.com",
+			expected: false,
+		},
+		{
+			name:     "no host",
+			origin:   "http://",
+			expected: false,
+		},
+		{
+			name:     "empty string",
+			origin:   "",
+			expected: false,
+		},
+		{
+			name:     "wildcard alone",
+			origin:   "*",
+			expected: false,
+		},
+		{
+			name:     "null origin",
+			origin:   "null",
+			expected: false,
+		},
+		{
+			name:     "space in host",
+			origin:   "http://app example.com",
+			expected: false,
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			require.Equal(t, tc.expected, isValidOrigin(tc.origin), "Origin: %s", tc.origin)
 		})
 	}
 }
