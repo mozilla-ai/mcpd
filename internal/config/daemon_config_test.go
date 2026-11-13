@@ -341,7 +341,7 @@ func TestDaemonConfig_StructureValidation(t *testing.T) {
 				},
 				CORS: &CORSConfigSection{
 					Enable:        testBoolPtr(t, true),
-					Origins:       []string{"localhost:3000"},
+					Origins:       []string{"http://localhost:3000"},
 					Methods:       []string{"GET", "POST"},
 					Headers:       []string{"Content-Type"},
 					ExposeHeaders: []string{"X-Custom"},
@@ -373,7 +373,7 @@ func TestDaemonConfig_StructureValidation(t *testing.T) {
 		require.NotNil(t, config.API.CORS)
 		require.NotNil(t, config.API.CORS.Enable)
 		require.True(t, *config.API.CORS.Enable)
-		require.ElementsMatch(t, []string{"localhost:3000"}, config.API.CORS.Origins)
+		require.ElementsMatch(t, []string{"http://localhost:3000"}, config.API.CORS.Origins)
 
 		require.NotNil(t, config.MCP)
 		require.NotNil(t, config.MCP.Timeout)
@@ -759,41 +759,41 @@ func TestCORSConfigSection_Set(t *testing.T) {
 			name:           "set allow_origins single value",
 			config:         &CORSConfigSection{},
 			path:           "allow_origins",
-			value:          "localhost:3000",
+			value:          "http://localhost:3000",
 			expectedResult: context.Created,
 			validateFn: func(t *testing.T, config *CORSConfigSection) {
 				t.Helper()
-				require.Equal(t, []string{"localhost:3000"}, config.Origins)
+				require.Equal(t, []string{"http://localhost:3000"}, config.Origins)
 			},
 		},
 		{
 			name:           "set allow_origins multiple values",
 			config:         &CORSConfigSection{},
 			path:           "allow_origins",
-			value:          "localhost:3000,app.example.com:443",
+			value:          "http://localhost:3000,https://app.example.com:443",
 			expectedResult: context.Created,
 			validateFn: func(t *testing.T, config *CORSConfigSection) {
 				t.Helper()
-				require.Equal(t, []string{"localhost:3000", "app.example.com:443"}, config.Origins)
+				require.Equal(t, []string{"http://localhost:3000", "https://app.example.com:443"}, config.Origins)
 			},
 		},
 		{
 			name: "update allow_origins",
 			config: &CORSConfigSection{
-				Origins: []string{"old.example.com"},
+				Origins: []string{"https://old.example.com"},
 			},
 			path:           "allow_origins",
-			value:          "new.example.com",
+			value:          "https://new.example.com",
 			expectedResult: context.Updated,
 			validateFn: func(t *testing.T, config *CORSConfigSection) {
 				t.Helper()
-				require.Equal(t, []string{"new.example.com"}, config.Origins)
+				require.Equal(t, []string{"https://new.example.com"}, config.Origins)
 			},
 		},
 		{
 			name: "clear allow_origins with empty value",
 			config: &CORSConfigSection{
-				Origins: []string{"example.com"},
+				Origins: []string{"https://example.com"},
 			},
 			path:           "allow_origins",
 			value:          "",
@@ -1967,7 +1967,7 @@ func TestDaemonConfig_Get(t *testing.T) {
 			},
 			CORS: &CORSConfigSection{
 				Enable:        testBoolPtr(t, true),
-				Origins:       []string{"localhost:3000", "example.com:443"},
+				Origins:       []string{"http://localhost:3000", "https://example.com:443"},
 				Methods:       []string{"GET", "POST", "PUT"},
 				Headers:       []string{"Content-Type", "Authorization"},
 				ExposeHeaders: []string{"X-Request-ID"},
@@ -2006,7 +2006,7 @@ func TestDaemonConfig_Get(t *testing.T) {
 					},
 					"cors": map[string]any{
 						"enable":            true,
-						"allow_origins":     []string{"localhost:3000", "example.com:443"},
+						"allow_origins":     []string{"http://localhost:3000", "https://example.com:443"},
 						"allow_methods":     []string{"GET", "POST", "PUT"},
 						"allow_headers":     []string{"Content-Type", "Authorization"},
 						"expose_headers":    []string{"X-Request-ID"},
@@ -2037,7 +2037,7 @@ func TestDaemonConfig_Get(t *testing.T) {
 				},
 				"cors": map[string]any{
 					"enable":            true,
-					"allow_origins":     []string{"localhost:3000", "example.com:443"},
+					"allow_origins":     []string{"http://localhost:3000", "https://example.com:443"},
 					"allow_methods":     []string{"GET", "POST", "PUT"},
 					"allow_headers":     []string{"Content-Type", "Authorization"},
 					"expose_headers":    []string{"X-Request-ID"},
@@ -2072,7 +2072,7 @@ func TestDaemonConfig_Get(t *testing.T) {
 			keys:   []string{"api", "cors"},
 			expectedResult: map[string]any{
 				"enable":            true,
-				"allow_origins":     []string{"localhost:3000", "example.com:443"},
+				"allow_origins":     []string{"http://localhost:3000", "https://example.com:443"},
 				"allow_methods":     []string{"GET", "POST", "PUT"},
 				"allow_headers":     []string{"Content-Type", "Authorization"},
 				"expose_headers":    []string{"X-Request-ID"},
@@ -2090,7 +2090,7 @@ func TestDaemonConfig_Get(t *testing.T) {
 			name:           "get api cors allow_origins",
 			config:         fullConfig,
 			keys:           []string{"api", "cors", "allow_origins"},
-			expectedResult: []string{"localhost:3000", "example.com:443"},
+			expectedResult: []string{"http://localhost:3000", "https://example.com:443"},
 		},
 		{
 			name:   "get mcp section",
@@ -2186,7 +2186,7 @@ func TestAPIConfigSection_Get(t *testing.T) {
 		},
 		CORS: &CORSConfigSection{
 			Enable:      testBoolPtr(t, false),
-			Origins:     []string{"app.example.com:443"},
+			Origins:     []string{"https://app.example.com:443"},
 			Methods:     []string{"GET", "POST"},
 			Headers:     []string{"Authorization"},
 			Credentials: testBoolPtr(t, true),
@@ -2212,7 +2212,7 @@ func TestAPIConfigSection_Get(t *testing.T) {
 				},
 				"cors": map[string]any{
 					"enable":            false,
-					"allow_origins":     []string{"app.example.com:443"},
+					"allow_origins":     []string{"https://app.example.com:443"},
 					"allow_methods":     []string{"GET", "POST"},
 					"allow_headers":     []string{"Authorization"},
 					"allow_credentials": true,
@@ -2246,7 +2246,7 @@ func TestAPIConfigSection_Get(t *testing.T) {
 			keys:   []string{"cors"},
 			expectedResult: map[string]any{
 				"enable":            false,
-				"allow_origins":     []string{"app.example.com:443"},
+				"allow_origins":     []string{"https://app.example.com:443"},
 				"allow_methods":     []string{"GET", "POST"},
 				"allow_headers":     []string{"Authorization"},
 				"allow_credentials": true,
@@ -2263,7 +2263,7 @@ func TestAPIConfigSection_Get(t *testing.T) {
 			name:           "get cors allow_origins",
 			config:         fullConfig,
 			keys:           []string{"cors", "allow_origins"},
-			expectedResult: []string{"app.example.com:443"},
+			expectedResult: []string{"https://app.example.com:443"},
 		},
 		{
 			name:           "get from empty config returns empty map",
@@ -2326,7 +2326,7 @@ func TestCORSConfigSection_Get(t *testing.T) {
 	// Create a fully populated CORS config for testing
 	fullConfig := &CORSConfigSection{
 		Enable:        testBoolPtr(t, true),
-		Origins:       []string{"localhost:3000", "example.com:443"},
+		Origins:       []string{"http://localhost:3000", "https://example.com:443"},
 		Methods:       []string{"GET", "POST", "PUT", "DELETE"},
 		Headers:       []string{"Content-Type", "Authorization", "X-Requested-With"},
 		ExposeHeaders: []string{"X-Request-ID", "X-Response-Time"},
@@ -2347,7 +2347,7 @@ func TestCORSConfigSection_Get(t *testing.T) {
 			keys:   []string{},
 			expectedResult: map[string]any{
 				"enable":            true,
-				"allow_origins":     []string{"localhost:3000", "example.com:443"},
+				"allow_origins":     []string{"http://localhost:3000", "https://example.com:443"},
 				"allow_methods":     []string{"GET", "POST", "PUT", "DELETE"},
 				"allow_headers":     []string{"Content-Type", "Authorization", "X-Requested-With"},
 				"expose_headers":    []string{"X-Request-ID", "X-Response-Time"},
@@ -2365,7 +2365,7 @@ func TestCORSConfigSection_Get(t *testing.T) {
 			name:           "get allow_origins",
 			config:         fullConfig,
 			keys:           []string{"allow_origins"},
-			expectedResult: []string{"localhost:3000", "example.com:443"},
+			expectedResult: []string{"http://localhost:3000", "https://example.com:443"},
 		},
 		{
 			name:           "get allow_methods",
