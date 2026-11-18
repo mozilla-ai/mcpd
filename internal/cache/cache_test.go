@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
@@ -12,6 +13,8 @@ import (
 
 	"github.com/hashicorp/go-hclog"
 	"github.com/stretchr/testify/require"
+
+	"github.com/mozilla-ai/mcpd/internal/files"
 )
 
 func TestCache_New(t *testing.T) {
@@ -160,7 +163,7 @@ func TestCache_URL_WithValidCache(t *testing.T) {
 	require.Equal(t, url1, url2)
 
 	// Verify cached file exists and contains expected data.
-	filePath := strings.TrimPrefix(url1, "file://")
+	filePath := testCachedFilePath(t, url1)
 	content, err := os.ReadFile(filePath)
 	require.NoError(t, err)
 	require.Equal(t, testData, string(content))
@@ -191,7 +194,7 @@ func TestCache_URL_ExpiredCache(t *testing.T) {
 	require.True(t, strings.HasPrefix(url1, "file://"))
 
 	// Read first cached content.
-	filePath := strings.TrimPrefix(url1, "file://")
+	filePath := testCachedFilePath(t, url1)
 	content1, err := os.ReadFile(filePath)
 	require.NoError(t, err)
 	require.Equal(t, `{"call": 1}`, string(content1))
@@ -234,7 +237,7 @@ func TestCache_URL_RefreshCache(t *testing.T) {
 	require.True(t, strings.HasPrefix(url1, "file://"))
 
 	// Read first cached content.
-	filePath := strings.TrimPrefix(url1, "file://")
+	filePath := testCachedFilePath(t, url1)
 	content1, err := os.ReadFile(filePath)
 	require.NoError(t, err)
 	require.Equal(t, `{"call": 1}`, string(content1))
@@ -251,4 +254,16 @@ func TestCache_URL_RefreshCache(t *testing.T) {
 	content2, err := os.ReadFile(filePath)
 	require.NoError(t, err)
 	require.Equal(t, `{"call": 2}`, string(content2))
+}
+
+// testCachedFilePath converts the file URL returned by the cache into a filesystem path.
+// Trimming the scheme by hand leaves a leading slash before Windows drive letters ("/C:/..."),
+// so the conversion must go through the shared file URL helper.
+func testCachedFilePath(t *testing.T, fileURL string) string {
+	t.Helper()
+
+	u, err := url.Parse(fileURL)
+	require.NoError(t, err)
+
+	return files.FileURLToPath(u)
 }

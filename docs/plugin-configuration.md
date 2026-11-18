@@ -83,9 +83,16 @@ every plugin's `name` must match a binary in that directory.
 |-------|--------|---------------------|------------------------------------------------|
 | `dir` | string | Yes, if any plugins | Directory containing the plugin binaries       |
 
-When scanning the directory, `mcpd` only considers **regular files with the execute bit set**.
-Subdirectories, dotfiles, and non-executable files are skipped silently, so a plugin whose binary
-lost its execute permission looks identical to one that was never there.
+When scanning the directory, `mcpd` only considers regular files that the platform treats as
+executable. Subdirectories, dotfiles, and non-executable files are skipped silently, so a plugin
+that is present but not executable looks identical to one that was never there.
+
+- **Linux and macOS:** the file must have the **execute bit set**. A binary that lost its execute
+  permission is not discovered.
+- **Windows:** there is no execute bit. A file is treated as executable when its extension is listed
+  in `PATHEXT` (by default `.com`, `.exe`, `.bat`, `.cmd`), and it is matched against the plugin
+  `name` with that extension removed, so `name = "jwt-auth"` matches `jwt-auth.exe`. If several
+  files share a name, the one whose extension appears first in `PATHEXT` wins.
 
 Both problems are caught at startup rather than at request time:
 
@@ -97,8 +104,9 @@ Error: failed to load configuration: plugin directory /etc/mcpd/plugins: open /e
 Error: failed to load configuration: plugin jwt-auth not found in directory /etc/mcpd/plugins
 ```
 
-If you see the second error and the file is definitely there, check `ls -l` for the execute bit
-before anything else.
+If you see the second error and the file is definitely there, check the executable rule for your
+platform before anything else: on Linux and macOS, `ls -l` for the execute bit; on Windows, that the
+file has an extension listed in `PATHEXT` and that `name` is the file name without that extension.
 
 ---
 
