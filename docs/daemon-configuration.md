@@ -36,15 +36,28 @@ Controls the HTTP API server settings.
 | Setting                | Type       | Description                     | Default        | Example          |
 |------------------------|------------|---------------------------------|----------------|------------------|
 | `api.addr`             | `string`   | Server bind address (host:port) | `127.0.0.1:8090` | `0.0.0.0:8080`   |
+| `api.allowed_hosts`    | `[]string` | Additional hosts the API may be addressed by | none | `mcpd.example.com` |
 | `api.timeout.shutdown` | `duration` | Graceful shutdown timeout       | `30s`          | `60s`            |
 
 The daemon binds a loopback address by default, so only the machine it runs on can reach the API. Set `api.addr` to `0.0.0.0:8090` to accept connections from elsewhere, and restrict who can reach that port.
 
-When the daemon is bound to a loopback address, it serves requests addressed only to `localhost`, `127.0.0.1` or `::1`, and refuses any other `Host` with `403` and the detail `Requests addressed to this host are not served.` This is what stops a web page that repoints its own name at the daemon address. When the daemon is bound to a routable address, requests for any host name are served, because the names clients use through a service alias, an ingress or a proxy cannot be known in advance.
+### Which hosts the API serves
 
-A reverse proxy in front of a loopback-bound daemon must therefore send a `Host` the daemon serves. Most proxies preserve the client's `Host` by default, so set it explicitly, for example `proxy_set_header Host 127.0.0.1:8090;` in nginx.
+The daemon serves requests addressed to `localhost`, `127.0.0.1`, `::1` and its own bind host, whatever address it binds. It refuses any other `Host` with `403` and the detail `Requests addressed to this host are not served.` This applies to every client, not only browsers, and it is what stops a web page that repoints its own name at the daemon address.
 
-A container is the exception. Bind `0.0.0.0` inside the container, because the container network namespace is the boundary, then publish the port on the host loopback with `-p 127.0.0.1:8090:8090`. A client on a Docker network, a Compose project, a Kubernetes cluster or a CI job reaches the daemon by service name and needs no published port.
+A deployment reached by any other name must list that name in `api.allowed_hosts`, because the daemon cannot work out the names clients will use. That covers a Kubernetes service name, an ingress hostname, a Docker Compose service name and a reverse proxy that forwards the client's `Host`:
+
+```toml
+[api]
+addr = "0.0.0.0:8090"
+allowed_hosts = ["mcpd.default.svc.cluster.local", "mcpd.example.com"]
+```
+
+A single `*` entry serves every host and turns the check off. Use it only where the names genuinely cannot be enumerated, and put authentication in front of the daemon when you do.
+
+A reverse proxy may instead rewrite the upstream `Host` to one the daemon already serves, for example `proxy_set_header Host 127.0.0.1:8090;` in nginx. That needs no configuration on the daemon.
+
+A container binds `0.0.0.0` inside the container, because the container network namespace is the boundary, then publishes the port on the host loopback with `-p 127.0.0.1:8090:8090`. A client or a browser on the host reaches it at `localhost` or `127.0.0.1` and needs no configuration. A client reaching it by service name, on a Docker network, a Compose project, a Kubernetes cluster or a CI job, needs that name in `api.allowed_hosts`.
 
 #### CORS Configuration (`api.cors.*`)
 

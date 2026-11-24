@@ -36,6 +36,9 @@ type APIServer struct {
 	// Addr specifies the network address to bind.
 	addr string
 
+	// AllowedHosts names additional hosts a request may address, beyond those implied by addr.
+	allowedHosts []string
+
 	// CORS configuration for cross-origin requests.
 	cors CORSConfig
 
@@ -67,6 +70,7 @@ func NewAPIServer(deps APIDependencies, opt ...APIOption) (*APIServer, error) {
 		clientManager:      deps.ClientManager,
 		healthTracker:      deps.HealthTracker,
 		addr:               deps.Addr,
+		allowedHosts:       apiOpts.AllowedHosts,
 		cors:               apiOpts.CORS,
 		shutdownTimeout:    apiOpts.ShutdownTimeout,
 		toolCallTimeout:    apiOpts.ToolCallTimeout,
@@ -117,7 +121,7 @@ func (a *APIServer) handler(ctx context.Context) (http.Handler, string, error) {
 
 	// Refuse a host the daemon does not serve, ahead of every other check so a rebinding page
 	// cannot reach the preflight handler either.
-	mux.Use(requireAllowedHost(allowedHosts(a.addr)))
+	mux.Use(requireAllowedHost(allowedHosts(a.addr, a.allowedHosts)))
 
 	// Add CORS middleware if enabled.
 	if a.cors.Enabled {

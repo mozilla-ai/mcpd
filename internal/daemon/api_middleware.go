@@ -29,16 +29,19 @@ var methodsWithBody = map[string]struct{}{
 
 // allowedHosts returns the host names a request may address for a daemon bound to addr.
 //
-// An empty result permits any host. A routable bind address gives no way to know the names
-// clients will use, since they reach the daemon through a service name, an ingress or a proxy.
-func allowedHosts(addr string) []string {
-	if !isLoopbackBind(addr) {
-		return nil
-	}
-
+// The loopback names are always included, because a client on the same machine reaches the
+// daemon by one of them whatever address the daemon binds. The bind host and the configured
+// names are included alongside them.
+func allowedHosts(addr string, configured []string) []string {
 	hosts := slices.Clone(loopbackHostNames)
 	if host := bindHost(addr); host != "" && !slices.Contains(hosts, host) {
 		hosts = append(hosts, host)
+	}
+
+	for _, host := range configured {
+		if name := normalizeHostName(host); name != "" && !slices.Contains(hosts, name) {
+			hosts = append(hosts, name)
+		}
 	}
 
 	return hosts
@@ -55,18 +58,25 @@ func bindHost(addr string) string {
 }
 
 // isHostAllowed reports whether host, as sent in a Host header, is one the daemon serves.
+//
+// A wildcard entry serves every host.
 func isHostAllowed(allowed []string, host string) bool {
-	if len(allowed) == 0 {
+	if slices.Contains(allowed, "*") {
 		return true
 	}
 
+	return slices.Contains(allowed, normalizeHostName(host))
+}
+
+// normalizeHostName returns host, as sent in a Host header or named in configuration, reduced to
+// a bare lowercase name without its port or IPv6 brackets.
+func normalizeHostName(host string) string {
 	name := strings.ToLower(strings.TrimSpace(host))
 	if h, _, err := net.SplitHostPort(name); err == nil {
 		name = h
 	}
-	name = strings.Trim(name, "[]")
 
-	return slices.Contains(allowed, name)
+	return strings.Trim(name, "[]")
 }
 
 // isLoopbackBind reports whether addr binds an address reachable only from the same machine.
@@ -149,6 +159,9 @@ func ownOrigins(addr string) []string {
 //
 // NOTE: This is the defense against DNS rebinding. A browser omits Origin on a same-origin GET,
 // and a rebound page is same-origin with the daemon, so the origin allowlist cannot see it.
+//
+// NOTE: The check governs every client. A deployment reached by a name the daemon cannot work
+// out, such as a service name or an ingress hostname, must name it in configuration.
 func requireAllowedHost(allowed []string) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
