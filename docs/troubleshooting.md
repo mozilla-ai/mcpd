@@ -120,7 +120,7 @@ The daemon refuses a browser request it does not recognize, and answers with `40
 
 `Requests from this origin are not allowed.` means the page's origin is not one the daemon serves. Add it to `api.cors.allow_origins`. The daemon's own origins are always served, so its page at `/docs` needs no configuration.
 
-`Requests addressed to this host are not served.` means the request arrived with a `Host` the daemon does not serve. The daemon serves `localhost`, `127.0.0.1`, `::1` and its own bind host, for every client. Add any other name to `api.allowed_hosts`, such as a Kubernetes service name or an ingress hostname. Behind a reverse proxy you can instead rewrite the upstream `Host` to one the daemon already serves. The proxy must then refuse a request whose own `Host` it does not serve, because the daemon never sees that value and cannot refuse it.
+`Requests addressed to this host are not served.` means the request arrived with a `Host` the daemon does not serve. The daemon serves `localhost`, `127.0.0.1`, `::1` and its own bind host, for every client. Add any other name to `api.allowed_hosts`, such as a Kubernetes service name or an ingress hostname. Behind a reverse proxy you can instead rewrite the upstream `Host` to one the daemon already serves. The proxy must then refuse a request whose own `Host` it does not serve because the daemon never sees that value and cannot refuse it.
 
 This refusal reaches command line clients and SDKs too, not only browsers, so a health probe or an ingress that addresses the daemon by an unlisted name receives it as well.
 
