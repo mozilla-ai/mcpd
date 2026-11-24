@@ -69,7 +69,7 @@ lint: check-notice
 
 .PHONY: test
 test: lint
-	go test ./...
+	go test -race ./...
 
 .PHONY: validate-registry
 validate-registry:
