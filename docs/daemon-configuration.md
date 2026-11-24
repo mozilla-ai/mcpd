@@ -55,7 +55,7 @@ allowed_hosts = ["mcpd.default.svc.cluster.local", "mcpd.example.com"]
 
 A single `*` entry serves every host and turns the check off. Use it only where the names genuinely cannot be enumerated, and put authentication in front of the daemon when you do.
 
-A reverse proxy may instead rewrite the upstream `Host` to one the daemon already serves, for example `proxy_set_header Host 127.0.0.1:8090;` in nginx. That needs no configuration on the daemon.
+A reverse proxy may instead rewrite the upstream `Host` to one the daemon already serves, for example `proxy_set_header Host 127.0.0.1:8090;` in nginx. That needs no configuration on the daemon, but it moves the host check to the proxy. The proxy must refuse a request whose own `Host` it does not serve, because the daemon never sees that value and cannot refuse it. A proxy that accepts any `Host` and rewrites it forwards a rebinding request with an allowed one. In nginx that means listing the names in `server_name` and giving the default server a block that returns `444`.
 
 A container binds `0.0.0.0` inside the container, because the container network namespace is the boundary, then publishes the port on the host loopback with `-p 127.0.0.1:8090:8090`. A client or a browser on the host reaches it at `localhost` or `127.0.0.1` and needs no configuration. A client reaching it by service name, on a Docker network, a Compose project, a Kubernetes cluster or a CI job, needs that name in `api.allowed_hosts`.
 
