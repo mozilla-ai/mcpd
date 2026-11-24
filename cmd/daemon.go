@@ -35,6 +35,9 @@ const (
 	// flagAddr is the flag name for the API server address.
 	flagAddr = "addr"
 
+	// flagAllowedHost is the flag name for an additional host the API may be addressed by.
+	flagAllowedHost = "allowed-host"
+
 	// flagCORSEnable is the flag name for enabling CORS support.
 	flagCORSEnable = "cors-enable"
 
@@ -112,6 +115,9 @@ type daemonFlagConfig struct {
 type apiFlagConfig struct {
 	// addr specifies the address to bind the daemon API server.
 	addr string
+
+	// allowedHosts specifies additional hosts a request may address.
+	allowedHosts []string
 }
 
 // corsFlagConfig groups CORS-related configuration flags.
@@ -240,6 +246,13 @@ func newDaemonCobraCmd(daemonCmd *DaemonCmd) *cobra.Command {
 		flagAddr,
 		defaultAPIAddr,
 		"Address for the daemon to bind (not applicable in --dev mode)",
+	)
+
+	cobraCommand.Flags().StringSliceVar(
+		&daemonCmd.config.api.allowedHosts,
+		flagAllowedHost,
+		nil,
+		"Additional host the API may be addressed by, such as a service name or an ingress hostname (can be repeated)",
 	)
 
 	// Add CORS flags.
@@ -580,6 +593,21 @@ func (c *DaemonCmd) loadConfigAPI(api *config.APIConfigSection, logger hclog.Log
 		} else {
 			logger.Debug("Using config file value", "setting", "api.addr", "value", *api.Addr)
 			c.config.api.addr = *api.Addr
+		}
+	}
+
+	// Handle allowed hosts.
+	if len(api.AllowedHosts) > 0 {
+		if cmd.Flags().Changed(flagAllowedHost) {
+			warnings = append(
+				warnings,
+				flagOverrideWarning(flagAllowedHost, api.AllowedHosts, c.config.api.allowedHosts),
+			)
+			logger.Debug("Flag overriding config value", "flag", flagAllowedHost,
+				"config", api.AllowedHosts, "using", c.config.api.allowedHosts)
+		} else {
+			logger.Debug("Using config file value", "setting", "api.allowed_hosts", "value", api.AllowedHosts)
+			c.config.api.allowedHosts = api.AllowedHosts
 		}
 	}
 
@@ -1030,6 +1058,10 @@ func (c *DaemonCmd) validateFlags(cmd *cobra.Command) error {
 // buildAPIOptions creates daemon API options from flags set on DaemonCmd.
 func (c *DaemonCmd) buildAPIOptions() ([]daemon.APIOption, error) {
 	var apiOpts []daemon.APIOption
+
+	// Allowed hosts gate every client, so a deployment reached by a name the daemon cannot
+	// work out must name it here.
+	apiOpts = append(apiOpts, daemon.WithAllowedHosts(c.config.api.allowedHosts))
 
 	// Allowed origins gate browser requests whether or not CORS headers are sent.
 	apiOpts = append(apiOpts, daemon.WithCORSAllowOrigins(c.config.cors.origins))

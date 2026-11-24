@@ -14,6 +14,10 @@ import (
 // APIOptions contains optional configuration for the API server.
 // NewAPIOptions should be used to create instances of APIOptions.
 type APIOptions struct {
+	// AllowedHosts names additional hosts a request may address, beyond the loopback names and
+	// the bind host. A wildcard entry serves every host.
+	AllowedHosts []string
+
 	// CORS configuration for cross-origin requests.
 	CORS CORSConfig
 
@@ -91,6 +95,15 @@ func NewAPIOptions(opts ...APIOption) (APIOptions, error) {
 	}
 
 	return options, nil
+}
+
+// WithAllowedHosts sets additional hosts a request may address.
+func WithAllowedHosts(hosts []string) APIOption {
+	return func(o *APIOptions) error {
+		o.AllowedHosts = hosts
+
+		return nil
+	}
 }
 
 // WithCORSEnabled enables or disables CORS support.
