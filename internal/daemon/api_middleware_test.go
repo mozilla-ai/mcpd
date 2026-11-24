@@ -55,6 +55,11 @@ func TestAllowedHosts(t *testing.T) {
 			expected: []string{"127.0.0.1", "::1", "localhost", "192.168.1.5"},
 		},
 		{
+			name:     "expanded IPv6 bind is canonicalized",
+			addr:     "[2001:db8:0:0:0:0:0:1]:8090",
+			expected: []string{"127.0.0.1", "::1", "localhost", "2001:db8::1"},
+		},
+		{
 			name:       "configured service name is added",
 			addr:       "0.0.0.0:8090",
 			configured: []string{"mcpd.default.svc.cluster.local"},
@@ -167,6 +172,13 @@ func TestRequireAllowedHost(t *testing.T) {
 			name:           "bracketed IPv6 loopback is served",
 			allowed:        []string{"127.0.0.1", "::1", "localhost"},
 			host:           "[::1]:8090",
+			expectedStatus: http.StatusOK,
+			expectReached:  true,
+		},
+		{
+			name:           "equivalent IPv6 spelling is served",
+			allowed:        []string{"127.0.0.1", "::1", "localhost", "2001:db8::1"},
+			host:           "[2001:db8:0:0:0:0:0:1]:8090",
 			expectedStatus: http.StatusOK,
 			expectReached:  true,
 		},

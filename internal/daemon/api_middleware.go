@@ -5,6 +5,7 @@ import (
 	"mime"
 	"net"
 	"net/http"
+	"net/netip"
 	"slices"
 	"strings"
 
@@ -34,7 +35,7 @@ var methodsWithBody = map[string]struct{}{
 // names are included alongside them.
 func allowedHosts(addr string, configured []string) []string {
 	hosts := slices.Clone(loopbackHostNames)
-	if host := bindHost(addr); host != "" && !slices.Contains(hosts, host) {
+	if host := normalizeHostName(addr); host != "" && !slices.Contains(hosts, host) {
 		hosts = append(hosts, host)
 	}
 
@@ -45,16 +46,6 @@ func allowedHosts(addr string, configured []string) []string {
 	}
 
 	return hosts
-}
-
-// bindHost returns the lowercased host part of a bind address, without its port.
-func bindHost(addr string) string {
-	host, _, err := net.SplitHostPort(strings.TrimSpace(addr))
-	if err != nil {
-		return strings.ToLower(strings.TrimSpace(addr))
-	}
-
-	return strings.ToLower(host)
 }
 
 // isHostAllowed reports whether host, as sent in a Host header, is one the daemon serves.
@@ -68,27 +59,16 @@ func isHostAllowed(allowed []string, host string) bool {
 	return slices.Contains(allowed, normalizeHostName(host))
 }
 
-// normalizeHostName returns host, as sent in a Host header or named in configuration, reduced to
-// a bare lowercase name without its port or IPv6 brackets.
-func normalizeHostName(host string) string {
-	name := strings.ToLower(strings.TrimSpace(host))
-	if h, _, err := net.SplitHostPort(name); err == nil {
-		name = h
-	}
-
-	return strings.Trim(name, "[]")
-}
-
 // isLoopbackBind reports whether addr binds an address reachable only from the same machine.
 //
 // NOTE: The host part may be a name rather than an IP, so parsing it as an IP is not enough.
 func isLoopbackBind(addr string) bool {
-	host := bindHost(addr)
+	host := normalizeHostName(addr)
 	if host == "" {
 		return false
 	}
 
-	if ip := net.ParseIP(host); ip != nil {
+	if ip, err := netip.ParseAddr(host); err == nil {
 		return ip.IsLoopback()
 	}
 
@@ -129,6 +109,25 @@ func isOriginAllowed(allowed []string, origin string) bool {
 	}
 
 	return false
+}
+
+// normalizeHostName returns host, as sent in a Host header, named in configuration or given as a
+// bind address, reduced to the form host names are compared in. That form is a bare lowercase
+// name without its port or IPv6 brackets, and a numeric address in its canonical spelling.
+//
+// NOTE: A name is compared literally and is never resolved.
+func normalizeHostName(host string) string {
+	name := strings.ToLower(strings.TrimSpace(host))
+	if h, _, err := net.SplitHostPort(name); err == nil {
+		name = h
+	}
+
+	name = strings.Trim(name, "[]")
+	if addr, err := netip.ParseAddr(name); err == nil {
+		return addr.String()
+	}
+
+	return name
 }
 
 // ownOrigins returns the origins that address the daemon itself for a daemon bound to addr.
