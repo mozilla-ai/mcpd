@@ -1495,6 +1495,37 @@ func TestAPIConfigSection_Validate(t *testing.T) {
 			expectError: false,
 		},
 		{
+			name: "valid allowed hosts",
+			config: &APIConfigSection{
+				AllowedHosts: []string{"mcpd.example.com", "mcpd.default.svc.cluster.local", "*"},
+			},
+			expectError: false,
+		},
+		{
+			name: "allowed host given as an origin",
+			config: &APIConfigSection{
+				AllowedHosts: []string{"https://mcpd.example.com"},
+			},
+			expectError: true,
+			errorMsg:    "allowed host 'https://mcpd.example.com' must be a host name, not a URL or an origin",
+		},
+		{
+			name: "allowed host given with a path",
+			config: &APIConfigSection{
+				AllowedHosts: []string{"mcpd.example.com/api"},
+			},
+			expectError: true,
+			errorMsg:    "allowed host 'mcpd.example.com/api' must be a host name, not a URL or an origin",
+		},
+		{
+			name: "empty allowed host",
+			config: &APIConfigSection{
+				AllowedHosts: []string{"  "},
+			},
+			expectError: true,
+			errorMsg:    "allowed host cannot be empty",
+		},
+		{
 			name: "colon-only address is valid",
 			config: &APIConfigSection{
 				Addr: testStringPtr(t, ":"),
@@ -2896,6 +2927,27 @@ func TestDaemonConfig_AvailableKeys(t *testing.T) {
 	}
 }
 
+func TestAPIConfigSection_AllowedHostsRoundTrip(t *testing.T) {
+	t.Parallel()
+
+	cfg := &APIConfigSection{}
+
+	_, err := cfg.Get("allowed_hosts")
+	require.Error(t, err)
+
+	_, err = cfg.Set("allowed_hosts", "mcpd.example.com,mcpd.internal")
+	require.NoError(t, err)
+	require.Equal(t, []string{"mcpd.example.com", "mcpd.internal"}, cfg.AllowedHosts)
+
+	value, err := cfg.Get("allowed_hosts")
+	require.NoError(t, err)
+	require.Equal(t, []string{"mcpd.example.com", "mcpd.internal"}, value)
+
+	_, err = cfg.Set("allowed_hosts", "")
+	require.NoError(t, err)
+	require.Nil(t, cfg.AllowedHosts)
+}
+
 func TestAPIConfigSection_AvailableKeys(t *testing.T) {
 	t.Parallel()
 
@@ -2904,6 +2956,7 @@ func TestAPIConfigSection_AvailableKeys(t *testing.T) {
 
 	expectedKeys := []string{
 		"addr",
+		"allowed_hosts",
 		"timeout.shutdown",
 		"cors.enable",
 		"cors.allow_origins",

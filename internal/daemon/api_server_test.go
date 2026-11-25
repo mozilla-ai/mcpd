@@ -20,6 +20,9 @@ import (
 // testLocalAddr is the loopback address the test daemon binds, and the Host a local client sends.
 const testLocalAddr = "127.0.0.1:8090"
 
+// testRoutableAddr is the routable address the published container image binds.
+const testRoutableAddr = "0.0.0.0:8090"
+
 // mockMCPClientWithToolResult returns a successful tool result, so a permitted request reaches 200
 // and a test can tell a served request from one refused or failed further down.
 type mockMCPClientWithToolResult struct {
@@ -32,8 +35,16 @@ func (c *mockMCPClientWithToolResult) CallTool(_ context.Context, _ mcp.CallTool
 	}, nil
 }
 
-// newTestAPIHandler builds the full API handler with one server and one tool registered.
+// newTestAPIHandler builds the full API handler for a daemon bound to a loopback address.
 func newTestAPIHandler(t *testing.T, opt ...APIOption) http.Handler {
+	t.Helper()
+
+	return newTestAPIHandlerForAddr(t, testLocalAddr, opt...)
+}
+
+// newTestAPIHandlerForAddr builds the full API handler for a daemon bound to addr, with one
+// server and one tool registered.
+func newTestAPIHandlerForAddr(t *testing.T, addr string, opt ...APIOption) http.Handler {
 	t.Helper()
 
 	clients := NewClientManager()
@@ -47,7 +58,7 @@ func newTestAPIHandler(t *testing.T, opt ...APIOption) http.Handler {
 		hclog.NewNullLogger(),
 		clients,
 		NewHealthTracker([]string{"notes"}),
-		testLocalAddr,
+		addr,
 	)
 	require.NoError(t, err)
 
@@ -354,6 +365,22 @@ func TestAPIServer_RebindingReadRefused(t *testing.T) {
 	require.NotContains(t, rec.Body.String(), "notes")
 }
 
+// TestAPIServer_RebindingReadRefusedWithoutFetchMetadata covers the request a rebound page on a
+// plain HTTP origin actually sends. A browser omits fetch metadata for a URL that is not
+// potentially trustworthy, and omits Origin on a same-origin GET.
+func TestAPIServer_RebindingReadRefusedWithoutFetchMetadata(t *testing.T) {
+	t.Parallel()
+
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/servers", nil)
+	req.Host = "evil.example:8090"
+
+	rec := httptest.NewRecorder()
+	newTestAPIHandlerForAddr(t, testRoutableAddr).ServeHTTP(rec, req)
+
+	require.Equal(t, http.StatusForbidden, rec.Code)
+	require.NotContains(t, rec.Body.String(), "notes")
+}
+
 // TestAPIServer_RebindingToolCallRefused covers a page that has rebound its own name to the
 // daemon address, so the browser treats the daemon as same origin and can read the reply.
 func TestAPIServer_RebindingToolCallRefused(t *testing.T) {
@@ -372,6 +399,59 @@ func TestAPIServer_RebindingToolCallRefused(t *testing.T) {
 	newTestAPIHandler(t).ServeHTTP(rec, req)
 
 	require.Equal(t, http.StatusForbidden, rec.Code)
+}
+
+// TestAPIServer_RoutableBindRefusesUnconfiguredHost covers a deployment reached by a service
+// name, an ingress hostname or a proxy that does not rewrite Host. The daemon cannot work the
+// name out, so it must be configured.
+func TestAPIServer_RoutableBindRefusesUnconfiguredHost(t *testing.T) {
+	t.Parallel()
+
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/servers", nil)
+	req.Host = "mcpd.default.svc.cluster.local:8090"
+
+	rec := httptest.NewRecorder()
+	newTestAPIHandlerForAddr(t, testRoutableAddr).ServeHTTP(rec, req)
+
+	require.Equal(t, http.StatusForbidden, rec.Code)
+	require.NotContains(t, rec.Body.String(), "notes")
+}
+
+// TestAPIServer_RoutableBindServesConfiguredHost covers the same deployment once the operator
+// has named the host.
+func TestAPIServer_RoutableBindServesConfiguredHost(t *testing.T) {
+	t.Parallel()
+
+	handler := newTestAPIHandlerForAddr(
+		t,
+		testRoutableAddr,
+		WithAllowedHosts([]string{"mcpd.default.svc.cluster.local"}),
+	)
+
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/servers", nil)
+	req.Host = "mcpd.default.svc.cluster.local:8090"
+
+	rec := httptest.NewRecorder()
+	handler.ServeHTTP(rec, req)
+
+	require.Equal(t, http.StatusOK, rec.Code)
+	require.Contains(t, rec.Body.String(), "notes")
+}
+
+// TestAPIServer_RoutableBindWildcardServesAnyHost covers an operator who cannot enumerate the
+// names clients use and has opted out of the check.
+func TestAPIServer_RoutableBindWildcardServesAnyHost(t *testing.T) {
+	t.Parallel()
+
+	handler := newTestAPIHandlerForAddr(t, testRoutableAddr, WithAllowedHosts([]string{"*"}))
+
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/servers", nil)
+	req.Host = "anything.example:8090"
+
+	rec := httptest.NewRecorder()
+	handler.ServeHTTP(rec, req)
+
+	require.Equal(t, http.StatusOK, rec.Code)
 }
 
 // TestAPIServer_SameOriginCallServed covers the daemon's own API documentation page, which calls

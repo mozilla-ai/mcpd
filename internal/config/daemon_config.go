@@ -22,6 +22,10 @@ type APIConfigSection struct {
 	// Maps to CLI flag --addr
 	Addr *string `json:"addr,omitempty" toml:"addr,omitempty" yaml:"addr,omitempty"`
 
+	// Additional hosts a request may address, beyond the loopback names and the bind host
+	// Maps to CLI flag --allowed-host
+	AllowedHosts []string `json:"allowedHosts,omitempty" toml:"allowed_hosts,omitempty" yaml:"allowed_hosts,omitempty"`
+
 	// Nested timeout configuration for API operations
 	Timeout *APITimeoutConfigSection `json:"timeout,omitempty" toml:"timeout,omitempty" yaml:"timeout,omitempty"`
 
@@ -137,6 +141,7 @@ type MCPTimeoutConfigSection struct {
 func (a *APIConfigSection) AvailableKeys() []SchemaKey {
 	keys := []SchemaKey{
 		{Path: "addr", Type: "string", Description: "API server address (host:port)"},
+		{Path: "allowed_hosts", Type: "[]string", Description: "Additional hosts the API may be addressed by"},
 	}
 
 	// Always return timeout keys regardless of whether timeout section exists
@@ -178,6 +183,11 @@ func (a *APIConfigSection) Get(keys ...string) (any, error) {
 				return nil, fmt.Errorf("api.addr not set")
 			}
 			return *a.Addr, nil
+		case "allowed_hosts":
+			if len(a.AllowedHosts) == 0 {
+				return nil, fmt.Errorf("api.allowed_hosts not set")
+			}
+			return a.AllowedHosts, nil
 		case "timeout":
 			if a.Timeout == nil {
 				return nil, fmt.Errorf("api.timeout not set")
@@ -231,6 +241,14 @@ func (a *APIConfigSection) Set(path string, value string) (context.UpsertResult,
 				a.Addr = &value
 			}
 			return determineStringPtrResult(oldValue, a.Addr), nil
+		case "allowed_hosts":
+			oldValue := a.AllowedHosts
+			if value == "" {
+				a.AllowedHosts = nil
+			} else {
+				a.AllowedHosts = parseStringArray(value)
+			}
+			return determineStringSliceResult(oldValue, a.AllowedHosts), nil
 		default:
 			return context.Noop, fmt.Errorf("unknown API config key: %s", key)
 		}
@@ -270,6 +288,21 @@ func (a *APIConfigSection) Validate() error {
 			validationErrors = append(
 				validationErrors,
 				fmt.Errorf("API address \"%s\" appears to be invalid (expected format: host:port)", *a.Addr),
+			)
+		}
+	}
+
+	// Validate allowed hosts.
+	for _, host := range a.AllowedHosts {
+		if strings.TrimSpace(host) == "" {
+			validationErrors = append(validationErrors, fmt.Errorf("allowed host cannot be empty"))
+			continue
+		}
+
+		if strings.Contains(host, "://") || strings.Contains(host, "/") {
+			validationErrors = append(
+				validationErrors,
+				fmt.Errorf("allowed host '%s' must be a host name, not a URL or an origin", host),
 			)
 		}
 	}
@@ -1112,6 +1145,10 @@ func (a *APIConfigSection) getAll() (any, error) {
 
 	if a.Addr != nil {
 		result["addr"] = *a.Addr
+	}
+
+	if len(a.AllowedHosts) > 0 {
+		result["allowed_hosts"] = a.AllowedHosts
 	}
 
 	if a.Timeout != nil {

@@ -14,9 +14,10 @@ func TestAllowedHosts(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
-		name     string
-		addr     string
-		expected []string
+		name       string
+		addr       string
+		configured []string
+		expected   []string
 	}{
 		{
 			name:     "loopback IPv4 bind",
@@ -39,19 +40,42 @@ func TestAllowedHosts(t *testing.T) {
 			expected: []string{"127.0.0.1", "::1", "localhost", "127.0.0.2"},
 		},
 		{
-			name:     "all interfaces permits any host",
+			name:     "all interfaces bind",
 			addr:     "0.0.0.0:8090",
-			expected: nil,
+			expected: []string{"127.0.0.1", "::1", "localhost", "0.0.0.0"},
 		},
 		{
-			name:     "empty host permits any host",
+			name:     "empty host bind",
 			addr:     ":8090",
-			expected: nil,
+			expected: []string{"127.0.0.1", "::1", "localhost"},
 		},
 		{
-			name:     "routable address permits any host",
+			name:     "routable address bind",
 			addr:     "192.168.1.5:8090",
-			expected: nil,
+			expected: []string{"127.0.0.1", "::1", "localhost", "192.168.1.5"},
+		},
+		{
+			name:     "expanded IPv6 bind is canonicalized",
+			addr:     "[2001:db8:0:0:0:0:0:1]:8090",
+			expected: []string{"127.0.0.1", "::1", "localhost", "2001:db8::1"},
+		},
+		{
+			name:       "configured service name is added",
+			addr:       "0.0.0.0:8090",
+			configured: []string{"mcpd.default.svc.cluster.local"},
+			expected: []string{
+				"127.0.0.1",
+				"::1",
+				"localhost",
+				"0.0.0.0",
+				"mcpd.default.svc.cluster.local",
+			},
+		},
+		{
+			name:       "configured name is normalized and deduplicated",
+			addr:       "127.0.0.1:8090",
+			configured: []string{" LOCALHOST:8090 ", "[::1]", "mcpd.example.com"},
+			expected:   []string{"127.0.0.1", "::1", "localhost", "mcpd.example.com"},
 		},
 	}
 
@@ -59,7 +83,7 @@ func TestAllowedHosts(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
-			require.Equal(t, tc.expected, allowedHosts(tc.addr))
+			require.Equal(t, tc.expected, allowedHosts(tc.addr, tc.configured))
 		})
 	}
 }
@@ -131,13 +155,6 @@ func TestRequireAllowedHost(t *testing.T) {
 		expectReached  bool
 	}{
 		{
-			name:           "empty allowlist permits any host",
-			allowed:        nil,
-			host:           "mcpd:8090",
-			expectedStatus: http.StatusOK,
-			expectReached:  true,
-		},
-		{
 			name:           "loopback name is served",
 			allowed:        []string{"127.0.0.1", "::1", "localhost"},
 			host:           "localhost:8090",
@@ -159,6 +176,13 @@ func TestRequireAllowedHost(t *testing.T) {
 			expectReached:  true,
 		},
 		{
+			name:           "equivalent IPv6 spelling is served",
+			allowed:        []string{"127.0.0.1", "::1", "localhost", "2001:db8::1"},
+			host:           "[2001:db8:0:0:0:0:0:1]:8090",
+			expectedStatus: http.StatusOK,
+			expectReached:  true,
+		},
+		{
 			name:           "host without a port is served",
 			allowed:        []string{"127.0.0.1", "::1", "localhost"},
 			host:           "localhost",
@@ -173,9 +197,30 @@ func TestRequireAllowedHost(t *testing.T) {
 			expectReached:  false,
 		},
 		{
-			name:           "service name is refused on a loopback bind",
+			name:           "service name is refused unless configured",
 			allowed:        []string{"127.0.0.1", "::1", "localhost"},
 			host:           "mcpd:8090",
+			expectedStatus: http.StatusForbidden,
+			expectReached:  false,
+		},
+		{
+			name:           "configured service name is served",
+			allowed:        []string{"127.0.0.1", "::1", "localhost", "mcpd"},
+			host:           "mcpd:8090",
+			expectedStatus: http.StatusOK,
+			expectReached:  true,
+		},
+		{
+			name:           "wildcard serves every host",
+			allowed:        []string{"*"},
+			host:           "anything.example:8090",
+			expectedStatus: http.StatusOK,
+			expectReached:  true,
+		},
+		{
+			name:           "empty allowlist refuses every host",
+			allowed:        nil,
+			host:           "localhost:8090",
 			expectedStatus: http.StatusForbidden,
 			expectReached:  false,
 		},

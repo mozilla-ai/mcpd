@@ -5,6 +5,7 @@ import (
 	"mime"
 	"net"
 	"net/http"
+	"net/netip"
 	"slices"
 	"strings"
 
@@ -29,56 +30,45 @@ var methodsWithBody = map[string]struct{}{
 
 // allowedHosts returns the host names a request may address for a daemon bound to addr.
 //
-// An empty result permits any host. A routable bind address gives no way to know the names
-// clients will use, since they reach the daemon through a service name, an ingress or a proxy.
-func allowedHosts(addr string) []string {
-	if !isLoopbackBind(addr) {
-		return nil
+// The loopback names are always included, because a client on the same machine reaches the
+// daemon by one of them whatever address the daemon binds. The bind host and the configured
+// names are included alongside them.
+func allowedHosts(addr string, configured []string) []string {
+	hosts := slices.Clone(loopbackHostNames)
+	if host := normalizeHostName(addr); host != "" && !slices.Contains(hosts, host) {
+		hosts = append(hosts, host)
 	}
 
-	hosts := slices.Clone(loopbackHostNames)
-	if host := bindHost(addr); host != "" && !slices.Contains(hosts, host) {
-		hosts = append(hosts, host)
+	for _, host := range configured {
+		if name := normalizeHostName(host); name != "" && !slices.Contains(hosts, name) {
+			hosts = append(hosts, name)
+		}
 	}
 
 	return hosts
 }
 
-// bindHost returns the lowercased host part of a bind address, without its port.
-func bindHost(addr string) string {
-	host, _, err := net.SplitHostPort(strings.TrimSpace(addr))
-	if err != nil {
-		return strings.ToLower(strings.TrimSpace(addr))
-	}
-
-	return strings.ToLower(host)
-}
-
 // isHostAllowed reports whether host, as sent in a Host header, is one the daemon serves.
+//
+// A wildcard entry serves every host.
 func isHostAllowed(allowed []string, host string) bool {
-	if len(allowed) == 0 {
+	if slices.Contains(allowed, "*") {
 		return true
 	}
 
-	name := strings.ToLower(strings.TrimSpace(host))
-	if h, _, err := net.SplitHostPort(name); err == nil {
-		name = h
-	}
-	name = strings.Trim(name, "[]")
-
-	return slices.Contains(allowed, name)
+	return slices.Contains(allowed, normalizeHostName(host))
 }
 
 // isLoopbackBind reports whether addr binds an address reachable only from the same machine.
 //
 // NOTE: The host part may be a name rather than an IP, so parsing it as an IP is not enough.
 func isLoopbackBind(addr string) bool {
-	host := bindHost(addr)
+	host := normalizeHostName(addr)
 	if host == "" {
 		return false
 	}
 
-	if ip := net.ParseIP(host); ip != nil {
+	if ip, err := netip.ParseAddr(host); err == nil {
 		return ip.IsLoopback()
 	}
 
@@ -121,6 +111,25 @@ func isOriginAllowed(allowed []string, origin string) bool {
 	return false
 }
 
+// normalizeHostName returns host, as sent in a Host header, named in configuration or given as a
+// bind address, reduced to the form host names are compared in. That form is a bare lowercase
+// name without its port or IPv6 brackets, and a numeric address in its canonical spelling.
+//
+// NOTE: A name is compared literally and is never resolved.
+func normalizeHostName(host string) string {
+	name := strings.ToLower(strings.TrimSpace(host))
+	if h, _, err := net.SplitHostPort(name); err == nil {
+		name = h
+	}
+
+	name = strings.Trim(name, "[]")
+	if addr, err := netip.ParseAddr(name); err == nil {
+		return addr.String()
+	}
+
+	return name
+}
+
 // ownOrigins returns the origins that address the daemon itself for a daemon bound to addr.
 //
 // The daemon serves its own API documentation page, which calls the API from these origins. The
@@ -149,6 +158,9 @@ func ownOrigins(addr string) []string {
 //
 // NOTE: This is the defense against DNS rebinding. A browser omits Origin on a same-origin GET,
 // and a rebound page is same-origin with the daemon, so the origin allowlist cannot see it.
+//
+// NOTE: The check governs every client. A deployment reached by a name the daemon cannot work
+// out, such as a service name or an ingress hostname, must name it in configuration.
 func requireAllowedHost(allowed []string) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
