@@ -125,20 +125,29 @@ A `content` plugin rewrites a request by setting `modified_request` on the respo
 Modifications chain in configured order, so each `content` plugin is given what the plugin before it
 produced, and the last one decides what `mcpd` uses.
 
-A field left at its zero value means no change:
+A plugin changes only the fields it sets, and a field left at its zero value is left alone:
 
-| Flow       | No change                                          | Change                                              |
-|------------|----------------------------------------------------|-----------------------------------------------------|
-| `request`  | `modified_request` is not set                      | `modified_request` carries the fields to replace    |
-| `response` | no status code, no headers and no body are set     | the status code, headers or body to return          |
+| Flow       | A plugin may change        | `mcpd` ignores |
+|------------|----------------------------|----------------|
+| `request`  | headers, body              | method, path   |
+| `response` | status code, headers, body | —              |
 
-So a response plugin that echoes only `Continue=true` leaves the upstream response untouched, and a
-request plugin that rewrites one field does not have to restate the rest. Because an unset body means
-no change, a plugin clears a body by returning an empty one rather than none at all, and a plugin that
-wants to return an empty response rejects it with `Continue=false` instead.
+So a plugin that adds one header keeps every other header the client sent, and a response plugin that
+redacts a body keeps the upstream status code. A plugin that echoes only `Continue=true` changes
+nothing. Because an unset body means no change, a plugin clears a body by returning an empty one
+rather than none at all.
 
-Rewriting the request path changes the path the handler sees. The request has already been matched to
-a route by then, so it is not matched again.
+Two limits follow from this, and both are deliberate:
+
+- A plugin cannot delete a header, only set one. Headers are merged over the message.
+- A plugin cannot change the request method or path. `mcpd` runs the pipeline before it matches the
+  request to a route, so honoring a rewritten method or path would let a `content` plugin choose which
+  handler runs, after `authentication`, `authorization`, `rate_limiting` and `validation` have already
+  passed on the request the client actually sent. Rewrite the body instead.
+
+A `content` plugin runs after `authorization`, so a change it makes is not authorized again. Keep
+changes to data the authorization decision does not depend on, or enforce the constraint in the
+`content` plugin itself.
 
 Because observability plugins run concurrently, an optional observability plugin's rejection is
 ignored rather than stopping the pipeline. See
