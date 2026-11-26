@@ -25,33 +25,110 @@ func TestMiddleware_AppliesContentModification(t *testing.T) {
 	}
 	p := newTestContentPipeline(t, content)
 
-	var (
-		seenPath   string
-		seenBody   string
-		seenHeader string
-	)
+	var seen *http.Request
 	nextHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		body, err := io.ReadAll(r.Body)
 		require.NoError(t, err)
 
-		seenPath = r.URL.Path
-		seenBody = string(body)
-		seenHeader = r.Header.Get("X-Added")
+		seen = r.Clone(r.Context())
+		seen.Body = io.NopCloser(strings.NewReader(string(body)))
 
 		w.WriteHeader(http.StatusOK)
 		_, _ = w.Write([]byte("upstream"))
 	})
 
 	req := httptest.NewRequest(http.MethodPost, "/original", strings.NewReader(`{"original":true}`))
+	req.Header.Set("Authorization", "Bearer original-token")
 	recorder := httptest.NewRecorder()
 	p.Middleware()(nextHandler).ServeHTTP(recorder, req)
 
-	require.Equal(t, "/rewritten", seenPath)
-	require.JSONEq(t, `{"rewritten":true}`, seenBody)
-	require.Equal(t, "yes", seenHeader)
+	require.NotNil(t, seen)
+
+	body, err := io.ReadAll(seen.Body)
+	require.NoError(t, err)
+	require.JSONEq(t, `{"rewritten":true}`, string(body))
+	require.Equal(t, "yes", seen.Header.Get("X-Added"))
+
+	// A header the plugin did not set survives, so a plugin cannot strip credentials by omission.
+	require.Equal(t, "Bearer original-token", seen.Header.Get("Authorization"))
+
+	// The plugin asked for a different path, which routing must not follow.
+	require.Equal(t, "/original", seen.URL.Path)
+	require.Equal(t, http.MethodPost, seen.Method)
 
 	require.Equal(t, http.StatusOK, recorder.Code)
 	require.Equal(t, "upstream", recorder.Body.String())
+}
+
+func TestMiddleware_IgnoresContentMethodAndPathRewrite(t *testing.T) {
+	t.Parallel()
+
+	content := &testContentPlugin{
+		rewriteMethod: http.MethodDelete,
+		rewritePath:   "/api/v1/servers/alpha/tools/danger",
+	}
+	p := newTestContentPipeline(t, content)
+
+	var (
+		seenMethod string
+		seenPath   string
+	)
+	nextHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		seenMethod = r.Method
+		seenPath = r.URL.Path
+
+		w.WriteHeader(http.StatusOK)
+	})
+
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/servers", nil)
+	recorder := httptest.NewRecorder()
+	p.Middleware()(nextHandler).ServeHTTP(recorder, req)
+
+	require.Equal(t, http.MethodGet, seenMethod)
+	require.Equal(t, "/api/v1/servers", seenPath)
+}
+
+func TestMiddleware_AppliesContentResponseModification(t *testing.T) {
+	t.Parallel()
+
+	redactor := &testContentPlugin{
+		rewriteResponseStatus: http.StatusOK,
+		rewriteResponseBody:   `{"token":"[REDACTED]"}`,
+	}
+	p := newTestContentPipeline(t, redactor)
+
+	nextHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`{"token":"super-secret"}`))
+	})
+
+	req := httptest.NewRequest(http.MethodGet, "/original", nil)
+	recorder := httptest.NewRecorder()
+	p.Middleware()(nextHandler).ServeHTTP(recorder, req)
+
+	require.Equal(t, []string{`{"token":"super-secret"}`}, redactor.seenResponseBodies)
+
+	require.Equal(t, http.StatusOK, recorder.Code)
+	require.JSONEq(t, `{"token":"[REDACTED]"}`, recorder.Body.String())
+	require.NotContains(t, recorder.Body.String(), "super-secret")
+}
+
+func TestMiddleware_PassesOriginalResponseWhenUnmodified(t *testing.T) {
+	t.Parallel()
+
+	p := newTestContentPipeline(t, &testContentPlugin{})
+
+	nextHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusTeapot)
+		_, _ = w.Write([]byte(`{"tools":[]}`))
+	})
+
+	req := httptest.NewRequest(http.MethodGet, "/original", nil)
+	recorder := httptest.NewRecorder()
+	p.Middleware()(nextHandler).ServeHTTP(recorder, req)
+
+	require.Equal(t, http.StatusTeapot, recorder.Code)
+	require.JSONEq(t, `{"tools":[]}`, recorder.Body.String())
 }
 
 func TestMiddleware_PassesOriginalRequestWhenUnmodified(t *testing.T) {

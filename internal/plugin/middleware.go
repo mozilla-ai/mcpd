@@ -8,6 +8,14 @@ import (
 	"github.com/mozilla-ai/mcpd/internal/api"
 )
 
+const (
+	// maxHTTPStatusCode is the highest status code net/http accepts.
+	maxHTTPStatusCode = 999
+
+	// minHTTPStatusCode is the lowest status code net/http accepts.
+	minHTTPStatusCode = 100
+)
+
 // Middleware returns an HTTP middleware function that processes requests through the plugin pipeline.
 // The middleware intercepts requests, runs them through configured plugins, and handles responses.
 func (p *pipeline) Middleware() func(http.Handler) http.Handler {
@@ -68,12 +76,14 @@ func (p *pipeline) Middleware() func(http.Handler) http.Handler {
 	}
 }
 
-// applyModifiedRequest returns a copy of r with each field that mod sets applied to it.
+// applyModifiedRequest returns a copy of r carrying the headers and body that mod sets.
 // It returns r itself when mod is nil.
 //
-// NOTE: A zero value in mod leaves that field unchanged, so a plugin cannot clear the method, path or headers.
+// NOTE: The method and the path in mod are ignored, because routing has not happened yet.
+// Honoring them would let a plugin choose the route and so the handler, after the categories that gate
+// access have already passed on the request the client sent.
+// Headers are merged over the request, so a plugin replaces only the headers it sets and cannot delete one.
 // A plugin clears the body with an empty slice rather than a nil one.
-// A path change rewrites the request URL only, so a router that has already resolved a path keeps its decision.
 func applyModifiedRequest(r *http.Request, mod *HTTPRequest) *http.Request {
 	if mod == nil {
 		return r
@@ -81,25 +91,14 @@ func applyModifiedRequest(r *http.Request, mod *HTTPRequest) *http.Request {
 
 	out := r.Clone(r.Context())
 
-	if mod.Method != "" {
-		out.Method = mod.Method
-	}
-
-	if mod.Path != "" {
-		out.URL.Path = mod.Path
-		out.URL.RawPath = ""
-	}
-
-	if mod.Headers != nil {
-		out.Header = make(http.Header, len(mod.Headers))
-		for name, value := range mod.Headers {
-			out.Header.Set(name, value)
-		}
+	for name, value := range mod.Headers {
+		out.Header.Set(name, value)
 	}
 
 	if mod.Body != nil {
 		out.Body = io.NopCloser(bytes.NewReader(mod.Body))
 		out.ContentLength = int64(len(mod.Body))
+		out.Header.Del("Content-Length")
 	}
 
 	return out
@@ -130,13 +129,21 @@ func httpRequestToPlugin(r *http.Request) (*HTTPRequest, error) {
 }
 
 // writePluginResponse writes a HTTPResponse.
+//
+// NOTE: A status code outside the range HTTP defines is written as a server error.
+// net/http panics on one, and a plugin reports its own status code.
 func writePluginResponse(w http.ResponseWriter, resp *HTTPResponse) {
 	for k, v := range resp.Headers {
 		w.Header().Set(k, v)
 	}
 
 	if resp.StatusCode > 0 {
-		w.WriteHeader(int(resp.StatusCode))
+		status := int(resp.StatusCode)
+		if status < minHTTPStatusCode || status > maxHTTPStatusCode {
+			status = http.StatusInternalServerError
+		}
+
+		w.WriteHeader(status)
 	}
 
 	if len(resp.Body) > 0 {
