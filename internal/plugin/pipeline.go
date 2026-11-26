@@ -3,6 +3,7 @@ package plugin
 import (
 	"context"
 	"fmt"
+	"maps"
 	"sync"
 
 	"github.com/hashicorp/go-hclog"
@@ -40,7 +41,8 @@ func newPipeline(logger hclog.Logger) *pipeline {
 // HandleRequest processes a request through all plugin categories in order.
 // Executes plugins serially or in parallel based on category properties.
 // Returns early if a required plugin fails or if HTTPResponse.Continue is false.
-// ModifiedRequest on the returned response holds the transformed request, and is nil when no plugin changed it.
+// When every plugin passes, ModifiedRequest on the returned response holds the transformed request,
+// and is nil when no plugin returned a modification.
 func (p *pipeline) HandleRequest(ctx context.Context, req *HTTPRequest) (*HTTPResponse, error) {
 	p.mu.RLock()
 	defer p.mu.RUnlock()
@@ -170,8 +172,8 @@ func (p *pipeline) HandleResponse(ctx context.Context, resp *HTTPResponse) (*HTT
 				return nil, err
 			}
 
-			if props.CanModify && isResponseModification(pluginResp) {
-				currentResp = pluginResp
+			if props.CanModify {
+				currentResp = mergeResponseModification(currentResp, pluginResp)
 			}
 
 			return pluginResp, nil
@@ -248,9 +250,10 @@ func (p *pipeline) Shutdown(ctx context.Context) error {
 // execute runs plugins using the appropriate strategy (serial or parallel).
 // This implements the Strategy pattern to avoid code duplication.
 //
-// NOTE: The returned response belongs to a plugin that stopped the pipeline.
-// It carries no content when every plugin passed, so a caller must not treat it as the current state.
-// A caller that tracks request or response state must fold each plugin's result in from its own handler.
+// NOTE: The returned response is the response of a plugin that stopped the pipeline, or an empty
+// pass-through when every plugin passed, so a caller must not treat it as the current request or response state.
+// A caller that tracks that state must fold each plugin's result in from its own handler.
+// Only a serial category may do so, which PropertiesForCategory enforces.
 func (p *pipeline) execute(
 	ctx context.Context,
 	plugins []*Instance,
@@ -390,19 +393,6 @@ func (p *pipeline) handlePluginResult(
 	return true, resp, nil
 }
 
-// isResponseModification reports whether resp carries a replacement response rather than a pass-through.
-//
-// NOTE: A plugin that continues without setting a status code, headers or a body makes no change.
-// Zero is not a valid HTTP status, so an echo of Continue alone cannot blank the response.
-// A plugin that wants to return an empty response must reject it with Continue=false.
-func isResponseModification(resp *HTTPResponse) bool {
-	if resp == nil || !resp.Continue {
-		return false
-	}
-
-	return resp.StatusCode != 0 || len(resp.Headers) != 0 || len(resp.Body) != 0
-}
-
 // filterByFlow returns plugins that both support the specified flow, and are configured to execute on that flow.
 func (p *pipeline) filterByFlow(ctx context.Context, instances []*Instance, flow config.Flow) ([]*Instance, error) {
 	var filtered []*Instance
@@ -429,4 +419,44 @@ func (p *pipeline) filterByFlow(ctx context.Context, instances []*Instance, flow
 	}
 
 	return filtered, nil
+}
+
+// mergeHeaders returns a copy of base with every entry in overlay applied over it.
+func mergeHeaders(base map[string]string, overlay map[string]string) map[string]string {
+	merged := make(map[string]string, len(base)+len(overlay))
+	maps.Copy(merged, base)
+	maps.Copy(merged, overlay)
+
+	return merged
+}
+
+// mergeResponseModification returns resp with each field that mod sets applied to a copy of it.
+// It returns resp itself when mod is nil, when mod stops the pipeline, or when mod sets no field.
+//
+// NOTE: A zero value in mod leaves that field unchanged, so a plugin cannot clear a status code or a header.
+// A plugin clears the body with an empty slice rather than a nil one.
+func mergeResponseModification(resp *HTTPResponse, mod *HTTPResponse) *HTTPResponse {
+	if mod == nil || !mod.Continue {
+		return resp
+	}
+
+	if mod.StatusCode == 0 && len(mod.Headers) == 0 && mod.Body == nil {
+		return resp
+	}
+
+	merged := *resp
+
+	if mod.StatusCode != 0 {
+		merged.StatusCode = mod.StatusCode
+	}
+
+	if len(mod.Headers) != 0 {
+		merged.Headers = mergeHeaders(resp.Headers, mod.Headers)
+	}
+
+	if mod.Body != nil {
+		merged.Body = mod.Body
+	}
+
+	return &merged
 }

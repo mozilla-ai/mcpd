@@ -34,6 +34,9 @@ type testContentPlugin struct {
 	// seenResponseBodies records the response body passed to each HandleResponse call, in call order.
 	seenResponseBodies []string
 
+	// rewriteMethod is returned as the modified request method when it is not empty.
+	rewriteMethod string
+
 	// rewritePath is returned as the modified request path when it is not empty.
 	rewritePath string
 
@@ -43,11 +46,14 @@ type testContentPlugin struct {
 	// rewriteRequestHeaders is returned as the modified request headers when it is not nil.
 	rewriteRequestHeaders map[string]string
 
-	// rewriteBody is returned as the modified response body when it is not empty.
-	rewriteBody string
+	// rewriteResponseBody is returned as the modified response body when it is not empty.
+	rewriteResponseBody string
 
-	// rewriteStatus is returned as the modified response status when it is not zero.
-	rewriteStatus int32
+	// rewriteResponseHeaders is returned as the modified response headers when it is not nil.
+	rewriteResponseHeaders map[string]string
+
+	// rewriteResponseStatus is returned as the modified response status when it is not zero.
+	rewriteResponseStatus int32
 }
 
 // testTrackingPlugin is a mock that calls callbacks to track execution.
@@ -103,7 +109,8 @@ func (c *testContentPlugin) HandleRequest(ctx context.Context, req *HTTPRequest)
 	c.seenRequestPaths = append(c.seenRequestPaths, req.Path)
 
 	resp := &HTTPResponse{Continue: true}
-	if c.rewritePath == "" && c.rewriteRequestBody == "" && c.rewriteRequestHeaders == nil {
+	if c.rewriteMethod == "" && c.rewritePath == "" && c.rewriteRequestBody == "" &&
+		c.rewriteRequestHeaders == nil {
 		return resp, nil
 	}
 
@@ -112,6 +119,9 @@ func (c *testContentPlugin) HandleRequest(ctx context.Context, req *HTTPRequest)
 		Path:    req.Path,
 		Headers: req.Headers,
 		Body:    req.Body,
+	}
+	if c.rewriteMethod != "" {
+		mod.Method = c.rewriteMethod
 	}
 	if c.rewritePath != "" {
 		mod.Path = c.rewritePath
@@ -131,11 +141,14 @@ func (c *testContentPlugin) HandleResponse(ctx context.Context, resp *HTTPRespon
 	c.seenResponseBodies = append(c.seenResponseBodies, string(resp.Body))
 
 	out := &HTTPResponse{Continue: true}
-	if c.rewriteStatus != 0 {
-		out.StatusCode = c.rewriteStatus
+	if c.rewriteResponseStatus != 0 {
+		out.StatusCode = c.rewriteResponseStatus
 	}
-	if c.rewriteBody != "" {
-		out.Body = []byte(c.rewriteBody)
+	if c.rewriteResponseBody != "" {
+		out.Body = []byte(c.rewriteResponseBody)
+	}
+	if c.rewriteResponseHeaders != nil {
+		out.Headers = c.rewriteResponseHeaders
 	}
 
 	return out, nil
@@ -744,8 +757,8 @@ func TestPipeline_HandleResponse(t *testing.T) {
 func TestPipeline_HandleResponse_ChainsContentModifications(t *testing.T) {
 	t.Parallel()
 
-	first := &testContentPlugin{rewriteStatus: http.StatusCreated, rewriteBody: "first"}
-	second := &testContentPlugin{rewriteStatus: http.StatusAccepted, rewriteBody: "second"}
+	first := &testContentPlugin{rewriteResponseStatus: http.StatusCreated, rewriteResponseBody: "first"}
+	second := &testContentPlugin{rewriteResponseStatus: http.StatusAccepted, rewriteResponseBody: "second"}
 	p := newTestContentPipeline(t, first, second)
 
 	resp, err := p.HandleResponse(context.Background(), &HTTPResponse{
@@ -766,7 +779,7 @@ func TestPipeline_HandleResponse_ChainsContentModifications(t *testing.T) {
 func TestPipeline_HandleResponse_DeliversContentModification(t *testing.T) {
 	t.Parallel()
 
-	content := &testContentPlugin{rewriteStatus: http.StatusCreated, rewriteBody: "modified"}
+	content := &testContentPlugin{rewriteResponseStatus: http.StatusCreated, rewriteResponseBody: "modified"}
 	p := newTestContentPipeline(t, content)
 
 	resp, err := p.HandleResponse(context.Background(), &HTTPResponse{
@@ -779,6 +792,51 @@ func TestPipeline_HandleResponse_DeliversContentModification(t *testing.T) {
 	require.True(t, resp.Continue)
 	require.Equal(t, int32(http.StatusCreated), resp.StatusCode)
 	require.Equal(t, []byte("modified"), resp.Body)
+}
+
+func TestPipeline_HandleResponse_BodyOnlyModificationKeepsUpstreamStatus(t *testing.T) {
+	t.Parallel()
+
+	redactor := &testContentPlugin{rewriteResponseBody: `{"token":"[REDACTED]"}`}
+	p := newTestContentPipeline(t, redactor)
+
+	resp, err := p.HandleResponse(context.Background(), &HTTPResponse{
+		Continue:   true,
+		StatusCode: http.StatusServiceUnavailable,
+		Headers:    map[string]string{"Content-Type": "application/json"},
+		Body:       []byte(`{"token":"super-secret"}`),
+	})
+	require.NoError(t, err)
+	require.NotNil(t, resp)
+
+	require.JSONEq(t, `{"token":"[REDACTED]"}`, string(resp.Body))
+
+	// Redacting a body must not turn a 503 into an implicit 200.
+	require.Equal(t, int32(http.StatusServiceUnavailable), resp.StatusCode)
+	require.Equal(t, map[string]string{"Content-Type": "application/json"}, resp.Headers)
+}
+
+func TestPipeline_HandleResponse_HeaderOnlyModificationKeepsUpstreamBody(t *testing.T) {
+	t.Parallel()
+
+	tagger := &testContentPlugin{rewriteResponseHeaders: map[string]string{"X-Scanned": "yes"}}
+	p := newTestContentPipeline(t, tagger)
+
+	resp, err := p.HandleResponse(context.Background(), &HTTPResponse{
+		Continue:   true,
+		StatusCode: http.StatusTeapot,
+		Headers:    map[string]string{"Content-Type": "application/json"},
+		Body:       []byte(`{"tools":[]}`),
+	})
+	require.NoError(t, err)
+	require.NotNil(t, resp)
+
+	require.Equal(t, "yes", resp.Headers["X-Scanned"])
+
+	// Adding a header must not discard the upstream status, body or other headers.
+	require.Equal(t, int32(http.StatusTeapot), resp.StatusCode)
+	require.JSONEq(t, `{"tools":[]}`, string(resp.Body))
+	require.Equal(t, "application/json", resp.Headers["Content-Type"])
 }
 
 func TestPipeline_HandleResponse_PassingContentPluginKeepsUpstreamResponse(t *testing.T) {
