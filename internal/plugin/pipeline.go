@@ -40,6 +40,7 @@ func newPipeline(logger hclog.Logger) *pipeline {
 // HandleRequest processes a request through all plugin categories in order.
 // Executes plugins serially or in parallel based on category properties.
 // Returns early if a required plugin fails or if HTTPResponse.Continue is false.
+// ModifiedRequest on the returned response holds the transformed request, and is nil when no plugin changed it.
 func (p *pipeline) HandleRequest(ctx context.Context, req *HTTPRequest) (*HTTPResponse, error) {
 	p.mu.RLock()
 	defer p.mu.RUnlock()
@@ -80,21 +81,24 @@ func (p *pipeline) HandleRequest(ctx context.Context, req *HTTPRequest) (*HTTPRe
 			"plugin_count", len(requestPlugins),
 		)
 
-		var resp *HTTPResponse
-
 		// Execute using strategy pattern.
+		// A modification is handed to the plugins that follow, so a category transforms the request in order.
 		handler := func(ctx context.Context, inst *Instance) (*HTTPResponse, error) {
-			return inst.HandleRequest(ctx, currentReq)
+			pluginResp, err := inst.HandleRequest(ctx, currentReq)
+			if err != nil {
+				return nil, err
+			}
+
+			if props.CanModify && pluginResp != nil && pluginResp.ModifiedRequest != nil {
+				currentReq = pluginResp.ModifiedRequest
+			}
+
+			return pluginResp, nil
 		}
 
-		resp, err = p.execute(ctx, requestPlugins, handler, props)
+		resp, err := p.execute(ctx, requestPlugins, handler, props)
 		if err != nil {
 			return nil, fmt.Errorf("category %s execution failed: %w", category, err)
-		}
-
-		// If plugin modified the request and modification is allowed, use the modified version.
-		if props.CanModify && resp != nil && resp.ModifiedRequest != nil {
-			currentReq = resp.ModifiedRequest
 		}
 
 		// If a plugin returned a response with Continue=false, stop the pipeline.
@@ -108,12 +112,18 @@ func (p *pipeline) HandleRequest(ctx context.Context, req *HTTPRequest) (*HTTPRe
 	}
 
 	// All plugins passed, continue to the upstream server.
-	return &HTTPResponse{Continue: true}, nil
+	result := &HTTPResponse{Continue: true}
+	if currentReq != req {
+		result.ModifiedRequest = currentReq
+	}
+
+	return result, nil
 }
 
 // HandleResponse processes a response through all plugin categories in order.
 // Executes plugins serially or in parallel based on category properties.
 // Returns early if a required plugin fails or if Continue is false.
+// The returned response carries any transformation a content plugin made, and otherwise is the response given.
 func (p *pipeline) HandleResponse(ctx context.Context, resp *HTTPResponse) (*HTTPResponse, error) {
 	p.mu.RLock()
 	defer p.mu.RUnlock()
@@ -153,18 +163,23 @@ func (p *pipeline) HandleResponse(ctx context.Context, resp *HTTPResponse) (*HTT
 		)
 
 		// Execute using strategy pattern.
+		// A modification is handed to the plugins that follow, so a category transforms the response in order.
 		handler := func(ctx context.Context, inst *Instance) (*HTTPResponse, error) {
-			return inst.HandleResponse(ctx, currentResp)
+			pluginResp, err := inst.HandleResponse(ctx, currentResp)
+			if err != nil {
+				return nil, err
+			}
+
+			if props.CanModify && isResponseModification(pluginResp) {
+				currentResp = pluginResp
+			}
+
+			return pluginResp, nil
 		}
 
 		result, err := p.execute(ctx, responsePlugins, handler, props)
 		if err != nil {
 			return nil, fmt.Errorf("category %s execution failed: %w", category, err)
-		}
-
-		// Update current response if modified.
-		if props.CanModify && result != nil {
-			currentResp = result
 		}
 
 		// If a plugin returned Continue=false, return this response.
@@ -232,6 +247,10 @@ func (p *pipeline) Shutdown(ctx context.Context) error {
 
 // execute runs plugins using the appropriate strategy (serial or parallel).
 // This implements the Strategy pattern to avoid code duplication.
+//
+// NOTE: The returned response belongs to a plugin that stopped the pipeline.
+// It carries no content when every plugin passed, so a caller must not treat it as the current state.
+// A caller that tracks request or response state must fold each plugin's result in from its own handler.
 func (p *pipeline) execute(
 	ctx context.Context,
 	plugins []*Instance,
@@ -369,6 +388,19 @@ func (p *pipeline) handlePluginResult(
 
 	// Optional plugin didn't want to continue.
 	return true, resp, nil
+}
+
+// isResponseModification reports whether resp carries a replacement response rather than a pass-through.
+//
+// NOTE: A plugin that continues without setting a status code, headers or a body makes no change.
+// Zero is not a valid HTTP status, so an echo of Continue alone cannot blank the response.
+// A plugin that wants to return an empty response must reject it with Continue=false.
+func isResponseModification(resp *HTTPResponse) bool {
+	if resp == nil || !resp.Continue {
+		return false
+	}
+
+	return resp.StatusCode != 0 || len(resp.Headers) != 0 || len(resp.Body) != 0
 }
 
 // filterByFlow returns plugins that both support the specified flow, and are configured to execute on that flow.

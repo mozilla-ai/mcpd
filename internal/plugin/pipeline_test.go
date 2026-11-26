@@ -3,6 +3,8 @@ package plugin
 import (
 	"context"
 	"errors"
+	"fmt"
+	"net/http"
 	"sync"
 	"testing"
 
@@ -22,6 +24,24 @@ type mockPlugin struct {
 	responseResp *HTTPResponse
 	responseErr  error
 	stopErr      error
+}
+
+// testContentPlugin is a mock content plugin that records the state it was given and returns a modification.
+type testContentPlugin struct {
+	// seenRequestPaths records the request path passed to each HandleRequest call, in call order.
+	seenRequestPaths []string
+
+	// seenResponseBodies records the response body passed to each HandleResponse call, in call order.
+	seenResponseBodies []string
+
+	// rewritePath is returned as the modified request path when it is not empty.
+	rewritePath string
+
+	// rewriteBody is returned as the modified response body when it is not empty.
+	rewriteBody string
+
+	// rewriteStatus is returned as the modified response status when it is not zero.
+	rewriteStatus int32
 }
 
 // testTrackingPlugin is a mock that calls callbacks to track execution.
@@ -61,6 +81,52 @@ func (m *mockPlugin) Stop(ctx context.Context) error {
 	return m.stopErr
 }
 
+func (c *testContentPlugin) Capabilities(ctx context.Context) ([]config.Flow, error) {
+	return []config.Flow{config.FlowRequest, config.FlowResponse}, nil
+}
+
+func (c *testContentPlugin) CheckHealth(ctx context.Context) error {
+	return nil
+}
+
+func (c *testContentPlugin) CheckReady(ctx context.Context) error {
+	return nil
+}
+
+func (c *testContentPlugin) HandleRequest(ctx context.Context, req *HTTPRequest) (*HTTPResponse, error) {
+	c.seenRequestPaths = append(c.seenRequestPaths, req.Path)
+
+	resp := &HTTPResponse{Continue: true}
+	if c.rewritePath != "" {
+		resp.ModifiedRequest = &HTTPRequest{
+			Method:  req.Method,
+			Path:    c.rewritePath,
+			Headers: req.Headers,
+			Body:    req.Body,
+		}
+	}
+
+	return resp, nil
+}
+
+func (c *testContentPlugin) HandleResponse(ctx context.Context, resp *HTTPResponse) (*HTTPResponse, error) {
+	c.seenResponseBodies = append(c.seenResponseBodies, string(resp.Body))
+
+	out := &HTTPResponse{Continue: true}
+	if c.rewriteStatus != 0 {
+		out.StatusCode = c.rewriteStatus
+	}
+	if c.rewriteBody != "" {
+		out.Body = []byte(c.rewriteBody)
+	}
+
+	return out, nil
+}
+
+func (c *testContentPlugin) Stop(ctx context.Context) error {
+	return nil
+}
+
 func (t *testTrackingPlugin) Capabilities(ctx context.Context) ([]config.Flow, error) {
 	return t.capabilities, nil
 }
@@ -89,6 +155,33 @@ func (t *testTrackingPlugin) HandleResponse(ctx context.Context, resp *HTTPRespo
 
 func (t *testTrackingPlugin) Stop(ctx context.Context) error {
 	return nil
+}
+
+// newTestContentInstance returns a content plugin instance configured for the request and response flows.
+func newTestContentInstance(name string, plugin *testContentPlugin) *Instance {
+	inst := &Instance{
+		Plugin: plugin,
+		name:   name,
+	}
+	inst.SetFlows(map[config.Flow]struct{}{
+		config.FlowRequest:  {},
+		config.FlowResponse: {},
+	})
+
+	return inst
+}
+
+// newTestContentPipeline returns a pipeline with the given content plugins registered in call order.
+func newTestContentPipeline(t *testing.T, plugins ...*testContentPlugin) *pipeline {
+	t.Helper()
+
+	p := newPipeline(hclog.NewNullLogger())
+	for i, plugin := range plugins {
+		err := p.Register(config.CategoryContent, newTestContentInstance(fmt.Sprintf("content-%d", i), plugin))
+		require.NoError(t, err)
+	}
+
+	return p
 }
 
 func TestPipeline_NewPipeline(t *testing.T) {
@@ -462,6 +555,60 @@ func TestPipeline_HandleRequest_Parallel(t *testing.T) {
 	}
 }
 
+func TestPipeline_HandleRequest_ChainsContentModifications(t *testing.T) {
+	t.Parallel()
+
+	first := &testContentPlugin{rewritePath: "/first"}
+	second := &testContentPlugin{rewritePath: "/second"}
+	p := newTestContentPipeline(t, first, second)
+
+	resp, err := p.HandleRequest(context.Background(), &HTTPRequest{Path: "/original"})
+	require.NoError(t, err)
+	require.NotNil(t, resp)
+
+	require.Equal(t, []string{"/original"}, first.seenRequestPaths)
+	require.Equal(t, []string{"/first"}, second.seenRequestPaths)
+
+	require.NotNil(t, resp.ModifiedRequest)
+	require.Equal(t, "/second", resp.ModifiedRequest.Path)
+}
+
+func TestPipeline_HandleRequest_DeliversContentModification(t *testing.T) {
+	t.Parallel()
+
+	content := &testContentPlugin{rewritePath: "/rewritten"}
+	p := newTestContentPipeline(t, content)
+
+	req := &HTTPRequest{
+		Method: http.MethodPost,
+		Path:   "/original",
+		Body:   []byte(`{"original":true}`),
+	}
+
+	resp, err := p.HandleRequest(context.Background(), req)
+	require.NoError(t, err)
+	require.NotNil(t, resp)
+	require.True(t, resp.Continue)
+
+	require.NotNil(t, resp.ModifiedRequest)
+	require.Equal(t, "/rewritten", resp.ModifiedRequest.Path)
+	require.Equal(t, http.MethodPost, resp.ModifiedRequest.Method)
+	require.Equal(t, []byte(`{"original":true}`), resp.ModifiedRequest.Body)
+}
+
+func TestPipeline_HandleRequest_UnmodifiedRequestReportsNoModification(t *testing.T) {
+	t.Parallel()
+
+	content := &testContentPlugin{}
+	p := newTestContentPipeline(t, content)
+
+	resp, err := p.HandleRequest(context.Background(), &HTTPRequest{Path: "/original"})
+	require.NoError(t, err)
+	require.NotNil(t, resp)
+	require.True(t, resp.Continue)
+	require.Nil(t, resp.ModifiedRequest)
+}
+
 func TestPipeline_HandleResponse(t *testing.T) {
 	t.Parallel()
 
@@ -574,6 +721,66 @@ func TestPipeline_HandleResponse(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestPipeline_HandleResponse_ChainsContentModifications(t *testing.T) {
+	t.Parallel()
+
+	first := &testContentPlugin{rewriteStatus: http.StatusCreated, rewriteBody: "first"}
+	second := &testContentPlugin{rewriteStatus: http.StatusAccepted, rewriteBody: "second"}
+	p := newTestContentPipeline(t, first, second)
+
+	resp, err := p.HandleResponse(context.Background(), &HTTPResponse{
+		Continue:   true,
+		StatusCode: http.StatusOK,
+		Body:       []byte("upstream"),
+	})
+	require.NoError(t, err)
+	require.NotNil(t, resp)
+
+	require.Equal(t, []string{"upstream"}, first.seenResponseBodies)
+	require.Equal(t, []string{"first"}, second.seenResponseBodies)
+
+	require.Equal(t, int32(http.StatusAccepted), resp.StatusCode)
+	require.Equal(t, []byte("second"), resp.Body)
+}
+
+func TestPipeline_HandleResponse_DeliversContentModification(t *testing.T) {
+	t.Parallel()
+
+	content := &testContentPlugin{rewriteStatus: http.StatusCreated, rewriteBody: "modified"}
+	p := newTestContentPipeline(t, content)
+
+	resp, err := p.HandleResponse(context.Background(), &HTTPResponse{
+		Continue:   true,
+		StatusCode: http.StatusOK,
+		Body:       []byte("upstream"),
+	})
+	require.NoError(t, err)
+	require.NotNil(t, resp)
+	require.True(t, resp.Continue)
+	require.Equal(t, int32(http.StatusCreated), resp.StatusCode)
+	require.Equal(t, []byte("modified"), resp.Body)
+}
+
+func TestPipeline_HandleResponse_PassingContentPluginKeepsUpstreamResponse(t *testing.T) {
+	t.Parallel()
+
+	content := &testContentPlugin{}
+	p := newTestContentPipeline(t, content)
+
+	resp, err := p.HandleResponse(context.Background(), &HTTPResponse{
+		Continue:   true,
+		StatusCode: http.StatusTeapot,
+		Headers:    map[string]string{"Content-Type": "application/json"},
+		Body:       []byte(`{"tools":[]}`),
+	})
+	require.NoError(t, err)
+	require.NotNil(t, resp)
+	require.True(t, resp.Continue)
+	require.Equal(t, int32(http.StatusTeapot), resp.StatusCode)
+	require.Equal(t, map[string]string{"Content-Type": "application/json"}, resp.Headers)
+	require.Equal(t, []byte(`{"tools":[]}`), resp.Body)
 }
 
 func TestPipeline_Shutdown(t *testing.T) {
