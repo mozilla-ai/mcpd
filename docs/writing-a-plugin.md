@@ -116,6 +116,30 @@ plugin is permitted to do.
 A plugin in a non-`content` category that returns modified content will not have those
 modifications applied. If your plugin needs to rewrite payloads, it belongs in `content`.
 
+### Modifying a Request or Response
+
+A `content` plugin rewrites a request by setting `modified_request` on the response it returns from
+`HandleRequest`. It rewrites a response by returning the status code, headers or body it wants from
+`HandleResponse`, with `Continue=true`.
+
+Modifications chain in configured order, so each `content` plugin is given what the plugin before it
+produced, and the last one decides what `mcpd` uses.
+
+A field left at its zero value means no change:
+
+| Flow       | No change                                          | Change                                              |
+|------------|----------------------------------------------------|-----------------------------------------------------|
+| `request`  | `modified_request` is not set                      | `modified_request` carries the fields to replace    |
+| `response` | no status code, no headers and no body are set     | the status code, headers or body to return          |
+
+So a response plugin that echoes only `Continue=true` leaves the upstream response untouched, and a
+request plugin that rewrites one field does not have to restate the rest. Because an unset body means
+no change, a plugin clears a body by returning an empty one rather than none at all, and a plugin that
+wants to return an empty response rejects it with `Continue=false` instead.
+
+Rewriting the request path changes the path the handler sees. The request has already been matched to
+a route by then, so it is not matched again.
+
 Because observability plugins run concurrently, an optional observability plugin's rejection is
 ignored rather than stopping the pipeline. See
 [Observability Plugin Execution](plugin-configuration.md#observability-plugin-execution).
