@@ -83,6 +83,7 @@ func (p *pipeline) Middleware() func(http.Handler) http.Handler {
 // Honoring them would let a plugin choose the route and so the handler, after the categories that gate
 // access have already passed on the request the client sent.
 // Headers are merged over the request, so a plugin replaces only the headers it sets and cannot delete one.
+// A reserved header is skipped.
 // A plugin clears the body with an empty slice rather than a nil one.
 func applyModifiedRequest(r *http.Request, mod *HTTPRequest) *http.Request {
 	if mod == nil {
@@ -92,6 +93,10 @@ func applyModifiedRequest(r *http.Request, mod *HTTPRequest) *http.Request {
 	out := r.Clone(r.Context())
 
 	for name, value := range mod.Headers {
+		if isReservedHeader(name) {
+			continue
+		}
+
 		out.Header.Set(name, value)
 	}
 
