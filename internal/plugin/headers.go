@@ -8,6 +8,9 @@ import (
 
 // reservedHeaders are the headers a plugin must not set, keyed in canonical form.
 // mcpd owns message framing and its own protocol header, and the operator owns the CORS policy.
+// Vary is reserved because the CORS layer sets it, and a plugin that replaced it would let a shared cache
+// serve one origin's response to another.
+// NOTE: This variable must not be mutated within the package.
 var reservedHeaders = map[string]struct{}{
 	"Access-Control-Allow-Credentials": {},
 	"Access-Control-Allow-Headers":     {},
@@ -25,6 +28,7 @@ var reservedHeaders = map[string]struct{}{
 	"Trailer":                          {},
 	"Transfer-Encoding":                {},
 	"Upgrade":                          {},
+	"Vary":                             {},
 }
 
 // isReservedHeader reports whether name is a header a plugin must not set.

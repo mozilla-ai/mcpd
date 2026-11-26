@@ -9,11 +9,11 @@ import (
 )
 
 const (
-	// maxHTTPStatusCode is the highest status code net/http accepts.
-	maxHTTPStatusCode = 999
+	// maxPluginStatusCode is the highest status code a plugin may report.
+	maxPluginStatusCode = 599
 
-	// minHTTPStatusCode is the lowest status code net/http accepts.
-	minHTTPStatusCode = 100
+	// minPluginStatusCode is the lowest status code a plugin may report.
+	minPluginStatusCode = 200
 )
 
 // Middleware returns an HTTP middleware function that processes requests through the plugin pipeline.
@@ -84,7 +84,8 @@ func (p *pipeline) Middleware() func(http.Handler) http.Handler {
 // access have already passed on the request the client sent.
 // Headers are merged over the request, so a plugin replaces only the headers it sets and cannot delete one.
 // A reserved header is skipped.
-// A plugin clears the body with an empty slice rather than a nil one.
+// An empty body leaves the request body unchanged, because proto3 omits an empty bytes field from the
+// wire, so a plugin that sent one would be indistinguishable from a plugin that sent none.
 func applyModifiedRequest(r *http.Request, mod *HTTPRequest) *http.Request {
 	if mod == nil {
 		return r
@@ -100,13 +101,28 @@ func applyModifiedRequest(r *http.Request, mod *HTTPRequest) *http.Request {
 		out.Header.Set(name, value)
 	}
 
-	if mod.Body != nil {
+	if len(mod.Body) != 0 {
 		out.Body = io.NopCloser(bytes.NewReader(mod.Body))
 		out.ContentLength = int64(len(mod.Body))
 		out.Header.Del("Content-Length")
 	}
 
 	return out
+}
+
+// pluginStatusCode returns the status code to write for a plugin response.
+// A code a plugin may not report becomes a server error.
+//
+// NOTE: A plugin that stops the pipeline without reporting a status code reaches here with zero, which
+// must not become a success. net/http writes an implicit 200 on the first body write, so the client
+// would read a rejection as a successful call.
+func pluginStatusCode(code int32) int {
+	status := int(code)
+	if status < minPluginStatusCode || status > maxPluginStatusCode {
+		return http.StatusInternalServerError
+	}
+
+	return status
 }
 
 // httpRequestToPlugin converts *http.Request → *HTTPRequest.
@@ -135,21 +151,19 @@ func httpRequestToPlugin(r *http.Request) (*HTTPRequest, error) {
 
 // writePluginResponse writes a HTTPResponse.
 //
-// NOTE: A status code outside the range HTTP defines is written as a server error.
-// net/http panics on one, and a plugin reports its own status code.
+// NOTE: A reserved header in resp is skipped, so this is safe for a response a plugin authored itself.
+// A status code a plugin cannot report is written as a server error, because mcpd cannot know what the
+// plugin meant and net/http panics on a code it does not accept.
 func writePluginResponse(w http.ResponseWriter, resp *HTTPResponse) {
-	for k, v := range resp.Headers {
-		w.Header().Set(k, v)
-	}
-
-	if resp.StatusCode > 0 {
-		status := int(resp.StatusCode)
-		if status < minHTTPStatusCode || status > maxHTTPStatusCode {
-			status = http.StatusInternalServerError
+	for name, value := range resp.Headers {
+		if isReservedHeader(name) {
+			continue
 		}
 
-		w.WriteHeader(status)
+		w.Header().Set(name, value)
 	}
+
+	w.WriteHeader(pluginStatusCode(resp.StatusCode))
 
 	if len(resp.Body) > 0 {
 		_, _ = w.Write(resp.Body)
