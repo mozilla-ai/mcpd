@@ -70,7 +70,7 @@ jobs:
           fetch-depth: 0
 
       - name: Set up Go (from go.mod)
-        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        uses: actions/setup-go@d8cbb8045d7f43706b9177cceb36c1f91a6644d5 # v7.1.0
         with:
           go-version-file: go.mod
 
@@ -99,7 +99,7 @@ jobs:
       - name: Generate tap token
         id: tap-token
         if: github.event.inputs.skip_homebrew != 'true'
-        uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3.3.0
+        uses: actions/create-github-app-token@f418cff399f7aef4c2f0ad47e25ca7a6abbdd6fc # v3.4.0
         with:
           client-id: ${{ vars.TAP_APP_CLIENT_ID }}
           private-key: ${{ secrets.TAP_APP_PRIVATE_KEY }}
