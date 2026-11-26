@@ -28,6 +28,9 @@ type mockPlugin struct {
 
 // testContentPlugin is a mock content plugin that records the state it was given and returns a modification.
 type testContentPlugin struct {
+	// seenRequestBodies records the request body passed to each HandleRequest call, in call order.
+	seenRequestBodies []string
+
 	// seenRequestPaths records the request path passed to each HandleRequest call, in call order.
 	seenRequestPaths []string
 
@@ -106,6 +109,7 @@ func (c *testContentPlugin) CheckReady(ctx context.Context) error {
 }
 
 func (c *testContentPlugin) HandleRequest(ctx context.Context, req *HTTPRequest) (*HTTPResponse, error) {
+	c.seenRequestBodies = append(c.seenRequestBodies, string(req.Body))
 	c.seenRequestPaths = append(c.seenRequestPaths, req.Path)
 
 	resp := &HTTPResponse{Continue: true}
@@ -589,31 +593,46 @@ func TestPipeline_HandleRequest_Parallel(t *testing.T) {
 func TestPipeline_HandleRequest_ChainsContentModifications(t *testing.T) {
 	t.Parallel()
 
-	first := &testContentPlugin{rewritePath: "/first"}
-	second := &testContentPlugin{rewritePath: "/second"}
+	first := &testContentPlugin{rewriteRequestBody: "first"}
+	second := &testContentPlugin{rewriteRequestBody: "second"}
 	p := newTestContentPipeline(t, first, second)
 
-	resp, err := p.HandleRequest(context.Background(), &HTTPRequest{Path: "/original"})
+	resp, err := p.HandleRequest(context.Background(), &HTTPRequest{
+		Method: http.MethodPost,
+		Path:   "/original",
+		Body:   []byte("upstream"),
+	})
 	require.NoError(t, err)
 	require.NotNil(t, resp)
 
-	require.Equal(t, []string{"/original"}, first.seenRequestPaths)
-	require.Equal(t, []string{"/first"}, second.seenRequestPaths)
+	require.Equal(t, []string{"upstream"}, first.seenRequestBodies)
+	require.Equal(t, []string{"first"}, second.seenRequestBodies)
 
 	require.NotNil(t, resp.ModifiedRequest)
-	require.Equal(t, "/second", resp.ModifiedRequest.Path)
+	require.Equal(t, []byte("second"), resp.ModifiedRequest.Body)
+
+	// Every plugin sees the method and path the client sent, so the audit trail matches what mcpd served.
+	require.Equal(t, []string{"/original"}, first.seenRequestPaths)
+	require.Equal(t, []string{"/original"}, second.seenRequestPaths)
+	require.Equal(t, http.MethodPost, resp.ModifiedRequest.Method)
+	require.Equal(t, "/original", resp.ModifiedRequest.Path)
 }
 
 func TestPipeline_HandleRequest_DeliversContentModification(t *testing.T) {
 	t.Parallel()
 
-	content := &testContentPlugin{rewritePath: "/rewritten"}
+	content := &testContentPlugin{
+		rewritePath:           "/rewritten",
+		rewriteRequestBody:    `{"modified":true}`,
+		rewriteRequestHeaders: map[string]string{"X-Added": "yes"},
+	}
 	p := newTestContentPipeline(t, content)
 
 	req := &HTTPRequest{
-		Method: http.MethodPost,
-		Path:   "/original",
-		Body:   []byte(`{"original":true}`),
+		Method:  http.MethodPost,
+		Path:    "/original",
+		Headers: map[string]string{"Authorization": "Bearer original"},
+		Body:    []byte(`{"original":true}`),
 	}
 
 	resp, err := p.HandleRequest(context.Background(), req)
@@ -622,9 +641,13 @@ func TestPipeline_HandleRequest_DeliversContentModification(t *testing.T) {
 	require.True(t, resp.Continue)
 
 	require.NotNil(t, resp.ModifiedRequest)
-	require.Equal(t, "/rewritten", resp.ModifiedRequest.Path)
+	require.JSONEq(t, `{"modified":true}`, string(resp.ModifiedRequest.Body))
+	require.Equal(t, "yes", resp.ModifiedRequest.Headers["X-Added"])
+
+	// A header the plugin left alone survives, and the path it asked to rewrite does not change.
+	require.Equal(t, "Bearer original", resp.ModifiedRequest.Headers["Authorization"])
+	require.Equal(t, "/original", resp.ModifiedRequest.Path)
 	require.Equal(t, http.MethodPost, resp.ModifiedRequest.Method)
-	require.Equal(t, []byte(`{"original":true}`), resp.ModifiedRequest.Body)
 }
 
 func TestPipeline_HandleRequest_UnmodifiedRequestReportsNoModification(t *testing.T) {

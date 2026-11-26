@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"maps"
+	"net/http"
 	"sync"
 
 	"github.com/hashicorp/go-hclog"
@@ -91,8 +92,8 @@ func (p *pipeline) HandleRequest(ctx context.Context, req *HTTPRequest) (*HTTPRe
 				return nil, err
 			}
 
-			if props.CanModify && pluginResp != nil && pluginResp.ModifiedRequest != nil {
-				currentReq = pluginResp.ModifiedRequest
+			if props.CanModify && pluginResp != nil {
+				currentReq = mergeRequestModification(currentReq, pluginResp.ModifiedRequest)
 			}
 
 			return pluginResp, nil
@@ -422,7 +423,8 @@ func (p *pipeline) filterByFlow(ctx context.Context, instances []*Instance, flow
 }
 
 // mergeHeaders returns a copy of base with every entry in overlay applied over it.
-// It skips an entry in overlay that names a reserved header.
+// It skips an entry in overlay that names a reserved header, and stores each name in canonical form so
+// two spellings of one header cannot both survive.
 func mergeHeaders(base map[string]string, overlay map[string]string) map[string]string {
 	merged := make(map[string]string, len(base)+len(overlay))
 	maps.Copy(merged, base)
@@ -432,10 +434,38 @@ func mergeHeaders(base map[string]string, overlay map[string]string) map[string]
 			continue
 		}
 
-		merged[name] = value
+		merged[http.CanonicalHeaderKey(name)] = value
 	}
 
 	return merged
+}
+
+// mergeRequestModification returns req with the headers and body that mod sets applied to a copy of it.
+// It returns req itself when mod is nil or sets neither.
+//
+// NOTE: The method and the path in mod are ignored, so every plugin and the handler see the ones the
+// client sent. A plugin that replaced them would otherwise give the audit trail a request mcpd never served.
+// A zero value in mod leaves that field unchanged, so a plugin cannot clear a header or a body.
+func mergeRequestModification(req *HTTPRequest, mod *HTTPRequest) *HTTPRequest {
+	if mod == nil {
+		return req
+	}
+
+	if len(mod.Headers) == 0 && len(mod.Body) == 0 {
+		return req
+	}
+
+	merged := *req
+
+	if len(mod.Headers) != 0 {
+		merged.Headers = mergeHeaders(req.Headers, mod.Headers)
+	}
+
+	if len(mod.Body) != 0 {
+		merged.Body = mod.Body
+	}
+
+	return &merged
 }
 
 // mergeResponseModification returns resp with the headers and body that mod sets applied to a copy of it.
@@ -445,14 +475,15 @@ func mergeHeaders(base map[string]string, overlay map[string]string) map[string]
 // response rather than authoring one, and a redaction that forgets to echo the status would otherwise
 // report an upstream failure as success.
 // A plugin reports its own status code by stopping the pipeline with Continue=false.
-// A zero value in mod leaves that field unchanged, so a plugin cannot clear a header.
-// A plugin clears the body with an empty slice rather than a nil one.
+// A zero value in mod leaves that field unchanged, so a plugin cannot clear a header or a body.
+// An empty body cannot mean anything else, because proto3 omits an empty bytes field from the wire, so a
+// plugin that sent one would be indistinguishable from a plugin that sent none.
 func mergeResponseModification(resp *HTTPResponse, mod *HTTPResponse) *HTTPResponse {
 	if mod == nil || !mod.Continue {
 		return resp
 	}
 
-	if len(mod.Headers) == 0 && mod.Body == nil {
+	if len(mod.Headers) == 0 && len(mod.Body) == 0 {
 		return resp
 	}
 
@@ -462,7 +493,7 @@ func mergeResponseModification(resp *HTTPResponse, mod *HTTPResponse) *HTTPRespo
 		merged.Headers = mergeHeaders(resp.Headers, mod.Headers)
 	}
 
-	if mod.Body != nil {
+	if len(mod.Body) != 0 {
 		merged.Body = mod.Body
 	}
 
