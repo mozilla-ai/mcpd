@@ -757,8 +757,8 @@ func TestPipeline_HandleResponse(t *testing.T) {
 func TestPipeline_HandleResponse_ChainsContentModifications(t *testing.T) {
 	t.Parallel()
 
-	first := &testContentPlugin{rewriteResponseStatus: http.StatusCreated, rewriteResponseBody: "first"}
-	second := &testContentPlugin{rewriteResponseStatus: http.StatusAccepted, rewriteResponseBody: "second"}
+	first := &testContentPlugin{rewriteResponseBody: "first"}
+	second := &testContentPlugin{rewriteResponseBody: "second"}
 	p := newTestContentPipeline(t, first, second)
 
 	resp, err := p.HandleResponse(context.Background(), &HTTPResponse{
@@ -772,14 +772,17 @@ func TestPipeline_HandleResponse_ChainsContentModifications(t *testing.T) {
 	require.Equal(t, []string{"upstream"}, first.seenResponseBodies)
 	require.Equal(t, []string{"first"}, second.seenResponseBodies)
 
-	require.Equal(t, int32(http.StatusAccepted), resp.StatusCode)
 	require.Equal(t, []byte("second"), resp.Body)
+	require.Equal(t, int32(http.StatusOK), resp.StatusCode)
 }
 
 func TestPipeline_HandleResponse_DeliversContentModification(t *testing.T) {
 	t.Parallel()
 
-	content := &testContentPlugin{rewriteResponseStatus: http.StatusCreated, rewriteResponseBody: "modified"}
+	content := &testContentPlugin{
+		rewriteResponseBody:    "modified",
+		rewriteResponseHeaders: map[string]string{"X-Scanned": "yes"},
+	}
 	p := newTestContentPipeline(t, content)
 
 	resp, err := p.HandleResponse(context.Background(), &HTTPResponse{
@@ -790,8 +793,95 @@ func TestPipeline_HandleResponse_DeliversContentModification(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, resp)
 	require.True(t, resp.Continue)
-	require.Equal(t, int32(http.StatusCreated), resp.StatusCode)
 	require.Equal(t, []byte("modified"), resp.Body)
+	require.Equal(t, "yes", resp.Headers["X-Scanned"])
+	require.Equal(t, int32(http.StatusOK), resp.StatusCode)
+}
+
+func TestPipeline_HandleResponse_ContinuingPluginCannotChangeStatus(t *testing.T) {
+	t.Parallel()
+
+	content := &testContentPlugin{
+		rewriteResponseStatus: http.StatusOK,
+		rewriteResponseBody:   `{"redacted":true}`,
+	}
+	p := newTestContentPipeline(t, content)
+
+	resp, err := p.HandleResponse(context.Background(), &HTTPResponse{
+		Continue:   true,
+		StatusCode: http.StatusServiceUnavailable,
+		Body:       []byte(`{"token":"super-secret"}`),
+	})
+	require.NoError(t, err)
+	require.NotNil(t, resp)
+
+	// A plugin that continues the pipeline must not report an upstream failure as success.
+	require.Equal(t, int32(http.StatusServiceUnavailable), resp.StatusCode)
+	require.JSONEq(t, `{"redacted":true}`, string(resp.Body))
+}
+
+func TestPipeline_HandleResponse_ContinuingPluginCannotSetReservedHeader(t *testing.T) {
+	t.Parallel()
+
+	content := &testContentPlugin{
+		rewriteResponseHeaders: map[string]string{
+			"access-control-allow-origin": "*",
+			"Mcpd-Error-Type":             "pipeline_request_failure",
+			"Transfer-Encoding":           "chunked",
+			"X-Scanned":                   "yes",
+		},
+	}
+	p := newTestContentPipeline(t, content)
+
+	resp, err := p.HandleResponse(context.Background(), &HTTPResponse{
+		Continue:   true,
+		StatusCode: http.StatusOK,
+		Headers:    map[string]string{"Access-Control-Allow-Origin": "https://allowed.example"},
+	})
+	require.NoError(t, err)
+	require.NotNil(t, resp)
+
+	// A plugin may add its own header.
+	require.Equal(t, "yes", resp.Headers["X-Scanned"])
+
+	// A plugin must not overrule the operator's CORS policy, mcpd's protocol header, or message framing.
+	require.Equal(t, "https://allowed.example", resp.Headers["Access-Control-Allow-Origin"])
+	require.NotContains(t, resp.Headers, "access-control-allow-origin")
+	require.NotContains(t, resp.Headers, "Mcpd-Error-Type")
+	require.NotContains(t, resp.Headers, "Transfer-Encoding")
+}
+
+func TestPipeline_HandleResponse_RejectingPluginReportsItsOwnStatus(t *testing.T) {
+	t.Parallel()
+
+	inst := &Instance{
+		Plugin: &mockPlugin{
+			capabilities: []config.Flow{config.FlowResponse},
+			responseResp: &HTTPResponse{
+				Continue:   false,
+				StatusCode: http.StatusForbidden,
+				Body:       []byte("refused"),
+			},
+		},
+		name: "content-rejector",
+	}
+	inst.SetFlows(map[config.Flow]struct{}{config.FlowResponse: {}})
+
+	p := newPipeline(hclog.NewNullLogger())
+	require.NoError(t, p.Register(config.CategoryContent, inst))
+
+	resp, err := p.HandleResponse(context.Background(), &HTTPResponse{
+		Continue:   true,
+		StatusCode: http.StatusOK,
+		Body:       []byte("upstream"),
+	})
+	require.NoError(t, err)
+	require.NotNil(t, resp)
+
+	// Stopping the pipeline is how a plugin chooses the status code.
+	require.False(t, resp.Continue)
+	require.Equal(t, int32(http.StatusForbidden), resp.StatusCode)
+	require.Equal(t, []byte("refused"), resp.Body)
 }
 
 func TestPipeline_HandleResponse_BodyOnlyModificationKeepsUpstreamStatus(t *testing.T) {

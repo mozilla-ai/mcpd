@@ -422,33 +422,41 @@ func (p *pipeline) filterByFlow(ctx context.Context, instances []*Instance, flow
 }
 
 // mergeHeaders returns a copy of base with every entry in overlay applied over it.
+// It skips an entry in overlay that names a reserved header.
 func mergeHeaders(base map[string]string, overlay map[string]string) map[string]string {
 	merged := make(map[string]string, len(base)+len(overlay))
 	maps.Copy(merged, base)
-	maps.Copy(merged, overlay)
+
+	for name, value := range overlay {
+		if isReservedHeader(name) {
+			continue
+		}
+
+		merged[name] = value
+	}
 
 	return merged
 }
 
-// mergeResponseModification returns resp with each field that mod sets applied to a copy of it.
-// It returns resp itself when mod is nil, when mod stops the pipeline, or when mod sets no field.
+// mergeResponseModification returns resp with the headers and body that mod sets applied to a copy of it.
+// It returns resp itself when mod is nil, when mod stops the pipeline, or when mod sets neither.
 //
-// NOTE: A zero value in mod leaves that field unchanged, so a plugin cannot clear a status code or a header.
+// NOTE: The status code in mod is ignored, because a plugin that continues the pipeline is adjusting a
+// response rather than authoring one, and a redaction that forgets to echo the status would otherwise
+// report an upstream failure as success.
+// A plugin reports its own status code by stopping the pipeline with Continue=false.
+// A zero value in mod leaves that field unchanged, so a plugin cannot clear a header.
 // A plugin clears the body with an empty slice rather than a nil one.
 func mergeResponseModification(resp *HTTPResponse, mod *HTTPResponse) *HTTPResponse {
 	if mod == nil || !mod.Continue {
 		return resp
 	}
 
-	if mod.StatusCode == 0 && len(mod.Headers) == 0 && mod.Body == nil {
+	if len(mod.Headers) == 0 && mod.Body == nil {
 		return resp
 	}
 
 	merged := *resp
-
-	if mod.StatusCode != 0 {
-		merged.StatusCode = mod.StatusCode
-	}
 
 	if len(mod.Headers) != 0 {
 		merged.Headers = mergeHeaders(resp.Headers, mod.Headers)

@@ -60,6 +60,36 @@ func TestMiddleware_AppliesContentModification(t *testing.T) {
 	require.Equal(t, "upstream", recorder.Body.String())
 }
 
+func TestMiddleware_IgnoresContentReservedRequestHeaders(t *testing.T) {
+	t.Parallel()
+
+	content := &testContentPlugin{
+		rewriteRequestHeaders: map[string]string{
+			"connection":     "upgrade",
+			"Content-Length": "999999",
+			"X-Added":        "yes",
+		},
+	}
+	p := newTestContentPipeline(t, content)
+
+	var seen http.Header
+	nextHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		seen = r.Header.Clone()
+
+		w.WriteHeader(http.StatusOK)
+	})
+
+	req := httptest.NewRequest(http.MethodPost, "/original", strings.NewReader(`{"original":true}`))
+	recorder := httptest.NewRecorder()
+	p.Middleware()(nextHandler).ServeHTTP(recorder, req)
+
+	require.Equal(t, "yes", seen.Get("X-Added"))
+
+	// Message framing and the transport belong to mcpd, whatever case a plugin spells them in.
+	require.Empty(t, seen.Get("Connection"))
+	require.Empty(t, seen.Get("Content-Length"))
+}
+
 func TestMiddleware_IgnoresContentMethodAndPathRewrite(t *testing.T) {
 	t.Parallel()
 
@@ -91,10 +121,7 @@ func TestMiddleware_IgnoresContentMethodAndPathRewrite(t *testing.T) {
 func TestMiddleware_AppliesContentResponseModification(t *testing.T) {
 	t.Parallel()
 
-	redactor := &testContentPlugin{
-		rewriteResponseStatus: http.StatusOK,
-		rewriteResponseBody:   `{"token":"[REDACTED]"}`,
-	}
+	redactor := &testContentPlugin{rewriteResponseBody: `{"token":"[REDACTED]"}`}
 	p := newTestContentPipeline(t, redactor)
 
 	nextHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
