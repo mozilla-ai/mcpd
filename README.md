@@ -167,7 +167,7 @@ Code and Cursor configuration.
 ## Development
 
 If you are developing `mcpd`, you will need:
-- [**Go**](https://go.dev/doc/install) (v1.27.1+ required)
+- [**Go**](https://go.dev/doc/install) (v1.27.4+ required)
 
 Build local code:
 ```bash
