@@ -44,7 +44,7 @@ Optional helpers used in some docs examples:
 - `curl` to call the HTTP API
 - `jq` to pretty-print JSON responses
 
-If you are building `mcpd` from source or contributing, you will also need [**Go**](https://go.dev/doc/install) (`v1.27.1+` required).
+If you are building `mcpd` from source or contributing, you will also need [**Go**](https://go.dev/doc/install) (`v1.27.4+` required).
 
 
 ### Installation
@@ -167,7 +167,7 @@ Code and Cursor configuration.
 ## Development
 
 If you are developing `mcpd`, you will need:
-- [**Go**](https://go.dev/doc/install) (v1.27.1+ required)
+- [**Go**](https://go.dev/doc/install) (v1.27.4+ required)
 
 Build local code:
 ```bash
