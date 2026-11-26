@@ -42,7 +42,7 @@ func (p *pipeline) Middleware() func(http.Handler) http.Handler {
 
 			// Continue to actual handler (capture response).
 			recorder := newResponseRecorder(w)
-			next.ServeHTTP(recorder, r)
+			next.ServeHTTP(recorder, applyModifiedRequest(r, httpResp.ModifiedRequest))
 
 			// Convert handler response.
 			handlerResp := &HTTPResponse{
@@ -66,6 +66,43 @@ func (p *pipeline) Middleware() func(http.Handler) http.Handler {
 			writePluginResponse(w, finalResp)
 		})
 	}
+}
+
+// applyModifiedRequest returns a copy of r with each field that mod sets applied to it.
+// It returns r itself when mod is nil.
+//
+// NOTE: A zero value in mod leaves that field unchanged, so a plugin cannot clear the method, path or headers.
+// A plugin clears the body with an empty slice rather than a nil one.
+// A path change rewrites the request URL only, so a router that has already resolved a path keeps its decision.
+func applyModifiedRequest(r *http.Request, mod *HTTPRequest) *http.Request {
+	if mod == nil {
+		return r
+	}
+
+	out := r.Clone(r.Context())
+
+	if mod.Method != "" {
+		out.Method = mod.Method
+	}
+
+	if mod.Path != "" {
+		out.URL.Path = mod.Path
+		out.URL.RawPath = ""
+	}
+
+	if mod.Headers != nil {
+		out.Header = make(http.Header, len(mod.Headers))
+		for name, value := range mod.Headers {
+			out.Header.Set(name, value)
+		}
+	}
+
+	if mod.Body != nil {
+		out.Body = io.NopCloser(bytes.NewReader(mod.Body))
+		out.ContentLength = int64(len(mod.Body))
+	}
+
+	return out
 }
 
 // httpRequestToPlugin converts *http.Request → *HTTPRequest.

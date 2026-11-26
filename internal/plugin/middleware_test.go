@@ -2,6 +2,7 @@ package plugin
 
 import (
 	"errors"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -13,6 +14,75 @@ import (
 	"github.com/mozilla-ai/mcpd/internal/api"
 	"github.com/mozilla-ai/mcpd/internal/config"
 )
+
+func TestMiddleware_AppliesContentModification(t *testing.T) {
+	t.Parallel()
+
+	content := &testContentPlugin{
+		rewritePath:           "/rewritten",
+		rewriteRequestBody:    `{"rewritten":true}`,
+		rewriteRequestHeaders: map[string]string{"X-Added": "yes"},
+	}
+	p := newTestContentPipeline(t, content)
+
+	var (
+		seenPath   string
+		seenBody   string
+		seenHeader string
+	)
+	nextHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		body, err := io.ReadAll(r.Body)
+		require.NoError(t, err)
+
+		seenPath = r.URL.Path
+		seenBody = string(body)
+		seenHeader = r.Header.Get("X-Added")
+
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte("upstream"))
+	})
+
+	req := httptest.NewRequest(http.MethodPost, "/original", strings.NewReader(`{"original":true}`))
+	recorder := httptest.NewRecorder()
+	p.Middleware()(nextHandler).ServeHTTP(recorder, req)
+
+	require.Equal(t, "/rewritten", seenPath)
+	require.JSONEq(t, `{"rewritten":true}`, seenBody)
+	require.Equal(t, "yes", seenHeader)
+
+	require.Equal(t, http.StatusOK, recorder.Code)
+	require.Equal(t, "upstream", recorder.Body.String())
+}
+
+func TestMiddleware_PassesOriginalRequestWhenUnmodified(t *testing.T) {
+	t.Parallel()
+
+	p := newTestContentPipeline(t, &testContentPlugin{})
+
+	var (
+		seenPath string
+		seenBody string
+	)
+	nextHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		body, err := io.ReadAll(r.Body)
+		require.NoError(t, err)
+
+		seenPath = r.URL.Path
+		seenBody = string(body)
+
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte("upstream"))
+	})
+
+	req := httptest.NewRequest(http.MethodPost, "/original", strings.NewReader(`{"original":true}`))
+	recorder := httptest.NewRecorder()
+	p.Middleware()(nextHandler).ServeHTTP(recorder, req)
+
+	require.Equal(t, "/original", seenPath)
+	require.JSONEq(t, `{"original":true}`, seenBody)
+	require.Equal(t, http.StatusOK, recorder.Code)
+	require.Equal(t, "upstream", recorder.Body.String())
+}
 
 func TestMiddleware_RequestPipelineFailure(t *testing.T) {
 	t.Parallel()

@@ -37,6 +37,12 @@ type testContentPlugin struct {
 	// rewritePath is returned as the modified request path when it is not empty.
 	rewritePath string
 
+	// rewriteRequestBody is returned as the modified request body when it is not empty.
+	rewriteRequestBody string
+
+	// rewriteRequestHeaders is returned as the modified request headers when it is not nil.
+	rewriteRequestHeaders map[string]string
+
 	// rewriteBody is returned as the modified response body when it is not empty.
 	rewriteBody string
 
@@ -97,14 +103,26 @@ func (c *testContentPlugin) HandleRequest(ctx context.Context, req *HTTPRequest)
 	c.seenRequestPaths = append(c.seenRequestPaths, req.Path)
 
 	resp := &HTTPResponse{Continue: true}
-	if c.rewritePath != "" {
-		resp.ModifiedRequest = &HTTPRequest{
-			Method:  req.Method,
-			Path:    c.rewritePath,
-			Headers: req.Headers,
-			Body:    req.Body,
-		}
+	if c.rewritePath == "" && c.rewriteRequestBody == "" && c.rewriteRequestHeaders == nil {
+		return resp, nil
 	}
+
+	mod := &HTTPRequest{
+		Method:  req.Method,
+		Path:    req.Path,
+		Headers: req.Headers,
+		Body:    req.Body,
+	}
+	if c.rewritePath != "" {
+		mod.Path = c.rewritePath
+	}
+	if c.rewriteRequestBody != "" {
+		mod.Body = []byte(c.rewriteRequestBody)
+	}
+	if c.rewriteRequestHeaders != nil {
+		mod.Headers = c.rewriteRequestHeaders
+	}
+	resp.ModifiedRequest = mod
 
 	return resp, nil
 }
