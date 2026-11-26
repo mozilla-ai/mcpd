@@ -127,23 +127,35 @@ produced, and the last one decides what `mcpd` uses.
 
 A plugin changes only the fields it sets, and a field left at its zero value is left alone:
 
-| Flow       | A plugin may change        | `mcpd` ignores |
-|------------|----------------------------|----------------|
-| `request`  | headers, body              | method, path   |
-| `response` | status code, headers, body | —              |
+| Flow       | A plugin may change | `mcpd` ignores            |
+|------------|---------------------|---------------------------|
+| `request`  | headers, body       | method, path              |
+| `response` | headers, body       | status code               |
 
-So a plugin that adds one header keeps every other header the client sent, and a response plugin that
-redacts a body keeps the upstream status code. A plugin that echoes only `Continue=true` changes
-nothing. Because an unset body means no change, a plugin clears a body by returning an empty one
-rather than none at all.
+So a plugin that adds one header keeps every other header the client sent, and a plugin that redacts
+a body keeps the upstream status code. A plugin that echoes only `Continue=true` changes nothing.
+Because an unset body means no change, a plugin clears a body by returning an empty one rather than
+none at all.
 
-Two limits follow from this, and both are deliberate:
+Three limits follow from this, and all are deliberate:
 
 - A plugin cannot delete a header, only set one. Headers are merged over the message.
 - A plugin cannot change the request method or path. `mcpd` runs the pipeline before it matches the
   request to a route, so honoring a rewritten method or path would let a `content` plugin choose which
   handler runs, after `authentication`, `authorization`, `rate_limiting` and `validation` have already
   passed on the request the client actually sent. Rewrite the body instead.
+- A plugin cannot change the response status code while continuing the pipeline. A plugin that
+  continues is adjusting a response, not authoring one, and a redaction that forgot to echo the status
+  would report an upstream failure as success. Return `Continue=false` to choose the status code, which
+  hands your whole response to the client.
+
+Some headers belong to `mcpd` or to the operator, and a plugin that sets one is ignored:
+
+| Header                                                                                             | Owned by | Why                                       |
+|----------------------------------------------------------------------------------------------------|----------|-------------------------------------------|
+| `Content-Length`, `Transfer-Encoding`, `Connection`, `Keep-Alive`, `Upgrade`, `TE`, `Trailer`, `Proxy-Authenticate`, `Proxy-Authorization` | `mcpd`   | Message framing and the transport         |
+| `Access-Control-*`                                                                                 | operator | Set from `api.cors.allow_origins`         |
+| `Mcpd-Error-Type`                                                                                  | `mcpd`   | SDKs classify pipeline failures from it   |
 
 A `content` plugin runs after `authorization`, so a change it makes is not authorized again. Keep
 changes to data the authorization decision does not depend on, or enforce the constraint in the
