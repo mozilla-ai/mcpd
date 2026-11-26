@@ -119,8 +119,8 @@ modifications applied. If your plugin needs to rewrite payloads, it belongs in `
 ### Modifying a Request or Response
 
 A `content` plugin rewrites a request by setting `modified_request` on the response it returns from
-`HandleRequest`. It rewrites a response by returning the status code, headers or body it wants from
-`HandleResponse`, with `Continue=true`.
+`HandleRequest`. It rewrites a response by returning the headers or body it wants from `HandleResponse`,
+with `Continue=true`.
 
 Modifications chain in configured order, so each `content` plugin is given what the plugin before it
 produced, and the last one decides what `mcpd` uses.
@@ -134,10 +134,12 @@ A plugin changes only the fields it sets, and a field left at its zero value is 
 
 So a plugin that adds one header keeps every other header the client sent, and a plugin that redacts
 a body keeps the upstream status code. A plugin that echoes only `Continue=true` changes nothing.
-Because an unset body means no change, a plugin clears a body by returning an empty one rather than
-none at all.
 
-Three limits follow from this, and all are deliberate:
+Four limits follow from this, and all are deliberate:
+
+- A plugin cannot clear a body or a header, only replace one. An empty `body` means no change, because
+  proto3 omits an empty `bytes` field from the wire, so `mcpd` cannot tell an empty body from an absent
+  one. Replace a body with a redacted one rather than removing it.
 
 - A plugin cannot delete a header, only set one. Headers are merged over the message.
 - A plugin cannot change the request method or path. `mcpd` runs the pipeline before it matches the
@@ -149,13 +151,17 @@ Three limits follow from this, and all are deliberate:
   would report an upstream failure as success. Return `Continue=false` to choose the status code, which
   hands your whole response to the client.
 
-Some headers belong to `mcpd` or to the operator, and a plugin that sets one is ignored:
+Some headers belong to `mcpd` or to the operator. A plugin that sets one is ignored, on every flow and
+whether it continues the pipeline or stops it:
 
-| Header                                                                                             | Owned by | Why                                       |
-|----------------------------------------------------------------------------------------------------|----------|-------------------------------------------|
-| `Content-Length`, `Transfer-Encoding`, `Connection`, `Keep-Alive`, `Upgrade`, `TE`, `Trailer`, `Proxy-Authenticate`, `Proxy-Authorization` | `mcpd`   | Message framing and the transport         |
-| `Access-Control-*`                                                                                 | operator | Set from `api.cors.allow_origins`         |
-| `Mcpd-Error-Type`                                                                                  | `mcpd`   | SDKs classify pipeline failures from it   |
+| Header | Owned by | Why |
+|---|---|---|
+| `Connection`, `Content-Length`, `Keep-Alive`, `Proxy-Authenticate`, `Proxy-Authorization`, `TE`, `Trailer`, `Transfer-Encoding`, `Upgrade` | `mcpd` | Message framing and the transport |
+| `Access-Control-Allow-Credentials`, `Access-Control-Allow-Headers`, `Access-Control-Allow-Methods`, `Access-Control-Allow-Origin`, `Access-Control-Expose-Headers`, `Access-Control-Max-Age`, `Vary` | operator | Set from `api.cors.allow_origins`. Replacing `Vary` would let a shared cache serve one origin's response to another. |
+| `Mcpd-Error-Type` | `mcpd` | SDKs classify pipeline failures from it |
+
+A plugin that stops the pipeline must report a status code between 200 and 599. `mcpd` writes a 500
+for anything else, including a missing one, because a rejection must not reach the client as a success.
 
 A `content` plugin runs after `authorization`, so a change it makes is not authorized again. Keep
 changes to data the authorization decision does not depend on, or enforce the constraint in the
