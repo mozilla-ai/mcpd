@@ -55,6 +55,35 @@ func (m *mockLoaderForRemove) Load(_ string) (config.Modifier, error) {
 	return m.cfg, m.err
 }
 
+func TestRemoveCmd_MatchesAServerNameWithoutRegardToCase(t *testing.T) {
+	t.Parallel()
+
+	cfg := &mockConfigForRemove{
+		servers: []config.ServerEntry{
+			{
+				Name:  "test-server",
+				Tools: []string{"tool1", "tool2"},
+			},
+		},
+	}
+
+	removeCmd, err := NewRemoveCmd(&cmd.BaseCmd{}, cmdopts.WithConfigLoader(&mockLoaderForRemove{cfg: cfg}))
+	require.NoError(t, err)
+
+	var out bytes.Buffer
+	removeCmd.SetOut(&out)
+	removeCmd.SetErr(&out)
+
+	err = removeCmd.RunE(removeCmd, []string{"Test-Server", "tool1"})
+	require.NoError(t, err)
+
+	// The entry the lookup found is the entry rewritten, so the server is not duplicated.
+	require.Len(t, cfg.servers, 1)
+	require.Equal(t, "test-server", cfg.servers[0].Name)
+	require.Equal(t, []string{"tool2"}, cfg.servers[0].Tools)
+	require.Contains(t, out.String(), "✓ Tools removed for server 'test-server'")
+}
+
 func TestRemoveCmd_RemoveAllTools(t *testing.T) {
 	t.Parallel()
 

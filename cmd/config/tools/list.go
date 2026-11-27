@@ -177,10 +177,13 @@ func (c *ListCmd) run(cmd *cobra.Command, args []string) error {
 		return handler.HandleError(err)
 	}
 
-	// Find the server in the configuration.
+	// Find the server in the configuration, matching without regard to case so the name works here as it
+	// does in a daemon URL.
 	var foundServer *config.ServerEntry
+
+	wanted := domain.ServerName(serverName).Key()
 	for _, srv := range cfg.ListServers() {
-		if srv.Name == serverName {
+		if domain.ServerName(srv.Name).Key() == wanted {
 			foundServer = &srv
 			break
 		}

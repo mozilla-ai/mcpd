@@ -164,6 +164,19 @@ func TestListCmd_Run(t *testing.T) {
 `,
 		},
 		{
+			name:   "server name in a different case",
+			args:   []string{"Test-Server"},
+			format: "text",
+			servers: []config.ServerEntry{
+				{
+					Name:    "test-server",
+					Package: "uvx::test-server@1.0.0",
+					Tools:   []string{"tool_a"},
+				},
+			},
+			expectedOutput: "Tools for 'test-server' (1 total):\n  tool_a\n",
+		},
+		{
 			name:          "server not found",
 			args:          []string{"nonexistent"},
 			format:        "text",
