@@ -323,3 +323,50 @@ func TestWritePluginResponse_LogsReservedHeaderNameNotValue(t *testing.T) {
 	require.NotContains(t, logged, "super-secret-value")
 	require.Empty(t, rec.Header().Get("Proxy-Authenticate"))
 }
+
+// TestMiddleware_PreservesMultiValueResponseHeader pins that mcpd does not rewrite the headers of a
+// response no plugin modified, because the plugin view holds one value per name.
+func TestMiddleware_PreservesMultiValueResponseHeader(t *testing.T) {
+	t.Parallel()
+
+	p := newTestContentPipeline(t, &testContentPlugin{})
+
+	nextHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Add("Set-Cookie", "a=1")
+		w.Header().Add("Set-Cookie", "b=2")
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte("upstream"))
+	})
+
+	recorder := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/original", nil)
+	p.Middleware()(nextHandler).ServeHTTP(recorder, req)
+
+	require.Equal(t, []string{"a=1", "b=2"}, recorder.Result().Header.Values("Set-Cookie"))
+	require.Equal(t, "upstream", recorder.Body.String())
+}
+
+// TestMiddleware_LogsNothingWhenNoPluginIsRegistered guards against a warning on every response, which
+// an operator reads as a plugin asking for a change that no plugin asked for.
+func TestMiddleware_LogsNothingWhenNoPluginIsRegistered(t *testing.T) {
+	t.Parallel()
+
+	var buf bytes.Buffer
+
+	p := newPipeline(newTestLogger(&buf))
+
+	nextHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// Set by the operator's CORS layer, which runs outside this middleware.
+		w.Header().Set("Vary", "Origin")
+		w.Header().Set("Access-Control-Allow-Origin", "https://example.test")
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte("upstream"))
+	})
+
+	recorder := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/original", nil)
+	p.Middleware()(nextHandler).ServeHTTP(recorder, req)
+
+	require.Empty(t, buf.String())
+	require.Equal(t, "Origin", recorder.Header().Get("Vary"))
+}

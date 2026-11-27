@@ -130,7 +130,8 @@ func (p *pipeline) HandleRequest(ctx context.Context, req *HTTPRequest) (*HTTPRe
 // HandleResponse processes a response through all plugin categories in order.
 // Executes plugins serially or in parallel based on category properties.
 // Returns early if a required plugin fails or if Continue is false.
-// The returned response carries any transformation a content plugin made, and otherwise is the response given.
+// The returned response carries any transformation a content plugin made, and is resp itself when no
+// plugin modified it, so a caller can tell the two apart by identity.
 func (p *pipeline) HandleResponse(ctx context.Context, resp *HTTPResponse) (*HTTPResponse, error) {
 	p.mu.RLock()
 	defer p.mu.RUnlock()

@@ -72,6 +72,19 @@ func (p *pipeline) Middleware() func(http.Handler) http.Handler {
 				return
 			}
 
+			// No plugin modified the response, so the recorder's own result is what the client gets.
+			// Rewriting the headers here would project them through a map that holds one value per
+			// name, which drops a second Set-Cookie the handler set.
+			if finalResp == handlerResp {
+				w.WriteHeader(recorder.statusCode)
+
+				if recorder.body.Len() > 0 {
+					_, _ = w.Write(recorder.body.Bytes())
+				}
+
+				return
+			}
+
 			// Write final (potentially modified) response.
 			writePluginResponse(p.logger, w, finalResp)
 		})
