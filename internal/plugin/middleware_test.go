@@ -8,6 +8,7 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/hashicorp/go-hclog"
 	"github.com/stretchr/testify/require"
@@ -369,4 +370,45 @@ func TestMiddleware_LogsNothingWhenNoPluginIsRegistered(t *testing.T) {
 
 	require.Empty(t, buf.String())
 	require.Equal(t, "Origin", recorder.Header().Get("Vary"))
+}
+
+// TestMiddleware_PreservesMultiValueRequestHeaderThroughAPlugin runs the real gRPC adapter, because a
+// plugin only ever sees one value per header name and so can only ever echo one back.
+func TestMiddleware_PreservesMultiValueRequestHeaderThroughAPlugin(t *testing.T) {
+	t.Parallel()
+
+	var buf bytes.Buffer
+
+	client := &stubPluginClient{echoRequestHeaders: true, rewriteRequestBody: `{"rewritten":true}`}
+	adapter, err := NewGRPCAdapter(client, time.Second)
+	require.NoError(t, err)
+
+	p := newPipeline(newTestLogger(&buf))
+	require.NoError(t, p.Register(config.CategoryContent, newTestContentInstance("content-0", adapter)))
+
+	var (
+		seenAccept []string
+		seenBody   string
+	)
+	nextHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		seenAccept = r.Header.Values("Accept")
+
+		body, readErr := io.ReadAll(r.Body)
+		require.NoError(t, readErr)
+		seenBody = string(body)
+
+		w.WriteHeader(http.StatusOK)
+	})
+
+	req := httptest.NewRequest(http.MethodPost, "/original", strings.NewReader(`{"original":true}`))
+	req.Header.Add("Accept", "application/json")
+	req.Header.Add("Accept", "text/event-stream")
+	// A real server carries Content-Length in the request header map, where httptest.NewRequest does not.
+	req.Header.Set("Content-Length", "17")
+
+	p.Middleware()(nextHandler).ServeHTTP(httptest.NewRecorder(), req)
+
+	require.Equal(t, []string{"application/json", "text/event-stream"}, seenAccept)
+	require.JSONEq(t, `{"rewritten":true}`, seenBody)
+	require.Empty(t, buf.String())
 }

@@ -113,7 +113,7 @@ func (a *GRPCAdapter) HandleRequest(ctx context.Context, req *HTTPRequest) (*HTT
 		resp.ModifiedRequest = &HTTPRequest{
 			Method:  grpcResp.ModifiedRequest.Method,
 			Path:    grpcResp.ModifiedRequest.Path,
-			Headers: expandHeaders(grpcResp.ModifiedRequest.Headers),
+			Headers: changedHeaders(grpcReq.Headers, grpcResp.ModifiedRequest.Headers),
 			Body:    grpcResp.ModifiedRequest.Body,
 		}
 	}
@@ -138,10 +138,19 @@ func (a *GRPCAdapter) HandleResponse(ctx context.Context, resp *HTTPResponse) (*
 		return nil, err
 	}
 
+	// A plugin that continues the pipeline is patching the response it was given, so an echoed header
+	// is not a change. A plugin that stops the pipeline authored this response itself.
+	var headers http.Header
+	if grpcResult.Continue {
+		headers = changedHeaders(grpcResp.Headers, grpcResult.Headers)
+	} else {
+		headers = expandHeaders(grpcResult.Headers)
+	}
+
 	result := &HTTPResponse{
 		Continue:   grpcResult.Continue,
 		StatusCode: grpcResult.StatusCode,
-		Headers:    expandHeaders(grpcResult.Headers),
+		Headers:    headers,
 		Body:       grpcResult.Body,
 	}
 
@@ -197,4 +206,27 @@ func expandHeaders(m map[string]string) http.Header {
 	}
 
 	return out
+}
+
+// changedHeaders returns the entries in out whose value differs from the one sent in, as an http.Header
+// holding canonical names. It returns nil when the plugin asked for no header change.
+//
+// NOTE: An entry matching what was sent is dropped. The wire format carries one value per name, so a
+// plugin echoing that value has not asked mcpd to discard the values the plugin never saw.
+func changedHeaders(sent map[string]string, out map[string]string) http.Header {
+	var changed http.Header
+
+	for _, name := range slices.Sorted(maps.Keys(out)) {
+		if value, ok := sent[http.CanonicalHeaderKey(name)]; ok && value == out[name] {
+			continue
+		}
+
+		if changed == nil {
+			changed = make(http.Header, len(out))
+		}
+
+		changed.Set(name, out[name])
+	}
+
+	return changed
 }
