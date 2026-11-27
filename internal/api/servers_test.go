@@ -222,9 +222,10 @@ func TestHandleTools_CaseInsensitiveFiltering(t *testing.T) {
 		toolNames[i] = tool.Name
 	}
 
-	// Verify the correct tools are returned (normalized).
-	require.Contains(t, toolNames, "gettime")
-	require.Contains(t, toolNames, "set_alarm")
+	// Matching ignores case, but the name is returned as the server reported it, because a client calls
+	// the tool by this name and mcpd forwards it upstream unchanged.
+	require.Contains(t, toolNames, "GetTime")
+	require.Contains(t, toolNames, "SET_ALARM")
 	require.NotContains(t, toolNames, "list_events")
 }
 

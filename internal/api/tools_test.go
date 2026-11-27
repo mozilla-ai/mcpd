@@ -437,6 +437,45 @@ func TestOutputSchemaPresent(t *testing.T) {
 	}
 }
 
+// TestDomainTool_ToAPIType_PreservesNameCase pins the name a client reads back.
+// A client calls a tool by the name this projection returns, and mcpd forwards that name upstream
+// unchanged, so a lowercased name is a name no case-sensitive MCP server recognizes.
+func TestDomainTool_ToAPIType_PreservesNameCase(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name string
+		tool string
+	}{
+		{
+			name: "camel case",
+			tool: "getCurrentTime",
+		},
+		{
+			name: "pascal case",
+			tool: "GetCurrentTime",
+		},
+		{
+			name: "screaming snake case",
+			tool: "GET_CURRENT_TIME",
+		},
+		{
+			name: "already lowercase",
+			tool: "get_current_time",
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			got, err := domainTool(mcp.Tool{Name: tc.tool}).ToAPIType()
+			require.NoError(t, err)
+			require.Equal(t, tc.tool, got.Name)
+		})
+	}
+}
+
 func TestDomainTool_ToAPIType_OutputSchema(t *testing.T) {
 	t.Parallel()
 
