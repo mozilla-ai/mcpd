@@ -135,7 +135,7 @@ A plugin changes only the fields it sets, and a field left at its zero value is 
 So a plugin that adds one header keeps every other header the client sent, and a plugin that redacts
 a body keeps the upstream status code. A plugin that echoes only `Continue=true` changes nothing.
 
-Four limits follow from this, and all are deliberate:
+Five limits follow from this, and all are deliberate:
 
 - A plugin cannot clear a body or a header, only replace one. An empty `body` means no change, because
   proto3 omits an empty `bytes` field from the wire, so `mcpd` cannot tell an empty body from an absent
@@ -150,13 +150,18 @@ Four limits follow from this, and all are deliberate:
   continues is adjusting a response, not authoring one, and a redaction that forgot to echo the status
   would report an upstream failure as success. Return `Continue=false` to choose the status code, which
   hands your whole response to the client.
+- A plugin sees one value per header name. The `headers` map holds a single string for each name, so a
+  name the client or the handler sent more than once reaches your plugin as its first value only.
+  `mcpd` keeps the values your plugin never saw. A name you return with the value you were given counts
+  as no change, so echoing the headers you were handed cannot discard them. Setting a name to a
+  different value replaces every value it held.
 
 Some headers belong to `mcpd` or to the operator. A plugin that sets one is ignored, on every flow and
 whether it continues the pipeline or stops it:
 
 | Header | Owned by | Why |
 |---|---|---|
-| `Connection`, `Content-Length`, `Keep-Alive`, `Proxy-Authenticate`, `Proxy-Authorization`, `TE`, `Trailer`, `Transfer-Encoding`, `Upgrade` | `mcpd` | Message framing and the transport |
+| `Connection`, `Content-Length`, `Keep-Alive`, `Proxy-Authenticate`, `Proxy-Authorization`, `TE`, `Trailer`, `Transfer-Encoding`, `Upgrade` | `mcpd` | The transport, and the framing of the response `mcpd` writes |
 | `Access-Control-Allow-Credentials`, `Access-Control-Allow-Headers`, `Access-Control-Allow-Methods`, `Access-Control-Allow-Origin`, `Access-Control-Expose-Headers`, `Access-Control-Max-Age`, `Vary` | operator | Set from `api.cors.allow_origins`. Replacing `Vary` would let a shared cache serve one origin's response to another. |
 | `Mcpd-Error-Type` | `mcpd` | SDKs classify pipeline failures from it |
 
