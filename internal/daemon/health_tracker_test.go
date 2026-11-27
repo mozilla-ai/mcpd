@@ -629,3 +629,89 @@ func TestHealthStatus_Constants(t *testing.T) {
 	require.Equal(t, domain.HealthStatus("unreachable"), domain.HealthStatusUnreachable)
 	require.Equal(t, domain.HealthStatus("unknown"), domain.HealthStatusUnknown)
 }
+
+// TestHealthTracker_LookupIsCaseInsensitive pins health lookup to the same case insensitivity every other
+// server endpoint has. A client reads a server's name from the server listing and uses it in a health URL,
+// so a lookup that only matches one casing rejects a name mcpd itself reported.
+func TestHealthTracker_LookupIsCaseInsensitive(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name       string
+		lookup     string
+		configured string
+	}{
+		{
+			name:       "lowercase lookup finds a pascal case name",
+			configured: "GitHub",
+			lookup:     "github",
+		},
+		{
+			name:       "uppercase lookup finds a pascal case name",
+			configured: "GitHub",
+			lookup:     "GITHUB",
+		},
+		{
+			name:       "exact lookup still works",
+			configured: "GitHub",
+			lookup:     "GitHub",
+		},
+		{
+			name:       "surrounding whitespace is ignored",
+			configured: "GitHub",
+			lookup:     "  GitHub  ",
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			h := NewHealthTracker([]string{tc.configured})
+
+			health, err := h.Status(tc.lookup)
+			require.NoError(t, err)
+			require.Equal(t, tc.configured, health.Name, "the configured name must be reported")
+		})
+	}
+}
+
+// TestHealthTracker_UpdateKeepsConfiguredName pins the name a health record reports.
+// Update is called with whatever name the caller holds, which must not become the reported name.
+func TestHealthTracker_UpdateKeepsConfiguredName(t *testing.T) {
+	t.Parallel()
+
+	h := NewHealthTracker([]string{"GitHub"})
+
+	require.NoError(t, h.Update("github", domain.HealthStatusOK, nil))
+
+	health, err := h.Status("GitHub")
+	require.NoError(t, err)
+	require.Equal(t, "GitHub", health.Name)
+	require.Equal(t, domain.HealthStatusOK, health.Status)
+
+	for _, record := range h.List() {
+		require.Equal(t, "GitHub", record.Name)
+	}
+}
+
+// TestHealthTracker_AddKeepsConfiguredNameAndRemoveIgnoresCase pins that a server added during a reload
+// reports its configured name, and that removing it does not depend on the caller's casing.
+func TestHealthTracker_AddKeepsConfiguredNameAndRemoveIgnoresCase(t *testing.T) {
+	t.Parallel()
+
+	h := NewHealthTracker(nil)
+
+	h.Add("Time-Server")
+
+	health, err := h.Status("time-server")
+	require.NoError(t, err)
+	require.Equal(t, "Time-Server", health.Name)
+
+	// Adding the same server under a different casing must not create a second record.
+	h.Add("TIME-SERVER")
+	require.Len(t, h.List(), 1)
+
+	h.Remove("TIME-SERVER")
+	require.Empty(t, h.List())
+}
