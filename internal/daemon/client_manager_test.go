@@ -144,17 +144,16 @@ func TestClientManager_Add_ToolsNormalized(t *testing.T) {
 
 	cm.Add(name, c, tools)
 
-	// A tool name is stored as the operator configured it, because matching compares keys rather than
-	// the stored form.
+	// A tool name is stored as it was given, because MCP tool names are case-sensitive.
 	rt, ok := cm.Tools(name)
 	require.True(t, ok)
 	require.Equal(t, tools, rt)
 
-	keys := make([]string, 0, len(rt))
+	reported := make([]string, 0, len(rt))
 	for _, tool := range rt {
-		keys = append(keys, tool.Key())
+		reported = append(reported, tool.String())
 	}
-	require.Equal(t, []string{"tool1", "tool2", "tool3"}, keys)
+	require.Equal(t, []string{"Tool1", "TOOL2", "tool3"}, reported)
 }
 
 func TestClientManager_ServerNameNormalized(t *testing.T) {

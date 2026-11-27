@@ -9,7 +9,6 @@ import (
 	"time"
 
 	"github.com/danielgtaylor/huma/v2"
-	"github.com/mark3labs/mcp-go/client"
 	"github.com/mark3labs/mcp-go/mcp"
 
 	"github.com/mozilla-ai/mcpd/internal/contracts"
@@ -141,10 +140,10 @@ func (r *serverRoutes) handleTools(ctx context.Context, name string) (*ToolsResp
 	}
 
 	// Only return data on allowed tools.
-	allowed := allowedToolKeys(allowedTools)
+	allowed := allowedToolNames(allowedTools)
 	tools := make([]Tool, 0, len(result.Tools))
 	for _, tool := range result.Tools {
-		if _, ok := allowed[domain.ToolName(tool.Name).Key()]; ok {
+		if _, ok := allowed[domain.ToolName(tool.Name).String()]; ok {
 			data, err := domainTool(tool).ToAPIType()
 			if err != nil {
 				return nil, err
@@ -176,22 +175,19 @@ func (r *serverRoutes) handleToolCall(
 		return nil, fmt.Errorf("%w: %s", errors.ErrToolsNotFound, server)
 	}
 
-	allowed := allowedToolKeys(allowedTools)
-	if _, ok := allowed[domain.ToolName(tool).Key()]; !ok {
+	wanted := domain.ToolName(tool).String()
+
+	allowed := allowedToolNames(allowedTools)
+	if _, ok := allowed[wanted]; !ok {
 		return nil, fmt.Errorf("%w: %s/%s", errors.ErrToolForbidden, server, tool)
 	}
 
 	ctx, cancel := context.WithTimeout(ctx, r.toolCallTimeout)
 	defer cancel()
 
-	resolved, err := r.resolveToolName(ctx, mcpClient, server, domain.ToolName(tool))
-	if err != nil {
-		return nil, err
-	}
-
 	result, err := mcpClient.CallTool(ctx, mcp.CallToolRequest{
 		Params: mcp.CallToolParams{
-			Name:      resolved.String(),
+			Name:      wanted,
 			Arguments: data,
 		},
 	})
@@ -227,42 +223,12 @@ func extractMessage(content []mcp.Content) string {
 	return message
 }
 
-// resolveToolName returns the name the server reports for the tool matching wanted.
-// Returns an error if the server reports no tool matching it.
-//
-// NOTE: A tool is matched by key, so the resolved name is the one the server answers to rather than the
-// spelling a caller supplied. The name that reaches the server has to be the one that was checked, because
-// two tools whose names share a key are distinct tools.
-func (r *serverRoutes) resolveToolName(
-	ctx context.Context,
-	mcpClient client.MCPClient,
-	server string,
-	wanted domain.ToolName,
-) (domain.ToolName, error) {
-	result, err := mcpClient.ListTools(ctx, mcp.ListToolsRequest{})
-	if err != nil {
-		return "", fmt.Errorf("%w: %s: %w", errors.ErrToolListFailed, server, err)
-	}
-	if result == nil {
-		return "", fmt.Errorf("%w: %s: no result", errors.ErrToolListFailed, server)
-	}
-
-	for _, tool := range result.Tools {
-		reported := domain.ToolName(tool.Name)
-		if reported.Key() == wanted.Key() {
-			return reported, nil
-		}
-	}
-
-	return "", fmt.Errorf("%w: %s/%s", errors.ErrToolForbidden, server, wanted)
-}
-
-// allowedToolKeys returns the set of keys for the given allowed tool names, for membership tests.
-func allowedToolKeys(allowed []domain.ToolName) map[string]struct{} {
-	keys := make(map[string]struct{}, len(allowed))
+// allowedToolNames returns the set of given allowed tool names, for membership tests.
+func allowedToolNames(allowed []domain.ToolName) map[string]struct{} {
+	names := make(map[string]struct{}, len(allowed))
 	for _, name := range allowed {
-		keys[name.Key()] = struct{}{}
+		names[name.String()] = struct{}{}
 	}
 
-	return keys
+	return names
 }

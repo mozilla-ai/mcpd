@@ -204,12 +204,11 @@ func (m *mockMCPClient) Close() error {
 
 func (m *mockMCPClient) OnNotification(_ func(notification mcp.JSONRPCNotification)) {}
 
-func TestHandleTools_CaseInsensitiveFiltering(t *testing.T) {
+func TestHandleTools_MatchesAnAllowedNameExactly(t *testing.T) {
 	t.Parallel()
 
 	accessor := newMockMCPClientAccessor()
 
-	// Mock client returns tools with mixed case.
 	mockClient := &mockMCPClient{
 		listToolsResult: &mcp.ListToolsResult{
 			Tools: []mcp.Tool{
@@ -220,39 +219,28 @@ func TestHandleTools_CaseInsensitiveFiltering(t *testing.T) {
 		},
 	}
 
-	// Server has allowed tools in mixed case, but they should be normalized for comparison.
-	allowedTools := []domain.ToolName{"gettime", "set_alarm"}
+	// One allowed name matches the server's spelling and one differs only by case.
+	allowedTools := []domain.ToolName{"GetTime", "set_alarm"}
 	accessor.Add("testserver", mockClient, allowedTools)
 
 	result, err := newServerRoutes(accessor, RouteOptions{}).handleTools(context.Background(), "testserver")
 	require.NoError(t, err)
 	require.NotNil(t, result)
 
-	// Should return 2 tools that match (case-insensitive).
-	require.Len(t, result.Body.Tools, 2)
-
 	toolNames := make([]string, len(result.Body.Tools))
 	for i, tool := range result.Body.Tools {
 		toolNames[i] = tool.Name
 	}
 
-	// Matching ignores case, but the name is returned as the server reported it, because a client calls
-	// the tool by this name and mcpd forwards it upstream unchanged.
-	require.Contains(t, toolNames, "GetTime")
-	require.Contains(t, toolNames, "SET_ALARM")
-	require.NotContains(t, toolNames, "list_events")
+	require.Equal(t, []string{"GetTime"}, toolNames)
 }
 
-func TestHandleToolCall_ToolNameNormalization(t *testing.T) {
+func TestHandleToolCall_TrimsTheSuppliedName(t *testing.T) {
 	t.Parallel()
 
 	accessor := newMockMCPClientAccessor()
 
-	// Mock client that will be called.
 	mockClient := &mockMCPClient{
-		listToolsResult: &mcp.ListToolsResult{
-			Tools: []mcp.Tool{{Name: "GetTime"}, {Name: "SetAlarm"}},
-		},
 		callToolResult: &mcp.CallToolResult{
 			Content: []mcp.Content{
 				mcp.TextContent{Text: "Tool executed successfully"},
@@ -260,11 +248,9 @@ func TestHandleToolCall_ToolNameNormalization(t *testing.T) {
 		},
 	}
 
-	// The allow list is written in a different case from the server's own spelling.
-	allowedTools := []domain.ToolName{"gettime", "setalarm"}
-	accessor.Add("testserver", mockClient, allowedTools)
+	accessor.Add("testserver", mockClient, []domain.ToolName{"GetTime"})
 
-	// A name supplied in any case matches the allow list and resolves to the server's spelling.
+	// An MCP tool name holds no surrounding whitespace, so trimming cannot reach a second tool.
 	result, err := newServerRoutes(accessor, RouteOptions{}).handleToolCall(
 		context.Background(),
 		"testserver",
@@ -275,6 +261,35 @@ func TestHandleToolCall_ToolNameNormalization(t *testing.T) {
 	require.NotNil(t, result)
 
 	require.Equal(t, "Tool executed successfully", result.Body)
+	require.Equal(t, "GetTime", mockClient.calledToolName)
+}
+
+func TestHandleToolCall_RefusesANameThatDiffersOnlyByCase(t *testing.T) {
+	t.Parallel()
+
+	accessor := newMockMCPClientAccessor()
+
+	mockClient := &mockMCPClient{
+		listToolsResult: &mcp.ListToolsResult{
+			Tools: []mcp.Tool{{Name: "GetTime"}},
+		},
+		callToolResult: &mcp.CallToolResult{
+			Content: []mcp.Content{mcp.TextContent{Text: "Tool executed successfully"}},
+		},
+	}
+
+	// The allow list holds one spelling and the server reports another, which are two distinct tools.
+	accessor.Add("testserver", mockClient, []domain.ToolName{"gettime"})
+
+	_, err := newServerRoutes(accessor, RouteOptions{}).handleToolCall(
+		context.Background(),
+		"testserver",
+		"GetTime",
+		map[string]any{},
+	)
+
+	require.ErrorIs(t, err, errors.ErrToolForbidden)
+	require.Empty(t, mockClient.calledToolName)
 }
 
 func TestNewServerRoutes_ToolCallTimeout(t *testing.T) {
@@ -438,121 +453,4 @@ func TestHandleTools_AppliesRequestTimeout(t *testing.T) {
 	deadline, ok := mockClient.listToolsContext.Deadline()
 	require.True(t, ok)
 	require.LessOrEqual(t, time.Until(deadline), mcpRequestTimeout)
-}
-
-// TestHandleToolCall_ForwardsTheResolvedUpstreamName pins that the name sent to the MCP server is one the
-// server reported, not the spelling the caller typed. The value checked against the allow list has to be
-// the value used, or a name that merely matches an allowed entry can reach a different tool.
-func TestHandleToolCall_ForwardsTheResolvedUpstreamName(t *testing.T) {
-	t.Parallel()
-
-	tests := []struct {
-		name     string
-		upstream []string
-		allowed  []domain.ToolName
-		called   string
-		expected string
-	}{
-		{
-			name:     "a camel case tool reached by a lowercase name",
-			upstream: []string{"getCurrentTime"},
-			allowed:  []domain.ToolName{"getcurrenttime"},
-			called:   "getcurrenttime",
-			expected: "getCurrentTime",
-		},
-		{
-			name:     "a camel case tool reached by an uppercase name",
-			upstream: []string{"getCurrentTime"},
-			allowed:  []domain.ToolName{"getCurrentTime"},
-			called:   "GETCURRENTTIME",
-			expected: "getCurrentTime",
-		},
-		{
-			name:     "an exact name is forwarded unchanged",
-			upstream: []string{"get_current_time"},
-			allowed:  []domain.ToolName{"get_current_time"},
-			called:   "get_current_time",
-			expected: "get_current_time",
-		},
-	}
-
-	for _, tc := range tests {
-		t.Run(tc.name, func(t *testing.T) {
-			t.Parallel()
-
-			upstream := make([]mcp.Tool, 0, len(tc.upstream))
-			for _, name := range tc.upstream {
-				upstream = append(upstream, mcp.Tool{Name: name})
-			}
-
-			mockClient := &mockMCPClient{
-				listToolsResult: &mcp.ListToolsResult{Tools: upstream},
-				callToolResult: &mcp.CallToolResult{
-					Content: []mcp.Content{mcp.TextContent{Text: "done"}},
-				},
-			}
-
-			accessor := newMockMCPClientAccessor()
-			accessor.Add(domain.ServerName("timeserver"), mockClient, tc.allowed)
-
-			_, err := newServerRoutes(accessor, RouteOptions{}).
-				handleToolCall(context.Background(), "timeserver", tc.called, nil)
-			require.NoError(t, err)
-			require.Equal(t, tc.expected, mockClient.calledToolName)
-		})
-	}
-}
-
-// TestHandleToolCall_RefusesWhenTheNameCannotBeResolved pins the three ways resolving a tool name fails.
-// A name that has not been matched against what the server reports must not be sent, so each failure
-// refuses the call rather than falling back to the supplied spelling.
-func TestHandleToolCall_RefusesWhenTheNameCannotBeResolved(t *testing.T) {
-	t.Parallel()
-
-	tests := []struct {
-		name        string
-		listResult  *mcp.ListToolsResult
-		listError   error
-		expectedErr error
-	}{
-		{
-			name:        "the tool list cannot be read",
-			listError:   fmt.Errorf("transport closed"),
-			expectedErr: errors.ErrToolListFailed,
-		},
-		{
-			name:        "the tool list is absent",
-			listResult:  nil,
-			expectedErr: errors.ErrToolListFailed,
-		},
-		{
-			name:        "the server reports no matching tool",
-			listResult:  &mcp.ListToolsResult{Tools: []mcp.Tool{{Name: "somethingElse"}}},
-			expectedErr: errors.ErrToolForbidden,
-		},
-	}
-
-	for _, tc := range tests {
-		t.Run(tc.name, func(t *testing.T) {
-			t.Parallel()
-
-			mockClient := &mockMCPClient{
-				listToolsResult: tc.listResult,
-				listToolsError:  tc.listError,
-				callToolResult: &mcp.CallToolResult{
-					Content: []mcp.Content{mcp.TextContent{Text: "must not be reached"}},
-				},
-			}
-
-			accessor := newMockMCPClientAccessor()
-			accessor.Add(domain.ServerName("timeserver"), mockClient, []domain.ToolName{"getCurrentTime"})
-
-			_, err := newServerRoutes(accessor, RouteOptions{}).
-				handleToolCall(context.Background(), "timeserver", "getCurrentTime", nil)
-
-			require.Error(t, err)
-			require.ErrorIs(t, err, tc.expectedErr)
-			require.Empty(t, mockClient.calledToolName, "the tool must not be called")
-		})
-	}
 }

@@ -103,8 +103,8 @@ func NewSetCmd(baseCmd *cmd.BaseCmd, opt ...cmdopts.CmdOption) (*cobra.Command, 
 }
 
 // resolveAvailableTools queries the registry for all available tools for the given server.
-// Returns each tool name as the registry presents it, keyed by the form a supplied name is matched on.
-func (c *SetCmd) resolveAvailableTools(s *config.ServerEntry) (map[string]domain.ToolName, error) {
+// Returns the set of tool names as the registry presents them.
+func (c *SetCmd) resolveAvailableTools(s *config.ServerEntry) (map[string]struct{}, error) {
 	serverRuntime := s.Runtime()
 	if serverRuntime == "" {
 		return nil, fmt.Errorf("invalid package format in configuration: %s", s.Package)
@@ -143,12 +143,9 @@ func (c *SetCmd) resolveAvailableTools(s *config.ServerEntry) (map[string]domain
 		return nil, fmt.Errorf("failed to resolve server '%s': %w", s.Name, err)
 	}
 
-	// Index by key so a supplied name matches without regard to case, and keep the registry's own
-	// spelling as the value, because that is the name the MCP server answers to.
-	available := make(map[string]domain.ToolName, len(serverResult.Tools))
+	available := make(map[string]struct{}, len(serverResult.Tools))
 	for _, tool := range serverResult.Tools {
-		name := domain.ToolName(tool.Name)
-		available[name.Key()] = name
+		available[domain.ToolName(tool.Name).String()] = struct{}{}
 	}
 
 	return available, nil
@@ -168,7 +165,7 @@ func (c *SetCmd) run(cmd *cobra.Command, args []string) error {
 	requestedTools := make([]domain.ToolName, 0, len(c.tools))
 	for _, tool := range c.tools {
 		name := domain.ToolName(tool)
-		if name.Key() != "" {
+		if name.String() != "" {
 			requestedTools = append(requestedTools, name)
 		}
 	}
@@ -204,47 +201,42 @@ func (c *SetCmd) run(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("failed to get available tools for server '%s': %w", serverName, err)
 	}
 
-	// Resolve each requested tool to the name the registry reports, so the configuration records the name
-	// the MCP server answers to rather than the spelling that was typed.
+	// MCP tool names are case-sensitive, so a requested name has to match the registry's own spelling.
 	var invalidTools []string
 
-	resolvedTools := make([]domain.ToolName, 0, len(requestedTools))
+	matchedTools := make([]domain.ToolName, 0, len(requestedTools))
 	for _, tool := range requestedTools {
-		resolved, exists := availableTools[tool.Key()]
-		if !exists {
+		if _, exists := availableTools[tool.String()]; !exists {
 			invalidTools = append(invalidTools, tool.String())
 
 			continue
 		}
 
-		resolvedTools = append(resolvedTools, resolved)
+		matchedTools = append(matchedTools, tool)
 	}
 
 	if len(invalidTools) > 0 {
 		return fmt.Errorf("the following tools are not available for server '%s': %v", serverName, invalidTools)
 	}
 
-	// Deduplicate by key, so one tool cannot be recorded under two spellings.
-	toolSet := make(map[string]string, len(foundServer.Tools)+len(resolvedTools))
+	// Deduplicate, so one tool is recorded once.
+	toolSet := make(map[string]struct{}, len(foundServer.Tools)+len(matchedTools))
 	for _, tool := range foundServer.Tools {
-		toolSet[domain.ToolName(tool).Key()] = tool
+		toolSet[domain.ToolName(tool).String()] = struct{}{}
 	}
 
 	// Track which tools are actually new.
-	newTools := make([]string, 0, len(resolvedTools))
-	for _, tool := range resolvedTools {
-		if _, exists := toolSet[tool.Key()]; exists {
+	newTools := make([]string, 0, len(matchedTools))
+	for _, tool := range matchedTools {
+		if _, exists := toolSet[tool.String()]; exists {
 			continue
 		}
 
-		toolSet[tool.Key()] = tool.String()
+		toolSet[tool.String()] = struct{}{}
 		newTools = append(newTools, tool.String())
 	}
 
-	allTools := slices.Collect(maps.Values(toolSet))
-	slices.SortFunc(allTools, func(a, b string) int {
-		return strings.Compare(domain.ToolName(a).Key(), domain.ToolName(b).Key())
-	})
+	allTools := slices.Sorted(maps.Keys(toolSet))
 
 	// Update the server's tools.
 	foundServer.Tools = allTools

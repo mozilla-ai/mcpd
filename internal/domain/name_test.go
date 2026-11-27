@@ -87,32 +87,27 @@ func TestToolName(t *testing.T) {
 	tests := []struct {
 		name     string
 		given    ToolName
-		key      string
 		reported string
 	}{
 		{
+			name:     "already lowercase",
+			given:    "get_current_time",
+			reported: "get_current_time",
+		},
+		{
 			name:     "camel case",
 			given:    "getCurrentTime",
-			key:      "getcurrenttime",
 			reported: "getCurrentTime",
 		},
 		{
 			name:     "screaming snake case",
 			given:    "GET_CURRENT_TIME",
-			key:      "get_current_time",
 			reported: "GET_CURRENT_TIME",
 		},
 		{
 			name:     "surrounding whitespace",
 			given:    "  getCurrentTime  ",
-			key:      "getcurrenttime",
 			reported: "getCurrentTime",
-		},
-		{
-			name:     "already lowercase",
-			given:    "get_current_time",
-			key:      "get_current_time",
-			reported: "get_current_time",
 		},
 	}
 
@@ -120,29 +115,38 @@ func TestToolName(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
-			require.Equal(t, tc.key, tc.given.Key())
 			require.Equal(t, tc.reported, tc.given.String())
 		})
 	}
 }
 
-// TestToolName_KeyIsTheLowercasedReportedName pins the one relationship the two forms have to keep.
-func TestToolName_KeyIsTheLowercasedReportedName(t *testing.T) {
+// TestToolName_CaseIsPartOfTheName pins that a name keeps its case.
+// MCP tool names are case-sensitive, so two names that differ only by case identify two tools.
+func TestToolName_CaseIsPartOfTheName(t *testing.T) {
 	t.Parallel()
 
-	names := []ToolName{
-		"",
-		"  padded  ",
-		"getCurrentTime",
-		"GET_CURRENT_TIME",
-		"get_current_time",
+	tests := []struct {
+		name  string
+		left  ToolName
+		right ToolName
+	}{
+		{
+			name:  "camel case against lowercase",
+			left:  "getCurrentTime",
+			right: "getcurrenttime",
+		},
+		{
+			name:  "screaming snake case against lowercase",
+			left:  "GET_CURRENT_TIME",
+			right: "get_current_time",
+		},
 	}
 
-	for _, name := range names {
-		t.Run(string(name), func(t *testing.T) {
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
-			require.Equal(t, strings.ToLower(name.String()), name.Key())
+			require.NotEqual(t, tc.left.String(), tc.right.String())
 		})
 	}
 }

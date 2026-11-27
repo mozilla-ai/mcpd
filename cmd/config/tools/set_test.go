@@ -270,7 +270,7 @@ func TestSetCmd_run(t *testing.T) {
 			expectedTools:  []string{"tool-1", "tool-2", "tool-3"},
 		},
 		{
-			name:       "normalize tool names",
+			name:       "reject a tool name that differs only by case",
 			serverName: "test-server",
 			tools:      []string{"Tool_One", "TOOL-TWO", "tool three"},
 			existingServers: []config.ServerEntry{
@@ -289,8 +289,29 @@ func TestSetCmd_run(t *testing.T) {
 					},
 				},
 			},
-			expectedOutput: "✓ Tools added for server 'test-server': [tool_one tool-two tool three]",
-			expectedTools:  []string{"tool_one", "tool-two", "tool three"},
+			expectedError: "the following tools are not available for server 'test-server': [Tool_One TOOL-TWO]",
+		},
+		{
+			name:       "record a tool name as the registry spells it",
+			serverName: "test-server",
+			tools:      []string{"Tool_One", "TOOL-TWO"},
+			existingServers: []config.ServerEntry{
+				{
+					Name:    "test-server",
+					Package: "github.com/example/test-server@npx",
+				},
+			},
+			registryServers: map[string]packages.Server{
+				"test-server": {
+					Name: "test-server",
+					Tools: []packages.Tool{
+						{Name: "Tool_One"},
+						{Name: "TOOL-TWO"},
+					},
+				},
+			},
+			expectedOutput: "✓ Tools added for server 'test-server': [Tool_One TOOL-TWO]",
+			expectedTools:  []string{"TOOL-TWO", "Tool_One"},
 		},
 		{
 			name:       "server not found",
