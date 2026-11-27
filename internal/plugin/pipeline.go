@@ -74,7 +74,7 @@ func (p *pipeline) HandleRequest(ctx context.Context, req *HTTPRequest) (*HTTPRe
 		}
 
 		mode := "serial"
-		if props.Parallel {
+		if props.Mode.IsParallel() {
 			mode = "parallel"
 		}
 
@@ -92,7 +92,7 @@ func (p *pipeline) HandleRequest(ctx context.Context, req *HTTPRequest) (*HTTPRe
 				return nil, err
 			}
 
-			if props.CanModify && pluginResp != nil {
+			if props.Mode.CanModify() && pluginResp != nil {
 				currentReq = mergeRequestModification(currentReq, pluginResp.ModifiedRequest)
 			}
 
@@ -155,7 +155,7 @@ func (p *pipeline) HandleResponse(ctx context.Context, resp *HTTPResponse) (*HTT
 		}
 
 		mode := "serial"
-		if props.Parallel {
+		if props.Mode.IsParallel() {
 			mode = "parallel"
 		}
 
@@ -173,7 +173,7 @@ func (p *pipeline) HandleResponse(ctx context.Context, resp *HTTPResponse) (*HTT
 				return nil, err
 			}
 
-			if props.CanModify {
+			if props.Mode.CanModify() {
 				currentResp = mergeResponseModification(currentResp, pluginResp)
 			}
 
@@ -261,7 +261,7 @@ func (p *pipeline) execute(
 	handler pluginHandler,
 	props CategoryProperties,
 ) (*HTTPResponse, error) {
-	if props.Parallel {
+	if props.Mode.IsParallel() {
 		return p.executeParallel(ctx, plugins, handler, props.IgnoreOptionalRejection)
 	}
 
