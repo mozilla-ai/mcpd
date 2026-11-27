@@ -5,6 +5,8 @@ import (
 	"io"
 	"net/http"
 
+	"github.com/hashicorp/go-hclog"
+
 	"github.com/mozilla-ai/mcpd/internal/api"
 )
 
@@ -44,7 +46,7 @@ func (p *pipeline) Middleware() func(http.Handler) http.Handler {
 			// Check if plugin short-circuited (business logic rejection).
 			if !httpResp.Continue {
 				// Plugin wants to respond directly (e.g., 429 rate limit, 403 auth failed).
-				writePluginResponse(w, httpResp)
+				writePluginResponse(p.logger, w, httpResp)
 				return
 			}
 
@@ -71,7 +73,7 @@ func (p *pipeline) Middleware() func(http.Handler) http.Handler {
 			}
 
 			// Write final (potentially modified) response.
-			writePluginResponse(w, finalResp)
+			writePluginResponse(p.logger, w, finalResp)
 		})
 	}
 }
@@ -154,7 +156,11 @@ func httpRequestToPlugin(r *http.Request) (*HTTPRequest, error) {
 // NOTE: A reserved header in resp is skipped, so this is safe for a response a plugin authored itself.
 // A status code a plugin cannot report is written as a server error, because mcpd cannot know what the
 // plugin meant and net/http panics on a code it does not accept.
-func writePluginResponse(w http.ResponseWriter, resp *HTTPResponse) {
+func writePluginResponse(logger hclog.Logger, w http.ResponseWriter, resp *HTTPResponse) {
+	if reserved := reservedHeaderNames(resp.Headers); len(reserved) > 0 {
+		logger.Warn("ignoring reserved response headers set by plugin", "headers", reserved)
+	}
+
 	for name, value := range resp.Headers {
 		if isReservedHeader(name) {
 			continue
@@ -163,7 +169,13 @@ func writePluginResponse(w http.ResponseWriter, resp *HTTPResponse) {
 		w.Header().Set(name, value)
 	}
 
-	w.WriteHeader(pluginStatusCode(resp.StatusCode))
+	status := pluginStatusCode(resp.StatusCode)
+	if status != int(resp.StatusCode) {
+		logger.Warn("replacing a status code a plugin may not report",
+			"reported", resp.StatusCode, "written", status)
+	}
+
+	w.WriteHeader(status)
 
 	if len(resp.Body) > 0 {
 		_, _ = w.Write(resp.Body)

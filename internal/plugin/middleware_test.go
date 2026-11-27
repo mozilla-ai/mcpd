@@ -1,6 +1,7 @@
 package plugin
 
 import (
+	"bytes"
 	"errors"
 	"io"
 	"net/http"
@@ -271,4 +272,54 @@ func TestMiddleware_ResponsePipelineFailure(t *testing.T) {
 	require.Equal(t, http.StatusInternalServerError, recorder.Code)
 	require.Equal(t, string(api.PipelineResponseFailure), recorder.Header().Get(api.HeaderErrorType))
 	require.Contains(t, recorder.Body.String(), "Response processing failed")
+}
+
+func TestWritePluginResponse_LogsClampedStatusCode(t *testing.T) {
+	t.Parallel()
+
+	var buf bytes.Buffer
+
+	rec := httptest.NewRecorder()
+	writePluginResponse(newTestLogger(&buf), rec, &HTTPResponse{Body: []byte("denied")})
+
+	require.Equal(t, http.StatusInternalServerError, rec.Code)
+	require.Contains(t, buf.String(), "replacing a status code a plugin may not report")
+}
+
+// TestWritePluginResponse_LogsReservedHeaderNameNotValue pins the rule that a reserved header's value never
+// reaches the log, because the value may be a credential.
+func TestWritePluginResponse_LogsReservedHeaderNameNotValue(t *testing.T) {
+	t.Parallel()
+
+	var buf bytes.Buffer
+
+	rec := httptest.NewRecorder()
+	writePluginResponse(newTestLogger(&buf), rec, &HTTPResponse{
+		StatusCode: http.StatusForbidden,
+		Headers:    map[string]string{"Proxy-Authenticate": "Basic realm=super-secret-value"},
+	})
+
+	logged := buf.String()
+	require.Contains(t, logged, "ignoring reserved response headers set by plugin")
+	require.Contains(t, logged, "Proxy-Authenticate")
+	require.NotContains(t, logged, "super-secret-value")
+	require.Empty(t, rec.Header().Get("Proxy-Authenticate"))
+}
+
+// TestWritePluginResponse_LogsNothingForAValidResponse guards against a log line on every response.
+func TestWritePluginResponse_LogsNothingForAValidResponse(t *testing.T) {
+	t.Parallel()
+
+	var buf bytes.Buffer
+
+	rec := httptest.NewRecorder()
+	writePluginResponse(newTestLogger(&buf), rec, &HTTPResponse{
+		StatusCode: http.StatusTooManyRequests,
+		Headers:    map[string]string{"Retry-After": "30"},
+		Body:       []byte("slow down"),
+	})
+
+	require.Equal(t, http.StatusTooManyRequests, rec.Code)
+	require.Equal(t, "30", rec.Header().Get("Retry-After"))
+	require.Empty(t, buf.String())
 }

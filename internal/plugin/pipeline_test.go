@@ -1,6 +1,7 @@
 package plugin
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
@@ -204,6 +205,32 @@ func newTestContentInstance(name string, plugin *testContentPlugin) *Instance {
 	})
 
 	return inst
+}
+
+// newTestLogger returns a logger that writes warnings and above to buf.
+func newTestLogger(buf *bytes.Buffer) hclog.Logger {
+	return hclog.New(&hclog.LoggerOptions{
+		Level:  hclog.Warn,
+		Output: buf,
+	})
+}
+
+// newTestLoggingPipeline returns a pipeline logging to buf, with plugins registered under category.
+func newTestLoggingPipeline(
+	t *testing.T,
+	buf *bytes.Buffer,
+	category config.Category,
+	plugins ...*testContentPlugin,
+) *pipeline {
+	t.Helper()
+
+	p := newPipeline(newTestLogger(buf))
+	for i, plugin := range plugins {
+		err := p.Register(category, newTestContentInstance(fmt.Sprintf("test-%d", i), plugin))
+		require.NoError(t, err)
+	}
+
+	return p
 }
 
 // newTestContentPipeline returns a pipeline with the given content plugins registered in call order.
@@ -1197,4 +1224,158 @@ func TestPipeline_CategoryOrdering(t *testing.T) {
 		require.Equal(t, string(expectedCategory), categoryName,
 			"plugin at position %d should be from category %s", i, expectedCategory)
 	}
+}
+
+func TestPipeline_HandleRequest_LogsIgnoredMethodAndPath(t *testing.T) {
+	t.Parallel()
+
+	var buf bytes.Buffer
+
+	content := &testContentPlugin{
+		rewriteMethod: http.MethodDelete,
+		rewritePath:   "/admin",
+	}
+	p := newTestLoggingPipeline(t, &buf, config.CategoryContent, content)
+
+	_, err := p.HandleRequest(context.Background(), &HTTPRequest{
+		Method: http.MethodGet,
+		Path:   "/servers",
+	})
+	require.NoError(t, err)
+
+	logged := buf.String()
+	require.Contains(t, logged, "ignoring request method set by plugin")
+	require.Contains(t, logged, http.MethodDelete)
+	require.Contains(t, logged, "ignoring request path set by plugin")
+	require.Contains(t, logged, "/admin")
+}
+
+func TestPipeline_HandleRequest_LogsModificationFromNonModifyingCategory(t *testing.T) {
+	t.Parallel()
+
+	var buf bytes.Buffer
+
+	content := &testContentPlugin{rewriteRequestBody: "rewritten"}
+	p := newTestLoggingPipeline(t, &buf, config.CategoryAuthentication, content)
+
+	_, err := p.HandleRequest(context.Background(), &HTTPRequest{
+		Method: http.MethodGet,
+		Path:   "/servers",
+		Body:   []byte("original"),
+	})
+	require.NoError(t, err)
+
+	require.Contains(t, buf.String(), "ignoring request modification from a category that may not modify")
+}
+
+// TestPipeline_HandleRequest_LogsReservedHeaderNameNotValue pins the rule that a reserved header's value
+// never reaches the log, because the value may be a credential.
+func TestPipeline_HandleRequest_LogsReservedHeaderNameNotValue(t *testing.T) {
+	t.Parallel()
+
+	var buf bytes.Buffer
+
+	content := &testContentPlugin{
+		rewriteRequestHeaders: map[string]string{"Proxy-Authorization": "Bearer super-secret-value"},
+	}
+	p := newTestLoggingPipeline(t, &buf, config.CategoryContent, content)
+
+	_, err := p.HandleRequest(context.Background(), &HTTPRequest{
+		Method: http.MethodGet,
+		Path:   "/servers",
+	})
+	require.NoError(t, err)
+
+	logged := buf.String()
+	require.Contains(t, logged, "ignoring reserved request headers set by plugin")
+	require.Contains(t, logged, "Proxy-Authorization")
+	require.NotContains(t, logged, "super-secret-value")
+}
+
+// TestPipeline_HandleRequest_LogsNothingWhenNothingIsDropped guards against a log line on every request.
+func TestPipeline_HandleRequest_LogsNothingWhenNothingIsDropped(t *testing.T) {
+	t.Parallel()
+
+	var buf bytes.Buffer
+
+	content := &testContentPlugin{rewriteRequestBody: "redacted"}
+	p := newTestLoggingPipeline(t, &buf, config.CategoryContent, content)
+
+	_, err := p.HandleRequest(context.Background(), &HTTPRequest{
+		Method:  http.MethodPost,
+		Path:    "/servers",
+		Headers: map[string]string{"X-Request-Id": "abc"},
+		Body:    []byte("original"),
+	})
+	require.NoError(t, err)
+
+	require.Empty(t, buf.String())
+}
+
+func TestPipeline_HandleResponse_LogsIgnoredStatusCode(t *testing.T) {
+	t.Parallel()
+
+	var buf bytes.Buffer
+
+	content := &testContentPlugin{rewriteResponseStatus: http.StatusServiceUnavailable}
+	p := newTestLoggingPipeline(t, &buf, config.CategoryContent, content)
+
+	_, err := p.HandleResponse(context.Background(), &HTTPResponse{
+		Continue:   true,
+		StatusCode: http.StatusOK,
+		Body:       []byte("upstream"),
+	})
+	require.NoError(t, err)
+
+	logged := buf.String()
+	require.Contains(t, logged, "ignoring status code set by a plugin that continues the pipeline")
+	require.Contains(t, logged, "503")
+}
+
+// TestPipeline_HandleResponse_LogsNothingWhenStatusIsEchoed guards against warning a redaction plugin that
+// correctly echoes the upstream status alongside the body it rewrote.
+func TestPipeline_HandleResponse_LogsNothingWhenStatusIsEchoed(t *testing.T) {
+	t.Parallel()
+
+	var buf bytes.Buffer
+
+	content := &testContentPlugin{
+		rewriteResponseBody:   "redacted",
+		rewriteResponseStatus: http.StatusOK,
+	}
+	p := newTestLoggingPipeline(t, &buf, config.CategoryContent, content)
+
+	_, err := p.HandleResponse(context.Background(), &HTTPResponse{
+		Continue:   true,
+		StatusCode: http.StatusOK,
+		Body:       []byte("upstream"),
+	})
+	require.NoError(t, err)
+
+	require.Empty(t, buf.String())
+}
+
+// TestPipeline_HandleResponse_LogsReservedHeaderNameNotValue pins the rule that a reserved header's value
+// never reaches the log, because the value may be a credential.
+func TestPipeline_HandleResponse_LogsReservedHeaderNameNotValue(t *testing.T) {
+	t.Parallel()
+
+	var buf bytes.Buffer
+
+	content := &testContentPlugin{
+		rewriteResponseHeaders: map[string]string{"Proxy-Authenticate": "Basic realm=super-secret-value"},
+	}
+	p := newTestLoggingPipeline(t, &buf, config.CategoryContent, content)
+
+	_, err := p.HandleResponse(context.Background(), &HTTPResponse{
+		Continue:   true,
+		StatusCode: http.StatusOK,
+		Body:       []byte("upstream"),
+	})
+	require.NoError(t, err)
+
+	logged := buf.String()
+	require.Contains(t, logged, "ignoring reserved response headers set by plugin")
+	require.Contains(t, logged, "Proxy-Authenticate")
+	require.NotContains(t, logged, "super-secret-value")
 }

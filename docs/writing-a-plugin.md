@@ -163,6 +163,11 @@ whether it continues the pipeline or stops it:
 A plugin that stops the pipeline must report a status code between 200 and 599. `mcpd` writes a 500
 for anything else, including a missing one, because a rejection must not reach the client as a success.
 
+`mcpd` logs a warning naming your plugin whenever it drops a change your plugin asked for, so a plugin in
+the wrong category or setting a header it does not own is visible in the daemon's logs rather than silent. A
+reserved header is logged by name only and never by value, because the value may be a credential. A field
+your plugin echoes unchanged is not logged, so returning the request or response you were given stays quiet.
+
 A `content` plugin runs after `authorization`, so a change it makes is not authorized again. Keep
 changes to data the authorization decision does not depend on, or enforce the constraint in the
 `content` plugin itself.

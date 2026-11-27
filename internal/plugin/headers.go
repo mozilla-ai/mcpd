@@ -2,6 +2,7 @@ package plugin
 
 import (
 	"net/http"
+	"slices"
 
 	"github.com/mozilla-ai/mcpd/internal/api"
 )
@@ -36,4 +37,22 @@ func isReservedHeader(name string) bool {
 	_, ok := reservedHeaders[http.CanonicalHeaderKey(name)]
 
 	return ok
+}
+
+// reservedHeaderNames returns the reserved header names in headers, in canonical form and sorted.
+// The result is sorted so a log line listing them is stable across calls.
+//
+// NOTE: This returns names only. A reserved header's value may be a credential, so a caller must not log it.
+func reservedHeaderNames(headers map[string]string) []string {
+	var names []string
+
+	for name := range headers {
+		if isReservedHeader(name) {
+			names = append(names, http.CanonicalHeaderKey(name))
+		}
+	}
+
+	slices.Sort(names)
+
+	return names
 }

@@ -92,6 +92,10 @@ func (p *pipeline) HandleRequest(ctx context.Context, req *HTTPRequest) (*HTTPRe
 				return nil, err
 			}
 
+			if pluginResp != nil {
+				p.logUnappliedRequestFields(inst.Name(), props.Mode.CanModify(), currentReq, pluginResp.ModifiedRequest)
+			}
+
 			if props.Mode.CanModify() && pluginResp != nil {
 				currentReq = mergeRequestModification(currentReq, pluginResp.ModifiedRequest)
 			}
@@ -172,6 +176,8 @@ func (p *pipeline) HandleResponse(ctx context.Context, resp *HTTPResponse) (*HTT
 			if err != nil {
 				return nil, err
 			}
+
+			p.logUnappliedResponseFields(inst.Name(), props.Mode.CanModify(), currentResp.StatusCode, pluginResp)
 
 			if props.Mode.CanModify() {
 				currentResp = mergeResponseModification(currentResp, pluginResp)
@@ -420,6 +426,73 @@ func (p *pipeline) filterByFlow(ctx context.Context, instances []*Instance, flow
 	}
 
 	return filtered, nil
+}
+
+// logUnappliedRequestFields logs the parts of mod that the pipeline does not apply, so a plugin author can
+// see that a change their plugin asked for had no effect.
+// canModify reports whether the plugin's category may modify at all, and req is the request as it stands
+// before mod is applied.
+//
+// NOTE: Only header names are logged. A header value or a body may carry a credential or client data.
+// A field in mod that matches req is not logged, because a plugin that echoes a field it was given has not
+// asked for a change.
+func (p *pipeline) logUnappliedRequestFields(name string, canModify bool, req *HTTPRequest, mod *HTTPRequest) {
+	if mod == nil {
+		return
+	}
+
+	if mod.Method != "" && mod.Method != req.Method {
+		p.logger.Warn("ignoring request method set by plugin", "plugin", name, "method", mod.Method)
+	}
+
+	if mod.Path != "" && mod.Path != req.Path {
+		p.logger.Warn("ignoring request path set by plugin", "plugin", name, "path", mod.Path)
+	}
+
+	if len(mod.Headers) == 0 && len(mod.Body) == 0 {
+		return
+	}
+
+	if !canModify {
+		p.logger.Warn("ignoring request modification from a category that may not modify", "plugin", name)
+
+		return
+	}
+
+	if reserved := reservedHeaderNames(mod.Headers); len(reserved) > 0 {
+		p.logger.Warn("ignoring reserved request headers set by plugin", "plugin", name, "headers", reserved)
+	}
+}
+
+// logUnappliedResponseFields logs the parts of mod that the pipeline does not apply, so a plugin author can
+// see that a change their plugin asked for had no effect.
+// canModify reports whether the plugin's category may modify at all, and status is the status code the
+// response carries before mod is applied.
+//
+// NOTE: Only header names are logged. A header value or a body may carry a credential or client data.
+func (p *pipeline) logUnappliedResponseFields(name string, canModify bool, status int32, mod *HTTPResponse) {
+	if mod == nil || !mod.Continue {
+		return
+	}
+
+	if mod.StatusCode != 0 && mod.StatusCode != status {
+		p.logger.Warn("ignoring status code set by a plugin that continues the pipeline",
+			"plugin", name, "status", mod.StatusCode)
+	}
+
+	if len(mod.Headers) == 0 && len(mod.Body) == 0 {
+		return
+	}
+
+	if !canModify {
+		p.logger.Warn("ignoring response modification from a category that may not modify", "plugin", name)
+
+		return
+	}
+
+	if reserved := reservedHeaderNames(mod.Headers); len(reserved) > 0 {
+		p.logger.Warn("ignoring reserved response headers set by plugin", "plugin", name, "headers", reserved)
+	}
 }
 
 // mergeHeaders returns a copy of base with every entry in overlay applied over it.
