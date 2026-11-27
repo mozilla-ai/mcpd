@@ -257,12 +257,15 @@ func (c *SetCmd) run(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("error saving configuration: %w", err)
 	}
 
-	// Provide feedback to the user.
+	// Provide feedback to the user, naming the server as the configuration spells it.
 	var msg string
 	if len(newTools) == 0 {
-		msg = fmt.Sprintf("✓ No new tools added for server '%s' (all specified tools already exist)\n", serverName)
+		msg = fmt.Sprintf(
+			"✓ No new tools added for server '%s' (all specified tools already exist)\n",
+			foundServer.Name,
+		)
 	} else {
-		msg = fmt.Sprintf("✓ Tools added for server '%s': %v\n", serverName, newTools)
+		msg = fmt.Sprintf("✓ Tools added for server '%s': %v\n", foundServer.Name, newTools)
 	}
 
 	if _, err := fmt.Fprint(cmd.OutOrStdout(), msg); err != nil {

@@ -171,7 +171,7 @@ func TestSetCmd_run(t *testing.T) {
 					},
 				},
 			},
-			expectedOutput: "✓ Tools added for server 'TEST-SERVER': [new-tool-1]",
+			expectedOutput: "✓ Tools added for server 'test-server': [new-tool-1]",
 			expectedTools:  []string{"existing-tool", "new-tool-1"},
 		},
 		{
