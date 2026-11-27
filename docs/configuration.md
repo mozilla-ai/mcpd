@@ -37,6 +37,18 @@ You can provide this path in multiple ways:
 
 ---
 
+## Server and Tool Names
+
+A server's `name` is reported exactly as written here, and a tool's name exactly as the MCP server reports it. `mcpd` does not change the case of either, so `GET /api/v1/servers` returns the name from this file and `GET /api/v1/servers/{name}/tools` returns the server's own spelling.
+
+A server name in a URL is matched without regard to case, so `/api/v1/servers/GitHub/tools` and `/api/v1/servers/github/tools` reach the same server. Two servers whose names differ only by case are therefore one server to `mcpd`, and the last one started wins. Configuration validation compares names exactly and does not reject the pair, so give each server a name that is distinct on more than case.
+
+A tool name in a URL is sent to the MCP server unchanged. MCP tool names are opaque strings, so a server is free to be case sensitive, and a tool named `getCurrentTime` has to be called as `getCurrentTime`. Use the name from the tool listing rather than altering it.
+
+The `tools` allow list is matched without regard to case. An entry written as `getcurrenttime` still permits a tool the server reports as `getCurrentTime`, and the allow list never changes the name that is reported or sent upstream.
+
+---
+
 ## Log Level
 
 Sets the logging level for `mcpd`.
