@@ -309,3 +309,56 @@ func TestClientManager_ConcurrentAccess(t *testing.T) {
 
 	wg.Wait()
 }
+
+// TestClientManager_UpdateTools pins what a tools-only reload preserves. Updating the tools must not
+// disturb the configured name or the client, because a reload routes a tools-only change here rather than
+// restarting the server.
+func TestClientManager_UpdateTools(t *testing.T) {
+	t.Parallel()
+
+	t.Run("keeps the configured name and the client", func(t *testing.T) {
+		t.Parallel()
+
+		cm := NewClientManager()
+		c := &mockMCPClient{}
+		cm.Add("GitHub", c, []domain.ToolName{"createRepository"})
+
+		require.NoError(t, cm.UpdateTools("github", []domain.ToolName{"listRepositories"}))
+
+		listed := cm.List()
+		require.Equal(t, []domain.ServerName{"GitHub"}, listed)
+
+		got, ok := cm.Client("GITHUB")
+		require.True(t, ok)
+		require.Same(t, c, got)
+
+		tools, ok := cm.Tools("GitHub")
+		require.True(t, ok)
+		require.Equal(t, []domain.ToolName{"listRepositories"}, tools)
+	})
+
+	t.Run("reports an unknown server", func(t *testing.T) {
+		t.Parallel()
+
+		cm := NewClientManager()
+
+		err := cm.UpdateTools("absent", []domain.ToolName{"anything"})
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "absent")
+	})
+
+	t.Run("does not alias the caller's slice", func(t *testing.T) {
+		t.Parallel()
+
+		cm := NewClientManager()
+		cm.Add("notes", &mockMCPClient{}, []domain.ToolName{"read"})
+
+		tools := []domain.ToolName{"write"}
+		require.NoError(t, cm.UpdateTools("notes", tools))
+		tools[0] = "mutated"
+
+		stored, ok := cm.Tools("notes")
+		require.True(t, ok)
+		require.Equal(t, []domain.ToolName{"write"}, stored)
+	})
+}
