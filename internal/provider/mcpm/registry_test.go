@@ -1262,9 +1262,9 @@ func TestNewRegistry_NormalizationIntegration(t *testing.T) {
 	require.Equal(t, "test-github-server", server.Name)
 	require.Equal(t, "Test GitHub Integration Server", server.DisplayName)
 
-	// Verify tool names are normalized.
+	// Verify tool names are kept as the registry publishes them.
 	require.Len(t, server.Tools, 3)
-	expectedToolNames := []string{"create_repository", "list_issues", "get current user"}
+	expectedToolNames := []string{"CREATE_Repository", "List_Issues", "Get Current User"}
 	actualToolNames := make([]string, len(server.Tools))
 	for i, tool := range server.Tools {
 		actualToolNames[i] = tool.Name

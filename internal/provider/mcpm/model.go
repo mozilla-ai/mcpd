@@ -158,20 +158,3 @@ func (s *MCPServer) UnmarshalJSON(data []byte) error {
 	*s = MCPServer(alias)
 	return nil
 }
-
-// UnmarshalJSON implements custom JSON unmarshaling for Tool to normalize the Name field.
-func (t *Tool) UnmarshalJSON(data []byte) error {
-	// Create a temporary struct with the same fields to avoid infinite recursion.
-	type toolAlias Tool
-	var alias toolAlias
-	if err := json.Unmarshal(data, &alias); err != nil {
-		return err
-	}
-
-	// Normalize the name field.
-	alias.Name = filter.NormalizeString(alias.Name)
-
-	// Assign the normalized values to the receiver.
-	*t = Tool(alias)
-	return nil
-}

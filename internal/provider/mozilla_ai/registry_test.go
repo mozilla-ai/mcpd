@@ -693,9 +693,9 @@ func TestNewRegistry_NormalizationIntegration(t *testing.T) {
 	require.Equal(t, "GitHub-Server", result.Name)
 	require.Equal(t, "github-server", result.ID)
 
-	// Verify tool names were normalized.
+	// Verify tool names were kept as the registry publishes them.
 	require.Len(t, result.Tools, 3)
-	require.Equal(t, "create_repository", result.Tools[0].Name)
-	require.Equal(t, "list_issues", result.Tools[1].Name)
-	require.Equal(t, "get current user", result.Tools[2].Name)
+	require.Equal(t, "Create_Repository", result.Tools[0].Name)
+	require.Equal(t, "LIST_ISSUES", result.Tools[1].Name)
+	require.Equal(t, "Get Current User", result.Tools[2].Name)
 }

@@ -65,22 +65,22 @@ func TestTool_UnmarshalJSON(t *testing.T) {
 		expected string
 	}{
 		{
-			name:     "Normalize mixed case tool name",
+			name:     "Keep a mixed case tool name",
 			input:    `{"name": "Create_Repository", "description": "Create a new repository"}`,
-			expected: "create_repository",
+			expected: "Create_Repository",
 		},
 		{
-			name:     "Normalize uppercase tool name",
+			name:     "Keep an uppercase tool name",
 			input:    `{"name": "LIST_ISSUES", "description": "List all issues"}`,
-			expected: "list_issues",
+			expected: "LIST_ISSUES",
 		},
 		{
-			name:     "Normalize tool name with spaces",
+			name:     "Keep a tool name as published",
 			input:    `{"name": " Get Current Time ", "description": "Get the current time"}`,
-			expected: "get current time",
+			expected: " Get Current Time ",
 		},
 		{
-			name:     "Already normalized tool name unchanged",
+			name:     "Keep a lowercase tool name",
 			input:    `{"name": "simple-tool", "description": "A simple tool"}`,
 			expected: "simple-tool",
 		},
@@ -110,6 +110,6 @@ func TestToolsSlice_UnmarshalJSON(t *testing.T) {
 	err := json.Unmarshal([]byte(input), &tools)
 	require.NoError(t, err)
 	require.Len(t, tools, 2)
-	require.Equal(t, "create_repository", tools[0].Name)
-	require.Equal(t, "list_issues", tools[1].Name)
+	require.Equal(t, "Create_Repository", tools[0].Name)
+	require.Equal(t, "LIST_ISSUES", tools[1].Name)
 }
