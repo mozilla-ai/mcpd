@@ -39,13 +39,13 @@ You can provide this path in multiple ways:
 
 ## Server and Tool Names
 
-A server's `name` is reported exactly as written here, and a tool's name exactly as the MCP server reports it. `mcpd` does not change the case of either, so `GET /api/v1/servers` returns the name from this file and `GET /api/v1/servers/{name}/tools` returns the server's own spelling.
+A server's `name` is reported exactly as written here, and a tool's name exactly as the MCP server reports it. `mcpd` does not change the case of either, so `GET /api/v1/servers`, `GET /api/v1/servers/{name}/tools`, `GET /api/v1/health/servers` and `mcpd config tools list` all give you a name you can use as it stands.
 
-A server name in a URL is matched without regard to case, so `/api/v1/servers/GitHub/tools` and `/api/v1/servers/github/tools` reach the same server. Two servers whose names differ only by case are therefore one server to `mcpd`, and the last one started wins. Configuration validation compares names exactly and does not reject the pair, so give each server a name that is distinct on more than case.
+A server name is matched without regard to case wherever you supply one. `/api/v1/servers/GitHub/tools` and `/api/v1/servers/github/tools` reach the same server, and so does `mcpd config tools set github`. Because of that, two servers whose names differ only by case would be one server, so `mcpd` refuses to start with such a pair and names both declarations.
 
-A tool name in a URL is sent to the MCP server unchanged. MCP tool names are opaque strings, so a server is free to be case sensitive, and a tool named `getCurrentTime` has to be called as `getCurrentTime`. Use the name from the tool listing rather than altering it.
+A tool name is matched without regard to case, then resolved to the name the MCP server reports, and only the resolved name is sent upstream. So `getcurrenttime`, `getCurrentTime` and `GETCURRENTTIME` all reach a tool the server calls `getCurrentTime`. A tool call is refused if the server reports no tool matching the name, or if its tool list cannot be read.
 
-The `tools` allow list is matched without regard to case. An entry written as `getcurrenttime` still permits a tool the server reports as `getCurrentTime`, and the allow list never changes the name that is reported or sent upstream.
+The `tools` allow list is matched the same way, so an entry written as `getcurrenttime` permits a tool the server reports as `getCurrentTime`. `mcpd config tools set` records the name the registry reports rather than the spelling you typed, and will not record one tool under two spellings.
 
 ---
 
