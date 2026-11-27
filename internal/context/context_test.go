@@ -251,6 +251,56 @@ func TestUpsert(t *testing.T) {
 	}
 }
 
+// TestGet_MatchesWithoutRegardToCase pins that a supplied name reaches the stored entry whatever its case,
+// and that the entry reports the name the configuration holds.
+func TestGet_MatchesWithoutRegardToCase(t *testing.T) {
+	t.Parallel()
+
+	cfg := &ExecutionContextConfig{
+		Servers: map[string]ServerExecutionContext{
+			"github": {
+				Name: "github",
+				Env:  map[string]string{"TOKEN": "secret"},
+			},
+		},
+	}
+
+	server, ok := cfg.Get(" GitHub ")
+	require.True(t, ok)
+	require.Equal(t, "github", server.Name)
+	require.Equal(t, map[string]string{"TOKEN": "secret"}, server.Env)
+}
+
+// TestUpsert_UpdatesTheEntryItFound pins that a name supplied in a different case updates the stored entry
+// rather than adding a second one, because a second entry is ignored when a server starts.
+func TestUpsert_UpdatesTheEntryItFound(t *testing.T) {
+	t.Parallel()
+
+	path := filepath.Join(t.TempDir(), ".config", "mcpd", "secrets.test.toml")
+
+	cfg := &ExecutionContextConfig{
+		Servers: map[string]ServerExecutionContext{
+			"github": {
+				Name: "github",
+				Env:  map[string]string{"TOKEN": "old"},
+			},
+		},
+		filePath: path,
+	}
+
+	result, err := cfg.Upsert(ServerExecutionContext{
+		Name: "GitHub",
+		Env:  map[string]string{"TOKEN": "new"},
+	})
+	require.NoError(t, err)
+	require.Equal(t, Updated, result)
+
+	require.Len(t, cfg.Servers, 1)
+	require.Contains(t, cfg.Servers, "github")
+	require.Equal(t, "github", cfg.Servers["github"].Name)
+	require.Equal(t, map[string]string{"TOKEN": "new"}, cfg.Servers["github"].Env)
+}
+
 // TestLoadExecutionContextConfig_VariableExpansion tests that ${VAR} references are expanded at load time.
 func TestLoadExecutionContextConfig_VariableExpansion(t *testing.T) {
 	// Note: Cannot use t.Parallel() because subtests use t.Setenv
