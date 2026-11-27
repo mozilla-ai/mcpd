@@ -198,6 +198,51 @@ func TestClientManager_List(t *testing.T) {
 	require.ElementsMatch(t, []string{"server1", "server2"}, names)
 }
 
+// TestClientManager_List_PreservesConfiguredCase pins the name the API reports.
+// List backs GET /api/v1/servers, so a name returned in a normalized form is not the name the operator
+// wrote in .mcpd.toml.
+func TestClientManager_List_PreservesConfiguredCase(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name       string
+		configured string
+		expected   string
+	}{
+		{
+			name:       "camel case is kept",
+			configured: "gitHub",
+			expected:   "gitHub",
+		},
+		{
+			name:       "pascal case is kept",
+			configured: "GitHub",
+			expected:   "GitHub",
+		},
+		{
+			name:       "surrounding whitespace is dropped",
+			configured: "  GitHub-Server  ",
+			expected:   "GitHub-Server",
+		},
+		{
+			name:       "lowercase is unchanged",
+			configured: "github",
+			expected:   "github",
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			cm := NewClientManager()
+			cm.Add(tc.configured, &mockMCPClient{}, []string{"tool"})
+
+			require.Equal(t, []string{tc.expected}, cm.List())
+		})
+	}
+}
+
 func TestClientManager_Remove(t *testing.T) {
 	t.Parallel()
 	cm := NewClientManager()
