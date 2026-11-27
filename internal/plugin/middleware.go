@@ -160,13 +160,11 @@ func httpRequestToPlugin(r *http.Request) (*HTTPRequest, error) {
 // writePluginResponse writes a HTTPResponse.
 //
 // NOTE: A reserved header in resp is skipped, so this is safe for a response a plugin authored itself.
+// Skipping is not logged here, because resp also carries the headers the handler and the operator's
+// middleware set, and this is not the layer that knows which plugin asked for what.
 // A status code a plugin cannot report is written as a server error, because mcpd cannot know what the
 // plugin meant and net/http panics on a code it does not accept.
 func writePluginResponse(logger hclog.Logger, w http.ResponseWriter, resp *HTTPResponse) {
-	if reserved := reservedHeaderNames(resp.Headers); len(reserved) > 0 {
-		logger.Warn("ignoring reserved response headers set by plugin", "headers", reserved)
-	}
-
 	for name, values := range resp.Headers {
 		if isReservedHeader(name) {
 			continue

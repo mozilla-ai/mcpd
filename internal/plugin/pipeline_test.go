@@ -1379,3 +1379,40 @@ func TestPipeline_Shutdown(t *testing.T) {
 		})
 	}
 }
+
+// TestPipeline_LogsAStoppingPluginsReservedHeaderNameNotValue pins the rule that a reserved header's
+// value never reaches the log, because the value may be a credential.
+func TestPipeline_LogsAStoppingPluginsReservedHeaderNameNotValue(t *testing.T) {
+	t.Parallel()
+
+	var buf bytes.Buffer
+
+	p := newPipeline(newTestLogger(&buf))
+
+	inst := &Instance{
+		Plugin: &mockPlugin{
+			capabilities: []config.Flow{config.FlowRequest},
+			requestResp: &HTTPResponse{
+				Continue:   false,
+				StatusCode: http.StatusForbidden,
+				Headers:    http.Header{"Proxy-Authenticate": {"Basic realm=super-secret-value"}},
+			},
+		},
+		name: "gatekeeper",
+	}
+	inst.SetFlows(map[config.Flow]struct{}{config.FlowRequest: {}})
+	require.NoError(t, p.Register(config.CategoryAuthorization, inst))
+
+	resp, err := p.HandleRequest(context.Background(), &HTTPRequest{
+		Method: http.MethodGet,
+		Path:   "/original",
+	})
+	require.NoError(t, err)
+	require.False(t, resp.Continue)
+
+	logged := buf.String()
+	require.Contains(t, logged, "ignoring reserved response headers set by plugin")
+	require.Contains(t, logged, "gatekeeper")
+	require.Contains(t, logged, "Proxy-Authenticate")
+	require.NotContains(t, logged, "super-secret-value")
+}

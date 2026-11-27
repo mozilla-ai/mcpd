@@ -94,6 +94,7 @@ func (p *pipeline) HandleRequest(ctx context.Context, req *HTTPRequest) (*HTTPRe
 
 			if pluginResp != nil {
 				p.logUnappliedRequestFields(inst.Name(), props.Mode.CanModify(), currentReq, pluginResp.ModifiedRequest)
+				p.logUnappliedStopHeaders(inst.Name(), pluginResp)
 			}
 
 			if props.Mode.CanModify() && pluginResp != nil {
@@ -179,6 +180,7 @@ func (p *pipeline) HandleResponse(ctx context.Context, resp *HTTPResponse) (*HTT
 			}
 
 			p.logUnappliedResponseFields(inst.Name(), props.Mode.CanModify(), currentResp.StatusCode, pluginResp)
+			p.logUnappliedStopHeaders(inst.Name(), pluginResp)
 
 			if props.Mode.CanModify() {
 				currentResp = mergeResponseModification(currentResp, pluginResp)
@@ -492,6 +494,20 @@ func (p *pipeline) logUnappliedResponseFields(name string, canModify bool, statu
 	}
 
 	if reserved := reservedHeaderNames(mod.Headers); len(reserved) > 0 {
+		p.logger.Warn("ignoring reserved response headers set by plugin", "plugin", name, "headers", reserved)
+	}
+}
+
+// logUnappliedStopHeaders logs the reserved headers in a response a plugin authored by stopping the
+// pipeline, so a plugin author can see that a header their plugin set is not written.
+//
+// NOTE: Only header names are logged. A reserved header's value may carry a credential.
+func (p *pipeline) logUnappliedStopHeaders(name string, resp *HTTPResponse) {
+	if resp == nil || resp.Continue {
+		return
+	}
+
+	if reserved := reservedHeaderNames(resp.Headers); len(reserved) > 0 {
 		p.logger.Warn("ignoring reserved response headers set by plugin", "plugin", name, "headers", reserved)
 	}
 }

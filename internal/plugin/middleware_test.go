@@ -305,9 +305,9 @@ func TestWritePluginResponse_LogsNothingForAValidResponse(t *testing.T) {
 	require.Empty(t, buf.String())
 }
 
-// TestWritePluginResponse_LogsReservedHeaderNameNotValue pins the rule that a reserved header's value never
-// reaches the log, because the value may be a credential.
-func TestWritePluginResponse_LogsReservedHeaderNameNotValue(t *testing.T) {
+// TestWritePluginResponse_SkipsReservedHeaderWithoutLogging pins that the writer still withholds a
+// reserved header, and names no plugin for a header it cannot attribute to one.
+func TestWritePluginResponse_SkipsReservedHeaderWithoutLogging(t *testing.T) {
 	t.Parallel()
 
 	var buf bytes.Buffer
@@ -318,11 +318,8 @@ func TestWritePluginResponse_LogsReservedHeaderNameNotValue(t *testing.T) {
 		Headers:    http.Header{"Proxy-Authenticate": {"Basic realm=super-secret-value"}},
 	})
 
-	logged := buf.String()
-	require.Contains(t, logged, "ignoring reserved response headers set by plugin")
-	require.Contains(t, logged, "Proxy-Authenticate")
-	require.NotContains(t, logged, "super-secret-value")
 	require.Empty(t, rec.Header().Get("Proxy-Authenticate"))
+	require.Empty(t, buf.String())
 }
 
 // TestMiddleware_PreservesMultiValueResponseHeader pins that mcpd does not rewrite the headers of a
@@ -410,5 +407,31 @@ func TestMiddleware_PreservesMultiValueRequestHeaderThroughAPlugin(t *testing.T)
 
 	require.Equal(t, []string{"application/json", "text/event-stream"}, seenAccept)
 	require.JSONEq(t, `{"rewritten":true}`, seenBody)
+	require.Empty(t, buf.String())
+}
+
+// TestMiddleware_LogsNothingForHeadersAPluginDidNotSet guards against naming a plugin for a reserved
+// header the handler or the operator's middleware set, which happens on any response a plugin touched.
+func TestMiddleware_LogsNothingForHeadersAPluginDidNotSet(t *testing.T) {
+	t.Parallel()
+
+	var buf bytes.Buffer
+
+	content := &testContentPlugin{rewriteResponseHeaders: http.Header{"X-Scanned": {"yes"}}}
+	p := newTestLoggingPipeline(t, &buf, config.CategoryContent, content)
+
+	nextHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// Set by the operator's CORS layer, which runs outside this middleware.
+		w.Header().Set("Vary", "Origin")
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte("upstream"))
+	})
+
+	recorder := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/original", nil)
+	p.Middleware()(nextHandler).ServeHTTP(recorder, req)
+
+	require.Equal(t, "yes", recorder.Header().Get("X-Scanned"))
+	require.Equal(t, "Origin", recorder.Header().Get("Vary"))
 	require.Empty(t, buf.String())
 }
