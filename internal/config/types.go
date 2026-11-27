@@ -208,7 +208,8 @@ func (s *ServerEntry) Equals(other *ServerEntry) bool {
 	}
 
 	// All other slices are flags, so order doesn't matter.
-	// NOTE: We are assuming that tools are always already normalized, ready for comparison.
+	// NOTE: Tool names are compared as stored. A casing-only difference reads as a tools change, which
+	// routes a reload to an update rather than a restart.
 	if !equalStringSlicesUnordered(s.Tools, other.Tools) {
 		return false
 	}
@@ -250,7 +251,8 @@ func (s *ServerEntry) EqualExceptTools(other *ServerEntry) bool {
 	b.Tools = bTools
 
 	// Return true only if everything else is equal AND tools actually differ.
-	// NOTE: We are assuming that tools are always already normalized, ready for comparison.
+	// NOTE: Tool names are compared as stored. A casing-only difference reads as a tools change, which
+	// routes a reload to an update rather than a restart.
 	return equalIgnoringTools && !equalStringSlicesUnordered(s.Tools, other.Tools)
 }
 

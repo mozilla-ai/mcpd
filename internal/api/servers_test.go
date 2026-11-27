@@ -502,3 +502,57 @@ func TestHandleToolCall_ForwardsTheResolvedUpstreamName(t *testing.T) {
 		})
 	}
 }
+
+// TestHandleToolCall_RefusesWhenTheNameCannotBeResolved pins the three ways resolving a tool name fails.
+// A name that has not been matched against what the server reports must not be sent, so each failure
+// refuses the call rather than falling back to the supplied spelling.
+func TestHandleToolCall_RefusesWhenTheNameCannotBeResolved(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name        string
+		listResult  *mcp.ListToolsResult
+		listError   error
+		expectedErr error
+	}{
+		{
+			name:        "the tool list cannot be read",
+			listError:   fmt.Errorf("transport closed"),
+			expectedErr: errors.ErrToolListFailed,
+		},
+		{
+			name:        "the tool list is absent",
+			listResult:  nil,
+			expectedErr: errors.ErrToolListFailed,
+		},
+		{
+			name:        "the server reports no matching tool",
+			listResult:  &mcp.ListToolsResult{Tools: []mcp.Tool{{Name: "somethingElse"}}},
+			expectedErr: errors.ErrToolForbidden,
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			mockClient := &mockMCPClient{
+				listToolsResult: tc.listResult,
+				listToolsError:  tc.listError,
+				callToolResult: &mcp.CallToolResult{
+					Content: []mcp.Content{mcp.TextContent{Text: "must not be reached"}},
+				},
+			}
+
+			accessor := newMockMCPClientAccessor()
+			accessor.Add(domain.ServerName("timeserver"), mockClient, []domain.ToolName{"getCurrentTime"})
+
+			_, err := newServerRoutes(accessor, RouteOptions{}).
+				handleToolCall(context.Background(), "timeserver", "getCurrentTime", nil)
+
+			require.Error(t, err)
+			require.ErrorIs(t, err, tc.expectedErr)
+			require.Empty(t, mockClient.calledToolName, "the tool must not be called")
+		})
+	}
+}

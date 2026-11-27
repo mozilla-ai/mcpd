@@ -103,7 +103,7 @@ func NewSetCmd(baseCmd *cmd.BaseCmd, opt ...cmdopts.CmdOption) (*cobra.Command, 
 }
 
 // resolveAvailableTools queries the registry for all available tools for the given server.
-// Returns a map of normalized tool names.
+// Returns each tool name as the registry presents it, keyed by the form a supplied name is matched on.
 func (c *SetCmd) resolveAvailableTools(s *config.ServerEntry) (map[string]domain.ToolName, error) {
 	serverRuntime := s.Runtime()
 	if serverRuntime == "" {
