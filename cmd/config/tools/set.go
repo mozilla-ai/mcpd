@@ -12,7 +12,7 @@ import (
 	"github.com/mozilla-ai/mcpd/internal/cmd"
 	cmdopts "github.com/mozilla-ai/mcpd/internal/cmd/options"
 	"github.com/mozilla-ai/mcpd/internal/config"
-	"github.com/mozilla-ai/mcpd/internal/filter"
+	"github.com/mozilla-ai/mcpd/internal/domain"
 	"github.com/mozilla-ai/mcpd/internal/flags"
 	"github.com/mozilla-ai/mcpd/internal/registry"
 	"github.com/mozilla-ai/mcpd/internal/registry/options"
@@ -104,7 +104,7 @@ func NewSetCmd(baseCmd *cmd.BaseCmd, opt ...cmdopts.CmdOption) (*cobra.Command, 
 
 // resolveAvailableTools queries the registry for all available tools for the given server.
 // Returns a map of normalized tool names.
-func (c *SetCmd) resolveAvailableTools(s *config.ServerEntry) (map[string]struct{}, error) {
+func (c *SetCmd) resolveAvailableTools(s *config.ServerEntry) (map[string]domain.ToolName, error) {
 	serverRuntime := s.Runtime()
 	if serverRuntime == "" {
 		return nil, fmt.Errorf("invalid package format in configuration: %s", s.Package)
@@ -143,9 +143,12 @@ func (c *SetCmd) resolveAvailableTools(s *config.ServerEntry) (map[string]struct
 		return nil, fmt.Errorf("failed to resolve server '%s': %w", s.Name, err)
 	}
 
-	available := make(map[string]struct{}, len(serverResult.Tools))
+	// Index by key so a supplied name matches without regard to case, and keep the registry's own
+	// spelling as the value, because that is the name the MCP server answers to.
+	available := make(map[string]domain.ToolName, len(serverResult.Tools))
 	for _, tool := range serverResult.Tools {
-		available[filter.NormalizeString(tool.Name)] = struct{}{}
+		name := domain.ToolName(tool.Name)
+		available[name.Key()] = name
 	}
 
 	return available, nil
@@ -161,16 +164,16 @@ func (c *SetCmd) run(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("at least one --tool flag is required")
 	}
 
-	// Normalize all supplied tool names.
-	normalizedTools := make([]string, 0, len(c.tools))
+	// Keep each supplied tool name as given, dropping any that is only whitespace.
+	requestedTools := make([]domain.ToolName, 0, len(c.tools))
 	for _, tool := range c.tools {
-		normalized := filter.NormalizeString(tool)
-		if normalized != "" {
-			normalizedTools = append(normalizedTools, normalized)
+		name := domain.ToolName(tool)
+		if name.Key() != "" {
+			requestedTools = append(requestedTools, name)
 		}
 	}
 
-	if len(normalizedTools) == 0 {
+	if len(requestedTools) == 0 {
 		return fmt.Errorf("at least one valid tool name is required")
 	}
 
@@ -179,10 +182,13 @@ func (c *SetCmd) run(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	// Find the server in the configuration.
+	// Find the server in the configuration, matching without regard to case so the name works here as it
+	// does in a daemon URL.
 	var foundServer *config.ServerEntry
+
+	wanted := domain.ServerName(serverName).Key()
 	for _, srv := range cfg.ListServers() {
-		if srv.Name == serverName {
+		if domain.ServerName(srv.Name).Key() == wanted {
 			foundServer = &srv
 			break
 		}
@@ -198,35 +204,47 @@ func (c *SetCmd) run(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("failed to get available tools for server '%s': %w", serverName, err)
 	}
 
-	// Validate that all requested tools are available.
+	// Resolve each requested tool to the name the registry reports, so the configuration records the name
+	// the MCP server answers to rather than the spelling that was typed.
 	var invalidTools []string
-	for _, tool := range normalizedTools {
-		if _, exists := availableTools[tool]; !exists {
-			invalidTools = append(invalidTools, tool)
+
+	resolvedTools := make([]domain.ToolName, 0, len(requestedTools))
+	for _, tool := range requestedTools {
+		resolved, exists := availableTools[tool.Key()]
+		if !exists {
+			invalidTools = append(invalidTools, tool.String())
+
+			continue
 		}
+
+		resolvedTools = append(resolvedTools, resolved)
 	}
 
 	if len(invalidTools) > 0 {
 		return fmt.Errorf("the following tools are not available for server '%s': %v", serverName, invalidTools)
 	}
 
-	// Create a map for efficient deduplication.
-	toolSet := make(map[string]struct{}, len(foundServer.Tools)+len(normalizedTools))
+	// Deduplicate by key, so one tool cannot be recorded under two spellings.
+	toolSet := make(map[string]string, len(foundServer.Tools)+len(resolvedTools))
 	for _, tool := range foundServer.Tools {
-		toolSet[tool] = struct{}{}
+		toolSet[domain.ToolName(tool).Key()] = tool
 	}
 
 	// Track which tools are actually new.
-	newTools := make([]string, 0, len(normalizedTools))
-	for _, tool := range normalizedTools {
-		if _, exists := toolSet[tool]; !exists {
-			toolSet[tool] = struct{}{}
-			newTools = append(newTools, tool)
+	newTools := make([]string, 0, len(resolvedTools))
+	for _, tool := range resolvedTools {
+		if _, exists := toolSet[tool.Key()]; exists {
+			continue
 		}
+
+		toolSet[tool.Key()] = tool.String()
+		newTools = append(newTools, tool.String())
 	}
 
-	allTools := slices.Collect(maps.Keys(toolSet))
-	slices.Sort(allTools)
+	allTools := slices.Collect(maps.Values(toolSet))
+	slices.SortFunc(allTools, func(a, b string) int {
+		return strings.Compare(domain.ToolName(a).Key(), domain.ToolName(b).Key())
+	})
 
 	// Update the server's tools.
 	foundServer.Tools = allTools

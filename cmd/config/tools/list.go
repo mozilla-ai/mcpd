@@ -12,7 +12,7 @@ import (
 	cmdopts "github.com/mozilla-ai/mcpd/internal/cmd/options"
 	"github.com/mozilla-ai/mcpd/internal/cmd/output"
 	"github.com/mozilla-ai/mcpd/internal/config"
-	"github.com/mozilla-ai/mcpd/internal/filter"
+	"github.com/mozilla-ai/mcpd/internal/domain"
 	"github.com/mozilla-ai/mcpd/internal/flags"
 	"github.com/mozilla-ai/mcpd/internal/printer"
 	"github.com/mozilla-ai/mcpd/internal/registry"
@@ -151,10 +151,11 @@ func (c *ListCmd) resolveServerTools(s *config.ServerEntry) ([]string, error) {
 		return nil, fmt.Errorf("failed to resolve server '%s': %w", s.Name, err)
 	}
 
-	// Extract and normalize all available tools.
+	// Report each tool under the name the registry gives it, because that is the name the MCP server
+	// answers to and the name a caller has to use.
 	allTools := make([]string, len(serverResult.Tools))
 	for i, tool := range serverResult.Tools {
-		allTools[i] = filter.NormalizeString(tool.Name)
+		allTools[i] = domain.ToolName(tool.Name).String()
 	}
 
 	return allTools, nil
