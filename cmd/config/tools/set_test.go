@@ -45,13 +45,22 @@ func (m *mockConfigForSet) AddServer(entry config.ServerEntry) error {
 	return nil
 }
 
+// RemoveServer matches a name exactly and reports a name it does not hold, as the real config does, so a
+// caller that passes a spelling the configuration does not contain fails here rather than silently
+// succeeding.
 func (m *mockConfigForSet) RemoveServer(name string) error {
 	m.serverRemoved = name
 	if m.removeError != nil {
 		return m.removeError
 	}
-	// Don't actually remove from list, just track that it was called.
-	return nil
+
+	for _, srv := range m.servers {
+		if srv.Name == name {
+			return nil
+		}
+	}
+
+	return fmt.Errorf("server '%s' not found in config", name)
 }
 
 func (m *mockConfigForSet) ListServers() []config.ServerEntry {
@@ -140,6 +149,31 @@ func TestSetCmd_run(t *testing.T) {
 		expectedError   string
 		expectedTools   []string
 	}{
+		{
+			// A server name is matched without regard to case, so the update has to reach the entry
+			// the lookup found rather than the spelling that was typed.
+			name:       "add tools using a server name in a different case",
+			serverName: "TEST-SERVER",
+			tools:      []string{"new-tool-1"},
+			existingServers: []config.ServerEntry{
+				{
+					Name:    "test-server",
+					Package: "github.com/example/test-server@npx",
+					Tools:   []string{"existing-tool"},
+				},
+			},
+			registryServers: map[string]packages.Server{
+				"test-server": {
+					Name: "test-server",
+					Tools: []packages.Tool{
+						{Name: "existing-tool"},
+						{Name: "new-tool-1"},
+					},
+				},
+			},
+			expectedOutput: "✓ Tools added for server 'TEST-SERVER': [new-tool-1]",
+			expectedTools:  []string{"existing-tool", "new-tool-1"},
+		},
 		{
 			name:       "add new tools to server with existing tools",
 			serverName: "test-server",
@@ -352,9 +386,11 @@ func TestSetCmd_run(t *testing.T) {
 
 			// Verify the configuration was updated correctly.
 			if tc.expectedTools != nil {
-				// Check that remove and add were called.
-				require.Equal(t, tc.serverName, cfg.serverRemoved)
-				require.Equal(t, tc.serverName, cfg.serverAdded.Name)
+				// Remove and add must both name the entry as the configuration stores it, not as the
+				// caller spelled it, or the update cannot reach the entry the lookup found.
+				stored := tc.existingServers[0].Name
+				require.Equal(t, stored, cfg.serverRemoved)
+				require.Equal(t, stored, cfg.serverAdded.Name)
 
 				// Check the tools are correct and sorted.
 				slices.Sort(cfg.serverAdded.Tools)
