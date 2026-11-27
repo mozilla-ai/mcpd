@@ -78,7 +78,8 @@ const (
 
 // Manager manages plugin processes and provides middleware for HTTP request/response processing.
 // It starts plugins, maintains process control, and can force kill them at any time.
-// Plugins are untrusted third party code.
+// Plugins can crash, hang or refuse to exit, so each runs as a separate process.
+// A plugin runs as the same user as mcpd and is not otherwise contained.
 // Use NewManager to create a Manager.
 type Manager struct {
 	logger       hclog.Logger
