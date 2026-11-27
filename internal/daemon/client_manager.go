@@ -97,7 +97,7 @@ func (cm *ClientManager) Tools(name domain.ServerName) ([]domain.ToolName, bool)
 
 	entry, ok := cm.servers[name.Key()]
 
-	return entry.tools, ok
+	return slices.Clone(entry.tools), ok
 }
 
 // UpdateTools updates the tools list for an existing server without restarting the client.

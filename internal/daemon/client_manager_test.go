@@ -362,3 +362,21 @@ func TestClientManager_UpdateTools(t *testing.T) {
 		require.Equal(t, []domain.ToolName{"write"}, stored)
 	})
 }
+
+// TestClientManager_Tools_DoesNotShareStoredState pins that a caller cannot reach the stored allow list.
+// The allow list decides which tools may run, so a handler mutating a returned slice would change what
+// every later request is permitted to call, and would race readers outside the lock.
+func TestClientManager_Tools_DoesNotShareStoredState(t *testing.T) {
+	t.Parallel()
+
+	cm := NewClientManager()
+	cm.Add("notes", &mockMCPClient{}, []domain.ToolName{"read_note"})
+
+	first, ok := cm.Tools("notes")
+	require.True(t, ok)
+	first[0] = "write_note"
+
+	second, ok := cm.Tools("notes")
+	require.True(t, ok)
+	require.Equal(t, []domain.ToolName{"read_note"}, second)
+}
