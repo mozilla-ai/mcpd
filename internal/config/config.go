@@ -70,7 +70,17 @@ func (d *DefaultLoader) Load(path string) (Modifier, error) {
 }
 
 // AddServer attempts to persist a new MCP Server to the configuration file (.mcpd.toml).
+// Returns an error without changing the configuration if a server already holds the entry's name key.
 func (c *Config) AddServer(entry ServerEntry) error {
+	// A server is looked up by its name's key, so a pair sharing one key would collapse onto one server,
+	// leaving the other unreachable and its process unmanaged.
+	key := domain.ServerName(entry.Name).Key()
+	for _, srv := range c.Servers {
+		if domain.ServerName(srv.Name).Key() == key {
+			return fmt.Errorf("duplicate server name '%s': already declared as '%s'", entry.Name, srv.Name)
+		}
+	}
+
 	// Add server
 	c.Servers = append(c.Servers, entry)
 
@@ -301,16 +311,7 @@ func (c *Config) validateServers() error {
 
 // validateFields ensures that all ServerEntry's in Config have a name and package.
 func (c *Config) validateFields() error {
-	// Names are keyed as they are looked up, so a pair that differs only by case is rejected here rather
-	// than collapsing onto one server at runtime.
-	seen := map[string]string{}
-
 	for _, entry := range c.Servers {
-		key := domain.ServerName(entry.Name).Key()
-		if first, ok := seen[key]; ok {
-			return fmt.Errorf("duplicate server name '%s': already declared as '%s'", entry.Name, first)
-		}
-		seen[key] = entry.Name
 		if strings.TrimSpace(entry.Name) == "" {
 			return fmt.Errorf("server entry has empty name")
 		}

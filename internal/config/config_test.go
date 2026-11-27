@@ -1068,40 +1068,46 @@ func TestSaveConfig_RefusesAConfigItCannotLoad(t *testing.T) {
 	require.NoFileExists(t, path, "an invalid config must not reach disk")
 }
 
-// TestValidateFields_RejectsNamesDifferingOnlyByCase pins that a configuration cannot admit two servers
-// that resolve to one server at runtime. Lookups match a name without regard to case, so such a pair
-// collapses onto one entry, leaving one server unreachable and its process unmanaged.
-func TestValidateFields_RejectsNamesDifferingOnlyByCase(t *testing.T) {
+// TestAddServer_RefusesANameDifferingOnlyByCase pins that a configuration cannot gain two servers that
+// resolve to one server at runtime. Lookups match a name without regard to case, so such a pair collapses
+// onto one entry, leaving one server unreachable and its process unmanaged.
+func TestAddServer_RefusesANameDifferingOnlyByCase(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
 		name      string
-		servers   []string
+		existing  []string
+		candidate string
 		expectErr string
 	}{
 		{
+			name:      "an exact duplicate",
+			existing:  []string{"github"},
+			candidate: "github",
+			expectErr: "duplicate server name",
+		},
+		{
 			name:      "differing only by case",
-			servers:   []string{"GitHub", "github"},
+			existing:  []string{"github"},
+			candidate: "GitHub",
 			expectErr: "duplicate server name",
 		},
 		{
 			name:      "differing only by case and whitespace",
-			servers:   []string{"GitHub", "  GITHUB  "},
-			expectErr: "duplicate server name",
-		},
-		{
-			name:      "an exact duplicate",
-			servers:   []string{"github", "github"},
+			existing:  []string{"GitHub"},
+			candidate: "  GITHUB  ",
 			expectErr: "duplicate server name",
 		},
 		{
 			name:      "genuinely distinct names",
-			servers:   []string{"GitHub", "GitLab", "time"},
+			existing:  []string{"GitHub", "GitLab"},
+			candidate: "time",
 			expectErr: "",
 		},
 		{
-			name:      "one server",
-			servers:   []string{"GitHub"},
+			name:      "no existing servers",
+			existing:  nil,
+			candidate: "GitHub",
 			expectErr: "",
 		},
 	}
@@ -1110,23 +1116,53 @@ func TestValidateFields_RejectsNamesDifferingOnlyByCase(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
-			cfg := &Config{}
-			for _, name := range tc.servers {
+			cfg := &Config{configFilePath: filepath.Join(t.TempDir(), ".mcpd.toml")}
+			for _, name := range tc.existing {
 				cfg.Servers = append(cfg.Servers, ServerEntry{
 					Name:    name,
 					Package: "uvx::example@1.0.0",
 				})
 			}
 
-			err := cfg.validateFields()
+			err := cfg.AddServer(ServerEntry{
+				Name:    tc.candidate,
+				Package: "uvx::other@1.0.0",
+			})
+
 			if tc.expectErr == "" {
 				require.NoError(t, err)
+				require.Len(t, cfg.Servers, len(tc.existing)+1)
 
 				return
 			}
 
 			require.Error(t, err)
 			require.Contains(t, err.Error(), tc.expectErr)
+			require.Len(t, cfg.Servers, len(tc.existing), "a refused entry must not reach the configuration")
 		})
 	}
+}
+
+// TestLoad_AcceptsNamesDifferingOnlyByCase pins that such a configuration can still be read. Every command
+// loads the configuration first, so refusing here would leave no command able to repair the pair.
+func TestLoad_AcceptsNamesDifferingOnlyByCase(t *testing.T) {
+	t.Parallel()
+
+	path := filepath.Join(t.TempDir(), ".mcpd.toml")
+	content := `[[servers]]
+name = "github"
+package = "uvx::example@1.0.0"
+
+[[servers]]
+name = "GitHub"
+package = "uvx::other@1.0.0"
+`
+	require.NoError(t, os.WriteFile(path, []byte(content), 0o600))
+
+	cfg, err := (&DefaultLoader{}).Load(path)
+	require.NoError(t, err)
+	require.Len(t, cfg.ListServers(), 2)
+
+	require.NoError(t, cfg.RemoveServer("GitHub"))
+	require.Len(t, cfg.ListServers(), 1)
 }

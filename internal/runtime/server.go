@@ -545,7 +545,18 @@ func AggregateConfigs(
 ) (Servers, error) {
 	var runtimeCfg []Server
 
+	// A server is indexed by its name's key, so a pair sharing one key would collapse onto one server,
+	// leaving the other unreachable and its process unmanaged.
+	seen := make(map[string]string, len(cfg.ListServers()))
+
 	for _, s := range cfg.ListServers() {
+		key := domain.ServerName(s.Name).Key()
+		if first, ok := seen[key]; ok {
+			return nil, fmt.Errorf("duplicate server name '%s': already declared as '%s'", s.Name, first)
+		}
+
+		seen[key] = s.Name
+
 		runtimeServer := Server{
 			ServerEntry: config.ServerEntry{
 				Name:                   s.Name,
