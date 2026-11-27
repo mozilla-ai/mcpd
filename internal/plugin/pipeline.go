@@ -354,6 +354,34 @@ func (p *pipeline) executeSerial(
 	return &HTTPResponse{Continue: true}, nil
 }
 
+// filterByFlow returns plugins that both support the specified flow, and are configured to execute on that flow.
+func (p *pipeline) filterByFlow(ctx context.Context, instances []*Instance, flow config.Flow) ([]*Instance, error) {
+	var filtered []*Instance
+
+	for _, instance := range instances {
+		if !instance.IsFlowAllowed(flow) {
+			continue // This plugin has not been configured for the specified flow.
+		}
+
+		canHandle, err := instance.IsFlowSupported(ctx, flow)
+		if err != nil {
+			tmpErr := fmt.Errorf(
+				"unable to determine flow ('%s') support for plugin '%s': %w",
+				flow,
+				instance.Name(),
+				err,
+			)
+			return nil, tmpErr
+		}
+
+		if canHandle {
+			filtered = append(filtered, instance)
+		}
+	}
+
+	return filtered, nil
+}
+
 // handlePluginResult processes plugin errors and rejections.
 //
 // Used by serial and parallel execution to consolidate logic.
@@ -398,34 +426,6 @@ func (p *pipeline) handlePluginResult(
 
 	// Optional plugin didn't want to continue.
 	return true, resp, nil
-}
-
-// filterByFlow returns plugins that both support the specified flow, and are configured to execute on that flow.
-func (p *pipeline) filterByFlow(ctx context.Context, instances []*Instance, flow config.Flow) ([]*Instance, error) {
-	var filtered []*Instance
-
-	for _, instance := range instances {
-		if !instance.IsFlowAllowed(flow) {
-			continue // This plugin has not been configured for the specified flow.
-		}
-
-		canHandle, err := instance.IsFlowSupported(ctx, flow)
-		if err != nil {
-			tmpErr := fmt.Errorf(
-				"unable to determine flow ('%s') support for plugin '%s': %w",
-				flow,
-				instance.Name(),
-				err,
-			)
-			return nil, tmpErr
-		}
-
-		if canHandle {
-			filtered = append(filtered, instance)
-		}
-	}
-
-	return filtered, nil
 }
 
 // logUnappliedRequestFields logs the parts of mod that the pipeline does not apply, so a plugin author can

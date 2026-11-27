@@ -61,34 +61,26 @@ func TestMiddleware_AppliesContentModification(t *testing.T) {
 	require.Equal(t, "upstream", recorder.Body.String())
 }
 
-func TestMiddleware_IgnoresContentReservedRequestHeaders(t *testing.T) {
+func TestMiddleware_AppliesContentResponseModification(t *testing.T) {
 	t.Parallel()
 
-	content := &testContentPlugin{
-		rewriteRequestHeaders: map[string]string{
-			"connection":     "upgrade",
-			"Content-Length": "999999",
-			"X-Added":        "yes",
-		},
-	}
-	p := newTestContentPipeline(t, content)
+	redactor := &testContentPlugin{rewriteResponseBody: `{"token":"[REDACTED]"}`}
+	p := newTestContentPipeline(t, redactor)
 
-	var seen http.Header
 	nextHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		seen = r.Header.Clone()
-
 		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`{"token":"super-secret"}`))
 	})
 
-	req := httptest.NewRequest(http.MethodPost, "/original", strings.NewReader(`{"original":true}`))
+	req := httptest.NewRequest(http.MethodGet, "/original", nil)
 	recorder := httptest.NewRecorder()
 	p.Middleware()(nextHandler).ServeHTTP(recorder, req)
 
-	require.Equal(t, "yes", seen.Get("X-Added"))
+	require.Equal(t, []string{`{"token":"super-secret"}`}, redactor.seenResponseBodies)
 
-	// Message framing and the transport belong to mcpd, whatever case a plugin spells them in.
-	require.Empty(t, seen.Get("Connection"))
-	require.Empty(t, seen.Get("Content-Length"))
+	require.Equal(t, http.StatusOK, recorder.Code)
+	require.JSONEq(t, `{"token":"[REDACTED]"}`, recorder.Body.String())
+	require.NotContains(t, recorder.Body.String(), "super-secret")
 }
 
 func TestMiddleware_IgnoresContentMethodAndPathRewrite(t *testing.T) {
@@ -119,44 +111,34 @@ func TestMiddleware_IgnoresContentMethodAndPathRewrite(t *testing.T) {
 	require.Equal(t, "/api/v1/servers", seenPath)
 }
 
-func TestMiddleware_AppliesContentResponseModification(t *testing.T) {
+func TestMiddleware_IgnoresContentReservedRequestHeaders(t *testing.T) {
 	t.Parallel()
 
-	redactor := &testContentPlugin{rewriteResponseBody: `{"token":"[REDACTED]"}`}
-	p := newTestContentPipeline(t, redactor)
+	content := &testContentPlugin{
+		rewriteRequestHeaders: map[string]string{
+			"connection":     "upgrade",
+			"Content-Length": "999999",
+			"X-Added":        "yes",
+		},
+	}
+	p := newTestContentPipeline(t, content)
 
+	var seen http.Header
 	nextHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		seen = r.Header.Clone()
+
 		w.WriteHeader(http.StatusOK)
-		_, _ = w.Write([]byte(`{"token":"super-secret"}`))
 	})
 
-	req := httptest.NewRequest(http.MethodGet, "/original", nil)
+	req := httptest.NewRequest(http.MethodPost, "/original", strings.NewReader(`{"original":true}`))
 	recorder := httptest.NewRecorder()
 	p.Middleware()(nextHandler).ServeHTTP(recorder, req)
 
-	require.Equal(t, []string{`{"token":"super-secret"}`}, redactor.seenResponseBodies)
+	require.Equal(t, "yes", seen.Get("X-Added"))
 
-	require.Equal(t, http.StatusOK, recorder.Code)
-	require.JSONEq(t, `{"token":"[REDACTED]"}`, recorder.Body.String())
-	require.NotContains(t, recorder.Body.String(), "super-secret")
-}
-
-func TestMiddleware_PassesOriginalResponseWhenUnmodified(t *testing.T) {
-	t.Parallel()
-
-	p := newTestContentPipeline(t, &testContentPlugin{})
-
-	nextHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.WriteHeader(http.StatusTeapot)
-		_, _ = w.Write([]byte(`{"tools":[]}`))
-	})
-
-	req := httptest.NewRequest(http.MethodGet, "/original", nil)
-	recorder := httptest.NewRecorder()
-	p.Middleware()(nextHandler).ServeHTTP(recorder, req)
-
-	require.Equal(t, http.StatusTeapot, recorder.Code)
-	require.JSONEq(t, `{"tools":[]}`, recorder.Body.String())
+	// Message framing and the transport belong to mcpd, whatever case a plugin spells them in.
+	require.Empty(t, seen.Get("Connection"))
+	require.Empty(t, seen.Get("Content-Length"))
 }
 
 func TestMiddleware_PassesOriginalRequestWhenUnmodified(t *testing.T) {
@@ -187,6 +169,24 @@ func TestMiddleware_PassesOriginalRequestWhenUnmodified(t *testing.T) {
 	require.JSONEq(t, `{"original":true}`, seenBody)
 	require.Equal(t, http.StatusOK, recorder.Code)
 	require.Equal(t, "upstream", recorder.Body.String())
+}
+
+func TestMiddleware_PassesOriginalResponseWhenUnmodified(t *testing.T) {
+	t.Parallel()
+
+	p := newTestContentPipeline(t, &testContentPlugin{})
+
+	nextHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusTeapot)
+		_, _ = w.Write([]byte(`{"tools":[]}`))
+	})
+
+	req := httptest.NewRequest(http.MethodGet, "/original", nil)
+	recorder := httptest.NewRecorder()
+	p.Middleware()(nextHandler).ServeHTTP(recorder, req)
+
+	require.Equal(t, http.StatusTeapot, recorder.Code)
+	require.JSONEq(t, `{"tools":[]}`, recorder.Body.String())
 }
 
 func TestMiddleware_RequestPipelineFailure(t *testing.T) {
@@ -286,6 +286,24 @@ func TestWritePluginResponse_LogsClampedStatusCode(t *testing.T) {
 	require.Contains(t, buf.String(), "replacing a status code a plugin may not report")
 }
 
+// TestWritePluginResponse_LogsNothingForAValidResponse guards against a log line on every response.
+func TestWritePluginResponse_LogsNothingForAValidResponse(t *testing.T) {
+	t.Parallel()
+
+	var buf bytes.Buffer
+
+	rec := httptest.NewRecorder()
+	writePluginResponse(newTestLogger(&buf), rec, &HTTPResponse{
+		StatusCode: http.StatusTooManyRequests,
+		Headers:    map[string]string{"Retry-After": "30"},
+		Body:       []byte("slow down"),
+	})
+
+	require.Equal(t, http.StatusTooManyRequests, rec.Code)
+	require.Equal(t, "30", rec.Header().Get("Retry-After"))
+	require.Empty(t, buf.String())
+}
+
 // TestWritePluginResponse_LogsReservedHeaderNameNotValue pins the rule that a reserved header's value never
 // reaches the log, because the value may be a credential.
 func TestWritePluginResponse_LogsReservedHeaderNameNotValue(t *testing.T) {
@@ -304,22 +322,4 @@ func TestWritePluginResponse_LogsReservedHeaderNameNotValue(t *testing.T) {
 	require.Contains(t, logged, "Proxy-Authenticate")
 	require.NotContains(t, logged, "super-secret-value")
 	require.Empty(t, rec.Header().Get("Proxy-Authenticate"))
-}
-
-// TestWritePluginResponse_LogsNothingForAValidResponse guards against a log line on every response.
-func TestWritePluginResponse_LogsNothingForAValidResponse(t *testing.T) {
-	t.Parallel()
-
-	var buf bytes.Buffer
-
-	rec := httptest.NewRecorder()
-	writePluginResponse(newTestLogger(&buf), rec, &HTTPResponse{
-		StatusCode: http.StatusTooManyRequests,
-		Headers:    map[string]string{"Retry-After": "30"},
-		Body:       []byte("slow down"),
-	})
-
-	require.Equal(t, http.StatusTooManyRequests, rec.Code)
-	require.Equal(t, "30", rec.Header().Get("Retry-After"))
-	require.Empty(t, buf.String())
 }
