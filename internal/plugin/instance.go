@@ -2,6 +2,7 @@ package plugin
 
 import (
 	"context"
+	"net/http"
 	"sync"
 
 	"github.com/mozilla-ai/mcpd/internal/config"
@@ -36,8 +37,8 @@ type HTTPRequest struct {
 	// Path is the request path.
 	Path string
 
-	// Headers contains HTTP headers.
-	Headers map[string]string
+	// Headers contains HTTP headers, with every value a name carries.
+	Headers http.Header
 
 	// Body is the request body.
 	Body []byte
@@ -52,8 +53,8 @@ type HTTPResponse struct {
 	// StatusCode is the HTTP status code.
 	StatusCode int32
 
-	// Headers contains HTTP headers.
-	Headers map[string]string
+	// Headers contains HTTP headers, with every value a name carries.
+	Headers http.Header
 
 	// Body is the response body.
 	Body []byte

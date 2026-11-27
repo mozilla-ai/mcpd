@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"io"
 	"net/http"
+	"slices"
 
 	"github.com/hashicorp/go-hclog"
 
@@ -57,7 +58,7 @@ func (p *pipeline) Middleware() func(http.Handler) http.Handler {
 			// Convert handler response.
 			handlerResp := &HTTPResponse{
 				StatusCode: int32(recorder.statusCode),
-				Headers:    convertHeadersToMap(recorder.Header()),
+				Headers:    recorder.Header().Clone(),
 				Body:       recorder.body.Bytes(),
 				Continue:   true,
 			}
@@ -108,12 +109,12 @@ func applyModifiedRequest(r *http.Request, mod *HTTPRequest) *http.Request {
 
 	out := r.Clone(r.Context())
 
-	for name, value := range mod.Headers {
+	for name, values := range mod.Headers {
 		if isReservedHeader(name) {
 			continue
 		}
 
-		out.Header.Set(name, value)
+		out.Header[name] = slices.Clone(values)
 	}
 
 	if len(mod.Body) != 0 {
@@ -148,18 +149,10 @@ func httpRequestToPlugin(r *http.Request) (*HTTPRequest, error) {
 	}
 	r.Body = io.NopCloser(bytes.NewReader(body)) // Restore body for downstream handlers.
 
-	// Convert headers (take first value only).
-	headers := make(map[string]string)
-	for k, v := range r.Header {
-		if len(v) > 0 {
-			headers[k] = v[0]
-		}
-	}
-
 	return &HTTPRequest{
 		Method:  r.Method,
 		Path:    r.URL.Path,
-		Headers: headers,
+		Headers: r.Header.Clone(),
 		Body:    body,
 	}, nil
 }
@@ -174,12 +167,12 @@ func writePluginResponse(logger hclog.Logger, w http.ResponseWriter, resp *HTTPR
 		logger.Warn("ignoring reserved response headers set by plugin", "headers", reserved)
 	}
 
-	for name, value := range resp.Headers {
+	for name, values := range resp.Headers {
 		if isReservedHeader(name) {
 			continue
 		}
 
-		w.Header().Set(name, value)
+		w.Header()[name] = slices.Clone(values)
 	}
 
 	status := pluginStatusCode(resp.StatusCode)
@@ -193,17 +186,6 @@ func writePluginResponse(logger hclog.Logger, w http.ResponseWriter, resp *HTTPR
 	if len(resp.Body) > 0 {
 		_, _ = w.Write(resp.Body)
 	}
-}
-
-// convertHeadersToMap converts http.Header → map[string]string (first value only).
-func convertHeadersToMap(h http.Header) map[string]string {
-	m := make(map[string]string, len(h))
-	for k, v := range h {
-		if len(v) > 0 {
-			m[k] = v[0]
-		}
-	}
-	return m
 }
 
 // responseRecorder captures the response from the next handler.

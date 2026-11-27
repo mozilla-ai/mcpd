@@ -3,6 +3,9 @@ package plugin
 import (
 	"context"
 	"fmt"
+	"maps"
+	"net/http"
+	"slices"
 	"time"
 
 	"google.golang.org/protobuf/types/known/emptypb"
@@ -90,7 +93,7 @@ func (a *GRPCAdapter) HandleRequest(ctx context.Context, req *HTTPRequest) (*HTT
 	grpcReq := &pluginv1.HTTPRequest{
 		Method:  req.Method,
 		Path:    req.Path,
-		Headers: req.Headers,
+		Headers: flattenHeaders(req.Headers),
 		Body:    req.Body,
 	}
 
@@ -102,7 +105,7 @@ func (a *GRPCAdapter) HandleRequest(ctx context.Context, req *HTTPRequest) (*HTT
 	resp := &HTTPResponse{
 		Continue:   grpcResp.Continue,
 		StatusCode: grpcResp.StatusCode,
-		Headers:    grpcResp.Headers,
+		Headers:    expandHeaders(grpcResp.Headers),
 		Body:       grpcResp.Body,
 	}
 
@@ -110,7 +113,7 @@ func (a *GRPCAdapter) HandleRequest(ctx context.Context, req *HTTPRequest) (*HTT
 		resp.ModifiedRequest = &HTTPRequest{
 			Method:  grpcResp.ModifiedRequest.Method,
 			Path:    grpcResp.ModifiedRequest.Path,
-			Headers: grpcResp.ModifiedRequest.Headers,
+			Headers: expandHeaders(grpcResp.ModifiedRequest.Headers),
 			Body:    grpcResp.ModifiedRequest.Body,
 		}
 	}
@@ -126,7 +129,7 @@ func (a *GRPCAdapter) HandleResponse(ctx context.Context, resp *HTTPResponse) (*
 	grpcResp := &pluginv1.HTTPResponse{
 		Continue:   resp.Continue,
 		StatusCode: resp.StatusCode,
-		Headers:    resp.Headers,
+		Headers:    flattenHeaders(resp.Headers),
 		Body:       resp.Body,
 	}
 
@@ -138,7 +141,7 @@ func (a *GRPCAdapter) HandleResponse(ctx context.Context, resp *HTTPResponse) (*
 	result := &HTTPResponse{
 		Continue:   grpcResult.Continue,
 		StatusCode: grpcResult.StatusCode,
-		Headers:    grpcResult.Headers,
+		Headers:    expandHeaders(grpcResult.Headers),
 		Body:       grpcResult.Body,
 	}
 
@@ -146,7 +149,7 @@ func (a *GRPCAdapter) HandleResponse(ctx context.Context, resp *HTTPResponse) (*
 		result.ModifiedRequest = &HTTPRequest{
 			Method:  grpcResult.ModifiedRequest.Method,
 			Path:    grpcResult.ModifiedRequest.Path,
-			Headers: grpcResult.ModifiedRequest.Headers,
+			Headers: expandHeaders(grpcResult.ModifiedRequest.Headers),
 			Body:    grpcResult.ModifiedRequest.Body,
 		}
 	}
@@ -161,4 +164,37 @@ func (a *GRPCAdapter) Stop(ctx context.Context) error {
 
 	_, err := a.client.Stop(ctx, &emptypb.Empty{})
 	return err
+}
+
+// flattenHeaders projects h onto the plugin wire format, which carries one value per name.
+//
+// NOTE: A name's remaining values are dropped, so a plugin cannot see them.
+func flattenHeaders(h http.Header) map[string]string {
+	if len(h) == 0 {
+		return nil
+	}
+
+	out := make(map[string]string, len(h))
+	for name, values := range h {
+		if len(values) > 0 {
+			out[name] = values[0]
+		}
+	}
+
+	return out
+}
+
+// expandHeaders returns the plugin wire format as an http.Header holding canonical names.
+// Names are read in sorted order, so two spellings of one name resolve to the same value on every call.
+func expandHeaders(m map[string]string) http.Header {
+	if len(m) == 0 {
+		return nil
+	}
+
+	out := make(http.Header, len(m))
+	for _, name := range slices.Sorted(maps.Keys(m)) {
+		out.Set(name, m[name])
+	}
+
+	return out
 }

@@ -48,13 +48,13 @@ type testContentPlugin struct {
 	rewriteRequestBody string
 
 	// rewriteRequestHeaders is returned as the modified request headers when it is not nil.
-	rewriteRequestHeaders map[string]string
+	rewriteRequestHeaders http.Header
 
 	// rewriteResponseBody is returned as the modified response body when it is not empty.
 	rewriteResponseBody string
 
 	// rewriteResponseHeaders is returned as the modified response headers when it is not nil.
-	rewriteResponseHeaders map[string]string
+	rewriteResponseHeaders http.Header
 
 	// rewriteResponseStatus is returned as the modified response status when it is not zero.
 	rewriteResponseStatus int32
@@ -194,7 +194,7 @@ func (t *testTrackingPlugin) Stop(ctx context.Context) error {
 }
 
 // newTestContentInstance returns a content plugin instance configured for the request and response flows.
-func newTestContentInstance(name string, plugin *testContentPlugin) *Instance {
+func newTestContentInstance(name string, plugin Plugin) *Instance {
 	inst := &Instance{
 		Plugin: plugin,
 		name:   name,
@@ -436,14 +436,14 @@ func TestPipeline_HandleRequest_DeliversContentModification(t *testing.T) {
 	content := &testContentPlugin{
 		rewritePath:           "/rewritten",
 		rewriteRequestBody:    `{"modified":true}`,
-		rewriteRequestHeaders: map[string]string{"X-Added": "yes"},
+		rewriteRequestHeaders: http.Header{"X-Added": {"yes"}},
 	}
 	p := newTestContentPipeline(t, content)
 
 	req := &HTTPRequest{
 		Method:  http.MethodPost,
 		Path:    "/original",
-		Headers: map[string]string{"Authorization": "Bearer original"},
+		Headers: http.Header{"Authorization": {"Bearer original"}},
 		Body:    []byte(`{"original":true}`),
 	}
 
@@ -454,10 +454,10 @@ func TestPipeline_HandleRequest_DeliversContentModification(t *testing.T) {
 
 	require.NotNil(t, resp.ModifiedRequest)
 	require.JSONEq(t, `{"modified":true}`, string(resp.ModifiedRequest.Body))
-	require.Equal(t, "yes", resp.ModifiedRequest.Headers["X-Added"])
+	require.Equal(t, "yes", resp.ModifiedRequest.Headers.Get("X-Added"))
 
 	// A header the plugin left alone survives, and the path it asked to rewrite does not change.
-	require.Equal(t, "Bearer original", resp.ModifiedRequest.Headers["Authorization"])
+	require.Equal(t, "Bearer original", resp.ModifiedRequest.Headers.Get("Authorization"))
 	require.Equal(t, "/original", resp.ModifiedRequest.Path)
 	require.Equal(t, http.MethodPost, resp.ModifiedRequest.Method)
 }
@@ -516,7 +516,7 @@ func TestPipeline_HandleRequest_LogsNothingWhenNothingIsDropped(t *testing.T) {
 	_, err := p.HandleRequest(context.Background(), &HTTPRequest{
 		Method:  http.MethodPost,
 		Path:    "/servers",
-		Headers: map[string]string{"X-Request-Id": "abc"},
+		Headers: http.Header{"X-Request-Id": {"abc"}},
 		Body:    []byte("original"),
 	})
 	require.NoError(t, err)
@@ -532,7 +532,7 @@ func TestPipeline_HandleRequest_LogsReservedHeaderNameNotValue(t *testing.T) {
 	var buf bytes.Buffer
 
 	content := &testContentPlugin{
-		rewriteRequestHeaders: map[string]string{"Proxy-Authorization": "Bearer super-secret-value"},
+		rewriteRequestHeaders: http.Header{"Proxy-Authorization": {"Bearer super-secret-value"}},
 	}
 	p := newTestLoggingPipeline(t, &buf, config.CategoryContent, content)
 
@@ -801,7 +801,7 @@ func TestPipeline_HandleRequest_Serial(t *testing.T) {
 							ModifiedRequest: &HTTPRequest{
 								Method:  "POST",
 								Path:    "/modified",
-								Headers: map[string]string{"X-Modified": "true"},
+								Headers: http.Header{"X-Modified": {"true"}},
 							},
 						},
 					},
@@ -982,7 +982,7 @@ func TestPipeline_HandleResponse_BodyOnlyModificationKeepsUpstreamStatus(t *test
 	resp, err := p.HandleResponse(context.Background(), &HTTPResponse{
 		Continue:   true,
 		StatusCode: http.StatusServiceUnavailable,
-		Headers:    map[string]string{"Content-Type": "application/json"},
+		Headers:    http.Header{"Content-Type": {"application/json"}},
 		Body:       []byte(`{"token":"super-secret"}`),
 	})
 	require.NoError(t, err)
@@ -992,7 +992,7 @@ func TestPipeline_HandleResponse_BodyOnlyModificationKeepsUpstreamStatus(t *test
 
 	// Redacting a body must not turn a 503 into an implicit 200.
 	require.Equal(t, int32(http.StatusServiceUnavailable), resp.StatusCode)
-	require.Equal(t, map[string]string{"Content-Type": "application/json"}, resp.Headers)
+	require.Equal(t, http.Header{"Content-Type": {"application/json"}}, resp.Headers)
 }
 
 func TestPipeline_HandleResponse_ChainsContentModifications(t *testing.T) {
@@ -1043,11 +1043,11 @@ func TestPipeline_HandleResponse_ContinuingPluginCannotSetReservedHeader(t *test
 	t.Parallel()
 
 	content := &testContentPlugin{
-		rewriteResponseHeaders: map[string]string{
-			"access-control-allow-origin": "*",
-			"Mcpd-Error-Type":             "pipeline_request_failure",
-			"Transfer-Encoding":           "chunked",
-			"X-Scanned":                   "yes",
+		rewriteResponseHeaders: http.Header{
+			"access-control-allow-origin": {"*"},
+			"Mcpd-Error-Type":             {"pipeline_request_failure"},
+			"Transfer-Encoding":           {"chunked"},
+			"X-Scanned":                   {"yes"},
 		},
 	}
 	p := newTestContentPipeline(t, content)
@@ -1055,16 +1055,16 @@ func TestPipeline_HandleResponse_ContinuingPluginCannotSetReservedHeader(t *test
 	resp, err := p.HandleResponse(context.Background(), &HTTPResponse{
 		Continue:   true,
 		StatusCode: http.StatusOK,
-		Headers:    map[string]string{"Access-Control-Allow-Origin": "https://allowed.example"},
+		Headers:    http.Header{"Access-Control-Allow-Origin": {"https://allowed.example"}},
 	})
 	require.NoError(t, err)
 	require.NotNil(t, resp)
 
 	// A plugin may add its own header.
-	require.Equal(t, "yes", resp.Headers["X-Scanned"])
+	require.Equal(t, "yes", resp.Headers.Get("X-Scanned"))
 
 	// A plugin must not overrule the operator's CORS policy, mcpd's protocol header, or message framing.
-	require.Equal(t, "https://allowed.example", resp.Headers["Access-Control-Allow-Origin"])
+	require.Equal(t, "https://allowed.example", resp.Headers.Get("Access-Control-Allow-Origin"))
 	require.NotContains(t, resp.Headers, "access-control-allow-origin")
 	require.NotContains(t, resp.Headers, "Mcpd-Error-Type")
 	require.NotContains(t, resp.Headers, "Transfer-Encoding")
@@ -1075,7 +1075,7 @@ func TestPipeline_HandleResponse_DeliversContentModification(t *testing.T) {
 
 	content := &testContentPlugin{
 		rewriteResponseBody:    "modified",
-		rewriteResponseHeaders: map[string]string{"X-Scanned": "yes"},
+		rewriteResponseHeaders: http.Header{"X-Scanned": {"yes"}},
 	}
 	p := newTestContentPipeline(t, content)
 
@@ -1088,31 +1088,31 @@ func TestPipeline_HandleResponse_DeliversContentModification(t *testing.T) {
 	require.NotNil(t, resp)
 	require.True(t, resp.Continue)
 	require.Equal(t, []byte("modified"), resp.Body)
-	require.Equal(t, "yes", resp.Headers["X-Scanned"])
+	require.Equal(t, "yes", resp.Headers.Get("X-Scanned"))
 	require.Equal(t, int32(http.StatusOK), resp.StatusCode)
 }
 
 func TestPipeline_HandleResponse_HeaderOnlyModificationKeepsUpstreamBody(t *testing.T) {
 	t.Parallel()
 
-	tagger := &testContentPlugin{rewriteResponseHeaders: map[string]string{"X-Scanned": "yes"}}
+	tagger := &testContentPlugin{rewriteResponseHeaders: http.Header{"X-Scanned": {"yes"}}}
 	p := newTestContentPipeline(t, tagger)
 
 	resp, err := p.HandleResponse(context.Background(), &HTTPResponse{
 		Continue:   true,
 		StatusCode: http.StatusTeapot,
-		Headers:    map[string]string{"Content-Type": "application/json"},
+		Headers:    http.Header{"Content-Type": {"application/json"}},
 		Body:       []byte(`{"tools":[]}`),
 	})
 	require.NoError(t, err)
 	require.NotNil(t, resp)
 
-	require.Equal(t, "yes", resp.Headers["X-Scanned"])
+	require.Equal(t, "yes", resp.Headers.Get("X-Scanned"))
 
 	// Adding a header must not discard the upstream status, body or other headers.
 	require.Equal(t, int32(http.StatusTeapot), resp.StatusCode)
 	require.JSONEq(t, `{"tools":[]}`, string(resp.Body))
-	require.Equal(t, "application/json", resp.Headers["Content-Type"])
+	require.Equal(t, "application/json", resp.Headers.Get("Content-Type"))
 }
 
 func TestPipeline_HandleResponse_LogsIgnoredStatusCode(t *testing.T) {
@@ -1166,7 +1166,7 @@ func TestPipeline_HandleResponse_LogsReservedHeaderNameNotValue(t *testing.T) {
 	var buf bytes.Buffer
 
 	content := &testContentPlugin{
-		rewriteResponseHeaders: map[string]string{"Proxy-Authenticate": "Basic realm=super-secret-value"},
+		rewriteResponseHeaders: http.Header{"Proxy-Authenticate": {"Basic realm=super-secret-value"}},
 	}
 	p := newTestLoggingPipeline(t, &buf, config.CategoryContent, content)
 
@@ -1192,14 +1192,14 @@ func TestPipeline_HandleResponse_PassingContentPluginKeepsUpstreamResponse(t *te
 	resp, err := p.HandleResponse(context.Background(), &HTTPResponse{
 		Continue:   true,
 		StatusCode: http.StatusTeapot,
-		Headers:    map[string]string{"Content-Type": "application/json"},
+		Headers:    http.Header{"Content-Type": {"application/json"}},
 		Body:       []byte(`{"tools":[]}`),
 	})
 	require.NoError(t, err)
 	require.NotNil(t, resp)
 	require.True(t, resp.Continue)
 	require.Equal(t, int32(http.StatusTeapot), resp.StatusCode)
-	require.Equal(t, map[string]string{"Content-Type": "application/json"}, resp.Headers)
+	require.Equal(t, http.Header{"Content-Type": {"application/json"}}, resp.Headers)
 	require.Equal(t, []byte(`{"tools":[]}`), resp.Body)
 }
 

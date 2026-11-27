@@ -43,7 +43,7 @@ func isReservedHeader(name string) bool {
 // The result is sorted so a log line listing them is stable across calls.
 //
 // NOTE: This returns names only. A reserved header's value may be a credential, so a caller must not log it.
-func reservedHeaderNames(headers map[string]string) []string {
+func reservedHeaderNames(headers http.Header) []string {
 	var names []string
 
 	for name := range headers {

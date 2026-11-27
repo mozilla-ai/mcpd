@@ -22,7 +22,7 @@ func TestMiddleware_AppliesContentModification(t *testing.T) {
 	content := &testContentPlugin{
 		rewritePath:           "/rewritten",
 		rewriteRequestBody:    `{"rewritten":true}`,
-		rewriteRequestHeaders: map[string]string{"X-Added": "yes"},
+		rewriteRequestHeaders: http.Header{"X-Added": {"yes"}},
 	}
 	p := newTestContentPipeline(t, content)
 
@@ -115,10 +115,10 @@ func TestMiddleware_IgnoresContentReservedRequestHeaders(t *testing.T) {
 	t.Parallel()
 
 	content := &testContentPlugin{
-		rewriteRequestHeaders: map[string]string{
-			"connection":     "upgrade",
-			"Content-Length": "999999",
-			"X-Added":        "yes",
+		rewriteRequestHeaders: http.Header{
+			"connection":     {"upgrade"},
+			"Content-Length": {"999999"},
+			"X-Added":        {"yes"},
 		},
 	}
 	p := newTestContentPipeline(t, content)
@@ -295,7 +295,7 @@ func TestWritePluginResponse_LogsNothingForAValidResponse(t *testing.T) {
 	rec := httptest.NewRecorder()
 	writePluginResponse(newTestLogger(&buf), rec, &HTTPResponse{
 		StatusCode: http.StatusTooManyRequests,
-		Headers:    map[string]string{"Retry-After": "30"},
+		Headers:    http.Header{"Retry-After": {"30"}},
 		Body:       []byte("slow down"),
 	})
 
@@ -314,7 +314,7 @@ func TestWritePluginResponse_LogsReservedHeaderNameNotValue(t *testing.T) {
 	rec := httptest.NewRecorder()
 	writePluginResponse(newTestLogger(&buf), rec, &HTTPResponse{
 		StatusCode: http.StatusForbidden,
-		Headers:    map[string]string{"Proxy-Authenticate": "Basic realm=super-secret-value"},
+		Headers:    http.Header{"Proxy-Authenticate": {"Basic realm=super-secret-value"}},
 	})
 
 	logged := buf.String()

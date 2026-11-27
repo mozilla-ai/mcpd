@@ -3,8 +3,8 @@ package plugin
 import (
 	"context"
 	"fmt"
-	"maps"
 	"net/http"
+	"slices"
 	"sync"
 
 	"github.com/hashicorp/go-hclog"
@@ -499,16 +499,18 @@ func (p *pipeline) logUnappliedResponseFields(name string, canModify bool, statu
 // mergeHeaders returns a copy of base with every entry in overlay applied over it.
 // It skips an entry in overlay that names a reserved header, and stores each name in canonical form so
 // two spellings of one header cannot both survive.
-func mergeHeaders(base map[string]string, overlay map[string]string) map[string]string {
-	merged := make(map[string]string, len(base)+len(overlay))
-	maps.Copy(merged, base)
+func mergeHeaders(base http.Header, overlay http.Header) http.Header {
+	merged := base.Clone()
+	if merged == nil {
+		merged = make(http.Header, len(overlay))
+	}
 
-	for name, value := range overlay {
+	for name, values := range overlay {
 		if isReservedHeader(name) {
 			continue
 		}
 
-		merged[http.CanonicalHeaderKey(name)] = value
+		merged[http.CanonicalHeaderKey(name)] = slices.Clone(values)
 	}
 
 	return merged
