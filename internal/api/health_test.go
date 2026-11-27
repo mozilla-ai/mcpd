@@ -61,18 +61,10 @@ func TestParseHealthStatus_InvalidCase(t *testing.T) {
 }
 
 // mockHealthMonitor implements the MCPHealthMonitor interface for testing.
+// It indexes by each name's key, matching the real tracker, so a test exercises the same
+// case-insensitive lookup the API relies on.
 type mockHealthMonitor struct {
 	servers map[string]domain.ServerHealth
-}
-
-func (m *mockHealthMonitor) Add(name string) {
-	// TODO implement MCPHealthMonitor 'Add' when needed.
-	panic("implement me")
-}
-
-func (m *mockHealthMonitor) Remove(name string) {
-	// TODO implement MCPHealthMonitor 'Remove' when needed.
-	panic("implement me")
 }
 
 func newMockHealthMonitor() *mockHealthMonitor {
@@ -81,11 +73,9 @@ func newMockHealthMonitor() *mockHealthMonitor {
 	}
 }
 
-func (m *mockHealthMonitor) Status(name string) (domain.ServerHealth, error) {
-	if health, ok := m.servers[name]; ok {
-		return health, nil
-	}
-	return domain.ServerHealth{}, fmt.Errorf("%w: %s", errors.ErrHealthNotTracked, name)
+func (m *mockHealthMonitor) Add(name domain.ServerName) {
+	// TODO implement MCPHealthMonitor 'Add' when needed.
+	panic("implement me")
 }
 
 func (m *mockHealthMonitor) List() []domain.ServerHealth {
@@ -93,15 +83,34 @@ func (m *mockHealthMonitor) List() []domain.ServerHealth {
 	for _, server := range m.servers {
 		servers = append(servers, server)
 	}
+
 	return servers
 }
 
-func (m *mockHealthMonitor) Update(name string, status domain.HealthStatus, latency *time.Duration) error {
-	m.servers[name] = domain.ServerHealth{
+func (m *mockHealthMonitor) Remove(name domain.ServerName) {
+	// TODO implement MCPHealthMonitor 'Remove' when needed.
+	panic("implement me")
+}
+
+func (m *mockHealthMonitor) Status(name domain.ServerName) (domain.ServerHealth, error) {
+	if health, ok := m.servers[name.Key()]; ok {
+		return health, nil
+	}
+
+	return domain.ServerHealth{}, fmt.Errorf("%w: %s", errors.ErrHealthNotTracked, name)
+}
+
+func (m *mockHealthMonitor) Update(
+	name domain.ServerName,
+	status domain.HealthStatus,
+	latency *time.Duration,
+) error {
+	m.servers[name.Key()] = domain.ServerHealth{
 		Name:    name,
 		Status:  status,
 		Latency: latency,
 	}
+
 	return nil
 }
 
@@ -137,4 +146,42 @@ func TestHandleStatus_ServerExists(t *testing.T) {
 	require.Equal(t, HealthStatusOK, result.Body.Status)
 	require.NotNil(t, result.Body.Latency)
 	require.Equal(t, "100ms", *result.Body.Latency)
+}
+
+// TestDomainServerHealth_ToAPIType_PreservesNameCase pins the name the health endpoints report.
+// A client reads a server's name from the server listing and uses it in a health URL, so the two surfaces
+// have to agree on the name.
+func TestDomainServerHealth_ToAPIType_PreservesNameCase(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name   string
+		server string
+	}{
+		{
+			name:   "pascal case",
+			server: "GitHub",
+		},
+		{
+			name:   "camel case",
+			server: "gitHub",
+		},
+		{
+			name:   "already lowercase",
+			server: "github",
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			got, err := DomainServerHealth(domain.ServerHealth{
+				Name:   domain.ServerName(tc.server),
+				Status: domain.HealthStatusOK,
+			}).ToAPIType()
+			require.NoError(t, err)
+			require.Equal(t, tc.server, got.Name)
+		})
+	}
 }

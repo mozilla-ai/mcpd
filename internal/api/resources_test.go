@@ -8,6 +8,7 @@ import (
 	"github.com/mark3labs/mcp-go/mcp"
 	"github.com/stretchr/testify/require"
 
+	"github.com/mozilla-ai/mcpd/internal/domain"
 	internalerrors "github.com/mozilla-ai/mcpd/internal/errors"
 )
 
@@ -70,7 +71,7 @@ func TestAPI_HandleResources_Success(t *testing.T) {
 			}
 
 			accessor := newMockMCPClientAccessor()
-			accessor.Add(tc.serverName, mockClient, []string{})
+			accessor.Add(domain.ServerName(tc.serverName), mockClient, []domain.ToolName{})
 
 			result, err := newServerRoutes(
 				accessor,
@@ -101,7 +102,7 @@ func TestAPI_HandleResources_WithCursor(t *testing.T) {
 	}
 
 	accessor := newMockMCPClientAccessor()
-	accessor.Add("test-server", mockClient, []string{})
+	accessor.Add("test-server", mockClient, []domain.ToolName{})
 
 	result, err := newServerRoutes(
 		accessor,
@@ -136,7 +137,7 @@ func TestAPI_HandleResources_MCPError(t *testing.T) {
 	}
 
 	accessor := newMockMCPClientAccessor()
-	accessor.Add("test-server", mockClient, []string{})
+	accessor.Add("test-server", mockClient, []domain.ToolName{})
 
 	result, err := newServerRoutes(accessor, RouteOptions{}).handleResources(context.Background(), "test-server", "")
 
@@ -153,7 +154,7 @@ func TestAPI_HandleResources_NilResult(t *testing.T) {
 	}
 
 	accessor := newMockMCPClientAccessor()
-	accessor.Add("test-server", mockClient, []string{})
+	accessor.Add("test-server", mockClient, []domain.ToolName{})
 
 	result, err := newServerRoutes(accessor, RouteOptions{}).handleResources(context.Background(), "test-server", "")
 
@@ -182,7 +183,7 @@ func TestAPI_HandleResourceTemplates_Success(t *testing.T) {
 	}
 
 	accessor := newMockMCPClientAccessor()
-	accessor.Add("test-server", mockClient, []string{})
+	accessor.Add("test-server", mockClient, []domain.ToolName{})
 
 	result, err := newServerRoutes(
 		accessor,
@@ -220,7 +221,7 @@ func TestAPI_HandleResourceTemplates_ListError(t *testing.T) {
 	}
 
 	accessor := newMockMCPClientAccessor()
-	accessor.Add("test-server", mockClient, []string{})
+	accessor.Add("test-server", mockClient, []domain.ToolName{})
 
 	result, err := newServerRoutes(
 		accessor,
@@ -248,7 +249,7 @@ func TestAPI_HandleResourceContent_TextContent(t *testing.T) {
 	}
 
 	accessor := newMockMCPClientAccessor()
-	accessor.Add("test-server", mockClient, []string{})
+	accessor.Add("test-server", mockClient, []domain.ToolName{})
 
 	uri := "file:///test.txt"
 
@@ -281,7 +282,7 @@ func TestAPI_HandleResourceContent_BlobContent(t *testing.T) {
 	}
 
 	accessor := newMockMCPClientAccessor()
-	accessor.Add("test-server", mockClient, []string{})
+	accessor.Add("test-server", mockClient, []domain.ToolName{})
 
 	uri := "file:///image.png"
 
@@ -319,7 +320,7 @@ func TestAPI_HandleResourceContent_MultipleContents(t *testing.T) {
 	}
 
 	accessor := newMockMCPClientAccessor()
-	accessor.Add("test-server", mockClient, []string{})
+	accessor.Add("test-server", mockClient, []domain.ToolName{})
 
 	uri := "file:///multi"
 
@@ -360,7 +361,7 @@ func TestAPI_HandleResourceContent_ReadError(t *testing.T) {
 	}
 
 	accessor := newMockMCPClientAccessor()
-	accessor.Add("test-server", mockClient, []string{})
+	accessor.Add("test-server", mockClient, []domain.ToolName{})
 
 	uri := "file:///nonexistent.txt"
 
@@ -382,7 +383,7 @@ func TestAPI_HandleResourceContent_NilResult(t *testing.T) {
 	}
 
 	accessor := newMockMCPClientAccessor()
-	accessor.Add("test-server", mockClient, []string{})
+	accessor.Add("test-server", mockClient, []domain.ToolName{})
 
 	uri := "file:///test.txt"
 

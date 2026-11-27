@@ -8,6 +8,8 @@ import (
 
 	"github.com/mark3labs/mcp-go/mcp"
 	"github.com/stretchr/testify/require"
+
+	"github.com/mozilla-ai/mcpd/internal/domain"
 )
 
 // mockMCPClient is a test implementation of client.MCPClient
@@ -116,8 +118,8 @@ func TestClientManager_Add_Client_Tools(t *testing.T) {
 	cm := NewClientManager()
 
 	c := &mockMCPClient{}
-	tools := []string{"tool1", "tool2"}
-	name := "server1"
+	tools := []domain.ToolName{"tool1", "tool2"}
+	name := domain.ServerName("server1")
 
 	cm.Add(name, c, tools)
 
@@ -137,15 +139,22 @@ func TestClientManager_Add_ToolsNormalized(t *testing.T) {
 	cm := NewClientManager()
 
 	c := &mockMCPClient{}
-	tools := []string{" Tool1 ", "TOOL2", "tool3"}
-	name := "server1"
+	tools := []domain.ToolName{" Tool1 ", "TOOL2", "tool3"}
+	name := domain.ServerName("server1")
 
 	cm.Add(name, c, tools)
 
-	// Test Tools are normalized to lowercase and trimmed.
+	// A tool name is stored as the operator configured it, because matching compares keys rather than
+	// the stored form.
 	rt, ok := cm.Tools(name)
 	require.True(t, ok)
-	require.Equal(t, []string{"tool1", "tool2", "tool3"}, rt)
+	require.Equal(t, tools, rt)
+
+	keys := make([]string, 0, len(rt))
+	for _, tool := range rt {
+		keys = append(keys, tool.Key())
+	}
+	require.Equal(t, []string{"tool1", "tool2", "tool3"}, keys)
 }
 
 func TestClientManager_ServerNameNormalized(t *testing.T) {
@@ -153,36 +162,36 @@ func TestClientManager_ServerNameNormalized(t *testing.T) {
 	cm := NewClientManager()
 
 	c := &mockMCPClient{}
-	tools := []string{"tool1"}
+	tools := []domain.ToolName{"tool1"}
 
 	// Add with mixed case server name.
 	cm.Add(" GitHub-Server ", c, tools)
 
 	// Test retrieving with different cases should work.
-	rc, ok := cm.Client("github-server")
+	rc, ok := cm.Client(domain.ServerName("github-server"))
 	require.True(t, ok)
 	require.Equal(t, c, rc)
 
-	rc, ok = cm.Client("GITHUB-SERVER")
+	rc, ok = cm.Client(domain.ServerName("GITHUB-SERVER"))
 	require.True(t, ok)
 	require.Equal(t, c, rc)
 
-	rc, ok = cm.Client("  GitHub-Server  ")
+	rc, ok = cm.Client(domain.ServerName("  GitHub-Server  "))
 	require.True(t, ok)
 	require.Equal(t, c, rc)
 
 	// Test Tools with different cases.
-	rt, ok := cm.Tools("github-server")
+	rt, ok := cm.Tools(domain.ServerName("github-server"))
 	require.True(t, ok)
 	require.Equal(t, tools, rt)
 
-	rt, ok = cm.Tools("GITHUB-SERVER")
+	rt, ok = cm.Tools(domain.ServerName("GITHUB-SERVER"))
 	require.True(t, ok)
 	require.Equal(t, tools, rt)
 
 	// Test Remove with different case.
-	cm.Remove("GITHUB-SERVER")
-	_, ok = cm.Client("github-server")
+	cm.Remove(domain.ServerName("GITHUB-SERVER"))
+	_, ok = cm.Client(domain.ServerName("github-server"))
 	require.False(t, ok)
 }
 
@@ -190,12 +199,12 @@ func TestClientManager_List(t *testing.T) {
 	t.Parallel()
 	cm := NewClientManager()
 
-	cm.Add("server1", &mockMCPClient{}, []string{"a"})
-	cm.Add("server2", &mockMCPClient{}, []string{"b"})
+	cm.Add(domain.ServerName("server1"), &mockMCPClient{}, []domain.ToolName{"a"})
+	cm.Add(domain.ServerName("server2"), &mockMCPClient{}, []domain.ToolName{"b"})
 
 	names := cm.List()
 	require.Len(t, names, 2)
-	require.ElementsMatch(t, []string{"server1", "server2"}, names)
+	require.ElementsMatch(t, []domain.ServerName{"server1", "server2"}, names)
 }
 
 // TestClientManager_List_PreservesConfiguredCase pins the name the API reports.
@@ -206,7 +215,7 @@ func TestClientManager_List_PreservesConfiguredCase(t *testing.T) {
 
 	tests := []struct {
 		name       string
-		configured string
+		configured domain.ServerName
 		expected   string
 	}{
 		{
@@ -236,9 +245,11 @@ func TestClientManager_List_PreservesConfiguredCase(t *testing.T) {
 			t.Parallel()
 
 			cm := NewClientManager()
-			cm.Add(tc.configured, &mockMCPClient{}, []string{"tool"})
+			cm.Add(tc.configured, &mockMCPClient{}, []domain.ToolName{"tool"})
 
-			require.Equal(t, []string{tc.expected}, cm.List())
+			listed := cm.List()
+			require.Len(t, listed, 1)
+			require.Equal(t, tc.expected, listed[0].String())
 		})
 	}
 }
@@ -247,13 +258,13 @@ func TestClientManager_Remove(t *testing.T) {
 	t.Parallel()
 	cm := NewClientManager()
 
-	cm.Add("server1", &mockMCPClient{}, []string{"tool"})
-	cm.Remove("server1")
+	cm.Add(domain.ServerName("server1"), &mockMCPClient{}, []domain.ToolName{"tool"})
+	cm.Remove(domain.ServerName("server1"))
 
-	_, ok := cm.Client("server1")
+	_, ok := cm.Client(domain.ServerName("server1"))
 	require.False(t, ok)
 
-	_, ok = cm.Tools("server1")
+	_, ok = cm.Tools(domain.ServerName("server1"))
 	require.False(t, ok)
 
 	require.Empty(t, cm.List())
@@ -263,10 +274,10 @@ func TestClientManager_EmptyManager(t *testing.T) {
 	t.Parallel()
 	cm := NewClientManager()
 
-	_, ok := cm.Client("missing")
+	_, ok := cm.Client(domain.ServerName("missing"))
 	require.False(t, ok)
 
-	_, ok = cm.Tools("missing")
+	_, ok = cm.Tools(domain.ServerName("missing"))
 	require.False(t, ok)
 
 	require.Empty(t, cm.List())
@@ -281,10 +292,10 @@ func TestClientManager_ConcurrentAccess(t *testing.T) {
 	for i := 0; i < 100; i++ {
 		wg.Add(3)
 
-		name := fmt.Sprintf("server-%d", i)
+		name := domain.ServerName(fmt.Sprintf("server-%d", i))
 		go func() {
 			defer wg.Done()
-			cm.Add(name, &mockMCPClient{}, []string{"tool"})
+			cm.Add(name, &mockMCPClient{}, []domain.ToolName{"tool"})
 		}()
 		go func() {
 			defer wg.Done()

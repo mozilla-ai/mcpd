@@ -1723,7 +1723,7 @@ func TestServer_SafeEnv_CrossServerFiltering(t *testing.T) {
 			// Find the server
 			var server *Server
 			for i := range servers {
-				if servers[i].Name() == tc.serverName {
+				if servers[i].Name().String() == tc.serverName {
 					server = &servers[i]
 					break
 				}
@@ -1887,7 +1887,7 @@ func TestServer_SafeArgs_CrossServerFiltering(t *testing.T) {
 	// Find servers
 	serverMap := make(map[string]*Server, len(servers))
 	for i := range servers {
-		serverMap[servers[i].Name()] = &servers[i]
+		serverMap[servers[i].Name().String()] = &servers[i]
 	}
 
 	timeServer := serverMap["time-server"]
@@ -1946,7 +1946,7 @@ func TestServer_SafeVolumes_CrossServerFiltering(t *testing.T) {
 	// Find servers.
 	serverMap := make(map[string]*Server, len(servers))
 	for i := range servers {
-		serverMap[servers[i].Name()] = &servers[i]
+		serverMap[servers[i].Name().String()] = &servers[i]
 	}
 
 	filesystemServer := serverMap["filesystem-server"]

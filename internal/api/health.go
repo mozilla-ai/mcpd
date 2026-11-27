@@ -12,7 +12,6 @@ import (
 
 	"github.com/mozilla-ai/mcpd/internal/contracts"
 	"github.com/mozilla-ai/mcpd/internal/domain"
-	"github.com/mozilla-ai/mcpd/internal/filter"
 )
 
 const (
@@ -78,7 +77,7 @@ func (d DomainServerHealth) ToAPIType() (ServerHealth, error) {
 		latency = &s
 	}
 	return ServerHealth{
-		Name:           filter.NormalizeString(d.Name),
+		Name:           d.Name.String(),
 		Status:         status,
 		Latency:        latency,
 		LastChecked:    d.LastChecked,
@@ -126,7 +125,7 @@ func (r *healthRoutes) handleList() (*ServersHealthResponse, error) {
 	servers := r.monitor.List()
 
 	slices.SortFunc(servers, func(a, b domain.ServerHealth) int {
-		return strings.Compare(a.Name, b.Name)
+		return strings.Compare(a.Name.Key(), b.Name.Key())
 	})
 
 	apiServers := make([]ServerHealth, 0, len(servers))
@@ -146,7 +145,7 @@ func (r *healthRoutes) handleList() (*ServersHealthResponse, error) {
 
 // handleStatus returns the current health of the named MCP server.
 func (r *healthRoutes) handleStatus(name string) (*ServerHealthResponse, error) {
-	health, err := r.monitor.Status(name)
+	health, err := r.monitor.Status(domain.ServerName(name))
 	if err != nil {
 		return nil, err
 	}

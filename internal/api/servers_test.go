@@ -10,56 +10,67 @@ import (
 	"github.com/mark3labs/mcp-go/mcp"
 	"github.com/stretchr/testify/require"
 
+	"github.com/mozilla-ai/mcpd/internal/domain"
 	"github.com/mozilla-ai/mcpd/internal/errors"
 )
 
 // mockMCPClientAccessor implements the MCPClientAccessor interface for testing.
+// mockMCPClientAccessor indexes by each name's key, matching the real accessor, so a test exercises the
+// same case-insensitive lookup the API relies on.
 type mockMCPClientAccessor struct {
 	clients map[string]client.MCPClient
-	tools   map[string][]string
+	names   map[string]domain.ServerName
+	tools   map[string][]domain.ToolName
 }
 
 func newMockMCPClientAccessor() *mockMCPClientAccessor {
 	return &mockMCPClientAccessor{
 		clients: make(map[string]client.MCPClient),
-		tools:   make(map[string][]string),
+		names:   make(map[string]domain.ServerName),
+		tools:   make(map[string][]domain.ToolName),
 	}
 }
 
-func (m *mockMCPClientAccessor) Add(name string, c client.MCPClient, tools []string) {
-	m.clients[name] = c
-	m.tools[name] = tools
+func (m *mockMCPClientAccessor) Add(name domain.ServerName, c client.MCPClient, tools []domain.ToolName) {
+	m.clients[name.Key()] = c
+	m.names[name.Key()] = name
+	m.tools[name.Key()] = tools
 }
 
-func (m *mockMCPClientAccessor) Client(name string) (client.MCPClient, bool) {
-	c, ok := m.clients[name]
+func (m *mockMCPClientAccessor) Client(name domain.ServerName) (client.MCPClient, bool) {
+	c, ok := m.clients[name.Key()]
+
 	return c, ok
 }
 
-func (m *mockMCPClientAccessor) Tools(name string) ([]string, bool) {
-	tools, ok := m.tools[name]
+func (m *mockMCPClientAccessor) Tools(name domain.ServerName) ([]domain.ToolName, bool) {
+	tools, ok := m.tools[name.Key()]
+
 	return tools, ok
 }
 
-func (m *mockMCPClientAccessor) List() []string {
-	names := make([]string, 0, len(m.clients))
-	for name := range m.clients {
+func (m *mockMCPClientAccessor) List() []domain.ServerName {
+	names := make([]domain.ServerName, 0, len(m.names))
+	for _, name := range m.names {
 		names = append(names, name)
 	}
+
 	return names
 }
 
-func (m *mockMCPClientAccessor) UpdateTools(name string, tools []string) error {
-	if _, ok := m.clients[name]; !ok {
+func (m *mockMCPClientAccessor) UpdateTools(name domain.ServerName, tools []domain.ToolName) error {
+	if _, ok := m.clients[name.Key()]; !ok {
 		return fmt.Errorf("server '%s' not found", name)
 	}
-	m.tools[name] = tools
+	m.tools[name.Key()] = tools
+
 	return nil
 }
 
-func (m *mockMCPClientAccessor) Remove(name string) {
-	delete(m.clients, name)
-	delete(m.tools, name)
+func (m *mockMCPClientAccessor) Remove(name domain.ServerName) {
+	delete(m.clients, name.Key())
+	delete(m.names, name.Key())
+	delete(m.tools, name.Key())
 }
 
 // mockMCPClient implements the client.MCPClient interface for testing.
@@ -207,7 +218,7 @@ func TestHandleTools_CaseInsensitiveFiltering(t *testing.T) {
 	}
 
 	// Server has allowed tools in mixed case, but they should be normalized for comparison.
-	allowedTools := []string{"gettime", "set_alarm"}
+	allowedTools := []domain.ToolName{"gettime", "set_alarm"}
 	accessor.Add("testserver", mockClient, allowedTools)
 
 	result, err := newServerRoutes(accessor, RouteOptions{}).handleTools(context.Background(), "testserver")
@@ -244,7 +255,7 @@ func TestHandleToolCall_ToolNameNormalization(t *testing.T) {
 	}
 
 	// Allowed tools are stored in normalized form.
-	allowedTools := []string{"gettime", "setalarm"}
+	allowedTools := []domain.ToolName{"gettime", "setalarm"}
 	accessor.Add("testserver", mockClient, allowedTools)
 
 	// Call with mixed case tool name - should be normalized and match.
@@ -294,7 +305,7 @@ func TestHandleToolCall_UsesConfiguredTimeout(t *testing.T) {
 			},
 		},
 	}
-	accessor.Add("testserver", mockClient, []string{"gettime"})
+	accessor.Add("testserver", mockClient, []domain.ToolName{"gettime"})
 
 	timeout := 30 * time.Second
 	routes := newServerRoutes(accessor, RouteOptions{ToolCallTimeout: timeout})
@@ -322,7 +333,7 @@ func TestHandleToolCall_ToolNotAllowed(t *testing.T) {
 	accessor := newMockMCPClientAccessor()
 
 	mockClient := &mockMCPClient{}
-	allowedTools := []string{"gettime"}
+	allowedTools := []domain.ToolName{"gettime"}
 	accessor.Add("testserver", mockClient, allowedTools)
 
 	// Try to call a tool that's not in the allowed list.
@@ -374,7 +385,7 @@ func TestHandleTools_NoTools(t *testing.T) {
 	mockClient := &mockMCPClient{}
 
 	// Add server with no tools.
-	accessor.Add("testserver", mockClient, []string{})
+	accessor.Add("testserver", mockClient, []domain.ToolName{})
 
 	result, err := newServerRoutes(accessor, RouteOptions{}).handleTools(context.Background(), "testserver")
 	require.Error(t, err)
@@ -392,7 +403,7 @@ func TestHandleTools_PropagatesRequestCancellation(t *testing.T) {
 			Tools: []mcp.Tool{{Name: "gettime"}},
 		},
 	}
-	accessor.Add("testserver", mockClient, []string{"gettime"})
+	accessor.Add("testserver", mockClient, []domain.ToolName{"gettime"})
 
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
@@ -411,7 +422,7 @@ func TestHandleTools_AppliesRequestTimeout(t *testing.T) {
 			Tools: []mcp.Tool{{Name: "gettime"}},
 		},
 	}
-	accessor.Add("testserver", mockClient, []string{"gettime"})
+	accessor.Add("testserver", mockClient, []domain.ToolName{"gettime"})
 
 	_, err := newServerRoutes(accessor, RouteOptions{}).handleTools(context.Background(), "testserver")
 	require.NoError(t, err)

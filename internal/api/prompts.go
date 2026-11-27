@@ -8,6 +8,7 @@ import (
 	"github.com/danielgtaylor/huma/v2"
 	"github.com/mark3labs/mcp-go/mcp"
 
+	"github.com/mozilla-ai/mcpd/internal/domain"
 	errorsint "github.com/mozilla-ai/mcpd/internal/errors"
 )
 
@@ -147,7 +148,7 @@ func (r *serverRoutes) handlePrompts(
 	name string,
 	cursor string,
 ) (*PromptsListResponse, error) {
-	mcpClient, clientOk := r.accessor.Client(name)
+	mcpClient, clientOk := r.accessor.Client(domain.ServerName(name))
 	if !clientOk {
 		return nil, fmt.Errorf("%w: %s", errorsint.ErrServerNotFound, name)
 	}
@@ -198,7 +199,7 @@ func (r *serverRoutes) handlePromptGenerate(
 	promptName string,
 	arguments map[string]string,
 ) (*GeneratePromptResponse, error) {
-	mcpClient, clientOk := r.accessor.Client(serverName)
+	mcpClient, clientOk := r.accessor.Client(domain.ServerName(serverName))
 	if !clientOk {
 		return nil, fmt.Errorf("%w: %s", errorsint.ErrServerNotFound, serverName)
 	}

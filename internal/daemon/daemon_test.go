@@ -16,6 +16,7 @@ import (
 
 	"github.com/mozilla-ai/mcpd/internal/config"
 	configcontext "github.com/mozilla-ai/mcpd/internal/context"
+	"github.com/mozilla-ai/mcpd/internal/domain"
 	"github.com/mozilla-ai/mcpd/internal/runtime"
 )
 
@@ -710,7 +711,7 @@ func TestDaemon_ClientClosingWithTimeout(t *testing.T) {
 			name: "Fast close - completes immediately",
 			setupClients: func(d *Daemon) {
 				client := newMockMCPClientWithBehavior(0, nil)
-				d.clientManager.Add("fast-server", client, []string{"tool1"})
+				d.clientManager.Add(domain.ServerName("fast-server"), client, []domain.ToolName{"tool1"})
 			},
 			expectedTimeout: false,
 			expectedLogs:    []string{"Closing client fast-server", "Closed client fast-server"},
@@ -720,7 +721,7 @@ func TestDaemon_ClientClosingWithTimeout(t *testing.T) {
 			name: "Slow close - takes 2s (under 5s timeout)",
 			setupClients: func(d *Daemon) {
 				client := newMockMCPClientWithBehavior(2*time.Second, nil)
-				d.clientManager.Add("slow-server", client, []string{"tool1"})
+				d.clientManager.Add(domain.ServerName("slow-server"), client, []domain.ToolName{"tool1"})
 			},
 			expectedTimeout: false,
 			expectedLogs:    []string{"Closing client slow-server", "Closed client slow-server"},
@@ -730,7 +731,7 @@ func TestDaemon_ClientClosingWithTimeout(t *testing.T) {
 			name: "Timeout - takes 6s (exceeds 5s timeout)",
 			setupClients: func(d *Daemon) {
 				client := newMockMCPClientWithBehavior(6*time.Second, nil)
-				d.clientManager.Add("timeout-server", client, []string{"tool1"})
+				d.clientManager.Add(domain.ServerName("timeout-server"), client, []domain.ToolName{"tool1"})
 			},
 			expectedTimeout: true,
 			expectedLogs:    []string{"Closing client timeout-server", "Timeout (5s) closing client timeout-server"},
@@ -740,7 +741,7 @@ func TestDaemon_ClientClosingWithTimeout(t *testing.T) {
 			name: "Error on close but still closes quickly",
 			setupClients: func(d *Daemon) {
 				client := newMockMCPClientWithBehavior(100*time.Millisecond, errors.New("close error"))
-				d.clientManager.Add("error-server", client, []string{"tool1"})
+				d.clientManager.Add(domain.ServerName("error-server"), client, []domain.ToolName{"tool1"})
 			},
 			expectedTimeout: false,
 			expectedLogs:    []string{"Closing client error-server", "Closed client error-server"},
@@ -873,7 +874,7 @@ func TestDaemon_MultipleClientsCloseConcurrently(t *testing.T) {
 	}
 
 	for name, client := range clients {
-		daemon.clientManager.Add(name, client, []string{"tool"})
+		daemon.clientManager.Add(domain.ServerName(name), client, []domain.ToolName{"tool"})
 	}
 
 	ctx, cancel := context.WithCancel(context.Background())
@@ -944,8 +945,8 @@ func TestDaemon_CloseAllClients_Direct(t *testing.T) {
 
 	fastClient := newMockMCPClientWithBehavior(100*time.Millisecond, nil)
 	slowClient := newMockMCPClientWithBehavior(2*time.Second, nil)
-	daemon.clientManager.Add("fast-client", fastClient, []string{"tool1"})
-	daemon.clientManager.Add("slow-client", slowClient, []string{"tool2"})
+	daemon.clientManager.Add(domain.ServerName("fast-client"), fastClient, []domain.ToolName{"tool1"})
+	daemon.clientManager.Add(domain.ServerName("slow-client"), slowClient, []domain.ToolName{"tool2"})
 
 	// Record start time
 	startTime := time.Now()
@@ -1261,7 +1262,7 @@ func TestDaemon_StopMCPServer(t *testing.T) {
 			logger.RegisterSink(customSink)
 
 			clientManager := NewClientManager()
-			healthTracker := NewHealthTracker([]string{})
+			healthTracker := NewHealthTracker([]domain.ServerName{})
 			daemon := &Daemon{
 				logger:                logger,
 				clientManager:         clientManager,
@@ -1276,11 +1277,11 @@ func TestDaemon_StopMCPServer(t *testing.T) {
 
 			if tc.serverExists {
 				testClient := newMockMCPClientWithBehavior(tc.clientDelay, nil)
-				clientManager.Add("test-server", testClient, []string{"tool1"})
-				healthTracker.Add("test-server")
+				clientManager.Add(domain.ServerName("test-server"), testClient, []domain.ToolName{"tool1"})
+				healthTracker.Add(domain.ServerName("test-server"))
 			}
 
-			err := daemon.stopMCPServer(serverName)
+			err := daemon.stopMCPServer(domain.ServerName(serverName))
 
 			if tc.expectError {
 				require.Error(t, err)
@@ -1291,10 +1292,10 @@ func TestDaemon_StopMCPServer(t *testing.T) {
 				require.NoError(t, err)
 
 				// Verify server was removed from managers
-				_, exists := clientManager.Client("test-server")
+				_, exists := clientManager.Client(domain.ServerName("test-server"))
 				assert.False(t, exists, "Client should be removed from manager")
 
-				_, err := healthTracker.Status("test-server")
+				_, err := healthTracker.Status(domain.ServerName("test-server"))
 				assert.Error(t, err, "Server should be removed from health tracker")
 			}
 
@@ -1497,7 +1498,7 @@ func TestDaemon_PingAllServers_ContextCancellation_Deadlock(t *testing.T) {
 	logger.RegisterSink(customSink)
 
 	clientManager := NewClientManager()
-	healthTracker := NewHealthTracker([]string{"fast-server", "stuck-server"})
+	healthTracker := NewHealthTracker([]domain.ServerName{"fast-server", "stuck-server"})
 
 	daemon := &Daemon{
 		logger:                   logger,
@@ -1508,13 +1509,13 @@ func TestDaemon_PingAllServers_ContextCancellation_Deadlock(t *testing.T) {
 
 	// Add a fast-responding server.
 	fastClient := newMockMCPClientWithBehavior(0, nil)
-	clientManager.Add("fast-server", fastClient, []string{"tool1"})
-	healthTracker.Add("fast-server")
+	clientManager.Add(domain.ServerName("fast-server"), fastClient, []domain.ToolName{"tool1"})
+	healthTracker.Add(domain.ServerName("fast-server"))
 
 	// Add a stuck server that simulates blocked Docker I/O (will block for 30 seconds).
 	stuckClient := newMockMCPClientWithStuckPing(30 * time.Second)
-	clientManager.Add("stuck-server", stuckClient, []string{"tool2"})
-	healthTracker.Add("stuck-server")
+	clientManager.Add(domain.ServerName("stuck-server"), stuckClient, []domain.ToolName{"tool2"})
+	healthTracker.Add(domain.ServerName("stuck-server"))
 
 	// Create a context that we'll cancel after the stuck ping starts.
 	ctx, cancel := context.WithCancel(context.Background())
@@ -1556,10 +1557,9 @@ func TestDaemon_PingAllServers_ContextCancellation_Deadlock(t *testing.T) {
 	}
 }
 
-// TestServersByNormalizedName guards the configured name against the index built over it.
-// This is a regression guard rather than a bug reproduction: the assignment it replaced wrote to a
-// per-iteration copy that was never read, so it had no observable effect.
-func TestServersByNormalizedName(t *testing.T) {
+// TestServersByNameKey pins the configured name against the index built over it, so a server stays
+// reportable under the name the operator wrote while two configurations are compared by key.
+func TestServersByNameKey(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
@@ -1600,33 +1600,31 @@ func TestServersByNormalizedName(t *testing.T) {
 				})
 			}
 
-			indexed := serversByNormalizedName(servers)
+			indexed := serversByNameKey(servers)
 
 			require.Len(t, indexed, len(tc.expected))
 			for key, configured := range tc.expected {
 				srv, ok := indexed[key]
 				require.True(t, ok, "expected key %s", key)
-				require.Equal(t, configured, srv.Name())
+				require.Equal(t, configured, srv.Name().String())
 			}
 		})
 	}
 }
 
-// TestServersByNormalizedName_IndexesDistinctPointers pins that each entry points at its own copy, so
-// mutating one indexed server cannot reach another.
-func TestServersByNormalizedName_IndexesDistinctPointers(t *testing.T) {
+// TestServersByNameKey_LastDuplicateWins pins which server an index keeps when two names share a key,
+// because a configuration that admits such a pair must still compare deterministically.
+func TestServersByNameKey_LastDuplicateWins(t *testing.T) {
 	t.Parallel()
 
 	servers := []runtime.Server{
-		{ServerEntry: config.ServerEntry{Name: "first"}},
-		{ServerEntry: config.ServerEntry{Name: "second"}},
+		{ServerEntry: config.ServerEntry{Name: "GitHub", Package: "first"}},
+		{ServerEntry: config.ServerEntry{Name: "github", Package: "second"}},
 	}
 
-	indexed := serversByNormalizedName(servers)
-	require.Len(t, indexed, 2)
+	indexed := serversByNameKey(servers)
 
-	indexed["first"].ServerEntry.Name = "changed"
-
-	require.Equal(t, "second", indexed["second"].Name())
-	require.Equal(t, "first", servers[0].Name())
+	require.Len(t, indexed, 1)
+	require.Equal(t, "github", indexed["github"].Name().String())
+	require.Equal(t, "second", indexed["github"].Package)
 }

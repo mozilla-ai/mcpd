@@ -4,13 +4,11 @@ import (
 	"fmt"
 	"maps"
 	"slices"
-	"strings"
 	"sync"
 	"time"
 
 	"github.com/mozilla-ai/mcpd/internal/domain"
 	"github.com/mozilla-ai/mcpd/internal/errors"
-	"github.com/mozilla-ai/mcpd/internal/filter"
 )
 
 // HealthTracker is used to track the health of registered MCP servers.
@@ -24,11 +22,11 @@ type HealthTracker struct {
 }
 
 // NewHealthTracker creates a HealthTracker which tracks the specified MCP server names.
-func NewHealthTracker(serverNames []string) *HealthTracker {
+func NewHealthTracker(serverNames []domain.ServerName) *HealthTracker {
 	statuses := make(map[string]domain.ServerHealth, len(serverNames))
 	for _, name := range serverNames {
-		statuses[filter.NormalizeString(name)] = domain.ServerHealth{
-			Name:   strings.TrimSpace(name),
+		statuses[name.Key()] = domain.ServerHealth{
+			Name:   name,
 			Status: domain.HealthStatusUnknown,
 		}
 	}
@@ -39,11 +37,11 @@ func NewHealthTracker(serverNames []string) *HealthTracker {
 
 // Status returns the health status for a single tracked server.
 // The server name is normalized for case-insensitive lookup.
-func (h *HealthTracker) Status(name string) (domain.ServerHealth, error) {
+func (h *HealthTracker) Status(name domain.ServerName) (domain.ServerHealth, error) {
 	h.mu.RLock()
 	defer h.mu.RUnlock()
 
-	if health, ok := h.statuses[filter.NormalizeString(name)]; ok {
+	if health, ok := h.statuses[name.Key()]; ok {
 		return health, nil
 	}
 
@@ -61,13 +59,17 @@ func (h *HealthTracker) List() []domain.ServerHealth {
 // The server name is normalized for case-insensitive lookup, and the record keeps the configured name.
 // The current time is recorded as LastChecked, and LastSuccessful is updated only if status is HealthStatusOK.
 // Latency can be nil if the ping failed or was not measured.
-func (h *HealthTracker) Update(name string, status domain.HealthStatus, latency *time.Duration) error {
+func (h *HealthTracker) Update(
+	name domain.ServerName,
+	status domain.HealthStatus,
+	latency *time.Duration,
+) error {
 	h.mu.Lock()
 	defer h.mu.Unlock()
 
 	now := time.Now().UTC()
 
-	key := filter.NormalizeString(name)
+	key := name.Key()
 
 	prev, exists := h.statuses[key]
 	if !exists {
@@ -94,15 +96,15 @@ func (h *HealthTracker) Update(name string, status domain.HealthStatus, latency 
 
 // Add registers a new server for health tracking, keeping the name as configured.
 // If the server is already being tracked under any casing, this is a no-op.
-func (h *HealthTracker) Add(name string) {
+func (h *HealthTracker) Add(name domain.ServerName) {
 	h.mu.Lock()
 	defer h.mu.Unlock()
 
 	// Only add if not already tracked.
-	key := filter.NormalizeString(name)
+	key := name.Key()
 	if _, exists := h.statuses[key]; !exists {
 		h.statuses[key] = domain.ServerHealth{
-			Name:   strings.TrimSpace(name),
+			Name:   name,
 			Status: domain.HealthStatusUnknown,
 		}
 	}
@@ -110,9 +112,9 @@ func (h *HealthTracker) Add(name string) {
 
 // Remove stops tracking health for a server and removes its health data.
 // The server name is normalized for case-insensitive lookup.
-func (h *HealthTracker) Remove(name string) {
+func (h *HealthTracker) Remove(name domain.ServerName) {
 	h.mu.Lock()
 	defer h.mu.Unlock()
 
-	delete(h.statuses, filter.NormalizeString(name))
+	delete(h.statuses, name.Key())
 }

@@ -8,6 +8,7 @@ import (
 	"github.com/mark3labs/mcp-go/mcp"
 	"github.com/stretchr/testify/require"
 
+	"github.com/mozilla-ai/mcpd/internal/domain"
 	internalerrors "github.com/mozilla-ai/mcpd/internal/errors"
 )
 
@@ -85,7 +86,7 @@ func TestAPI_HandlePrompts_Success(t *testing.T) {
 			}
 
 			accessor := newMockMCPClientAccessor()
-			accessor.Add(tc.serverName, mockClient, []string{})
+			accessor.Add(domain.ServerName(tc.serverName), mockClient, []domain.ToolName{})
 
 			result, err := newServerRoutes(
 				accessor,
@@ -116,7 +117,7 @@ func TestAPI_HandlePrompts_WithCursor(t *testing.T) {
 	}
 
 	accessor := newMockMCPClientAccessor()
-	accessor.Add("test-server", mockClient, []string{})
+	accessor.Add("test-server", mockClient, []domain.ToolName{})
 
 	result, err := newServerRoutes(accessor, RouteOptions{}).handlePrompts(context.Background(), "test-server", cursor)
 
@@ -148,7 +149,7 @@ func TestAPI_HandlePrompts_ListError(t *testing.T) {
 	}
 
 	accessor := newMockMCPClientAccessor()
-	accessor.Add("test-server", mockClient, []string{})
+	accessor.Add("test-server", mockClient, []domain.ToolName{})
 
 	result, err := newServerRoutes(accessor, RouteOptions{}).handlePrompts(context.Background(), "test-server", "")
 
@@ -165,7 +166,7 @@ func TestAPI_HandlePrompts_NilResult(t *testing.T) {
 	}
 
 	accessor := newMockMCPClientAccessor()
-	accessor.Add("test-server", mockClient, []string{})
+	accessor.Add("test-server", mockClient, []domain.ToolName{})
 
 	result, err := newServerRoutes(accessor, RouteOptions{}).handlePrompts(context.Background(), "test-server", "")
 
@@ -182,7 +183,7 @@ func TestAPI_HandlePrompts_MethodNotFound(t *testing.T) {
 	}
 
 	accessor := newMockMCPClientAccessor()
-	accessor.Add("test-server", mockClient, []string{})
+	accessor.Add("test-server", mockClient, []domain.ToolName{})
 
 	result, err := newServerRoutes(accessor, RouteOptions{}).handlePrompts(context.Background(), "test-server", "")
 
@@ -207,7 +208,7 @@ func TestAPI_HandlePromptGenerate_Success(t *testing.T) {
 	}
 
 	accessor := newMockMCPClientAccessor()
-	accessor.Add("test-server", mockClient, []string{})
+	accessor.Add("test-server", mockClient, []domain.ToolName{})
 
 	promptName := "test-prompt"
 	arguments := map[string]string{}
@@ -240,7 +241,7 @@ func TestAPI_HandlePromptGenerate_WithArguments(t *testing.T) {
 	}
 
 	accessor := newMockMCPClientAccessor()
-	accessor.Add("test-server", mockClient, []string{})
+	accessor.Add("test-server", mockClient, []domain.ToolName{})
 
 	promptName := "template-prompt"
 	arguments := map[string]string{
@@ -280,7 +281,7 @@ func TestAPI_HandlePromptGenerate_MultipleMessages(t *testing.T) {
 	}
 
 	accessor := newMockMCPClientAccessor()
-	accessor.Add("test-server", mockClient, []string{})
+	accessor.Add("test-server", mockClient, []domain.ToolName{})
 
 	promptName := "multi-prompt"
 	arguments := map[string]string{}
@@ -323,7 +324,7 @@ func TestAPI_HandlePromptGenerate_GenerateError(t *testing.T) {
 	}
 
 	accessor := newMockMCPClientAccessor()
-	accessor.Add("test-server", mockClient, []string{})
+	accessor.Add("test-server", mockClient, []domain.ToolName{})
 
 	promptName := "nonexistent-prompt"
 	arguments := map[string]string{}
@@ -346,7 +347,7 @@ func TestAPI_HandlePromptGenerate_NilResult(t *testing.T) {
 	}
 
 	accessor := newMockMCPClientAccessor()
-	accessor.Add("test-server", mockClient, []string{})
+	accessor.Add("test-server", mockClient, []domain.ToolName{})
 
 	promptName := "test-prompt"
 	arguments := map[string]string{}
@@ -369,7 +370,7 @@ func TestAPI_HandlePromptGenerate_MethodNotFound(t *testing.T) {
 	}
 
 	accessor := newMockMCPClientAccessor()
-	accessor.Add("test-server", mockClient, []string{})
+	accessor.Add("test-server", mockClient, []domain.ToolName{})
 
 	promptName := "test-prompt"
 	arguments := map[string]string{}

@@ -11,6 +11,7 @@ import (
 
 	"github.com/mozilla-ai/mcpd/internal/config"
 	"github.com/mozilla-ai/mcpd/internal/context"
+	"github.com/mozilla-ai/mcpd/internal/domain"
 )
 
 // Server composes static config with runtime overrides.
@@ -44,8 +45,19 @@ func (v Volume) String() string {
 	return fmt.Sprintf("%s:%s", v.From, v.Path)
 }
 
-func (s *Server) Name() string {
-	return s.ServerEntry.Name
+// Name returns the server's name as the operator configured it.
+func (s *Server) Name() domain.ServerName {
+	return domain.ServerName(s.ServerEntry.Name)
+}
+
+// AllowedTools returns the tool names the operator allowed for this server.
+func (s *Server) AllowedTools() []domain.ToolName {
+	tools := make([]domain.ToolName, 0, len(s.Tools))
+	for _, tool := range s.Tools {
+		tools = append(tools, domain.ToolName(tool))
+	}
+
+	return tools
 }
 
 // Equals compares two Server instances for complete equality.
@@ -296,7 +308,7 @@ func (s *Server) exportArgs(appName string, recordContractFunc func(k, v string)
 	// Transform each positional arg to use an environment variable placeholder.
 	for _, argName := range s.RequiredPositionalArgs {
 		// Create env var name based on argument name for clarity
-		envVarName := buildEnvVarName(appName, s.Name(), argName)
+		envVarName := buildEnvVarName(appName, s.Name().String(), argName)
 		envVarRef := fmt.Sprintf("${%s}", envVarName)
 		args = append(args, envVarRef)
 		recordContractFunc(envVarName, envVarRef)
@@ -307,7 +319,7 @@ func (s *Server) exportArgs(appName string, recordContractFunc func(k, v string)
 
 	// Transform and add the required args that need values.
 	for _, v := range s.RequiredValueArgs {
-		t := transformValueArg(appName, s.Name(), v)
+		t := transformValueArg(appName, s.Name().String(), v)
 		args = append(args, t.FormattedArg)                 // Track for portable execution context export.
 		recordContractFunc(t.EnvVarName, t.EnvVarReference) // Track for contract export (e.g. '.env' file).
 	}
@@ -353,7 +365,7 @@ func (s *Server) exportEnvVars(appName string) map[string]string {
 
 	// Any required env names from config should be included.
 	for _, k := range s.RequiredEnvVars {
-		envVarName := buildEnvVarName(appName, s.Name(), k)
+		envVarName := buildEnvVarName(appName, s.Name().String(), k)
 		envs[k] = fmt.Sprintf("${%s}", envVarName)
 	}
 
@@ -361,7 +373,7 @@ func (s *Server) exportEnvVars(appName string) map[string]string {
 	for k := range s.Env {
 		// Skip if we've already captured this variable via required env vars.
 		if _, ok := envs[k]; !ok {
-			envVarName := buildEnvVarName(appName, s.Name(), k)
+			envVarName := buildEnvVarName(appName, s.Name().String(), k)
 			envs[k] = fmt.Sprintf("${%s}", envVarName)
 		}
 	}
@@ -401,7 +413,7 @@ func (s *Server) exportPositionalArgs(
 	for i := range positional {
 		// Number positional args starting from 1.
 		argKey := fmt.Sprintf("ARG_%d", i+1)
-		envVarName := buildEnvVarName(appName, s.Name(), argKey)
+		envVarName := buildEnvVarName(appName, s.Name().String(), argKey)
 		envVarRef := fmt.Sprintf("${%s}", envVarName)
 		result = append(result, envVarRef)
 		recordContractFunc(envVarName, envVarRef)
@@ -438,7 +450,7 @@ func (s *Server) exportFlagArgs(
 
 		// Handle --arg=value format.
 		if strings.Contains(flag, "=") {
-			t := transformValueArg(appName, s.Name(), flag)
+			t := transformValueArg(appName, s.Name().String(), flag)
 			result = append(result, t.FormattedArg)
 			recordContractFunc(t.EnvVarName, t.EnvVarReference)
 			seen[argName] = struct{}{}
@@ -447,7 +459,7 @@ func (s *Server) exportFlagArgs(
 
 		// Handle --arg value format (check next item).
 		if i+1 < len(flags) && !strings.HasPrefix(flags[i+1], "--") {
-			t := transformValueArg(appName, s.Name(), flag)
+			t := transformValueArg(appName, s.Name().String(), flag)
 			result = append(result, t.FormattedArg)
 			recordContractFunc(t.EnvVarName, t.EnvVarReference)
 			seen[argName] = struct{}{}
@@ -509,8 +521,8 @@ func (s *Servers) Export(path string) (map[string]string, error) {
 		// TODO: Export volumes similar to args and env, creating contract entries for volume paths.
 
 		// Store the parsed and sanitized data in the new portable execution context.
-		pec.Servers[srv.Name()] = context.ServerExecutionContext{
-			Name: srv.Name(),
+		pec.Servers[srv.Name().String()] = context.ServerExecutionContext{
+			Name: srv.Name().String(),
 			Args: args,
 			Env:  envs,
 		}
@@ -684,7 +696,7 @@ func (s *Server) filterEnv(env []string) []string {
 	}
 
 	appName := "MCPD" // TODO: Fix import cycle that occurs if we use strings.ToUpper(cmd.AppName())
-	srvName := strings.ReplaceAll(strings.ToUpper(s.Name()), "-", "_")
+	srvName := strings.ReplaceAll(strings.ToUpper(s.Name().String()), "-", "_")
 
 	// MCP server specific naming
 	appPrefix := fmt.Sprintf("%s__", appName)                 // "MCPD__"
@@ -739,7 +751,7 @@ func (s *Server) filterArgs(args []string) []string {
 		return []string{}
 	}
 
-	srvName := strings.ReplaceAll(strings.ToUpper(s.Name()), "-", "_")
+	srvName := strings.ReplaceAll(strings.ToUpper(s.Name().String()), "-", "_")
 	var filtered []string
 
 	for i, arg := range args {
@@ -767,7 +779,7 @@ func (s *Server) filterVolumes(volumes []Volume) []Volume {
 		return []Volume{}
 	}
 
-	srvName := strings.ReplaceAll(strings.ToUpper(s.Name()), "-", "_")
+	srvName := strings.ReplaceAll(strings.ToUpper(s.Name().String()), "-", "_")
 	filtered := make([]Volume, 0, len(volumes))
 
 	for _, vol := range volumes {
