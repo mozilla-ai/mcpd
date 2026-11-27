@@ -43,9 +43,11 @@ A server's `name` is reported exactly as written here, and a tool's name exactly
 
 A server name is matched without regard to case wherever you supply one. `/api/v1/servers/GitHub/tools` and `/api/v1/servers/github/tools` reach the same server, and so does `mcpd config tools set github`. Because of that, two servers whose names differ only by case would be one server, so `mcpd` refuses to start with such a pair and names both declarations.
 
-A tool name is matched without regard to case, then resolved to the name the MCP server reports, and only the resolved name is sent upstream. So `getcurrenttime`, `getCurrentTime` and `GETCURRENTTIME` all reach a tool the server calls `getCurrentTime`. A tool call is refused if the server reports no tool matching the name, or if its tool list cannot be read.
+A tool name is matched exactly, apart from surrounding whitespace, because the Model Context Protocol defines tool names as case-sensitive. A server may offer both `getCurrentTime` and `GETCURRENTTIME`, and they are two different tools. So `getCurrentTime` reaches the tool the server calls `getCurrentTime`, and `getcurrenttime` reaches nothing. The name you supply is the name sent upstream.
 
-The `tools` allow list is matched the same way, so an entry written as `getcurrenttime` permits a tool the server reports as `getCurrentTime`. `mcpd config tools set` records the name the registry reports rather than the spelling you typed, and will not record one tool under two spellings.
+The `tools` allow list is matched the same way, so an entry written as `getcurrenttime` does not permit a tool the server reports as `getCurrentTime`. `mcpd config tools set` refuses a tool name that differs from the registry's own spelling, and records the name as the registry spells it.
+
+An allow list written by `mcpd` 0.7.0 or earlier holds lowercased tool names. Where a server spells a tool with any uppercase letter, update the entry to the server's spelling, which `mcpd config tools list` now reports unchanged.
 
 ---
 
