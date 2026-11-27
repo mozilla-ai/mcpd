@@ -9,6 +9,7 @@ import (
 	"github.com/BurntSushi/toml"
 
 	"github.com/mozilla-ai/mcpd/internal/context"
+	"github.com/mozilla-ai/mcpd/internal/domain"
 	"github.com/mozilla-ai/mcpd/internal/flags"
 	"github.com/mozilla-ai/mcpd/internal/perms"
 )
@@ -300,13 +301,16 @@ func (c *Config) validateServers() error {
 
 // validateFields ensures that all ServerEntry's in Config have a name and package.
 func (c *Config) validateFields() error {
-	seen := map[string]struct{}{}
+	// Names are keyed as they are looked up, so a pair that differs only by case is rejected here rather
+	// than collapsing onto one server at runtime.
+	seen := map[string]string{}
 
 	for _, entry := range c.Servers {
-		if _, ok := seen[entry.Name]; ok {
-			return fmt.Errorf("duplicate server name '%s'", entry.Name)
+		key := domain.ServerName(entry.Name).Key()
+		if first, ok := seen[key]; ok {
+			return fmt.Errorf("duplicate server name '%s': already declared as '%s'", entry.Name, first)
 		}
-		seen[entry.Name] = struct{}{}
+		seen[key] = entry.Name
 		if strings.TrimSpace(entry.Name) == "" {
 			return fmt.Errorf("server entry has empty name")
 		}

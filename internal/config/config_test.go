@@ -1067,3 +1067,66 @@ func TestSaveConfig_RefusesAConfigItCannotLoad(t *testing.T) {
 	require.Contains(t, err.Error(), "CORS is enabled but no origins are allowed")
 	require.NoFileExists(t, path, "an invalid config must not reach disk")
 }
+
+// TestValidateFields_RejectsNamesDifferingOnlyByCase pins that a configuration cannot admit two servers
+// that resolve to one server at runtime. Lookups match a name without regard to case, so such a pair
+// collapses onto one entry, leaving one server unreachable and its process unmanaged.
+func TestValidateFields_RejectsNamesDifferingOnlyByCase(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name      string
+		servers   []string
+		expectErr string
+	}{
+		{
+			name:      "differing only by case",
+			servers:   []string{"GitHub", "github"},
+			expectErr: "duplicate server name",
+		},
+		{
+			name:      "differing only by case and whitespace",
+			servers:   []string{"GitHub", "  GITHUB  "},
+			expectErr: "duplicate server name",
+		},
+		{
+			name:      "an exact duplicate",
+			servers:   []string{"github", "github"},
+			expectErr: "duplicate server name",
+		},
+		{
+			name:      "genuinely distinct names",
+			servers:   []string{"GitHub", "GitLab", "time"},
+			expectErr: "",
+		},
+		{
+			name:      "one server",
+			servers:   []string{"GitHub"},
+			expectErr: "",
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			cfg := &Config{}
+			for _, name := range tc.servers {
+				cfg.Servers = append(cfg.Servers, ServerEntry{
+					Name:    name,
+					Package: "uvx::example@1.0.0",
+				})
+			}
+
+			err := cfg.validateFields()
+			if tc.expectErr == "" {
+				require.NoError(t, err)
+
+				return
+			}
+
+			require.Error(t, err)
+			require.Contains(t, err.Error(), tc.expectErr)
+		})
+	}
+}
