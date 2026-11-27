@@ -41,7 +41,9 @@ You can provide this path in multiple ways:
 
 A server's `name` is reported exactly as written here, and a tool's name exactly as the MCP server reports it. `mcpd` does not change the case of either, so `GET /api/v1/servers`, `GET /api/v1/servers/{name}/tools`, `GET /api/v1/health/servers` and `mcpd config tools list` all give you a name you can use as it stands.
 
-A server name is matched without regard to case wherever you supply one. `/api/v1/servers/GitHub/tools` and `/api/v1/servers/github/tools` reach the same server, and so does `mcpd config tools set github`. Because of that, two servers whose names differ only by case would be one server, so `mcpd` refuses to start with such a pair and names both declarations.
+A server name is matched without regard to case wherever you supply one. `/api/v1/servers/GitHub/tools` and `/api/v1/servers/github/tools` reach the same server, and so does `mcpd config tools set github`. Because of that, two servers whose names differ only by case would be one server, so `mcpd add` refuses a name another server already holds, and the daemon refuses to start with such a pair and names both declarations.
+
+A configuration written by an earlier release may already hold such a pair. Every command still reads it, so you can repair it with `mcpd remove`, naming one of the two exactly.
 
 A tool name is matched exactly, apart from surrounding whitespace, because the Model Context Protocol defines tool names as case-sensitive. A server may offer both `getCurrentTime` and `GETCURRENTTIME`, and they are two different tools. So `getCurrentTime` reaches the tool the server calls `getCurrentTime`, and `getcurrenttime` reaches nothing. The name you supply is the name sent upstream.
 
