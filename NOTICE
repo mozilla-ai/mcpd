@@ -31,9 +31,9 @@ THE SOFTWARE.
 
 
 
-## github.com/danielgtaylor/huma/v2 (v2.40.0)
+## github.com/danielgtaylor/huma/v2 (v2.41.0)
 
-License: [MIT](https://github.com/danielgtaylor/huma/blob/v2.40.0/LICENSE.md)
+License: [MIT](https://github.com/danielgtaylor/huma/blob/v2.41.0/LICENSE.md)
 
 Copyright 2020 Daniel G. Taylor
 
@@ -215,9 +215,9 @@ SOFTWARE.
 
 
 
-## github.com/mark3labs/mcp-go (v1.5.0)
+## github.com/mark3labs/mcp-go (v1.6.0)
 
-License: [MIT](https://github.com/mark3labs/mcp-go/blob/v1.5.0/LICENSE)
+License: [MIT](https://github.com/mark3labs/mcp-go/blob/v1.6.0/LICENSE)
 
 MIT License
 
@@ -743,9 +743,9 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 
 
-## golang.org/x/net (v0.61.0)
+## golang.org/x/net (v0.63.0)
 
-License: [BSD-3-Clause](https://cs.opensource.google/go/x/net/+/v0.61.0:LICENSE)
+License: [BSD-3-Clause](https://cs.opensource.google/go/x/net/+/v0.63.0:LICENSE)
 
 Copyright 2009 The Go Authors.
 
@@ -811,9 +811,9 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 
 
-## golang.org/x/sys/unix (v0.49.0)
+## golang.org/x/sys/unix (v0.50.0)
 
-License: [BSD-3-Clause](https://cs.opensource.google/go/x/sys/+/v0.49.0:LICENSE)
+License: [BSD-3-Clause](https://cs.opensource.google/go/x/sys/+/v0.50.0:LICENSE)
 
 Copyright 2009 The Go Authors.
 
@@ -845,9 +845,9 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 
 
-## golang.org/x/text (v0.43.0)
+## golang.org/x/text (v0.44.0)
 
-License: [BSD-3-Clause](https://cs.opensource.google/go/x/text/+/v0.43.0:LICENSE)
+License: [BSD-3-Clause](https://cs.opensource.google/go/x/text/+/v0.44.0:LICENSE)
 
 Copyright 2009 The Go Authors.
 
