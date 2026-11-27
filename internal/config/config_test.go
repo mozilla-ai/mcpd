@@ -125,6 +125,63 @@ func TestRemoveServer_RemovesCorrectEntry(t *testing.T) {
 	require.Equal(t, "bar", loaded.Servers[0].Name)
 }
 
+func TestRemoveServer_MatchesWithoutRegardToCase(t *testing.T) {
+	t.Parallel()
+
+	cfg := &Config{
+		configFilePath: filepath.Join(t.TempDir(), ".mcpd.toml"),
+		Servers: []ServerEntry{
+			{Name: "github", Package: "x::github@latest"},
+			{Name: "time", Package: "x::time@latest"},
+		},
+	}
+
+	require.NoError(t, cfg.RemoveServer(" GitHub "))
+
+	require.Len(t, cfg.Servers, 1)
+	require.Equal(t, "time", cfg.Servers[0].Name)
+}
+
+// TestRemoveServer_DecidesBetweenNamesSharingOneKey pins that a configuration written by an earlier
+// release, which may hold two names sharing one key, can still be repaired one entry at a time.
+func TestRemoveServer_DecidesBetweenNamesSharingOneKey(t *testing.T) {
+	t.Parallel()
+
+	newConfig := func(t *testing.T) *Config {
+		t.Helper()
+
+		return &Config{
+			configFilePath: filepath.Join(t.TempDir(), ".mcpd.toml"),
+			Servers: []ServerEntry{
+				{Name: "github", Package: "x::github@latest"},
+				{Name: "GitHub", Package: "x::other@latest"},
+			},
+		}
+	}
+
+	t.Run("an exact name removes that entry alone", func(t *testing.T) {
+		t.Parallel()
+
+		cfg := newConfig(t)
+		require.NoError(t, cfg.RemoveServer("GitHub"))
+
+		require.Len(t, cfg.Servers, 1)
+		require.Equal(t, "github", cfg.Servers[0].Name)
+	})
+
+	t.Run("a name matching neither exactly names both", func(t *testing.T) {
+		t.Parallel()
+
+		cfg := newConfig(t)
+		err := cfg.RemoveServer("GITHUB")
+
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "GitHub")
+		require.Contains(t, err.Error(), "github")
+		require.Len(t, cfg.Servers, 2, "an ambiguous name must not remove anything")
+	})
+}
+
 func TestRemoveServer_ErrorsIfNotFound(t *testing.T) {
 	cfg := &Config{
 		configFilePath: "dummy-path",

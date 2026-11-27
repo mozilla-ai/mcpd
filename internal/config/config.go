@@ -104,16 +104,43 @@ func (c *Config) RemoveServer(name string) error {
 		return fmt.Errorf("server name cannot be empty")
 	}
 
-	// Filter out servers matching the given name
-	filtered := make([]ServerEntry, 0, len(c.Servers))
+	// A server name is matched without regard to case, as it is wherever one is supplied. A configuration
+	// written by an earlier release may hold two names sharing one key, so an exact name decides between
+	// them and an ambiguous one removes nothing.
+	key := domain.ServerName(name).Key()
+
+	matches := make([]string, 0, len(c.Servers))
 	for _, s := range c.Servers {
-		if s.Name != name {
-			filtered = append(filtered, s)
+		if domain.ServerName(s.Name).Key() == key {
+			matches = append(matches, s.Name)
 		}
 	}
 
-	if len(filtered) == len(c.Servers) {
+	var target string
+
+	switch {
+	case len(matches) == 0:
 		return fmt.Errorf("server '%s' not found in config", name)
+	case len(matches) == 1:
+		target = matches[0]
+	case slices.Contains(matches, name):
+		target = name
+	default:
+		slices.Sort(matches)
+
+		return fmt.Errorf(
+			"server '%s' matches more than one entry: %s, so name one of them exactly",
+			name,
+			strings.Join(matches, ", "),
+		)
+	}
+
+	// Filter out servers matching the resolved name.
+	filtered := make([]ServerEntry, 0, len(c.Servers))
+	for _, s := range c.Servers {
+		if s.Name != target {
+			filtered = append(filtered, s)
+		}
 	}
 
 	c.Servers = filtered
