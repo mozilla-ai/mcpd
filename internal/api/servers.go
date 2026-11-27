@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/danielgtaylor/huma/v2"
+	"github.com/mark3labs/mcp-go/client"
 	"github.com/mark3labs/mcp-go/mcp"
 
 	"github.com/mozilla-ai/mcpd/internal/contracts"
@@ -183,9 +184,14 @@ func (r *serverRoutes) handleToolCall(
 	ctx, cancel := context.WithTimeout(ctx, r.toolCallTimeout)
 	defer cancel()
 
+	resolved, err := r.resolveToolName(ctx, mcpClient, server, domain.ToolName(tool))
+	if err != nil {
+		return nil, err
+	}
+
 	result, err := mcpClient.CallTool(ctx, mcp.CallToolRequest{
 		Params: mcp.CallToolParams{
-			Name:      tool,
+			Name:      resolved.String(),
 			Arguments: data,
 		},
 	})
@@ -219,6 +225,36 @@ func extractMessage(content []mcp.Content) string {
 	}
 
 	return message
+}
+
+// resolveToolName returns the name the server reports for the tool matching wanted.
+// Returns an error if the server reports no tool matching it.
+//
+// NOTE: A tool is matched by key, so the resolved name is the one the server answers to rather than the
+// spelling a caller supplied. The name that reaches the server has to be the one that was checked, because
+// two tools whose names share a key are distinct tools.
+func (r *serverRoutes) resolveToolName(
+	ctx context.Context,
+	mcpClient client.MCPClient,
+	server string,
+	wanted domain.ToolName,
+) (domain.ToolName, error) {
+	result, err := mcpClient.ListTools(ctx, mcp.ListToolsRequest{})
+	if err != nil {
+		return "", fmt.Errorf("%w: %s: %w", errors.ErrToolListFailed, server, err)
+	}
+	if result == nil {
+		return "", fmt.Errorf("%w: %s: no result", errors.ErrToolListFailed, server)
+	}
+
+	for _, tool := range result.Tools {
+		reported := domain.ToolName(tool.Name)
+		if reported.Key() == wanted.Key() {
+			return reported, nil
+		}
+	}
+
+	return "", fmt.Errorf("%w: %s/%s", errors.ErrToolForbidden, server, wanted)
 }
 
 // allowedToolKeys returns the set of keys for the given allowed tool names, for membership tests.

@@ -36,6 +36,17 @@ func (c *mockMCPClientWithToolResult) CallTool(_ context.Context, _ mcp.CallTool
 	}, nil
 }
 
+// ListTools reports the tools the handler is built with, because a tool call resolves the supplied name
+// against the names the server reports before forwarding it.
+func (c *mockMCPClientWithToolResult) ListTools(
+	_ context.Context,
+	_ mcp.ListToolsRequest,
+) (*mcp.ListToolsResult, error) {
+	return &mcp.ListToolsResult{
+		Tools: []mcp.Tool{{Name: "write_note"}, {Name: "read_note"}},
+	}, nil
+}
+
 // newTestAPIHandler builds the full API handler for a daemon bound to a loopback address.
 func newTestAPIHandler(t *testing.T, opt ...APIOption) http.Handler {
 	t.Helper()
