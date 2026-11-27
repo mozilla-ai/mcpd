@@ -75,54 +75,6 @@ func TestEqualsAny(t *testing.T) {
 	assert.False(t, p(testItem{Name: "foo", Category: "bar"}, "baz"))
 }
 
-func TestMatchRequestedSlice(t *testing.T) {
-	tests := []struct {
-		name      string
-		requested []string
-		available []string
-		want      []string
-		wantErr   string
-	}{
-		{
-			name:      "all matched",
-			requested: []string{" A ", "b"},
-			available: []string{"a", "b", "c"},
-			want:      []string{"a", "b"},
-		},
-		{
-			name:      "partial match with missing",
-			requested: []string{"A", "X"},
-			available: []string{"a", "b"},
-			wantErr:   "missing values: X",
-		},
-		{
-			name:      "none matched",
-			requested: []string{"x", "y"},
-			available: []string{"a", "b"},
-			wantErr:   "none of the requested values were found",
-		},
-		{
-			name:      "empty requested returns all available",
-			requested: []string{},
-			available: []string{"A", "B"},
-			want:      []string{"a", "b"},
-		},
-	}
-
-	for _, tc := range tests {
-		t.Run(tc.name, func(t *testing.T) {
-			got, err := MatchRequestedSlice(tc.requested, tc.available)
-			if tc.wantErr != "" {
-				require.Error(t, err)
-				assert.Contains(t, err.Error(), tc.wantErr)
-			} else {
-				require.NoError(t, err)
-				assert.ElementsMatch(t, tc.want, got)
-			}
-		})
-	}
-}
-
 func TestMatch_BasicEquals(t *testing.T) {
 	matchers := map[string]Predicate[testItem]{
 		"name": Equals(func(i testItem) string { return i.Name }),

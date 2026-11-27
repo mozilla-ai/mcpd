@@ -483,6 +483,61 @@ func TestSelectRuntime(t *testing.T) {
 	}
 }
 
+func TestMatchRequestedTools(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name      string
+		requested []string
+		available []string
+		want      []string
+		wantErr   string
+	}{
+		{
+			name:      "every requested name matches once its whitespace is trimmed",
+			requested: []string{" GetTime ", "set_alarm"},
+			available: []string{"GetTime", "set_alarm", "ListEvents"},
+			want:      []string{"GetTime", "set_alarm"},
+		},
+		{
+			name:      "no requested name returns every available name",
+			requested: []string{},
+			available: []string{"GetTime", "set_alarm"},
+			want:      []string{"GetTime", "set_alarm"},
+		},
+		{
+			name:      "none of the requested names is available",
+			requested: []string{"GetDate", "SetDate"},
+			available: []string{"GetTime"},
+			wantErr:   "none of the requested values were found",
+		},
+		{
+			name:      "a requested name differing only by case is not available",
+			requested: []string{"GetTime", "gettime"},
+			available: []string{"GetTime"},
+			wantErr:   "missing values: gettime",
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			got, err := matchRequestedTools(tc.requested, tc.available)
+
+			if tc.wantErr != "" {
+				require.EqualError(t, err, tc.wantErr)
+				require.Nil(t, got)
+
+				return
+			}
+
+			require.NoError(t, err)
+			require.ElementsMatch(t, tc.want, got)
+		})
+	}
+}
+
 func TestParseServerEntry(t *testing.T) {
 	t.Parallel()
 
@@ -519,6 +574,39 @@ func TestParseServerEntry(t *testing.T) {
 			requestedTools:       []string{"get_current_time"},
 			arguments:            packages.Arguments{},
 			expectedPackageValue: "uvx::mcp-server-time@latest",
+		},
+		{
+			name: "record a mixed case tool name as the registry spells it",
+			installations: map[runtime.Runtime]packages.Installation{
+				runtime.UVX: {
+					Package:     "mcp-server-time",
+					Recommended: true,
+				},
+			},
+			supportedRuntimes:    []runtime.Runtime{runtime.UVX},
+			pkgName:              "time",
+			pkgID:                "time",
+			availableTools:       []string{"GetCurrentTime", "ConvertTime"},
+			requestedTools:       []string{"GetCurrentTime"},
+			arguments:            packages.Arguments{},
+			expectedPackageValue: "uvx::mcp-server-time@latest",
+		},
+		{
+			name: "refuse a tool name that differs only by case",
+			installations: map[runtime.Runtime]packages.Installation{
+				runtime.UVX: {
+					Package:     "mcp-server-time",
+					Recommended: true,
+				},
+			},
+			supportedRuntimes:    []runtime.Runtime{runtime.UVX},
+			pkgName:              "time",
+			pkgID:                "time",
+			availableTools:       []string{"GetCurrentTime"},
+			requestedTools:       []string{"getcurrenttime"},
+			arguments:            packages.Arguments{},
+			isErrorExpected:      true,
+			expectedErrorMessage: "error matching requested tools: none of the requested values were found",
 		},
 		{
 			name: "server with all argument types",
