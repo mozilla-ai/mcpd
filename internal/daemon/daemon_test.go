@@ -1555,3 +1555,78 @@ func TestDaemon_PingAllServers_ContextCancellation_Deadlock(t *testing.T) {
 		t.Fatal("pingAllServers did not return within 2 seconds after context cancellation")
 	}
 }
+
+// TestServersByNormalizedName guards the configured name against the index built over it.
+// This is a regression guard rather than a bug reproduction: the assignment it replaced wrote to a
+// per-iteration copy that was never read, so it had no observable effect.
+func TestServersByNormalizedName(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name     string
+		servers  []string
+		expected map[string]string
+	}{
+		{
+			name:    "a mixed case name keeps its case",
+			servers: []string{"GitHub"},
+			expected: map[string]string{
+				"github": "GitHub",
+			},
+		},
+		{
+			name:    "names are indexed without regard to case",
+			servers: []string{"GitHub", "Time-Server"},
+			expected: map[string]string{
+				"github":      "GitHub",
+				"time-server": "Time-Server",
+			},
+		},
+		{
+			name:     "no servers gives an empty index",
+			servers:  nil,
+			expected: map[string]string{},
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			servers := make([]runtime.Server, 0, len(tc.servers))
+			for _, name := range tc.servers {
+				servers = append(servers, runtime.Server{
+					ServerEntry: config.ServerEntry{Name: name},
+				})
+			}
+
+			indexed := serversByNormalizedName(servers)
+
+			require.Len(t, indexed, len(tc.expected))
+			for key, configured := range tc.expected {
+				srv, ok := indexed[key]
+				require.True(t, ok, "expected key %s", key)
+				require.Equal(t, configured, srv.Name())
+			}
+		})
+	}
+}
+
+// TestServersByNormalizedName_IndexesDistinctPointers pins that each entry points at its own copy, so
+// mutating one indexed server cannot reach another.
+func TestServersByNormalizedName_IndexesDistinctPointers(t *testing.T) {
+	t.Parallel()
+
+	servers := []runtime.Server{
+		{ServerEntry: config.ServerEntry{Name: "first"}},
+		{ServerEntry: config.ServerEntry{Name: "second"}},
+	}
+
+	indexed := serversByNormalizedName(servers)
+	require.Len(t, indexed, 2)
+
+	indexed["first"].ServerEntry.Name = "changed"
+
+	require.Equal(t, "second", indexed["second"].Name())
+	require.Equal(t, "first", servers[0].Name())
+}

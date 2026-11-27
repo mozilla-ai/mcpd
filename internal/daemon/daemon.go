@@ -594,6 +594,19 @@ func normalizeLogLevel(level string) hclog.Level {
 	}
 }
 
+// serversByNormalizedName indexes servers by their normalized name, so two configurations can be compared
+// without regard to case. Each server keeps the name it was configured with.
+func serversByNormalizedName(servers []runtime.Server) map[string]*runtime.Server {
+	indexed := make(map[string]*runtime.Server, len(servers))
+
+	for _, srv := range servers {
+		srvCopy := srv
+		indexed[filter.NormalizeString(srv.Name())] = &srvCopy
+	}
+
+	return indexed
+}
+
 // closeAllClients gracefully closes all managed clients with individual timeouts.
 // It closes all clients concurrently and waits for all to complete or timeout.
 func (d *Daemon) closeAllClients() {
@@ -676,21 +689,8 @@ func (d *Daemon) ReloadServers(ctx context.Context, newServers []runtime.Server)
 		return fmt.Errorf("server validation failed: %w", validateErrs)
 	}
 
-	existing := make(map[string]*runtime.Server)
-	for _, srv := range d.runtimeServers {
-		normalizedName := filter.NormalizeString(srv.Name())
-		srvCopy := srv // Create a copy to get pointer
-		srv.ServerEntry.Name = normalizedName
-		existing[normalizedName] = &srvCopy
-	}
-
-	incoming := make(map[string]*runtime.Server, len(newServers))
-	for _, srv := range newServers {
-		normalizedName := filter.NormalizeString(srv.Name())
-		srvCopy := srv // Create a copy to get pointer
-		srv.ServerEntry.Name = normalizedName
-		incoming[normalizedName] = &srvCopy
-	}
+	existing := serversByNormalizedName(d.runtimeServers)
+	incoming := serversByNormalizedName(newServers)
 
 	// Categorize changes.
 	var toRemove []string
