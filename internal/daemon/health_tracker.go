@@ -35,6 +35,38 @@ func NewHealthTracker(serverNames []domain.ServerName) *HealthTracker {
 	}
 }
 
+// Add registers a new server for health tracking, keeping the name as configured.
+// If the server is already being tracked under any casing, this is a no-op.
+func (h *HealthTracker) Add(name domain.ServerName) {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+
+	// Only add if not already tracked.
+	key := name.Key()
+	if _, exists := h.statuses[key]; !exists {
+		h.statuses[key] = domain.ServerHealth{
+			Name:   name,
+			Status: domain.HealthStatusUnknown,
+		}
+	}
+}
+
+// List returns a copy of all known server health records.
+func (h *HealthTracker) List() []domain.ServerHealth {
+	h.mu.RLock()
+	defer h.mu.RUnlock()
+	return slices.Collect(maps.Values(h.statuses))
+}
+
+// Remove stops tracking health for a server and removes its health data.
+// The server name is normalized for case-insensitive lookup.
+func (h *HealthTracker) Remove(name domain.ServerName) {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+
+	delete(h.statuses, name.Key())
+}
+
 // Status returns the health status for a single tracked server.
 // The server name is normalized for case-insensitive lookup.
 func (h *HealthTracker) Status(name domain.ServerName) (domain.ServerHealth, error) {
@@ -46,13 +78,6 @@ func (h *HealthTracker) Status(name domain.ServerName) (domain.ServerHealth, err
 	}
 
 	return domain.ServerHealth{}, fmt.Errorf("%w: %s", errors.ErrHealthNotTracked, name)
-}
-
-// List returns a copy of all known server health records.
-func (h *HealthTracker) List() []domain.ServerHealth {
-	h.mu.RLock()
-	defer h.mu.RUnlock()
-	return slices.Collect(maps.Values(h.statuses))
 }
 
 // Update records a health check for a tracked server.
@@ -92,29 +117,4 @@ func (h *HealthTracker) Update(
 	}
 
 	return nil
-}
-
-// Add registers a new server for health tracking, keeping the name as configured.
-// If the server is already being tracked under any casing, this is a no-op.
-func (h *HealthTracker) Add(name domain.ServerName) {
-	h.mu.Lock()
-	defer h.mu.Unlock()
-
-	// Only add if not already tracked.
-	key := name.Key()
-	if _, exists := h.statuses[key]; !exists {
-		h.statuses[key] = domain.ServerHealth{
-			Name:   name,
-			Status: domain.HealthStatusUnknown,
-		}
-	}
-}
-
-// Remove stops tracking health for a server and removes its health data.
-// The server name is normalized for case-insensitive lookup.
-func (h *HealthTracker) Remove(name domain.ServerName) {
-	h.mu.Lock()
-	defer h.mu.Unlock()
-
-	delete(h.statuses, name.Key())
 }
