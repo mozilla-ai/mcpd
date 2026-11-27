@@ -162,6 +162,8 @@ func httpRequestToPlugin(r *http.Request) (*HTTPRequest, error) {
 // NOTE: A reserved header in resp is skipped, so this is safe for a response a plugin authored itself.
 // Skipping is not logged here, because resp also carries the headers the handler and the operator's
 // middleware set, and this is not the layer that knows which plugin asked for what.
+// Message framing is recomputed, because the writer may already carry the framing of a body that a
+// plugin has since replaced.
 // A status code a plugin cannot report is written as a server error, because mcpd cannot know what the
 // plugin meant and net/http panics on a code it does not accept.
 func writePluginResponse(logger hclog.Logger, w http.ResponseWriter, resp *HTTPResponse) {
@@ -178,6 +180,11 @@ func writePluginResponse(logger hclog.Logger, w http.ResponseWriter, resp *HTTPR
 		logger.Warn("replacing a status code a plugin may not report",
 			"reported", resp.StatusCode, "written", status)
 	}
+
+	// mcpd composed this body, so it owns the framing. Dropping these lets net/http describe the body
+	// written here rather than the one the handler framed before a plugin replaced it.
+	w.Header().Del("Content-Length")
+	w.Header().Del("Transfer-Encoding")
 
 	w.WriteHeader(status)
 

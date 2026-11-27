@@ -435,3 +435,33 @@ func TestMiddleware_LogsNothingForHeadersAPluginDidNotSet(t *testing.T) {
 	require.Equal(t, "Origin", recorder.Header().Get("Vary"))
 	require.Empty(t, buf.String())
 }
+
+// TestMiddleware_ReplacedBodyReachesTheClient pins that mcpd reframes a response whose body a plugin
+// replaced, because net/http refuses a write longer than the Content-Length already on the writer.
+//
+// NOTE: This needs a real server. httptest.NewRecorder does not enforce Content-Length.
+func TestMiddleware_ReplacedBodyReachesTheClient(t *testing.T) {
+	t.Parallel()
+
+	content := &testContentPlugin{rewriteResponseBody: "denied"}
+	p := newTestContentPipeline(t, content)
+
+	nextHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Length", "3")
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte("ok!"))
+	})
+
+	srv := httptest.NewServer(p.Middleware()(nextHandler))
+	defer srv.Close()
+
+	resp, err := http.Get(srv.URL)
+	require.NoError(t, err)
+	defer func() { _ = resp.Body.Close() }()
+
+	body, err := io.ReadAll(resp.Body)
+	require.NoError(t, err)
+
+	require.Equal(t, "denied", string(body))
+	require.Equal(t, int64(len("denied")), resp.ContentLength)
+}
