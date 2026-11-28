@@ -645,3 +645,67 @@ func TestSetCmd_KeepsAnEntryWhoseNameSharesOneKey(t *testing.T) {
 	slices.Sort(names)
 	require.Equal(t, []string{"GitHub", "github"}, names)
 }
+
+// TestSetCmd_NamesTheConfiguredServerInEveryMessage pins that a message names the server as the
+// configuration spells it, whatever case was supplied.
+func TestSetCmd_NamesTheConfiguredServerInEveryMessage(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name          string
+		registryError error
+		tool          string
+		expectedError string
+	}{
+		{
+			name:          "the registry cannot be reached",
+			registryError: fmt.Errorf("registry unavailable"),
+			tool:          "existing-tool",
+			expectedError: "failed to get available tools for server 'test-server'",
+		},
+		{
+			name:          "a requested tool is not available",
+			tool:          "absent-tool",
+			expectedError: "the following tools are not available for server 'test-server'",
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			cfg := &mockConfigForSet{
+				servers: []config.ServerEntry{
+					{
+						Name:    "test-server",
+						Package: "test@npx",
+						Tools:   []string{"existing-tool"},
+					},
+				},
+			}
+
+			registryBuilder := &mockRegistryBuilderForSet{
+				registry: &mockRegistryForSet{
+					servers: map[string]packages.Server{
+						"test-server": {
+							Name:  "test-server",
+							Tools: []packages.Tool{{Name: "existing-tool"}},
+						},
+					},
+					err: tc.registryError,
+				},
+			}
+
+			setCmd, err := NewSetCmd(&cmd.BaseCmd{},
+				cmdopts.WithConfigLoader(&mockLoaderForSet{cfg: cfg}),
+				cmdopts.WithRegistryBuilder(registryBuilder),
+			)
+			require.NoError(t, err)
+			require.NoError(t, setCmd.Flags().Set("tool", tc.tool))
+
+			err = setCmd.RunE(setCmd, []string{"TEST-SERVER"})
+			require.Error(t, err)
+			require.Contains(t, err.Error(), tc.expectedError)
+		})
+	}
+}

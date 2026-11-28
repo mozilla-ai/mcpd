@@ -198,7 +198,7 @@ func (c *SetCmd) run(cmd *cobra.Command, args []string) error {
 	// Get all available tools from the registry for this server (runtime, version).
 	availableTools, err := c.resolveAvailableTools(foundServer)
 	if err != nil {
-		return fmt.Errorf("failed to get available tools for server '%s': %w", serverName, err)
+		return fmt.Errorf("failed to get available tools for server '%s': %w", foundServer.Name, err)
 	}
 
 	// MCP tool names are case-sensitive, so a requested name has to match the registry's own spelling.
@@ -216,7 +216,11 @@ func (c *SetCmd) run(cmd *cobra.Command, args []string) error {
 	}
 
 	if len(invalidTools) > 0 {
-		return fmt.Errorf("the following tools are not available for server '%s': %v", serverName, invalidTools)
+		return fmt.Errorf(
+			"the following tools are not available for server '%s': %v",
+			foundServer.Name,
+			invalidTools,
+		)
 	}
 
 	// Deduplicate, so one tool is recorded once.
