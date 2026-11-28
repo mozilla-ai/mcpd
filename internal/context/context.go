@@ -109,17 +109,30 @@ func (c *ExecutionContextConfig) Get(name string) (ServerExecutionContext, bool)
 // key returns the map key holding the given server name, matching without regard to case and to
 // surrounding whitespace. It returns the trimmed name when no entry holds it, so a new entry keeps the
 // spelling it was given.
+//
+// NOTE: A file written by an earlier release may hold two keys sharing one name key. The name selects its
+// own key where one holds it exactly, and the first in sorted order otherwise, so a read and the write
+// that follows it reach the same entry.
 func (c *ExecutionContextConfig) key(name string) string {
 	trimmed := domain.ServerName(name).String()
+	if _, exists := c.Servers[trimmed]; exists {
+		return trimmed
+	}
 
 	wanted := domain.ServerName(name).Key()
+
+	matches := make([]string, 0, len(c.Servers))
 	for k := range c.Servers {
 		if domain.ServerName(k).Key() == wanted {
-			return k
+			matches = append(matches, k)
 		}
 	}
 
-	return trimmed
+	if len(matches) == 0 {
+		return trimmed
+	}
+
+	return slices.Min(matches)
 }
 
 // List returns all server execution contexts sorted by name.

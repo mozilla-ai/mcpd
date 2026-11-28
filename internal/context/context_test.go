@@ -610,3 +610,60 @@ func TestLoadExecutionContextConfig_EmptyFile(t *testing.T) {
 	require.NotNil(t, cfg)
 	require.Empty(t, cfg.Servers, "Empty file should result in no servers")
 }
+
+// TestGet_ResolvesOneEntryForTwoKeysSharingOneNameKey pins that a file holding two keys that share one
+// name key resolves to the same entry on every call, and that an exact name selects its own entry.
+func TestGet_ResolvesOneEntryForTwoKeysSharingOneNameKey(t *testing.T) {
+	t.Parallel()
+
+	cfg := &ExecutionContextConfig{
+		Servers: map[string]ServerExecutionContext{
+			"github": {Name: "github", Env: map[string]string{"TOKEN": "lower"}},
+			"GitHub": {Name: "GitHub", Env: map[string]string{"TOKEN": "mixed"}},
+		},
+	}
+
+	// Map iteration order is randomized, so one pass cannot show a lookup to be stable.
+	for range 50 {
+		srv, ok := cfg.Get("github")
+		require.True(t, ok)
+		require.Equal(t, "github", srv.Name)
+
+		srv, ok = cfg.Get("GitHub")
+		require.True(t, ok)
+		require.Equal(t, "GitHub", srv.Name)
+
+		srv, ok = cfg.Get("GITHUB")
+		require.True(t, ok)
+		require.Equal(t, "GitHub", srv.Name)
+	}
+}
+
+// TestUpsert_WritesToTheEntryGetReturns pins that a read and the write that follows it reach one entry,
+// so a value cannot be written over a second entry holding the same name key.
+func TestUpsert_WritesToTheEntryGetReturns(t *testing.T) {
+	t.Parallel()
+
+	for range 50 {
+		dir := t.TempDir()
+		require.NoError(t, os.Chmod(dir, 0o700))
+
+		cfg := &ExecutionContextConfig{
+			filePath: filepath.Join(dir, "secrets.toml"),
+			Servers: map[string]ServerExecutionContext{
+				"github": {Name: "github", Env: map[string]string{"TOKEN": "lower"}},
+				"GitHub": {Name: "GitHub", Env: map[string]string{"TOKEN": "mixed"}},
+			},
+		}
+
+		srv, ok := cfg.Get("github")
+		require.True(t, ok)
+
+		srv.Env["ADDED"] = "value"
+		_, err := cfg.Upsert(srv)
+		require.NoError(t, err)
+
+		require.Equal(t, map[string]string{"TOKEN": "lower", "ADDED": "value"}, cfg.Servers["github"].Env)
+		require.Equal(t, map[string]string{"TOKEN": "mixed"}, cfg.Servers["GitHub"].Env)
+	}
+}
