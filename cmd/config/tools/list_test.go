@@ -40,6 +40,10 @@ func (m *mockConfig) RemoveServer(name string) error {
 	return nil
 }
 
+func (m *mockConfig) UpdateServer(entry config.ServerEntry) error {
+	return nil
+}
+
 func (m *mockConfig) ListServers() []config.ServerEntry {
 	return m.servers
 }

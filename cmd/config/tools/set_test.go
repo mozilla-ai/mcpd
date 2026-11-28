@@ -14,6 +14,7 @@ import (
 	"github.com/mozilla-ai/mcpd/internal/cmd"
 	cmdopts "github.com/mozilla-ai/mcpd/internal/cmd/options"
 	"github.com/mozilla-ai/mcpd/internal/config"
+	"github.com/mozilla-ai/mcpd/internal/domain"
 	"github.com/mozilla-ai/mcpd/internal/packages"
 	"github.com/mozilla-ai/mcpd/internal/registry"
 	"github.com/mozilla-ai/mcpd/internal/registry/options"
@@ -25,42 +26,67 @@ type mockConfigForSet struct {
 	saveError     error
 	removeError   error
 	addError      error
+	updateError   error
 	serverRemoved string
 	serverAdded   config.ServerEntry
+	serverUpdated config.ServerEntry
 }
 
+// AddServer refuses a name another entry already holds under one key, as the real config refuses it.
 func (m *mockConfigForSet) AddServer(entry config.ServerEntry) error {
 	m.serverAdded = entry
 	if m.addError != nil {
 		return m.addError
 	}
-	// Update the server in our mock list.
-	for i, srv := range m.servers {
-		if srv.Name == entry.Name {
-			m.servers[i] = entry
-			return nil
+
+	key := domain.ServerName(entry.Name).Key()
+	for _, srv := range m.servers {
+		if domain.ServerName(srv.Name).Key() == key {
+			return fmt.Errorf("duplicate server name '%s': already declared as '%s'", entry.Name, srv.Name)
 		}
 	}
+
 	m.servers = append(m.servers, entry)
+
 	return nil
 }
 
-// RemoveServer matches a name exactly and reports a name it does not hold, as the real config does, so a
-// caller that passes a spelling the configuration does not contain fails here rather than silently
-// succeeding.
+// RemoveServer takes out the entry it resolves and reports a name it does not hold, as the real config
+// does, so a caller that passes a spelling the configuration does not contain fails here rather than
+// silently succeeding.
 func (m *mockConfigForSet) RemoveServer(name string) error {
 	m.serverRemoved = name
 	if m.removeError != nil {
 		return m.removeError
 	}
 
-	for _, srv := range m.servers {
-		if srv.Name == name {
-			return nil
-		}
+	idx := slices.IndexFunc(m.servers, func(srv config.ServerEntry) bool { return srv.Name == name })
+	if idx < 0 {
+		return fmt.Errorf("server '%s' not found in config", name)
 	}
 
-	return fmt.Errorf("server '%s' not found in config", name)
+	m.servers = slices.Delete(m.servers, idx, idx+1)
+
+	return nil
+}
+
+// UpdateServer replaces the entry it resolves and reports a name it does not hold, as the real config
+// does, so a caller that passes a spelling the configuration does not contain fails here rather than
+// silently succeeding.
+func (m *mockConfigForSet) UpdateServer(entry config.ServerEntry) error {
+	m.serverUpdated = entry
+	if m.updateError != nil {
+		return m.updateError
+	}
+
+	idx := slices.IndexFunc(m.servers, func(srv config.ServerEntry) bool { return srv.Name == entry.Name })
+	if idx < 0 {
+		return fmt.Errorf("server '%s' not found in config", entry.Name)
+	}
+
+	m.servers[idx] = entry
+
+	return nil
 }
 
 func (m *mockConfigForSet) ListServers() []config.ServerEntry {
@@ -407,16 +433,14 @@ func TestSetCmd_run(t *testing.T) {
 
 			// Verify the configuration was updated correctly.
 			if tc.expectedTools != nil {
-				// Remove and add must both name the entry as the configuration stores it, not as the
-				// caller spelled it, or the update cannot reach the entry the lookup found.
-				stored := tc.existingServers[0].Name
-				require.Equal(t, stored, cfg.serverRemoved)
-				require.Equal(t, stored, cfg.serverAdded.Name)
+				// The update must name the entry as the configuration stores it, not as the caller
+				// spelled it, or it cannot reach the entry the lookup found.
+				require.Equal(t, tc.existingServers[0].Name, cfg.serverUpdated.Name)
 
 				// Check the tools are correct and sorted.
-				slices.Sort(cfg.serverAdded.Tools)
+				slices.Sort(cfg.serverUpdated.Tools)
 				slices.Sort(tc.expectedTools)
-				require.Equal(t, tc.expectedTools, cfg.serverAdded.Tools)
+				require.Equal(t, tc.expectedTools, cfg.serverUpdated.Tools)
 			}
 		})
 	}
@@ -506,9 +530,7 @@ func TestSetCmd_ConfigErrors(t *testing.T) {
 
 	tests := []struct {
 		name          string
-		removeError   error
-		addError      error
-		saveError     error
+		updateError   error
 		registryError error
 		expectedError string
 	}{
@@ -518,19 +540,9 @@ func TestSetCmd_ConfigErrors(t *testing.T) {
 			expectedError: "failed to get available tools for server 'test-server': failed to resolve server 'test-server': registry unavailable",
 		},
 		{
-			name:          "remove server error",
-			removeError:   fmt.Errorf("remove failed"),
-			expectedError: "error updating server configuration: remove failed",
-		},
-		{
-			name:          "add server error",
-			addError:      fmt.Errorf("add failed"),
-			expectedError: "error updating server configuration: add failed",
-		},
-		{
-			name:          "save config error",
-			saveError:     fmt.Errorf("save failed"),
-			expectedError: "error saving configuration: save failed",
+			name:          "update server error",
+			updateError:   fmt.Errorf("update failed"),
+			expectedError: "error updating server configuration: update failed",
 		},
 	}
 
@@ -547,9 +559,7 @@ func TestSetCmd_ConfigErrors(t *testing.T) {
 						Tools:   []string{"existing-tool"},
 					},
 				},
-				removeError: tc.removeError,
-				addError:    tc.addError,
-				saveError:   tc.saveError,
+				updateError: tc.updateError,
 			}
 			loader := &mockLoaderForSet{cfg: cfg}
 
@@ -581,4 +591,57 @@ func TestSetCmd_ConfigErrors(t *testing.T) {
 			require.EqualError(t, err, tc.expectedError)
 		})
 	}
+}
+
+// TestSetCmd_KeepsAnEntryWhoseNameSharesOneKey pins that adding a tool to a server in a configuration
+// that holds two names sharing one key leaves both entries in place.
+func TestSetCmd_KeepsAnEntryWhoseNameSharesOneKey(t *testing.T) {
+	t.Parallel()
+
+	cfg := &mockConfigForSet{
+		servers: []config.ServerEntry{
+			{
+				Name:    "GitHub",
+				Package: "uvx::official-github@1.0.0",
+				Tools:   []string{"search_issues"},
+			},
+			{
+				Name:    "github",
+				Package: "uvx::other-github@9.9.9",
+				Tools:   []string{"run_command"},
+			},
+		},
+	}
+
+	registryBuilder := &mockRegistryBuilderForSet{
+		registry: &mockRegistryForSet{
+			servers: map[string]packages.Server{
+				"GitHub": {
+					Name:  "GitHub",
+					Tools: []packages.Tool{{Name: "search_issues"}, {Name: "list_repos"}},
+				},
+			},
+		},
+	}
+
+	setCmd, err := NewSetCmd(&cmd.BaseCmd{},
+		cmdopts.WithConfigLoader(&mockLoaderForSet{cfg: cfg}),
+		cmdopts.WithRegistryBuilder(registryBuilder),
+	)
+	require.NoError(t, err)
+	require.NoError(t, setCmd.Flags().Set("tool", "list_repos"))
+
+	var output bytes.Buffer
+	setCmd.SetOut(&output)
+	setCmd.SetErr(&output)
+
+	err = setCmd.RunE(setCmd, []string{"GitHub"})
+	require.NoError(t, err)
+
+	names := make([]string, 0, len(cfg.servers))
+	for _, srv := range cfg.servers {
+		names = append(names, srv.Name)
+	}
+	slices.Sort(names)
+	require.Equal(t, []string{"GitHub", "github"}, names)
 }

@@ -117,6 +117,34 @@ func (c *Config) RemoveServer(name string) error {
 	return nil
 }
 
+// UpdateServer replaces the entry holding the given server's name, matching the name without regard to
+// case, and persists the configuration in one write.
+// Returns an error without changing the configuration when no entry holds the name, when two entries hold
+// it and neither is named exactly, or when the replacement is not valid.
+func (c *Config) UpdateServer(entry ServerEntry) error {
+	idx, err := c.serverIndex(entry.Name)
+	if err != nil {
+		return err
+	}
+
+	previous := c.Servers[idx]
+	c.Servers[idx] = entry
+
+	if err := c.validate(); err != nil {
+		c.Servers[idx] = previous
+
+		return err
+	}
+
+	if err := c.saveConfig(); err != nil {
+		c.Servers[idx] = previous
+
+		return fmt.Errorf("failed to save updated config: %w", err)
+	}
+
+	return nil
+}
+
 // ListServers returns a copy of the currently configured server entries.
 // This provides read-only access to the internal configuration without exposing direct mutation of the underlying slice.
 func (c *Config) ListServers() []ServerEntry {

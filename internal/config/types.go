@@ -28,6 +28,7 @@ type Provider interface {
 type Modifier interface {
 	AddServer(entry ServerEntry) error
 	RemoveServer(name string) error
+	UpdateServer(entry ServerEntry) error
 	ListServers() []ServerEntry
 	SaveConfig() error
 }

@@ -1265,3 +1265,101 @@ func TestRemoveServer_RemovesOneEntry(t *testing.T) {
 
 	require.Len(t, cfg.Servers, 1)
 }
+
+// TestUpdateServer_ReplacesTheEntryAndPersists pins that updating a server writes the replacement to the
+// configuration file.
+func TestUpdateServer_ReplacesTheEntryAndPersists(t *testing.T) {
+	t.Parallel()
+
+	tempFile := filepath.Join(t.TempDir(), ".mcpd.toml")
+	cfg := &Config{
+		configFilePath: tempFile,
+		Servers: []ServerEntry{
+			{Name: "github", Package: "x::github@1.0.0", Tools: []string{"search_issues"}},
+			{Name: "time", Package: "x::time@1.0.0", Tools: []string{"get_time"}},
+		},
+	}
+
+	updated := ServerEntry{Name: "github", Package: "x::github@1.0.0", Tools: []string{"list_repos"}}
+	require.NoError(t, cfg.UpdateServer(updated))
+
+	var loaded Config
+	_, err := toml.DecodeFile(tempFile, &loaded)
+	require.NoError(t, err)
+
+	require.Len(t, loaded.Servers, 2)
+	require.Equal(t, updated, loaded.Servers[0])
+	require.Equal(t, "time", loaded.Servers[1].Name)
+}
+
+// TestUpdateServer_KeepsAnEntrySharingOneNameKey pins that updating one of two entries whose names share
+// a key leaves the other in place.
+func TestUpdateServer_KeepsAnEntrySharingOneNameKey(t *testing.T) {
+	t.Parallel()
+
+	cfg := &Config{
+		configFilePath: filepath.Join(t.TempDir(), ".mcpd.toml"),
+		Servers: []ServerEntry{
+			{Name: "GitHub", Package: "x::official@1.0.0", Tools: []string{"search_issues"}},
+			{Name: "github", Package: "x::other@9.9.9", Tools: []string{"run_command"}},
+		},
+	}
+
+	updated := ServerEntry{Name: "GitHub", Package: "x::official@1.0.0", Tools: []string{"list_repos"}}
+	require.NoError(t, cfg.UpdateServer(updated))
+
+	require.Len(t, cfg.Servers, 2)
+	require.Equal(t, updated, cfg.Servers[0])
+	require.Equal(t, "github", cfg.Servers[1].Name)
+	require.Equal(t, []string{"run_command"}, cfg.Servers[1].Tools)
+}
+
+// TestUpdateServer_MatchesWithoutRegardToCase pins that an update reaches the entry the configuration
+// holds, whatever case the caller supplies.
+func TestUpdateServer_MatchesWithoutRegardToCase(t *testing.T) {
+	t.Parallel()
+
+	cfg := &Config{
+		configFilePath: filepath.Join(t.TempDir(), ".mcpd.toml"),
+		Servers:        []ServerEntry{{Name: "github", Package: "x::github@1.0.0"}},
+	}
+
+	require.NoError(t, cfg.UpdateServer(ServerEntry{Name: " GitHub ", Package: "x::github@2.0.0"}))
+
+	require.Len(t, cfg.Servers, 1)
+	require.Equal(t, "x::github@2.0.0", cfg.Servers[0].Package)
+}
+
+// TestUpdateServer_ErrorsIfNotFound pins that updating a server the configuration does not hold reports
+// an error rather than adding it.
+func TestUpdateServer_ErrorsIfNotFound(t *testing.T) {
+	t.Parallel()
+
+	cfg := &Config{
+		configFilePath: filepath.Join(t.TempDir(), ".mcpd.toml"),
+		Servers:        []ServerEntry{{Name: "time", Package: "x::time@1.0.0"}},
+	}
+
+	err := cfg.UpdateServer(ServerEntry{Name: "github", Package: "x::github@1.0.0"})
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "server 'github' not found in config")
+	require.Len(t, cfg.Servers, 1)
+	require.Equal(t, "time", cfg.Servers[0].Name)
+}
+
+// TestUpdateServer_KeepsTheEntryWhenTheReplacementIsNotValid pins that a refused replacement leaves the
+// configuration as it was.
+func TestUpdateServer_KeepsTheEntryWhenTheReplacementIsNotValid(t *testing.T) {
+	t.Parallel()
+
+	original := ServerEntry{Name: "github", Package: "x::github@1.0.0"}
+	cfg := &Config{
+		configFilePath: filepath.Join(t.TempDir(), ".mcpd.toml"),
+		Servers:        []ServerEntry{original},
+	}
+
+	require.Error(t, cfg.UpdateServer(ServerEntry{Name: "github", Package: "  "}))
+
+	require.Len(t, cfg.Servers, 1)
+	require.Equal(t, original, cfg.Servers[0])
+}

@@ -241,20 +241,10 @@ func (c *SetCmd) run(cmd *cobra.Command, args []string) error {
 	// Update the server's tools.
 	foundServer.Tools = allTools
 
-	// Update server in config by removing and re-adding (following existing pattern).
 	// The stored name is used rather than the supplied one, because the lookup above matched without
 	// regard to case and the configuration holds only the spelling it was written with.
-	if err := cfg.RemoveServer(foundServer.Name); err != nil {
+	if err := cfg.UpdateServer(*foundServer); err != nil {
 		return fmt.Errorf("error updating server configuration: %w", err)
-	}
-
-	if err := cfg.AddServer(*foundServer); err != nil {
-		return fmt.Errorf("error updating server configuration: %w", err)
-	}
-
-	// Save the configuration.
-	if err := cfg.SaveConfig(); err != nil {
-		return fmt.Errorf("error saving configuration: %w", err)
 	}
 
 	// Provide feedback to the user, naming the server as the configuration spells it.

@@ -34,6 +34,12 @@ func (f *fakeConfig) RemoveServer(_ string) error {
 	return nil
 }
 
+func (f *fakeConfig) UpdateServer(entry config.ServerEntry) error {
+	f.entry = entry
+
+	return nil
+}
+
 func (f *fakeConfig) ListServers() []config.ServerEntry {
 	return []config.ServerEntry{f.entry}
 }

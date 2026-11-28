@@ -85,17 +85,11 @@ func (c *RemoveCmd) run(cmd *cobra.Command, args []string) error {
 				"To remove the server instead use: mcpd remove %s", srv.Name, srv.Name)
 		}
 
-		// Update server in config by removing and re-adding.
 		// The stored name is used rather than the supplied one, because the lookup above matched without
 		// regard to case and the configuration holds only the spelling it was written with.
-		err = cfg.RemoveServer(srv.Name)
+		err = cfg.UpdateServer(srv)
 		if err != nil {
-			return fmt.Errorf("error removing server, unable to remove tools for server %s: %w", srv.Name, err)
-		}
-
-		err = cfg.AddServer(srv)
-		if err != nil {
-			return fmt.Errorf("error adding server, unable to remove tools for server %s: %w", srv.Name, err)
+			return fmt.Errorf("unable to remove tools for server '%s': %w", srv.Name, err)
 		}
 
 		msg := "✓ Command completed successfully, no tools required removal\n"

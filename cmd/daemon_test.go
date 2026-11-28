@@ -58,6 +58,16 @@ func (m *mockConfig) RemoveServer(name string) error {
 	return fmt.Errorf("server %s not found", name)
 }
 
+func (m *mockConfig) UpdateServer(entry config.ServerEntry) error {
+	for i, existing := range m.entries {
+		if existing.Name == entry.Name {
+			m.entries[i] = entry
+			return nil
+		}
+	}
+	return fmt.Errorf("server %s not found", entry.Name)
+}
+
 func (m *mockConfig) ListServers() []config.ServerEntry {
 	return m.entries
 }
@@ -2053,10 +2063,11 @@ type testMockConfigLoader struct {
 // testInvalidConfigType is a type that implements config.Modifier but is not *config.Config
 type testInvalidConfigType struct{}
 
-func (t testInvalidConfigType) AddServer(entry config.ServerEntry) error { return nil }
-func (t testInvalidConfigType) RemoveServer(name string) error           { return nil }
-func (t testInvalidConfigType) ListServers() []config.ServerEntry        { return nil }
-func (t testInvalidConfigType) SaveConfig() error                        { return nil }
+func (t testInvalidConfigType) AddServer(entry config.ServerEntry) error    { return nil }
+func (t testInvalidConfigType) RemoveServer(name string) error              { return nil }
+func (t testInvalidConfigType) UpdateServer(entry config.ServerEntry) error { return nil }
+func (t testInvalidConfigType) ListServers() []config.ServerEntry           { return nil }
+func (t testInvalidConfigType) SaveConfig() error                           { return nil }
 
 func (m *testMockConfigLoader) Load(_ string) (config.Modifier, error) {
 	if m.err != nil {

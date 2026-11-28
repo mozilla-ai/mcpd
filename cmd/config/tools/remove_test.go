@@ -2,6 +2,7 @@ package tools
 
 import (
 	"bytes"
+	"fmt"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -15,6 +16,7 @@ type mockConfigForRemove struct {
 	servers   []config.ServerEntry
 	addErr    error
 	removeErr error
+	updateErr error
 }
 
 func (m *mockConfigForRemove) AddServer(entry config.ServerEntry) error {
@@ -36,6 +38,24 @@ func (m *mockConfigForRemove) RemoveServer(name string) error {
 		}
 	}
 	return nil
+}
+
+// UpdateServer replaces the entry it resolves and reports a name it does not hold, as the real config
+// does.
+func (m *mockConfigForRemove) UpdateServer(entry config.ServerEntry) error {
+	if m.updateErr != nil {
+		return m.updateErr
+	}
+
+	for i, s := range m.servers {
+		if s.Name == entry.Name {
+			m.servers[i] = entry
+
+			return nil
+		}
+	}
+
+	return fmt.Errorf("server '%s' not found in config", entry.Name)
 }
 
 func (m *mockConfigForRemove) ListServers() []config.ServerEntry {

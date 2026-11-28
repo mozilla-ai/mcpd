@@ -20,10 +20,11 @@ func (m *mockLoader) Load(path string) (Modifier, error) {
 // mockModifier is a test double for config.Modifier that is NOT a *Config.
 type mockModifier struct{}
 
-func (m *mockModifier) AddServer(entry ServerEntry) error { return nil }
-func (m *mockModifier) RemoveServer(name string) error    { return nil }
-func (m *mockModifier) ListServers() []ServerEntry        { return nil }
-func (m *mockModifier) SaveConfig() error                 { return nil }
+func (m *mockModifier) AddServer(entry ServerEntry) error    { return nil }
+func (m *mockModifier) RemoveServer(name string) error       { return nil }
+func (m *mockModifier) UpdateServer(entry ServerEntry) error { return nil }
+func (m *mockModifier) ListServers() []ServerEntry           { return nil }
+func (m *mockModifier) SaveConfig() error                    { return nil }
 
 func TestNewValidatingLoader(t *testing.T) {
 	t.Parallel()
