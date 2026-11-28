@@ -454,3 +454,30 @@ func TestHandleTools_AppliesRequestTimeout(t *testing.T) {
 	require.True(t, ok)
 	require.LessOrEqual(t, time.Until(deadline), mcpRequestTimeout)
 }
+
+// TestHandleToolCall_RefusesAnAllowListEntryThatNamesNoTool pins that an entry holding only whitespace
+// permits no call, because it names no tool.
+func TestHandleToolCall_RefusesAnAllowListEntryThatNamesNoTool(t *testing.T) {
+	t.Parallel()
+
+	accessor := newMockMCPClientAccessor()
+
+	mockClient := &mockMCPClient{
+		listToolsResult: &mcp.ListToolsResult{Tools: []mcp.Tool{{Name: "get_time"}}},
+		callToolResult: &mcp.CallToolResult{
+			Content: []mcp.Content{mcp.TextContent{Text: "Tool executed successfully"}},
+		},
+	}
+
+	accessor.Add("testserver", mockClient, []domain.ToolName{"   "})
+
+	_, err := newServerRoutes(accessor, RouteOptions{}).handleToolCall(
+		context.Background(),
+		"testserver",
+		" ",
+		map[string]any{},
+	)
+
+	require.ErrorIs(t, err, errors.ErrToolForbidden)
+	require.Empty(t, mockClient.calledToolName)
+}
