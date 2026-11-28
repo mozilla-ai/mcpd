@@ -1555,3 +1555,78 @@ func TestDaemon_PingAllServers_ContextCancellation_Deadlock(t *testing.T) {
 		t.Fatal("pingAllServers did not return within 2 seconds after context cancellation")
 	}
 }
+
+func TestDaemon_ReloadServers_DoesNotRecordFailedServers(t *testing.T) {
+	t.Parallel()
+
+	// The runtime is unsupported, so starting the server always fails.
+	server := func(name string, version string) runtime.Server {
+		return runtime.Server{
+			ServerEntry: config.ServerEntry{
+				Name:    name,
+				Package: "unsupported::" + name + "@" + version,
+				Tools:   []string{"tool"},
+			},
+		}
+	}
+
+	tests := []struct {
+		name        string
+		current     []runtime.Server
+		running     bool
+		incoming    []runtime.Server
+		expectedErr string
+		retryErr    string
+	}{
+		{
+			name:        "added server fails to start",
+			incoming:    []runtime.Server{server("broken", "1.0.0")},
+			expectedErr: "add broken",
+			retryErr:    "add broken",
+		},
+		{
+			name:        "restarted server fails to start",
+			current:     []runtime.Server{server("broken", "1.0.0")},
+			running:     true,
+			incoming:    []runtime.Server{server("broken", "2.0.0")},
+			expectedErr: "restart-start broken",
+			retryErr:    "add broken",
+		},
+		{
+			name:        "restarted server fails to stop",
+			current:     []runtime.Server{server("broken", "1.0.0")},
+			incoming:    []runtime.Server{server("broken", "2.0.0")},
+			expectedErr: "restart-stop broken",
+			retryErr:    "add broken",
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			deps, err := NewDependencies(
+				hclog.NewNullLogger(),
+				"localhost:8085",
+				append([]runtime.Server{server("other", "1.0.0")}, tc.current...),
+			)
+			require.NoError(t, err)
+			d, err := NewDaemon(deps)
+			require.NoError(t, err)
+
+			if tc.running {
+				d.clientManager.Add("broken", newMockMCPClientWithBehavior(0, nil), []string{"tool"})
+				d.healthTracker.Add("broken")
+			}
+
+			incoming := append([]runtime.Server{server("other", "1.0.0")}, tc.incoming...)
+			err = d.ReloadServers(context.Background(), incoming)
+			require.ErrorContains(t, err, tc.expectedErr)
+			require.Equal(t, []runtime.Server{server("other", "1.0.0")}, d.runtimeServers)
+
+			// Reloading the same configuration must attempt to start the server again.
+			err = d.ReloadServers(context.Background(), incoming)
+			require.ErrorContains(t, err, tc.retryErr)
+		})
+	}
+}

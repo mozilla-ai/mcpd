@@ -734,6 +734,9 @@ func (d *Daemon) ReloadServers(ctx context.Context, newServers []runtime.Server)
 
 	var errs []error
 
+	// Names of servers which were left not running, so they must not be recorded as current.
+	failed := make(map[string]struct{})
+
 	// Stop removed servers.
 	for _, name := range toRemove {
 		if err := d.stopMCPServer(name); err != nil {
@@ -760,6 +763,7 @@ func (d *Daemon) ReloadServers(ctx context.Context, newServers []runtime.Server)
 		if err := d.stopMCPServer(srv.Name()); err != nil {
 			d.logger.Error("Failed to stop server for restart", "server", srv.Name(), "error", err)
 			errs = append(errs, fmt.Errorf("restart-stop %s: %w", srv.Name(), err))
+			failed[filter.NormalizeString(srv.Name())] = struct{}{}
 			continue
 		}
 
@@ -767,6 +771,7 @@ func (d *Daemon) ReloadServers(ctx context.Context, newServers []runtime.Server)
 		if err := d.startMCPServer(ctx, *srv); err != nil {
 			d.logger.Error("Failed to start server after restart", "server", srv.Name(), "error", err)
 			errs = append(errs, fmt.Errorf("restart-start %s: %w", srv.Name(), err))
+			failed[filter.NormalizeString(srv.Name())] = struct{}{}
 		}
 	}
 
@@ -775,11 +780,16 @@ func (d *Daemon) ReloadServers(ctx context.Context, newServers []runtime.Server)
 		if err := d.startMCPServer(ctx, *srv); err != nil {
 			d.logger.Error("Failed to start new server", "server", srv.Name(), "error", err)
 			errs = append(errs, fmt.Errorf("add %s: %w", srv.Name(), err))
+			failed[filter.NormalizeString(srv.Name())] = struct{}{}
 		}
 	}
 
 	// Update stored runtime servers after reload (even if some operations failed).
-	d.runtimeServers = newServers
+	// Failed servers are left out, so the next reload treats them as new and tries to start them again.
+	d.runtimeServers = slices.DeleteFunc(slices.Clone(newServers), func(srv runtime.Server) bool {
+		_, ok := failed[filter.NormalizeString(srv.Name())]
+		return ok
+	})
 
 	if len(errs) > 0 {
 		d.logger.Error("Server reload completed with errors", "error_count", len(errs))
