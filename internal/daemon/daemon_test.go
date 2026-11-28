@@ -3,9 +3,15 @@ package daemon
 import (
 	"context"
 	"errors"
+	"fmt"
 	"log/slog"
+	"os"
+	"path/filepath"
+	goruntime "runtime"
+	"strconv"
 	"strings"
 	"sync"
+	"syscall"
 	"testing"
 	"time"
 
@@ -1554,4 +1560,51 @@ func TestDaemon_PingAllServers_ContextCancellation_Deadlock(t *testing.T) {
 	case <-time.After(2 * time.Second):
 		t.Fatal("pingAllServers did not return within 2 seconds after context cancellation")
 	}
+}
+
+func TestDaemon_StartMCPServer_FailedInitializeStopsProcess(t *testing.T) {
+	if goruntime.GOOS == "windows" {
+		t.Skip("uses a shell script as the MCP server")
+	}
+
+	// A fake 'uvx' which records its PID and never answers 'Initialize'.
+	dir := t.TempDir()
+	pidFile := filepath.Join(dir, "pid")
+	script := fmt.Sprintf("#!/bin/sh\necho $$ > '%s'\nexec cat > /dev/null\n", pidFile)
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "uvx"), []byte(script), 0o700))
+	t.Setenv("PATH", dir+string(os.PathListSeparator)+os.Getenv("PATH"))
+
+	server := runtime.Server{
+		ServerEntry: config.ServerEntry{
+			Name:    "silent",
+			Package: "uvx::silent@1.0.0",
+			Tools:   []string{"tool"},
+		},
+	}
+
+	deps, err := NewDependencies(hclog.NewNullLogger(), "localhost:8085", []runtime.Server{server})
+	require.NoError(t, err)
+	d, err := NewDaemon(deps)
+	require.NoError(t, err)
+	d.clientInitTimeout = time.Second
+
+	err = d.startMCPServer(context.Background(), server)
+	require.ErrorContains(t, err, "error initializing MCP client: 'silent'")
+	require.Empty(t, d.clientManager.List())
+
+	data, err := os.ReadFile(pidFile)
+	require.NoError(t, err)
+	pid, err := strconv.Atoi(strings.TrimSpace(string(data)))
+	require.NoError(t, err)
+
+	process, err := os.FindProcess(pid)
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = process.Kill() })
+	require.Error(t, process.Signal(syscall.Signal(0)), "child process is still running")
+
+	// The stderr reader must finish once the stream ends, rather than spin on EOF.
+	require.Eventually(t, func() bool {
+		buf := make([]byte, 1<<20)
+		return !strings.Contains(string(buf[:goruntime.Stack(buf, true)]), "(*Daemon).startMCPServer.func")
+	}, 5*time.Second, 50*time.Millisecond)
 }

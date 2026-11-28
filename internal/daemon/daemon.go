@@ -335,6 +335,14 @@ func (d *Daemon) startMCPServer(ctx context.Context, server runtime.Server) erro
 
 	logger.Info("Started")
 
+	// A server which fails to start is never registered, so nothing else can close it.
+	registered := false
+	defer func() {
+		if !registered {
+			d.closeClientWithTimeout(server.Name(), stdioClient, d.clientShutdownTimeout)
+		}
+	}()
+
 	// Get stderr reader
 	stderr, ok := client.GetStderr(stdioClient)
 	if !ok {
@@ -360,6 +368,11 @@ func (d *Daemon) startMCPServer(ctx context.Context, server runtime.Server) erro
 				}
 
 				parseAndLogMCPMessage(logger, line)
+
+				// The stream has ended, nothing more will arrive.
+				if err == io.EOF {
+					return
+				}
 			}
 		}
 	}(ctx, logger, stderr)
@@ -391,6 +404,7 @@ func (d *Daemon) startMCPServer(ctx context.Context, server runtime.Server) erro
 	// Store and track the client.
 	d.clientManager.Add(server.Name(), stdioClient, server.Tools)
 	d.healthTracker.Add(server.Name())
+	registered = true
 
 	logger.Info("Ready!")
 
