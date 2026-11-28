@@ -49,7 +49,14 @@ A tool name is matched exactly, apart from surrounding whitespace, because the M
 
 The `tools` allow list is matched the same way, so an entry written as `getcurrenttime` does not permit a tool the server reports as `getCurrentTime`. `mcpd config tools set` refuses a tool name that differs from the registry's own spelling, and records the name as the registry spells it.
 
-An allow list written by `mcpd` 0.7.0 or earlier holds lowercased tool names. Where a server spells a tool with any uppercase letter, update the entry to the server's spelling, which `mcpd config tools list` now reports unchanged.
+An allow list written by `mcpd` 0.7.0 or earlier holds lowercased tool names. Where a server spells a tool with any uppercase letter, the entry permits nothing and needs the server's spelling, which `mcpd config tools list` reports unchanged.
+
+Two commands make that change, because `mcpd config tools set` adds an entry and removes none:
+
+```bash
+mcpd config tools set myserver --tool getCurrentTime
+mcpd config tools remove myserver getcurrenttime
+```
 
 ---
 
