@@ -2,8 +2,6 @@ package domain
 
 import (
 	"strings"
-
-	"github.com/mozilla-ai/mcpd/internal/filter"
 )
 
 // ServerName is an MCP server's name as the operator configured it.
@@ -18,7 +16,7 @@ type ToolName string
 
 // Key returns the form under which the name is indexed and compared.
 func (n ServerName) Key() string {
-	return filter.NormalizeString(string(n))
+	return strings.ToLower(n.String())
 }
 
 // String returns the name as it was given, without surrounding whitespace.
