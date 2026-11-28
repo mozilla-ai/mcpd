@@ -116,6 +116,67 @@ plugin is permitted to do.
 A plugin in a non-`content` category that returns modified content will not have those
 modifications applied. If your plugin needs to rewrite payloads, it belongs in `content`.
 
+### Modifying a Request or Response
+
+A `content` plugin rewrites a request by setting `modified_request` on the response it returns from
+`HandleRequest`. It rewrites a response by returning the headers or body it wants from `HandleResponse`,
+with `Continue=true`.
+
+Modifications chain in configured order, so each `content` plugin is given what the plugin before it
+produced, and the last one decides what `mcpd` uses.
+
+A plugin changes only the fields it sets, and a field left at its zero value is left alone:
+
+| Flow       | A plugin may change | `mcpd` ignores            |
+|------------|---------------------|---------------------------|
+| `request`  | headers, body       | method, path              |
+| `response` | headers, body       | status code               |
+
+So a plugin that adds one header keeps every other header the client sent, and a plugin that redacts
+a body keeps the upstream status code. A plugin that echoes only `Continue=true` changes nothing.
+
+Five limits follow from this, and all are deliberate:
+
+- A plugin cannot clear a body or a header, only replace one. An empty `body` means no change, because
+  proto3 omits an empty `bytes` field from the wire, so `mcpd` cannot tell an empty body from an absent
+  one. Replace a body with a redacted one rather than removing it.
+
+- A plugin cannot delete a header, only set one. Headers are merged over the message.
+- A plugin cannot change the request method or path. `mcpd` runs the pipeline before it matches the
+  request to a route, so honoring a rewritten method or path would let a `content` plugin choose which
+  handler runs, after `authentication`, `authorization`, `rate_limiting` and `validation` have already
+  passed on the request the client actually sent. Rewrite the body instead.
+- A plugin cannot change the response status code while continuing the pipeline. A plugin that
+  continues is adjusting a response, not authoring one, and a redaction that forgot to echo the status
+  would report an upstream failure as success. Return `Continue=false` to choose the status code, which
+  hands your whole response to the client.
+- A plugin sees one value per header name. The `headers` map holds a single string for each name, so a
+  name the client or the handler sent more than once reaches your plugin as its first value only.
+  `mcpd` keeps the values your plugin never saw. A name you return with the value you were given counts
+  as no change, so echoing the headers you were handed cannot discard them. Setting a name to a
+  different value replaces every value it held.
+
+Some headers belong to `mcpd` or to the operator. A plugin that sets one is ignored, on every flow and
+whether it continues the pipeline or stops it:
+
+| Header | Owned by | Why |
+|---|---|---|
+| `Connection`, `Content-Length`, `Keep-Alive`, `Proxy-Authenticate`, `Proxy-Authorization`, `TE`, `Trailer`, `Transfer-Encoding`, `Upgrade` | `mcpd` | The transport, and the framing of the response `mcpd` writes |
+| `Access-Control-Allow-Credentials`, `Access-Control-Allow-Headers`, `Access-Control-Allow-Methods`, `Access-Control-Allow-Origin`, `Access-Control-Expose-Headers`, `Access-Control-Max-Age`, `Vary` | operator | Set from `api.cors.allow_origins`. Replacing `Vary` would let a shared cache serve one origin's response to another. |
+| `Mcpd-Error-Type` | `mcpd` | SDKs classify pipeline failures from it |
+
+A plugin that stops the pipeline must report a status code between 200 and 599. `mcpd` writes a 500
+for anything else, including a missing one, because a rejection must not reach the client as a success.
+
+`mcpd` logs a warning naming your plugin whenever it drops a change your plugin asked for, so a plugin in
+the wrong category or setting a header it does not own is visible in the daemon's logs rather than silent. A
+reserved header is logged by name only and never by value, because the value may be a credential. A field
+your plugin echoes unchanged is not logged, so returning the request or response you were given stays quiet.
+
+A `content` plugin runs after `authorization`, so a change it makes is not authorized again. Keep
+changes to data the authorization decision does not depend on, or enforce the constraint in the
+`content` plugin itself.
+
 Because observability plugins run concurrently, an optional observability plugin's rejection is
 ignored rather than stopping the pipeline. See
 [Observability Plugin Execution](plugin-configuration.md#observability-plugin-execution).

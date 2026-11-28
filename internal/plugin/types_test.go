@@ -11,59 +11,78 @@ import (
 func TestCategoryProperties_AllCategoriesDefined(t *testing.T) {
 	t.Parallel()
 
-	// Ensure all 7 categories are defined.
 	require.Len(t, categoryProps, 7, "expected exactly 7 plugin categories")
 
-	// Verify each category exists with correct properties.
-	authProps, err := PropertiesForCategory(config.CategoryAuthentication)
-	require.NoError(t, err)
-	require.False(t, authProps.Parallel)
-	require.False(t, authProps.IgnoreOptionalRejection)
-	require.False(t, authProps.CanModify)
+	tests := []struct {
+		name                    string
+		category                config.Category
+		mode                    Mode
+		ignoreOptionalRejection bool
+	}{
+		{
+			name:                    "audit",
+			category:                config.CategoryAudit,
+			mode:                    ModeSerial,
+			ignoreOptionalRejection: false,
+		},
+		{
+			name:                    "authentication",
+			category:                config.CategoryAuthentication,
+			mode:                    ModeSerial,
+			ignoreOptionalRejection: false,
+		},
+		{
+			name:                    "authorization",
+			category:                config.CategoryAuthorization,
+			mode:                    ModeSerial,
+			ignoreOptionalRejection: false,
+		},
+		{
+			name:                    "content",
+			category:                config.CategoryContent,
+			mode:                    ModeSerialModifying,
+			ignoreOptionalRejection: false,
+		},
+		{
+			name:                    "observability",
+			category:                config.CategoryObservability,
+			mode:                    ModeParallel,
+			ignoreOptionalRejection: true,
+		},
+		{
+			name:                    "rate limiting",
+			category:                config.CategoryRateLimiting,
+			mode:                    ModeSerial,
+			ignoreOptionalRejection: false,
+		},
+		{
+			name:                    "validation",
+			category:                config.CategoryValidation,
+			mode:                    ModeSerial,
+			ignoreOptionalRejection: false,
+		},
+	}
 
-	authzProps, err := PropertiesForCategory(config.CategoryAuthorization)
-	require.NoError(t, err)
-	require.False(t, authzProps.Parallel)
-	require.False(t, authzProps.IgnoreOptionalRejection)
-	require.False(t, authzProps.CanModify)
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
 
-	rateLimitProps, err := PropertiesForCategory(config.CategoryRateLimiting)
-	require.NoError(t, err)
-	require.False(t, rateLimitProps.Parallel)
-	require.False(t, rateLimitProps.IgnoreOptionalRejection)
-	require.False(t, rateLimitProps.CanModify)
-
-	validationProps, err := PropertiesForCategory(config.CategoryValidation)
-	require.NoError(t, err)
-	require.False(t, validationProps.Parallel)
-	require.False(t, validationProps.IgnoreOptionalRejection)
-	require.False(t, validationProps.CanModify)
-
-	contentProps, err := PropertiesForCategory(config.CategoryContent)
-	require.NoError(t, err)
-	require.False(t, contentProps.Parallel)
-	require.False(t, contentProps.IgnoreOptionalRejection)
-	require.True(t, contentProps.CanModify)
-
-	observabilityProps, err := PropertiesForCategory(config.CategoryObservability)
-	require.NoError(t, err)
-	require.True(t, observabilityProps.Parallel)
-	require.True(t, observabilityProps.IgnoreOptionalRejection)
-	require.False(t, observabilityProps.CanModify)
-
-	auditProps, err := PropertiesForCategory(config.CategoryAudit)
-	require.NoError(t, err)
-	require.False(t, auditProps.Parallel)
-	require.False(t, auditProps.IgnoreOptionalRejection)
-	require.False(t, auditProps.CanModify)
+			props, err := PropertiesForCategory(tc.category)
+			require.NoError(t, err)
+			require.Equal(t, tc.mode, props.Mode)
+			require.Equal(t, tc.ignoreOptionalRejection, props.IgnoreOptionalRejection)
+		})
+	}
 }
 
+// TestCategoryProperties_ParallelCannotModify pins the table against a mode that would hand a plugin
+// the output of a plugin that has no defined position before it.
 func TestCategoryProperties_ParallelCannotModify(t *testing.T) {
 	t.Parallel()
 
 	for category, props := range categoryProps {
-		if props.Parallel {
-			require.False(t, props.CanModify,
+		if props.Mode.IsParallel() {
+			require.False(t, props.Mode.CanModify(),
 				"category %s: parallel execution must not allow modification", category)
 		}
 	}
@@ -75,6 +94,136 @@ func TestCategoryProperties_UnknownCategory(t *testing.T) {
 	_, err := PropertiesForCategory("unknown-category")
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "unknown plugin category")
+}
+
+// TestCategoryProperties_ZeroValueIsMostRestrictive pins ModeSerial to zero, so a category added to the
+// table without naming a mode runs serially and applies no modification.
+func TestCategoryProperties_ZeroValueIsMostRestrictive(t *testing.T) {
+	t.Parallel()
+
+	var props CategoryProperties
+
+	require.Equal(t, ModeSerial, props.Mode)
+	require.False(t, props.Mode.CanModify())
+	require.False(t, props.Mode.IsParallel())
+	require.False(t, props.IgnoreOptionalRejection)
+}
+
+func TestMode_CanModify(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name     string
+		mode     Mode
+		expected bool
+	}{
+		{
+			name:     "parallel",
+			mode:     ModeParallel,
+			expected: false,
+		},
+		{
+			name:     "serial",
+			mode:     ModeSerial,
+			expected: false,
+		},
+		{
+			name:     "serial modifying",
+			mode:     ModeSerialModifying,
+			expected: true,
+		},
+		{
+			name:     "unrecognized",
+			mode:     Mode(99),
+			expected: false,
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			require.Equal(t, tc.expected, tc.mode.CanModify())
+		})
+	}
+}
+
+func TestMode_IsParallel(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name     string
+		mode     Mode
+		expected bool
+	}{
+		{
+			name:     "parallel",
+			mode:     ModeParallel,
+			expected: true,
+		},
+		{
+			name:     "serial",
+			mode:     ModeSerial,
+			expected: false,
+		},
+		{
+			name:     "serial modifying",
+			mode:     ModeSerialModifying,
+			expected: false,
+		},
+		{
+			name:     "unrecognized",
+			mode:     Mode(99),
+			expected: false,
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			require.Equal(t, tc.expected, tc.mode.IsParallel())
+		})
+	}
+}
+
+func TestMode_String(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name     string
+		mode     Mode
+		expected string
+	}{
+		{
+			name:     "parallel",
+			mode:     ModeParallel,
+			expected: "parallel",
+		},
+		{
+			name:     "serial",
+			mode:     ModeSerial,
+			expected: "serial",
+		},
+		{
+			name:     "serial modifying",
+			mode:     ModeSerialModifying,
+			expected: "serial-modifying",
+		},
+		{
+			name:     "unrecognized",
+			mode:     Mode(99),
+			expected: "unknown mode: 99",
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			require.Equal(t, tc.expected, tc.mode.String())
+		})
+	}
 }
 
 func TestOrderedCategories_ReturnsCorrectOrder(t *testing.T) {

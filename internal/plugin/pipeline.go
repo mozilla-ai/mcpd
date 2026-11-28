@@ -3,6 +3,8 @@ package plugin
 import (
 	"context"
 	"fmt"
+	"net/http"
+	"slices"
 	"sync"
 
 	"github.com/hashicorp/go-hclog"
@@ -40,6 +42,8 @@ func newPipeline(logger hclog.Logger) *pipeline {
 // HandleRequest processes a request through all plugin categories in order.
 // Executes plugins serially or in parallel based on category properties.
 // Returns early if a required plugin fails or if HTTPResponse.Continue is false.
+// When every plugin passes, ModifiedRequest on the returned response holds the transformed request,
+// and is nil when no plugin returned a modification.
 func (p *pipeline) HandleRequest(ctx context.Context, req *HTTPRequest) (*HTTPResponse, error) {
 	p.mu.RLock()
 	defer p.mu.RUnlock()
@@ -70,7 +74,7 @@ func (p *pipeline) HandleRequest(ctx context.Context, req *HTTPRequest) (*HTTPRe
 		}
 
 		mode := "serial"
-		if props.Parallel {
+		if props.Mode.IsParallel() {
 			mode = "parallel"
 		}
 
@@ -80,21 +84,29 @@ func (p *pipeline) HandleRequest(ctx context.Context, req *HTTPRequest) (*HTTPRe
 			"plugin_count", len(requestPlugins),
 		)
 
-		var resp *HTTPResponse
-
 		// Execute using strategy pattern.
+		// A modification is handed to the plugins that follow, so a category transforms the request in order.
 		handler := func(ctx context.Context, inst *Instance) (*HTTPResponse, error) {
-			return inst.HandleRequest(ctx, currentReq)
+			pluginResp, err := inst.HandleRequest(ctx, currentReq)
+			if err != nil {
+				return nil, err
+			}
+
+			if pluginResp != nil {
+				p.logUnappliedRequestFields(inst.Name(), props.Mode.CanModify(), currentReq, pluginResp.ModifiedRequest)
+				p.logUnappliedStopHeaders(inst.Name(), pluginResp)
+			}
+
+			if props.Mode.CanModify() && pluginResp != nil {
+				currentReq = mergeRequestModification(currentReq, pluginResp.ModifiedRequest)
+			}
+
+			return pluginResp, nil
 		}
 
-		resp, err = p.execute(ctx, requestPlugins, handler, props)
+		resp, err := p.execute(ctx, requestPlugins, handler, props)
 		if err != nil {
 			return nil, fmt.Errorf("category %s execution failed: %w", category, err)
-		}
-
-		// If plugin modified the request and modification is allowed, use the modified version.
-		if props.CanModify && resp != nil && resp.ModifiedRequest != nil {
-			currentReq = resp.ModifiedRequest
 		}
 
 		// If a plugin returned a response with Continue=false, stop the pipeline.
@@ -108,12 +120,19 @@ func (p *pipeline) HandleRequest(ctx context.Context, req *HTTPRequest) (*HTTPRe
 	}
 
 	// All plugins passed, continue to the upstream server.
-	return &HTTPResponse{Continue: true}, nil
+	result := &HTTPResponse{Continue: true}
+	if currentReq != req {
+		result.ModifiedRequest = currentReq
+	}
+
+	return result, nil
 }
 
 // HandleResponse processes a response through all plugin categories in order.
 // Executes plugins serially or in parallel based on category properties.
 // Returns early if a required plugin fails or if Continue is false.
+// The returned response carries any transformation a content plugin made, and is resp itself when no
+// plugin modified it, so a caller can tell the two apart by identity.
 func (p *pipeline) HandleResponse(ctx context.Context, resp *HTTPResponse) (*HTTPResponse, error) {
 	p.mu.RLock()
 	defer p.mu.RUnlock()
@@ -142,7 +161,7 @@ func (p *pipeline) HandleResponse(ctx context.Context, resp *HTTPResponse) (*HTT
 		}
 
 		mode := "serial"
-		if props.Parallel {
+		if props.Mode.IsParallel() {
 			mode = "parallel"
 		}
 
@@ -153,18 +172,26 @@ func (p *pipeline) HandleResponse(ctx context.Context, resp *HTTPResponse) (*HTT
 		)
 
 		// Execute using strategy pattern.
+		// A modification is handed to the plugins that follow, so a category transforms the response in order.
 		handler := func(ctx context.Context, inst *Instance) (*HTTPResponse, error) {
-			return inst.HandleResponse(ctx, currentResp)
+			pluginResp, err := inst.HandleResponse(ctx, currentResp)
+			if err != nil {
+				return nil, err
+			}
+
+			p.logUnappliedResponseFields(inst.Name(), props.Mode.CanModify(), currentResp.StatusCode, pluginResp)
+			p.logUnappliedStopHeaders(inst.Name(), pluginResp)
+
+			if props.Mode.CanModify() {
+				currentResp = mergeResponseModification(currentResp, pluginResp)
+			}
+
+			return pluginResp, nil
 		}
 
 		result, err := p.execute(ctx, responsePlugins, handler, props)
 		if err != nil {
 			return nil, fmt.Errorf("category %s execution failed: %w", category, err)
-		}
-
-		// Update current response if modified.
-		if props.CanModify && result != nil {
-			currentResp = result
 		}
 
 		// If a plugin returned Continue=false, return this response.
@@ -232,13 +259,18 @@ func (p *pipeline) Shutdown(ctx context.Context) error {
 
 // execute runs plugins using the appropriate strategy (serial or parallel).
 // This implements the Strategy pattern to avoid code duplication.
+//
+// NOTE: The returned response is the response of a plugin that stopped the pipeline, or an empty
+// pass-through when every plugin passed, so a caller must not treat it as the current request or response state.
+// A caller that tracks that state must fold each plugin's result in from its own handler.
+// Only a serial category may do so, which PropertiesForCategory enforces.
 func (p *pipeline) execute(
 	ctx context.Context,
 	plugins []*Instance,
 	handler pluginHandler,
 	props CategoryProperties,
 ) (*HTTPResponse, error) {
-	if props.Parallel {
+	if props.Mode.IsParallel() {
 		return p.executeParallel(ctx, plugins, handler, props.IgnoreOptionalRejection)
 	}
 
@@ -325,6 +357,34 @@ func (p *pipeline) executeSerial(
 	return &HTTPResponse{Continue: true}, nil
 }
 
+// filterByFlow returns plugins that both support the specified flow, and are configured to execute on that flow.
+func (p *pipeline) filterByFlow(ctx context.Context, instances []*Instance, flow config.Flow) ([]*Instance, error) {
+	var filtered []*Instance
+
+	for _, instance := range instances {
+		if !instance.IsFlowAllowed(flow) {
+			continue // This plugin has not been configured for the specified flow.
+		}
+
+		canHandle, err := instance.IsFlowSupported(ctx, flow)
+		if err != nil {
+			tmpErr := fmt.Errorf(
+				"unable to determine flow ('%s') support for plugin '%s': %w",
+				flow,
+				instance.Name(),
+				err,
+			)
+			return nil, tmpErr
+		}
+
+		if canHandle {
+			filtered = append(filtered, instance)
+		}
+	}
+
+	return filtered, nil
+}
+
 // handlePluginResult processes plugin errors and rejections.
 //
 // Used by serial and parallel execution to consolidate logic.
@@ -371,30 +431,163 @@ func (p *pipeline) handlePluginResult(
 	return true, resp, nil
 }
 
-// filterByFlow returns plugins that both support the specified flow, and are configured to execute on that flow.
-func (p *pipeline) filterByFlow(ctx context.Context, instances []*Instance, flow config.Flow) ([]*Instance, error) {
-	var filtered []*Instance
-
-	for _, instance := range instances {
-		if !instance.IsFlowAllowed(flow) {
-			continue // This plugin has not been configured for the specified flow.
-		}
-
-		canHandle, err := instance.IsFlowSupported(ctx, flow)
-		if err != nil {
-			tmpErr := fmt.Errorf(
-				"unable to determine flow ('%s') support for plugin '%s': %w",
-				flow,
-				instance.Name(),
-				err,
-			)
-			return nil, tmpErr
-		}
-
-		if canHandle {
-			filtered = append(filtered, instance)
-		}
+// logUnappliedRequestFields logs the parts of mod that the pipeline does not apply, so a plugin author can
+// see that a change their plugin asked for had no effect.
+// canModify reports whether the plugin's category may modify at all, and req is the request as it stands
+// before mod is applied.
+//
+// NOTE: Only header names are logged. A header value or a body may carry a credential or client data.
+// A field in mod that matches req is not logged, because a plugin that echoes a field it was given has not
+// asked for a change.
+func (p *pipeline) logUnappliedRequestFields(name string, canModify bool, req *HTTPRequest, mod *HTTPRequest) {
+	if mod == nil {
+		return
 	}
 
-	return filtered, nil
+	if mod.Method != "" && mod.Method != req.Method {
+		p.logger.Warn("ignoring request method set by plugin", "plugin", name, "method", mod.Method)
+	}
+
+	if mod.Path != "" && mod.Path != req.Path {
+		p.logger.Warn("ignoring request path set by plugin", "plugin", name, "path", mod.Path)
+	}
+
+	if len(mod.Headers) == 0 && len(mod.Body) == 0 {
+		return
+	}
+
+	if !canModify {
+		p.logger.Warn("ignoring request modification from a category that may not modify", "plugin", name)
+
+		return
+	}
+
+	if reserved := reservedHeaderNames(mod.Headers); len(reserved) > 0 {
+		p.logger.Warn("ignoring reserved request headers set by plugin", "plugin", name, "headers", reserved)
+	}
+}
+
+// logUnappliedResponseFields logs the parts of mod that the pipeline does not apply, so a plugin author can
+// see that a change their plugin asked for had no effect.
+// canModify reports whether the plugin's category may modify at all, and status is the status code the
+// response carries before mod is applied.
+//
+// NOTE: Only header names are logged. A header value or a body may carry a credential or client data.
+func (p *pipeline) logUnappliedResponseFields(name string, canModify bool, status int32, mod *HTTPResponse) {
+	if mod == nil || !mod.Continue {
+		return
+	}
+
+	if mod.StatusCode != 0 && mod.StatusCode != status {
+		p.logger.Warn("ignoring status code set by a plugin that continues the pipeline",
+			"plugin", name, "status", mod.StatusCode)
+	}
+
+	if len(mod.Headers) == 0 && len(mod.Body) == 0 {
+		return
+	}
+
+	if !canModify {
+		p.logger.Warn("ignoring response modification from a category that may not modify", "plugin", name)
+
+		return
+	}
+
+	if reserved := reservedHeaderNames(mod.Headers); len(reserved) > 0 {
+		p.logger.Warn("ignoring reserved response headers set by plugin", "plugin", name, "headers", reserved)
+	}
+}
+
+// logUnappliedStopHeaders logs the reserved headers in a response a plugin authored by stopping the
+// pipeline, so a plugin author can see that a header their plugin set is not written.
+//
+// NOTE: Only header names are logged. A reserved header's value may carry a credential.
+func (p *pipeline) logUnappliedStopHeaders(name string, resp *HTTPResponse) {
+	if resp == nil || resp.Continue {
+		return
+	}
+
+	if reserved := reservedHeaderNames(resp.Headers); len(reserved) > 0 {
+		p.logger.Warn("ignoring reserved response headers set by plugin", "plugin", name, "headers", reserved)
+	}
+}
+
+// mergeHeaders returns a copy of base with every entry in overlay applied over it.
+// It skips an entry in overlay that names a reserved header, and stores each name in canonical form so
+// two spellings of one header cannot both survive.
+func mergeHeaders(base http.Header, overlay http.Header) http.Header {
+	merged := base.Clone()
+	if merged == nil {
+		merged = make(http.Header, len(overlay))
+	}
+
+	for name, values := range overlay {
+		if isReservedHeader(name) {
+			continue
+		}
+
+		merged[http.CanonicalHeaderKey(name)] = slices.Clone(values)
+	}
+
+	return merged
+}
+
+// mergeRequestModification returns req with the headers and body that mod sets applied to a copy of it.
+// It returns req itself when mod is nil or sets neither.
+//
+// NOTE: The method and the path in mod are ignored, so every plugin and the handler see the ones the
+// client sent. A plugin that replaced them would otherwise give the audit trail a request mcpd never served.
+// A zero value in mod leaves that field unchanged, so a plugin cannot clear a header or a body.
+func mergeRequestModification(req *HTTPRequest, mod *HTTPRequest) *HTTPRequest {
+	if mod == nil {
+		return req
+	}
+
+	if len(mod.Headers) == 0 && len(mod.Body) == 0 {
+		return req
+	}
+
+	merged := *req
+
+	if len(mod.Headers) != 0 {
+		merged.Headers = mergeHeaders(req.Headers, mod.Headers)
+	}
+
+	if len(mod.Body) != 0 {
+		merged.Body = mod.Body
+	}
+
+	return &merged
+}
+
+// mergeResponseModification returns resp with the headers and body that mod sets applied to a copy of it.
+// It returns resp itself when mod is nil, when mod stops the pipeline, or when mod sets neither.
+//
+// NOTE: The status code in mod is ignored, because a plugin that continues the pipeline is adjusting a
+// response rather than authoring one, and a redaction that forgets to echo the status would otherwise
+// report an upstream failure as success.
+// A plugin reports its own status code by stopping the pipeline with Continue=false.
+// A zero value in mod leaves that field unchanged, so a plugin cannot clear a header or a body.
+// An empty body cannot mean anything else, because proto3 omits an empty bytes field from the wire, so a
+// plugin that sent one would be indistinguishable from a plugin that sent none.
+func mergeResponseModification(resp *HTTPResponse, mod *HTTPResponse) *HTTPResponse {
+	if mod == nil || !mod.Continue {
+		return resp
+	}
+
+	if len(mod.Headers) == 0 && len(mod.Body) == 0 {
+		return resp
+	}
+
+	merged := *resp
+
+	if len(mod.Headers) != 0 {
+		merged.Headers = mergeHeaders(resp.Headers, mod.Headers)
+	}
+
+	if len(mod.Body) != 0 {
+		merged.Body = mod.Body
+	}
+
+	return &merged
 }
