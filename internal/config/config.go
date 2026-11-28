@@ -104,7 +104,7 @@ func (c *Config) RemoveServer(name string) error {
 		return err
 	}
 
-	c.Servers = slices.Delete(c.Servers, idx, idx+1)
+	c.Servers = slices.Delete(slices.Clone(c.Servers), idx, idx+1)
 
 	if err := c.validate(); err != nil {
 		return err
@@ -127,17 +127,20 @@ func (c *Config) UpdateServer(entry ServerEntry) error {
 		return err
 	}
 
-	previous := c.Servers[idx]
-	c.Servers[idx] = entry
+	previous := c.Servers
+
+	servers := slices.Clone(c.Servers)
+	servers[idx] = entry
+	c.Servers = servers
 
 	if err := c.validate(); err != nil {
-		c.Servers[idx] = previous
+		c.Servers = previous
 
 		return err
 	}
 
 	if err := c.saveConfig(); err != nil {
-		c.Servers[idx] = previous
+		c.Servers = previous
 
 		return fmt.Errorf("failed to save updated config: %w", err)
 	}

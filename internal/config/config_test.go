@@ -3,6 +3,7 @@ package config
 import (
 	"os"
 	"path/filepath"
+	"slices"
 	"testing"
 
 	"github.com/BurntSushi/toml"
@@ -1362,4 +1363,50 @@ func TestUpdateServer_KeepsTheEntryWhenTheReplacementIsNotValid(t *testing.T) {
 
 	require.Len(t, cfg.Servers, 1)
 	require.Equal(t, original, cfg.Servers[0])
+}
+
+// TestRemoveServer_LeavesTheGivenSliceIntact pins that removing a server does not disturb the slice the
+// configuration was built from, which a caller may still hold.
+func TestRemoveServer_LeavesTheGivenSliceIntact(t *testing.T) {
+	t.Parallel()
+
+	servers := []ServerEntry{
+		{Name: "github", Package: "x::github@1.0.0"},
+		{Name: "time", Package: "x::time@1.0.0"},
+	}
+	original := slices.Clone(servers)
+
+	cfg := &Config{
+		configFilePath: filepath.Join(t.TempDir(), ".mcpd.toml"),
+		Servers:        servers,
+	}
+
+	require.NoError(t, cfg.RemoveServer("github"))
+
+	require.Equal(t, original, servers)
+}
+
+// TestUpdateServer_LeavesTheGivenSliceIntact pins that updating a server does not disturb the slice the
+// configuration was built from, which a caller may still hold.
+func TestUpdateServer_LeavesTheGivenSliceIntact(t *testing.T) {
+	t.Parallel()
+
+	servers := []ServerEntry{
+		{Name: "github", Package: "x::github@1.0.0", Tools: []string{"search_issues"}},
+		{Name: "time", Package: "x::time@1.0.0"},
+	}
+	original := slices.Clone(servers)
+
+	cfg := &Config{
+		configFilePath: filepath.Join(t.TempDir(), ".mcpd.toml"),
+		Servers:        servers,
+	}
+
+	require.NoError(t, cfg.UpdateServer(ServerEntry{
+		Name:    "github",
+		Package: "x::github@2.0.0",
+		Tools:   []string{"list_repos"},
+	}))
+
+	require.Equal(t, original, servers)
 }
