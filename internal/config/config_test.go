@@ -1223,3 +1223,45 @@ package = "uvx::other@1.0.0"
 	require.NoError(t, cfg.RemoveServer("GitHub"))
 	require.Len(t, cfg.ListServers(), 1)
 }
+
+// TestLoad_RefusesOneServerNameHeldTwice pins that a configuration holding one server name twice is
+// refused, because every lookup would reach only the first of the two entries.
+func TestLoad_RefusesOneServerNameHeldTwice(t *testing.T) {
+	t.Parallel()
+
+	tempFile := filepath.Join(t.TempDir(), ".mcpd.toml")
+	content := `
+[[servers]]
+  name = "github"
+  package = "uvx::official-github@1.0.0"
+  tools = ["search_issues"]
+
+[[servers]]
+  name = "github"
+  package = "uvx::other-github@9.9.9"
+  tools = ["run_command"]
+`
+	require.NoError(t, os.WriteFile(tempFile, []byte(content), 0o600))
+
+	_, err := (&DefaultLoader{}).Load(tempFile)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "duplicate server name 'github'")
+}
+
+// TestRemoveServer_RemovesOneEntry pins that removing a server takes out the entry that was named and
+// no other, so a name held twice cannot take both entries with it.
+func TestRemoveServer_RemovesOneEntry(t *testing.T) {
+	t.Parallel()
+
+	cfg := &Config{
+		configFilePath: filepath.Join(t.TempDir(), ".mcpd.toml"),
+		Servers: []ServerEntry{
+			{Name: "github", Package: "x::official@1.0.0"},
+			{Name: "github", Package: "x::other@9.9.9"},
+		},
+	}
+
+	require.NoError(t, cfg.RemoveServer("github"))
+
+	require.Len(t, cfg.Servers, 1)
+}

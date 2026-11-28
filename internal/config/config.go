@@ -99,51 +99,12 @@ func (c *Config) AddServer(entry ServerEntry) error {
 
 // RemoveServer removes a server entry by name from the configuration file (.mcpd.toml).
 func (c *Config) RemoveServer(name string) error {
-	name = strings.TrimSpace(name)
-	if name == "" {
-		return fmt.Errorf("server name cannot be empty")
+	idx, err := c.serverIndex(name)
+	if err != nil {
+		return err
 	}
 
-	// A server name is matched without regard to case, as it is wherever one is supplied. A configuration
-	// written by an earlier release may hold two names sharing one key, so an exact name decides between
-	// them and an ambiguous one removes nothing.
-	key := domain.ServerName(name).Key()
-
-	matches := make([]string, 0, len(c.Servers))
-	for _, s := range c.Servers {
-		if domain.ServerName(s.Name).Key() == key {
-			matches = append(matches, s.Name)
-		}
-	}
-
-	var target string
-
-	switch {
-	case len(matches) == 0:
-		return fmt.Errorf("server '%s' not found in config", name)
-	case len(matches) == 1:
-		target = matches[0]
-	case slices.Contains(matches, name):
-		target = name
-	default:
-		slices.Sort(matches)
-
-		return fmt.Errorf(
-			"server '%s' matches more than one entry: %s, so name one of them exactly",
-			name,
-			strings.Join(matches, ", "),
-		)
-	}
-
-	// Filter out servers matching the resolved name.
-	filtered := make([]ServerEntry, 0, len(c.Servers))
-	for _, s := range c.Servers {
-		if s.Name != target {
-			filtered = append(filtered, s)
-		}
-	}
-
-	c.Servers = filtered
+	c.Servers = slices.Delete(c.Servers, idx, idx+1)
 
 	if err := c.validate(); err != nil {
 		return err
@@ -304,6 +265,54 @@ func (c *Config) saveConfig() error {
 	return os.WriteFile(c.configFilePath, data, perms.RegularFile)
 }
 
+// serverIndex returns the index of the entry holding the given server name, matching the name without
+// regard to case and to surrounding whitespace, as it is matched wherever one is supplied.
+// Returns an error naming both entries when two of them hold the name under one key and neither is named
+// exactly.
+//
+// NOTE: A configuration written by an earlier release may hold two names sharing one key, so an exact name
+// selects one of the two.
+func (c *Config) serverIndex(name string) (int, error) {
+	name = strings.TrimSpace(name)
+	if name == "" {
+		return 0, fmt.Errorf("server name cannot be empty")
+	}
+
+	key := domain.ServerName(name).Key()
+
+	matches := make([]int, 0, len(c.Servers))
+	for i, s := range c.Servers {
+		if domain.ServerName(s.Name).Key() == key {
+			matches = append(matches, i)
+		}
+	}
+
+	switch len(matches) {
+	case 0:
+		return 0, fmt.Errorf("server '%s' not found in config", name)
+	case 1:
+		return matches[0], nil
+	}
+
+	for _, i := range matches {
+		if c.Servers[i].Name == name {
+			return i, nil
+		}
+	}
+
+	names := make([]string, 0, len(matches))
+	for _, i := range matches {
+		names = append(names, c.Servers[i].Name)
+	}
+	slices.Sort(names)
+
+	return 0, fmt.Errorf(
+		"server '%s' matches more than one entry: %s, so name one of them exactly",
+		name,
+		strings.Join(names, ", "),
+	)
+}
+
 // validate orchestrates validation of configuration structure.
 func (c *Config) validate() error {
 	if err := c.validateServers(); err != nil {
@@ -336,8 +345,14 @@ func (c *Config) validateServers() error {
 	return nil
 }
 
-// validateFields ensures that all ServerEntry's in Config have a name and package.
+// validateFields ensures that all ServerEntry's in Config have a name and package, and that no two of
+// them hold the same name.
+//
+// NOTE: Two names sharing one key are accepted, so a configuration written by an earlier release can be
+// read and repaired.
 func (c *Config) validateFields() error {
+	seen := make(map[string]struct{}, len(c.Servers))
+
 	for _, entry := range c.Servers {
 		if strings.TrimSpace(entry.Name) == "" {
 			return fmt.Errorf("server entry has empty name")
@@ -345,7 +360,15 @@ func (c *Config) validateFields() error {
 		if strings.TrimSpace(entry.Package) == "" {
 			return fmt.Errorf("server entry has empty package")
 		}
+
+		// One name held twice leaves every lookup reaching the first entry only.
+		if _, exists := seen[entry.Name]; exists {
+			return fmt.Errorf("duplicate server name '%s'", entry.Name)
+		}
+
+		seen[entry.Name] = struct{}{}
 	}
+
 	return nil
 }
 
