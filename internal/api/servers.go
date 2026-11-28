@@ -100,7 +100,7 @@ func newServerRoutes(accessor contracts.MCPClientAccessor, options RouteOptions)
 // handleList returns the list of configured MCP servers.
 func (r *serverRoutes) handleList() (*ServersResponse, error) {
 	configured := r.accessor.List()
-	slices.SortFunc(configured, func(a, b domain.ServerName) int {
+	slices.SortStableFunc(configured, func(a, b domain.ServerName) int {
 		return strings.Compare(a.Key(), b.Key())
 	})
 

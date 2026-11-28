@@ -124,7 +124,7 @@ func RegisterHealthRoutes(routerAPI huma.API, monitor contracts.MCPHealthMonitor
 func (r *healthRoutes) handleList() (*ServersHealthResponse, error) {
 	servers := r.monitor.List()
 
-	slices.SortFunc(servers, func(a, b domain.ServerHealth) int {
+	slices.SortStableFunc(servers, func(a, b domain.ServerHealth) int {
 		return strings.Compare(a.Name.Key(), b.Name.Key())
 	})
 
