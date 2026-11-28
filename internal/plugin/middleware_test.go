@@ -465,3 +465,34 @@ func TestMiddleware_ReplacedBodyReachesTheClient(t *testing.T) {
 	require.Equal(t, "denied", string(body))
 	require.Equal(t, int64(len("denied")), resp.ContentLength)
 }
+
+// TestMiddleware_PreservesAHeaderWrittenWithANonCanonicalName runs the real gRPC adapter, because a name
+// written straight into the header map reaches the wire in that spelling unless the adapter canonicalizes
+// it, and the plugin's echo of the canonical name then reads as a change.
+func TestMiddleware_PreservesAHeaderWrittenWithANonCanonicalName(t *testing.T) {
+	t.Parallel()
+
+	var buf bytes.Buffer
+
+	client := &stubPluginClient{echoRequestHeaders: true, rewriteRequestBody: `{"rewritten":true}`}
+	adapter, err := NewGRPCAdapter(client, time.Second)
+	require.NoError(t, err)
+
+	p := newPipeline(newTestLogger(&buf))
+	require.NoError(t, p.Register(config.CategoryContent, newTestContentInstance("content-0", adapter)))
+
+	var seen http.Header
+	nextHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		seen = r.Header.Clone()
+
+		w.WriteHeader(http.StatusOK)
+	})
+
+	req := httptest.NewRequest(http.MethodPost, "/original", strings.NewReader(`{"original":true}`))
+	req.Header["x-multi"] = []string{"a", "b"}
+
+	p.Middleware()(nextHandler).ServeHTTP(httptest.NewRecorder(), req)
+
+	require.Equal(t, http.Header{"x-multi": {"a", "b"}}, seen)
+	require.Empty(t, buf.String())
+}

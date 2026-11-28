@@ -176,6 +176,9 @@ func (a *GRPCAdapter) Stop(ctx context.Context) error {
 }
 
 // flattenHeaders projects h onto the plugin wire format, which carries one value per name.
+// Names are canonicalized, so a plugin reads one spelling of a name and changedHeaders compares the
+// value it returns against the value under the same key.
+// Names are read in sorted order, so two spellings of one name resolve to the same value on every call.
 //
 // NOTE: A name's remaining values are dropped, so a plugin cannot see them.
 func flattenHeaders(h http.Header) map[string]string {
@@ -184,9 +187,9 @@ func flattenHeaders(h http.Header) map[string]string {
 	}
 
 	out := make(map[string]string, len(h))
-	for name, values := range h {
-		if len(values) > 0 {
-			out[name] = values[0]
+	for _, name := range slices.Sorted(maps.Keys(h)) {
+		if values := h[name]; len(values) > 0 {
+			out[http.CanonicalHeaderKey(name)] = values[0]
 		}
 	}
 

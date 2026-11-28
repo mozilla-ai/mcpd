@@ -285,3 +285,22 @@ func TestGRPCAdapter_HandleResponse_StoppingPluginKeepsItsOwnHeaders(t *testing.
 	require.False(t, result.Continue)
 	require.Equal(t, "text/plain", result.Headers.Get("Content-Type"))
 }
+
+// TestGRPCAdapter_HandleRequest_CanonicalizesAHeaderNameOnTheWire pins that a plugin reads one spelling
+// of a header name, so the value it echoes is compared against the value under the same key.
+func TestGRPCAdapter_HandleRequest_CanonicalizesAHeaderNameOnTheWire(t *testing.T) {
+	t.Parallel()
+
+	client := &stubPluginClient{echoRequestHeaders: true, rewriteRequestBody: `{"rewritten":true}`}
+	adapter := newTestAdapter(t, client)
+
+	resp, err := adapter.HandleRequest(context.Background(), &HTTPRequest{
+		Method:  http.MethodPost,
+		Path:    "/original",
+		Headers: http.Header{"x-multi": {"a", "b"}},
+	})
+	require.NoError(t, err)
+
+	require.Equal(t, "a", client.sentRequest.Headers["X-Multi"])
+	require.Empty(t, resp.ModifiedRequest.Headers)
+}
