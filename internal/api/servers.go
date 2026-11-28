@@ -5,14 +5,15 @@ import (
 	"fmt"
 	"net/http"
 	"slices"
+	"strings"
 	"time"
 
 	"github.com/danielgtaylor/huma/v2"
 	"github.com/mark3labs/mcp-go/mcp"
 
 	"github.com/mozilla-ai/mcpd/internal/contracts"
+	"github.com/mozilla-ai/mcpd/internal/domain"
 	"github.com/mozilla-ai/mcpd/internal/errors"
-	"github.com/mozilla-ai/mcpd/internal/filter"
 )
 
 // serverRoutes holds the shared dependencies for the server, tool, prompt, and resource endpoints.
@@ -98,8 +99,15 @@ func newServerRoutes(accessor contracts.MCPClientAccessor, options RouteOptions)
 
 // handleList returns the list of configured MCP servers.
 func (r *serverRoutes) handleList() (*ServersResponse, error) {
-	servers := r.accessor.List()
-	slices.Sort(servers)
+	configured := r.accessor.List()
+	slices.SortStableFunc(configured, func(a, b domain.ServerName) int {
+		return strings.Compare(a.Key(), b.Key())
+	})
+
+	servers := make([]string, 0, len(configured))
+	for _, name := range configured {
+		servers = append(servers, name.String())
+	}
 
 	resp := &ServersResponse{}
 	resp.Body = servers
@@ -110,12 +118,12 @@ func (r *serverRoutes) handleList() (*ServersResponse, error) {
 // handleTools returns the schemas for the allowed tools that exist for a given server.
 // This always returns full tool details (Tool), which can be filtered by the transformer.
 func (r *serverRoutes) handleTools(ctx context.Context, name string) (*ToolsResponse[Tool], error) {
-	mcpClient, clientOk := r.accessor.Client(name)
+	mcpClient, clientOk := r.accessor.Client(domain.ServerName(name))
 	if !clientOk {
 		return nil, fmt.Errorf("%w: %s", errors.ErrServerNotFound, name)
 	}
 
-	allowedTools, toolsOk := r.accessor.Tools(name)
+	allowedTools, toolsOk := r.accessor.Tools(domain.ServerName(name))
 	if !toolsOk || len(allowedTools) == 0 {
 		return nil, fmt.Errorf("%w: %s", errors.ErrToolsNotFound, name)
 	}
@@ -132,9 +140,10 @@ func (r *serverRoutes) handleTools(ctx context.Context, name string) (*ToolsResp
 	}
 
 	// Only return data on allowed tools.
+	allowed := allowedToolNames(allowedTools)
 	tools := make([]Tool, 0, len(result.Tools))
 	for _, tool := range result.Tools {
-		if slices.Contains(allowedTools, filter.NormalizeString(tool.Name)) {
+		if _, ok := allowed[domain.ToolName(tool.Name).String()]; ok {
 			data, err := domainTool(tool).ToAPIType()
 			if err != nil {
 				return nil, err
@@ -156,19 +165,20 @@ func (r *serverRoutes) handleToolCall(
 	tool string,
 	data map[string]any,
 ) (*ToolCallResponse, error) {
-	mcpClient, clientOk := r.accessor.Client(server)
+	mcpClient, clientOk := r.accessor.Client(domain.ServerName(server))
 	if !clientOk {
 		return nil, fmt.Errorf("%w: %s", errors.ErrServerNotFound, server)
 	}
 
-	allowedTools, toolsOk := r.accessor.Tools(server)
+	allowedTools, toolsOk := r.accessor.Tools(domain.ServerName(server))
 	if !toolsOk || len(allowedTools) == 0 {
 		return nil, fmt.Errorf("%w: %s", errors.ErrToolsNotFound, server)
 	}
 
-	// Normalize the tool name before comparing.
-	normalizedToolName := filter.NormalizeString(tool)
-	if !slices.Contains(allowedTools, normalizedToolName) {
+	wanted := domain.ToolName(tool).String()
+
+	allowed := allowedToolNames(allowedTools)
+	if _, ok := allowed[wanted]; !ok {
 		return nil, fmt.Errorf("%w: %s/%s", errors.ErrToolForbidden, server, tool)
 	}
 
@@ -177,7 +187,7 @@ func (r *serverRoutes) handleToolCall(
 
 	result, err := mcpClient.CallTool(ctx, mcp.CallToolRequest{
 		Params: mcp.CallToolParams{
-			Name:      tool,
+			Name:      wanted,
 			Arguments: data,
 		},
 	})
@@ -193,6 +203,22 @@ func (r *serverRoutes) handleToolCall(
 	resp.Body = extractMessage(result.Content)
 
 	return resp, nil
+}
+
+// allowedToolNames returns the set of given allowed tool names, for membership tests.
+// An entry that names no tool is left out, so it permits no call.
+func allowedToolNames(allowed []domain.ToolName) map[string]struct{} {
+	names := make(map[string]struct{}, len(allowed))
+	for _, name := range allowed {
+		wanted := name.String()
+		if wanted == "" {
+			continue
+		}
+
+		names[wanted] = struct{}{}
+	}
+
+	return names
 }
 
 // extractMessage attempts to extract a single message from content that is returned from a tool call.

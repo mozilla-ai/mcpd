@@ -9,6 +9,7 @@ import (
 	"github.com/BurntSushi/toml"
 
 	"github.com/mozilla-ai/mcpd/internal/context"
+	"github.com/mozilla-ai/mcpd/internal/domain"
 	"github.com/mozilla-ai/mcpd/internal/flags"
 	"github.com/mozilla-ai/mcpd/internal/perms"
 )
@@ -69,7 +70,17 @@ func (d *DefaultLoader) Load(path string) (Modifier, error) {
 }
 
 // AddServer attempts to persist a new MCP Server to the configuration file (.mcpd.toml).
+// Returns an error without changing the configuration if a server already holds the entry's name key.
 func (c *Config) AddServer(entry ServerEntry) error {
+	// A server is looked up by its name's key, so a pair sharing one key would collapse onto one server,
+	// leaving the other unreachable and its process unmanaged.
+	key := domain.ServerName(entry.Name).Key()
+	for _, srv := range c.Servers {
+		if domain.ServerName(srv.Name).Key() == key {
+			return fmt.Errorf("duplicate server name '%s': already declared as '%s'", entry.Name, srv.Name)
+		}
+	}
+
 	// Add server
 	c.Servers = append(c.Servers, entry)
 
@@ -88,30 +99,49 @@ func (c *Config) AddServer(entry ServerEntry) error {
 
 // RemoveServer removes a server entry by name from the configuration file (.mcpd.toml).
 func (c *Config) RemoveServer(name string) error {
-	name = strings.TrimSpace(name)
-	if name == "" {
-		return fmt.Errorf("server name cannot be empty")
+	idx, err := c.serverIndex(name)
+	if err != nil {
+		return err
 	}
 
-	// Filter out servers matching the given name
-	filtered := make([]ServerEntry, 0, len(c.Servers))
-	for _, s := range c.Servers {
-		if s.Name != name {
-			filtered = append(filtered, s)
-		}
-	}
-
-	if len(filtered) == len(c.Servers) {
-		return fmt.Errorf("server '%s' not found in config", name)
-	}
-
-	c.Servers = filtered
+	c.Servers = slices.Delete(slices.Clone(c.Servers), idx, idx+1)
 
 	if err := c.validate(); err != nil {
 		return err
 	}
 
 	if err := c.saveConfig(); err != nil {
+		return fmt.Errorf("failed to save updated config: %w", err)
+	}
+
+	return nil
+}
+
+// UpdateServer replaces the entry holding the given server's name, matching the name without regard to
+// case, and persists the configuration in one write.
+// Returns an error without changing the configuration when no entry holds the name, when two entries hold
+// it and neither is named exactly, or when the replacement is not valid.
+func (c *Config) UpdateServer(entry ServerEntry) error {
+	idx, err := c.serverIndex(entry.Name)
+	if err != nil {
+		return err
+	}
+
+	previous := c.Servers
+
+	servers := slices.Clone(c.Servers)
+	servers[idx] = entry
+	c.Servers = servers
+
+	if err := c.validate(); err != nil {
+		c.Servers = previous
+
+		return err
+	}
+
+	if err := c.saveConfig(); err != nil {
+		c.Servers = previous
+
 		return fmt.Errorf("failed to save updated config: %w", err)
 	}
 
@@ -266,6 +296,60 @@ func (c *Config) saveConfig() error {
 	return os.WriteFile(c.configFilePath, data, perms.RegularFile)
 }
 
+// serverIndex returns the index of the entry holding the given server name, matching the name without
+// regard to case and to surrounding whitespace, as it is matched wherever one is supplied.
+// Returns an error naming both entries when two of them hold the name under one key and neither is named
+// exactly.
+//
+// NOTE: A configuration written by an earlier release may hold two names sharing one key, so an exact name
+// selects one of the two.
+func (c *Config) serverIndex(name string) (int, error) {
+	// An entry named exactly is selected before the name is trimmed, so an entry whose stored name
+	// carries surrounding whitespace can still be named.
+	if idx := slices.IndexFunc(c.Servers, func(s ServerEntry) bool { return s.Name == name }); idx >= 0 {
+		return idx, nil
+	}
+
+	name = strings.TrimSpace(name)
+	if name == "" {
+		return 0, fmt.Errorf("server name cannot be empty")
+	}
+
+	key := domain.ServerName(name).Key()
+
+	matches := make([]int, 0, len(c.Servers))
+	for i, s := range c.Servers {
+		if domain.ServerName(s.Name).Key() == key {
+			matches = append(matches, i)
+		}
+	}
+
+	switch len(matches) {
+	case 0:
+		return 0, fmt.Errorf("server '%s' not found in config", name)
+	case 1:
+		return matches[0], nil
+	}
+
+	for _, i := range matches {
+		if c.Servers[i].Name == name {
+			return i, nil
+		}
+	}
+
+	names := make([]string, 0, len(matches))
+	for _, i := range matches {
+		names = append(names, c.Servers[i].Name)
+	}
+	slices.Sort(names)
+
+	return 0, fmt.Errorf(
+		"server '%s' matches more than one entry: %s, so name one of them exactly",
+		name,
+		strings.Join(names, ", "),
+	)
+}
+
 // validate orchestrates validation of configuration structure.
 func (c *Config) validate() error {
 	if err := c.validateServers(); err != nil {
@@ -298,22 +382,30 @@ func (c *Config) validateServers() error {
 	return nil
 }
 
-// validateFields ensures that all ServerEntry's in Config have a name and package.
+// validateFields ensures that all ServerEntry's in Config have a name and package, and that no two of
+// them hold the same name.
+//
+// NOTE: Two names sharing one key are accepted, so a configuration written by an earlier release can be
+// read and repaired.
 func (c *Config) validateFields() error {
-	seen := map[string]struct{}{}
+	seen := make(map[string]struct{}, len(c.Servers))
 
 	for _, entry := range c.Servers {
-		if _, ok := seen[entry.Name]; ok {
-			return fmt.Errorf("duplicate server name '%s'", entry.Name)
-		}
-		seen[entry.Name] = struct{}{}
 		if strings.TrimSpace(entry.Name) == "" {
 			return fmt.Errorf("server entry has empty name")
 		}
 		if strings.TrimSpace(entry.Package) == "" {
 			return fmt.Errorf("server entry has empty package")
 		}
+
+		// One name held twice leaves every lookup reaching the first entry only.
+		if _, exists := seen[entry.Name]; exists {
+			return fmt.Errorf("duplicate server name '%s'", entry.Name)
+		}
+
+		seen[entry.Name] = struct{}{}
 	}
+
 	return nil
 }
 

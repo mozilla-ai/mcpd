@@ -1723,7 +1723,7 @@ func TestServer_SafeEnv_CrossServerFiltering(t *testing.T) {
 			// Find the server
 			var server *Server
 			for i := range servers {
-				if servers[i].Name() == tc.serverName {
+				if servers[i].Name().String() == tc.serverName {
 					server = &servers[i]
 					break
 				}
@@ -1887,7 +1887,7 @@ func TestServer_SafeArgs_CrossServerFiltering(t *testing.T) {
 	// Find servers
 	serverMap := make(map[string]*Server, len(servers))
 	for i := range servers {
-		serverMap[servers[i].Name()] = &servers[i]
+		serverMap[servers[i].Name().String()] = &servers[i]
 	}
 
 	timeServer := serverMap["time-server"]
@@ -1946,7 +1946,7 @@ func TestServer_SafeVolumes_CrossServerFiltering(t *testing.T) {
 	// Find servers.
 	serverMap := make(map[string]*Server, len(servers))
 	for i := range servers {
-		serverMap[servers[i].Name()] = &servers[i]
+		serverMap[servers[i].Name().String()] = &servers[i]
 	}
 
 	filesystemServer := serverMap["filesystem-server"]
@@ -2318,4 +2318,32 @@ func TestServer_Volumes(t *testing.T) {
 			}
 		})
 	}
+}
+
+// TestAggregateConfigs_RefusesNamesDifferingOnlyByCase pins that the daemon refuses a configuration whose
+// servers share one name key, because it indexes servers by that key and the pair would collapse onto one.
+func TestAggregateConfigs_RefusesNamesDifferingOnlyByCase(t *testing.T) {
+	t.Parallel()
+
+	dir := t.TempDir()
+	configPath := filepath.Join(dir, ".mcpd.toml")
+
+	content := `[[servers]]
+name = "github"
+package = "uvx::example@1.0.0"
+
+[[servers]]
+name = "GitHub"
+package = "uvx::other@1.0.0"
+`
+	require.NoError(t, os.WriteFile(configPath, []byte(content), 0o600))
+
+	cfg, err := (&config.DefaultLoader{}).Load(configPath)
+	require.NoError(t, err)
+
+	execCtx := context.NewExecutionContextConfig(filepath.Join(dir, "secrets.toml"))
+
+	_, err = AggregateConfigs(cfg, execCtx)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "duplicate server name")
 }

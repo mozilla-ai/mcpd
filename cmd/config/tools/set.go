@@ -12,7 +12,7 @@ import (
 	"github.com/mozilla-ai/mcpd/internal/cmd"
 	cmdopts "github.com/mozilla-ai/mcpd/internal/cmd/options"
 	"github.com/mozilla-ai/mcpd/internal/config"
-	"github.com/mozilla-ai/mcpd/internal/filter"
+	"github.com/mozilla-ai/mcpd/internal/domain"
 	"github.com/mozilla-ai/mcpd/internal/flags"
 	"github.com/mozilla-ai/mcpd/internal/registry"
 	"github.com/mozilla-ai/mcpd/internal/registry/options"
@@ -103,7 +103,7 @@ func NewSetCmd(baseCmd *cmd.BaseCmd, opt ...cmdopts.CmdOption) (*cobra.Command, 
 }
 
 // resolveAvailableTools queries the registry for all available tools for the given server.
-// Returns a map of normalized tool names.
+// Returns the set of tool names as the registry presents them.
 func (c *SetCmd) resolveAvailableTools(s *config.ServerEntry) (map[string]struct{}, error) {
 	serverRuntime := s.Runtime()
 	if serverRuntime == "" {
@@ -145,7 +145,7 @@ func (c *SetCmd) resolveAvailableTools(s *config.ServerEntry) (map[string]struct
 
 	available := make(map[string]struct{}, len(serverResult.Tools))
 	for _, tool := range serverResult.Tools {
-		available[filter.NormalizeString(tool.Name)] = struct{}{}
+		available[domain.ToolName(tool.Name).String()] = struct{}{}
 	}
 
 	return available, nil
@@ -161,16 +161,16 @@ func (c *SetCmd) run(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("at least one --tool flag is required")
 	}
 
-	// Normalize all supplied tool names.
-	normalizedTools := make([]string, 0, len(c.tools))
+	// Keep each supplied tool name as given, dropping any that is only whitespace.
+	requestedTools := make([]domain.ToolName, 0, len(c.tools))
 	for _, tool := range c.tools {
-		normalized := filter.NormalizeString(tool)
-		if normalized != "" {
-			normalizedTools = append(normalizedTools, normalized)
+		name := domain.ToolName(tool)
+		if name.String() != "" {
+			requestedTools = append(requestedTools, name)
 		}
 	}
 
-	if len(normalizedTools) == 0 {
+	if len(requestedTools) == 0 {
 		return fmt.Errorf("at least one valid tool name is required")
 	}
 
@@ -179,10 +179,13 @@ func (c *SetCmd) run(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	// Find the server in the configuration.
+	// Find the server in the configuration, matching without regard to case so the name works here as it
+	// does in a daemon URL.
 	var foundServer *config.ServerEntry
+
+	wanted := domain.ServerName(serverName).Key()
 	for _, srv := range cfg.ListServers() {
-		if srv.Name == serverName {
+		if domain.ServerName(srv.Name).Key() == wanted {
 			foundServer = &srv
 			break
 		}
@@ -195,62 +198,68 @@ func (c *SetCmd) run(cmd *cobra.Command, args []string) error {
 	// Get all available tools from the registry for this server (runtime, version).
 	availableTools, err := c.resolveAvailableTools(foundServer)
 	if err != nil {
-		return fmt.Errorf("failed to get available tools for server '%s': %w", serverName, err)
+		return fmt.Errorf("failed to get available tools for server '%s': %w", foundServer.Name, err)
 	}
 
-	// Validate that all requested tools are available.
+	// MCP tool names are case-sensitive, so a requested name has to match the registry's own spelling.
 	var invalidTools []string
-	for _, tool := range normalizedTools {
-		if _, exists := availableTools[tool]; !exists {
-			invalidTools = append(invalidTools, tool)
+
+	matchedTools := make([]domain.ToolName, 0, len(requestedTools))
+	for _, tool := range requestedTools {
+		if _, exists := availableTools[tool.String()]; !exists {
+			invalidTools = append(invalidTools, tool.String())
+
+			continue
 		}
+
+		matchedTools = append(matchedTools, tool)
 	}
 
 	if len(invalidTools) > 0 {
-		return fmt.Errorf("the following tools are not available for server '%s': %v", serverName, invalidTools)
+		return fmt.Errorf(
+			"the following tools are not available for server '%s': %v",
+			foundServer.Name,
+			invalidTools,
+		)
 	}
 
-	// Create a map for efficient deduplication.
-	toolSet := make(map[string]struct{}, len(foundServer.Tools)+len(normalizedTools))
+	// Deduplicate, so one tool is recorded once.
+	toolSet := make(map[string]struct{}, len(foundServer.Tools)+len(matchedTools))
 	for _, tool := range foundServer.Tools {
-		toolSet[tool] = struct{}{}
+		toolSet[domain.ToolName(tool).String()] = struct{}{}
 	}
 
 	// Track which tools are actually new.
-	newTools := make([]string, 0, len(normalizedTools))
-	for _, tool := range normalizedTools {
-		if _, exists := toolSet[tool]; !exists {
-			toolSet[tool] = struct{}{}
-			newTools = append(newTools, tool)
+	newTools := make([]string, 0, len(matchedTools))
+	for _, tool := range matchedTools {
+		if _, exists := toolSet[tool.String()]; exists {
+			continue
 		}
+
+		toolSet[tool.String()] = struct{}{}
+		newTools = append(newTools, tool.String())
 	}
 
-	allTools := slices.Collect(maps.Keys(toolSet))
-	slices.Sort(allTools)
+	allTools := slices.Sorted(maps.Keys(toolSet))
 
 	// Update the server's tools.
 	foundServer.Tools = allTools
 
-	// Update server in config by removing and re-adding (following existing pattern).
-	if err := cfg.RemoveServer(serverName); err != nil {
+	// The stored name is used rather than the supplied one, because the lookup above matched without
+	// regard to case and the configuration holds only the spelling it was written with.
+	if err := cfg.UpdateServer(*foundServer); err != nil {
 		return fmt.Errorf("error updating server configuration: %w", err)
 	}
 
-	if err := cfg.AddServer(*foundServer); err != nil {
-		return fmt.Errorf("error updating server configuration: %w", err)
-	}
-
-	// Save the configuration.
-	if err := cfg.SaveConfig(); err != nil {
-		return fmt.Errorf("error saving configuration: %w", err)
-	}
-
-	// Provide feedback to the user.
+	// Provide feedback to the user, naming the server as the configuration spells it.
 	var msg string
 	if len(newTools) == 0 {
-		msg = fmt.Sprintf("✓ No new tools added for server '%s' (all specified tools already exist)\n", serverName)
+		msg = fmt.Sprintf(
+			"✓ No new tools added for server '%s' (all specified tools already exist)\n",
+			foundServer.Name,
+		)
 	} else {
-		msg = fmt.Sprintf("✓ Tools added for server '%s': %v\n", serverName, newTools)
+		msg = fmt.Sprintf("✓ Tools added for server '%s': %v\n", foundServer.Name, newTools)
 	}
 
 	if _, err := fmt.Fprint(cmd.OutOrStdout(), msg); err != nil {

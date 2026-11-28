@@ -14,7 +14,7 @@ type HealthStatus string
 
 // ServerHealth tracks the internal health state for an MCP server.
 type ServerHealth struct {
-	Name           string
+	Name           ServerName
 	Status         HealthStatus
 	Latency        *time.Duration
 	LastChecked    *time.Time

@@ -8,7 +8,7 @@ import (
 	"github.com/danielgtaylor/huma/v2"
 	"github.com/mark3labs/mcp-go/mcp"
 
-	"github.com/mozilla-ai/mcpd/internal/filter"
+	"github.com/mozilla-ai/mcpd/internal/domain"
 )
 
 const (
@@ -204,7 +204,7 @@ func (d domainTool) ToAPIType() (Tool, error) {
 	return Tool{
 		ToolSummary: ToolSummary{
 			ToolMinimal: ToolMinimal{
-				Name:  filter.NormalizeString(d.Name),
+				Name:  domain.ToolName(d.Name).String(),
 				Title: title,
 			},
 			Description: d.Description,

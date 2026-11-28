@@ -37,6 +37,29 @@ You can provide this path in multiple ways:
 
 ---
 
+## Server and Tool Names
+
+A server's `name` is reported exactly as written here, and a tool's name exactly as the MCP server reports it. `mcpd` does not change the case of either, so `GET /api/v1/servers`, `GET /api/v1/servers/{name}/tools`, `GET /api/v1/health/servers` and `mcpd config tools list` all give you a name you can use as it stands.
+
+A server name is matched without regard to case wherever you supply one. `/api/v1/servers/GitHub/tools` and `/api/v1/servers/github/tools` reach the same server, and so does `mcpd config tools set github`. Because of that, two servers whose names differ only by case would be one server, so `mcpd add` refuses a name another server already holds, and the daemon refuses to start with such a pair and names both declarations.
+
+A configuration written by an earlier release may already hold such a pair. Every command still reads it, so you can repair it with `mcpd remove`, naming one of the two exactly.
+
+A tool name is matched exactly, apart from surrounding whitespace, because the Model Context Protocol defines tool names as case-sensitive. A server may offer both `getCurrentTime` and `GETCURRENTTIME`, and they are two different tools. So `getCurrentTime` reaches the tool the server calls `getCurrentTime`, and `getcurrenttime` reaches nothing. The name you supply is the name sent upstream.
+
+The `tools` allow list is matched the same way, so an entry written as `getcurrenttime` does not permit a tool the server reports as `getCurrentTime`. `mcpd config tools set` refuses a tool name that differs from the registry's own spelling, and records the name as the registry spells it.
+
+An allow list written by `mcpd` 0.7.0 or earlier holds lowercased tool names. Where a server spells a tool with any uppercase letter, the entry permits nothing and needs the server's spelling, which `mcpd config tools list` reports unchanged.
+
+Two commands make that change, because `mcpd config tools set` adds an entry and removes none:
+
+```bash
+mcpd config tools set myserver --tool getCurrentTime
+mcpd config tools remove myserver getcurrenttime
+```
+
+---
+
 ## Log Level
 
 Sets the logging level for `mcpd`.

@@ -12,6 +12,7 @@ import (
 
 	"github.com/BurntSushi/toml"
 
+	"github.com/mozilla-ai/mcpd/internal/domain"
 	"github.com/mozilla-ai/mcpd/internal/files"
 	"github.com/mozilla-ai/mcpd/internal/perms"
 )
@@ -90,9 +91,9 @@ func (c *ExecutionContextConfig) Get(name string) (ServerExecutionContext, bool)
 		return ServerExecutionContext{}, false
 	}
 
-	if srv, ok := c.Servers[name]; ok {
+	if srv, ok := c.Servers[c.key(name)]; ok {
 		return ServerExecutionContext{
-			Name:       name,
+			Name:       srv.Name,
 			Args:       slices.Clone(srv.Args),
 			Env:        maps.Clone(srv.Env),
 			Volumes:    maps.Clone(srv.Volumes),
@@ -103,6 +104,35 @@ func (c *ExecutionContextConfig) Get(name string) (ServerExecutionContext, bool)
 	}
 
 	return ServerExecutionContext{}, false
+}
+
+// key returns the map key holding the given server name, matching without regard to case and to
+// surrounding whitespace. It returns the trimmed name when no entry holds it, so a new entry keeps the
+// spelling it was given.
+//
+// NOTE: A file written by an earlier release may hold two keys sharing one name key. The name selects its
+// own key where one holds it exactly, and the first in sorted order otherwise, so a read and the write
+// that follows it reach the same entry.
+func (c *ExecutionContextConfig) key(name string) string {
+	trimmed := domain.ServerName(name).String()
+	if _, exists := c.Servers[trimmed]; exists {
+		return trimmed
+	}
+
+	wanted := domain.ServerName(name).Key()
+
+	matches := make([]string, 0, len(c.Servers))
+	for k := range c.Servers {
+		if domain.ServerName(k).Key() == wanted {
+			matches = append(matches, k)
+		}
+	}
+
+	if len(matches) == 0 {
+		return trimmed
+	}
+
+	return slices.Min(matches)
 }
 
 // List returns all server execution contexts sorted by name.
@@ -145,7 +175,12 @@ func (c *ExecutionContextConfig) Upsert(ec ServerExecutionContext) (UpsertResult
 		c.Servers = map[string]ServerExecutionContext{}
 	}
 
-	current, exists := c.Servers[ec.Name]
+	// The configuration holds one spelling of a server name, so an entry is updated under the key that
+	// already holds it rather than under the spelling the caller supplied.
+	key := c.key(ec.Name)
+	ec.Name = key
+
+	current, exists := c.Servers[key]
 	var op UpsertResult
 
 	switch {
@@ -154,14 +189,14 @@ func (c *ExecutionContextConfig) Upsert(ec ServerExecutionContext) (UpsertResult
 	case exists && current.Equals(ec):
 		return Noop, nil // No change to existing.
 	case ec.IsEmpty():
-		delete(c.Servers, ec.Name) // Trying to save an empty server over an existing one that wasn't.
+		delete(c.Servers, key) // Trying to save an empty server over an existing one that wasn't.
 		op = Deleted
 	case exists:
 		op = Updated
-		c.Servers[ec.Name] = ec
+		c.Servers[key] = ec
 	default:
 		op = Created
-		c.Servers[ec.Name] = ec
+		c.Servers[key] = ec
 	}
 
 	if err := c.SaveConfig(); err != nil {

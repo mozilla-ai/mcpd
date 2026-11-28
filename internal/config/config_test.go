@@ -3,6 +3,7 @@ package config
 import (
 	"os"
 	"path/filepath"
+	"slices"
 	"testing"
 
 	"github.com/BurntSushi/toml"
@@ -123,6 +124,63 @@ func TestRemoveServer_RemovesCorrectEntry(t *testing.T) {
 
 	require.Len(t, loaded.Servers, 1)
 	require.Equal(t, "bar", loaded.Servers[0].Name)
+}
+
+func TestRemoveServer_MatchesWithoutRegardToCase(t *testing.T) {
+	t.Parallel()
+
+	cfg := &Config{
+		configFilePath: filepath.Join(t.TempDir(), ".mcpd.toml"),
+		Servers: []ServerEntry{
+			{Name: "github", Package: "x::github@latest"},
+			{Name: "time", Package: "x::time@latest"},
+		},
+	}
+
+	require.NoError(t, cfg.RemoveServer(" GitHub "))
+
+	require.Len(t, cfg.Servers, 1)
+	require.Equal(t, "time", cfg.Servers[0].Name)
+}
+
+// TestRemoveServer_DecidesBetweenNamesSharingOneKey pins that a configuration written by an earlier
+// release, which may hold two names sharing one key, can still be repaired one entry at a time.
+func TestRemoveServer_DecidesBetweenNamesSharingOneKey(t *testing.T) {
+	t.Parallel()
+
+	newConfig := func(t *testing.T) *Config {
+		t.Helper()
+
+		return &Config{
+			configFilePath: filepath.Join(t.TempDir(), ".mcpd.toml"),
+			Servers: []ServerEntry{
+				{Name: "github", Package: "x::github@latest"},
+				{Name: "GitHub", Package: "x::other@latest"},
+			},
+		}
+	}
+
+	t.Run("an exact name removes that entry alone", func(t *testing.T) {
+		t.Parallel()
+
+		cfg := newConfig(t)
+		require.NoError(t, cfg.RemoveServer("GitHub"))
+
+		require.Len(t, cfg.Servers, 1)
+		require.Equal(t, "github", cfg.Servers[0].Name)
+	})
+
+	t.Run("a name matching neither exactly names both", func(t *testing.T) {
+		t.Parallel()
+
+		cfg := newConfig(t)
+		err := cfg.RemoveServer("GITHUB")
+
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "GitHub")
+		require.Contains(t, err.Error(), "github")
+		require.Len(t, cfg.Servers, 2, "an ambiguous name must not remove anything")
+	})
 }
 
 func TestRemoveServer_ErrorsIfNotFound(t *testing.T) {
@@ -1066,4 +1124,308 @@ func TestSaveConfig_RefusesAConfigItCannotLoad(t *testing.T) {
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "CORS is enabled but no origins are allowed")
 	require.NoFileExists(t, path, "an invalid config must not reach disk")
+}
+
+// TestAddServer_RefusesANameDifferingOnlyByCase pins that a configuration cannot gain two servers that
+// resolve to one server at runtime. Lookups match a name without regard to case, so such a pair collapses
+// onto one entry, leaving one server unreachable and its process unmanaged.
+func TestAddServer_RefusesANameDifferingOnlyByCase(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name      string
+		existing  []string
+		candidate string
+		expectErr string
+	}{
+		{
+			name:      "an exact duplicate",
+			existing:  []string{"github"},
+			candidate: "github",
+			expectErr: "duplicate server name",
+		},
+		{
+			name:      "differing only by case",
+			existing:  []string{"github"},
+			candidate: "GitHub",
+			expectErr: "duplicate server name",
+		},
+		{
+			name:      "differing only by case and whitespace",
+			existing:  []string{"GitHub"},
+			candidate: "  GITHUB  ",
+			expectErr: "duplicate server name",
+		},
+		{
+			name:      "genuinely distinct names",
+			existing:  []string{"GitHub", "GitLab"},
+			candidate: "time",
+			expectErr: "",
+		},
+		{
+			name:      "no existing servers",
+			existing:  nil,
+			candidate: "GitHub",
+			expectErr: "",
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			cfg := &Config{configFilePath: filepath.Join(t.TempDir(), ".mcpd.toml")}
+			for _, name := range tc.existing {
+				cfg.Servers = append(cfg.Servers, ServerEntry{
+					Name:    name,
+					Package: "uvx::example@1.0.0",
+				})
+			}
+
+			err := cfg.AddServer(ServerEntry{
+				Name:    tc.candidate,
+				Package: "uvx::other@1.0.0",
+			})
+
+			if tc.expectErr == "" {
+				require.NoError(t, err)
+				require.Len(t, cfg.Servers, len(tc.existing)+1)
+
+				return
+			}
+
+			require.Error(t, err)
+			require.Contains(t, err.Error(), tc.expectErr)
+			require.Len(t, cfg.Servers, len(tc.existing), "a refused entry must not reach the configuration")
+		})
+	}
+}
+
+// TestLoad_AcceptsNamesDifferingOnlyByCase pins that such a configuration can still be read. Every command
+// loads the configuration first, so refusing here would leave no command able to repair the pair.
+func TestLoad_AcceptsNamesDifferingOnlyByCase(t *testing.T) {
+	t.Parallel()
+
+	path := filepath.Join(t.TempDir(), ".mcpd.toml")
+	content := `[[servers]]
+name = "github"
+package = "uvx::example@1.0.0"
+
+[[servers]]
+name = "GitHub"
+package = "uvx::other@1.0.0"
+`
+	require.NoError(t, os.WriteFile(path, []byte(content), 0o600))
+
+	cfg, err := (&DefaultLoader{}).Load(path)
+	require.NoError(t, err)
+	require.Len(t, cfg.ListServers(), 2)
+
+	require.NoError(t, cfg.RemoveServer("GitHub"))
+	require.Len(t, cfg.ListServers(), 1)
+}
+
+// TestLoad_RefusesOneServerNameHeldTwice pins that a configuration holding one server name twice is
+// refused, because every lookup would reach only the first of the two entries.
+func TestLoad_RefusesOneServerNameHeldTwice(t *testing.T) {
+	t.Parallel()
+
+	tempFile := filepath.Join(t.TempDir(), ".mcpd.toml")
+	content := `
+[[servers]]
+  name = "github"
+  package = "uvx::official-github@1.0.0"
+  tools = ["search_issues"]
+
+[[servers]]
+  name = "github"
+  package = "uvx::other-github@9.9.9"
+  tools = ["run_command"]
+`
+	require.NoError(t, os.WriteFile(tempFile, []byte(content), 0o600))
+
+	_, err := (&DefaultLoader{}).Load(tempFile)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "duplicate server name 'github'")
+}
+
+// TestRemoveServer_RemovesOneEntry pins that removing a server takes out the entry that was named and
+// no other, so a name held twice cannot take both entries with it.
+func TestRemoveServer_RemovesOneEntry(t *testing.T) {
+	t.Parallel()
+
+	cfg := &Config{
+		configFilePath: filepath.Join(t.TempDir(), ".mcpd.toml"),
+		Servers: []ServerEntry{
+			{Name: "github", Package: "x::official@1.0.0"},
+			{Name: "github", Package: "x::other@9.9.9"},
+		},
+	}
+
+	require.NoError(t, cfg.RemoveServer("github"))
+
+	require.Len(t, cfg.Servers, 1)
+}
+
+// TestUpdateServer_ReplacesTheEntryAndPersists pins that updating a server writes the replacement to the
+// configuration file.
+func TestUpdateServer_ReplacesTheEntryAndPersists(t *testing.T) {
+	t.Parallel()
+
+	tempFile := filepath.Join(t.TempDir(), ".mcpd.toml")
+	cfg := &Config{
+		configFilePath: tempFile,
+		Servers: []ServerEntry{
+			{Name: "github", Package: "x::github@1.0.0", Tools: []string{"search_issues"}},
+			{Name: "time", Package: "x::time@1.0.0", Tools: []string{"get_time"}},
+		},
+	}
+
+	updated := ServerEntry{Name: "github", Package: "x::github@1.0.0", Tools: []string{"list_repos"}}
+	require.NoError(t, cfg.UpdateServer(updated))
+
+	var loaded Config
+	_, err := toml.DecodeFile(tempFile, &loaded)
+	require.NoError(t, err)
+
+	require.Len(t, loaded.Servers, 2)
+	require.Equal(t, updated, loaded.Servers[0])
+	require.Equal(t, "time", loaded.Servers[1].Name)
+}
+
+// TestUpdateServer_KeepsAnEntrySharingOneNameKey pins that updating one of two entries whose names share
+// a key leaves the other in place.
+func TestUpdateServer_KeepsAnEntrySharingOneNameKey(t *testing.T) {
+	t.Parallel()
+
+	cfg := &Config{
+		configFilePath: filepath.Join(t.TempDir(), ".mcpd.toml"),
+		Servers: []ServerEntry{
+			{Name: "GitHub", Package: "x::official@1.0.0", Tools: []string{"search_issues"}},
+			{Name: "github", Package: "x::other@9.9.9", Tools: []string{"run_command"}},
+		},
+	}
+
+	updated := ServerEntry{Name: "GitHub", Package: "x::official@1.0.0", Tools: []string{"list_repos"}}
+	require.NoError(t, cfg.UpdateServer(updated))
+
+	require.Len(t, cfg.Servers, 2)
+	require.Equal(t, updated, cfg.Servers[0])
+	require.Equal(t, "github", cfg.Servers[1].Name)
+	require.Equal(t, []string{"run_command"}, cfg.Servers[1].Tools)
+}
+
+// TestUpdateServer_MatchesWithoutRegardToCase pins that an update reaches the entry the configuration
+// holds, whatever case the caller supplies.
+func TestUpdateServer_MatchesWithoutRegardToCase(t *testing.T) {
+	t.Parallel()
+
+	cfg := &Config{
+		configFilePath: filepath.Join(t.TempDir(), ".mcpd.toml"),
+		Servers:        []ServerEntry{{Name: "github", Package: "x::github@1.0.0"}},
+	}
+
+	require.NoError(t, cfg.UpdateServer(ServerEntry{Name: " GitHub ", Package: "x::github@2.0.0"}))
+
+	require.Len(t, cfg.Servers, 1)
+	require.Equal(t, "x::github@2.0.0", cfg.Servers[0].Package)
+}
+
+// TestUpdateServer_ErrorsIfNotFound pins that updating a server the configuration does not hold reports
+// an error rather than adding it.
+func TestUpdateServer_ErrorsIfNotFound(t *testing.T) {
+	t.Parallel()
+
+	cfg := &Config{
+		configFilePath: filepath.Join(t.TempDir(), ".mcpd.toml"),
+		Servers:        []ServerEntry{{Name: "time", Package: "x::time@1.0.0"}},
+	}
+
+	err := cfg.UpdateServer(ServerEntry{Name: "github", Package: "x::github@1.0.0"})
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "server 'github' not found in config")
+	require.Len(t, cfg.Servers, 1)
+	require.Equal(t, "time", cfg.Servers[0].Name)
+}
+
+// TestUpdateServer_KeepsTheEntryWhenTheReplacementIsNotValid pins that a refused replacement leaves the
+// configuration as it was.
+func TestUpdateServer_KeepsTheEntryWhenTheReplacementIsNotValid(t *testing.T) {
+	t.Parallel()
+
+	original := ServerEntry{Name: "github", Package: "x::github@1.0.0"}
+	cfg := &Config{
+		configFilePath: filepath.Join(t.TempDir(), ".mcpd.toml"),
+		Servers:        []ServerEntry{original},
+	}
+
+	require.Error(t, cfg.UpdateServer(ServerEntry{Name: "github", Package: "  "}))
+
+	require.Len(t, cfg.Servers, 1)
+	require.Equal(t, original, cfg.Servers[0])
+}
+
+// TestRemoveServer_LeavesTheGivenSliceIntact pins that removing a server does not disturb the slice the
+// configuration was built from, which a caller may still hold.
+func TestRemoveServer_LeavesTheGivenSliceIntact(t *testing.T) {
+	t.Parallel()
+
+	servers := []ServerEntry{
+		{Name: "github", Package: "x::github@1.0.0"},
+		{Name: "time", Package: "x::time@1.0.0"},
+	}
+	original := slices.Clone(servers)
+
+	cfg := &Config{
+		configFilePath: filepath.Join(t.TempDir(), ".mcpd.toml"),
+		Servers:        servers,
+	}
+
+	require.NoError(t, cfg.RemoveServer("github"))
+
+	require.Equal(t, original, servers)
+}
+
+// TestUpdateServer_LeavesTheGivenSliceIntact pins that updating a server does not disturb the slice the
+// configuration was built from, which a caller may still hold.
+func TestUpdateServer_LeavesTheGivenSliceIntact(t *testing.T) {
+	t.Parallel()
+
+	servers := []ServerEntry{
+		{Name: "github", Package: "x::github@1.0.0", Tools: []string{"search_issues"}},
+		{Name: "time", Package: "x::time@1.0.0"},
+	}
+	original := slices.Clone(servers)
+
+	cfg := &Config{
+		configFilePath: filepath.Join(t.TempDir(), ".mcpd.toml"),
+		Servers:        servers,
+	}
+
+	require.NoError(t, cfg.UpdateServer(ServerEntry{
+		Name:    "github",
+		Package: "x::github@2.0.0",
+		Tools:   []string{"list_repos"},
+	}))
+
+	require.Equal(t, original, servers)
+}
+
+// TestRemoveServer_SelectsAnEntryNamedExactly pins that an entry whose stored name carries surrounding
+// whitespace can be named, so a hand-written configuration stays repairable.
+func TestRemoveServer_SelectsAnEntryNamedExactly(t *testing.T) {
+	t.Parallel()
+
+	cfg := &Config{
+		configFilePath: filepath.Join(t.TempDir(), ".mcpd.toml"),
+		Servers: []ServerEntry{
+			{Name: "github", Package: "x::official@1.0.0"},
+			{Name: " github", Package: "x::other@9.9.9"},
+		},
+	}
+
+	require.NoError(t, cfg.RemoveServer(" github"))
+
+	require.Len(t, cfg.Servers, 1)
+	require.Equal(t, "github", cfg.Servers[0].Name)
 }

@@ -1,10 +1,6 @@
 package filter
 
 import (
-	"fmt"
-	"maps"
-	"slices"
-	"sort"
 	"strconv"
 	"strings"
 )
@@ -327,38 +323,4 @@ func Match[T any](item T, filters map[string]string, opts ...Option[T]) (bool, e
 		}
 	}
 	return true, nil
-}
-
-// MatchRequestedSlice returns normalized values from `requested` that are found in `available`.
-// It returns an error if any requested value is not found in the available set.
-func MatchRequestedSlice(requested []string, available []string) ([]string, error) {
-	availableSet := make(map[string]struct{}, len(available))
-	for _, v := range available {
-		availableSet[NormalizeString(v)] = struct{}{}
-	}
-
-	if len(requested) == 0 {
-		return slices.Collect(maps.Keys(availableSet)), nil
-	}
-
-	requestedSet := make(map[string]struct{}, len(requested))
-	missing := make([]string, 0)
-
-	for _, v := range requested {
-		n := NormalizeString(v)
-		requestedSet[n] = struct{}{}
-		if _, ok := availableSet[n]; !ok {
-			missing = append(missing, v)
-		}
-	}
-
-	switch len(missing) {
-	case 0:
-		return slices.Collect(maps.Keys(requestedSet)), nil
-	case len(requestedSet):
-		return nil, fmt.Errorf("none of the requested values were found")
-	default:
-		sort.Strings(missing)
-		return nil, fmt.Errorf("missing values: %s", strings.Join(missing, ", "))
-	}
 }

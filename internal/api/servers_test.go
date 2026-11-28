@@ -10,56 +10,66 @@ import (
 	"github.com/mark3labs/mcp-go/mcp"
 	"github.com/stretchr/testify/require"
 
+	"github.com/mozilla-ai/mcpd/internal/domain"
 	"github.com/mozilla-ai/mcpd/internal/errors"
 )
 
 // mockMCPClientAccessor implements the MCPClientAccessor interface for testing.
+// It indexes by each name's key, matching the real accessor.
 type mockMCPClientAccessor struct {
 	clients map[string]client.MCPClient
-	tools   map[string][]string
+	names   map[string]domain.ServerName
+	tools   map[string][]domain.ToolName
 }
 
 func newMockMCPClientAccessor() *mockMCPClientAccessor {
 	return &mockMCPClientAccessor{
 		clients: make(map[string]client.MCPClient),
-		tools:   make(map[string][]string),
+		names:   make(map[string]domain.ServerName),
+		tools:   make(map[string][]domain.ToolName),
 	}
 }
 
-func (m *mockMCPClientAccessor) Add(name string, c client.MCPClient, tools []string) {
-	m.clients[name] = c
-	m.tools[name] = tools
+func (m *mockMCPClientAccessor) Add(name domain.ServerName, c client.MCPClient, tools []domain.ToolName) {
+	m.clients[name.Key()] = c
+	m.names[name.Key()] = name
+	m.tools[name.Key()] = tools
 }
 
-func (m *mockMCPClientAccessor) Client(name string) (client.MCPClient, bool) {
-	c, ok := m.clients[name]
+func (m *mockMCPClientAccessor) Client(name domain.ServerName) (client.MCPClient, bool) {
+	c, ok := m.clients[name.Key()]
+
 	return c, ok
 }
 
-func (m *mockMCPClientAccessor) Tools(name string) ([]string, bool) {
-	tools, ok := m.tools[name]
+func (m *mockMCPClientAccessor) Tools(name domain.ServerName) ([]domain.ToolName, bool) {
+	tools, ok := m.tools[name.Key()]
+
 	return tools, ok
 }
 
-func (m *mockMCPClientAccessor) List() []string {
-	names := make([]string, 0, len(m.clients))
-	for name := range m.clients {
+func (m *mockMCPClientAccessor) List() []domain.ServerName {
+	names := make([]domain.ServerName, 0, len(m.names))
+	for _, name := range m.names {
 		names = append(names, name)
 	}
+
 	return names
 }
 
-func (m *mockMCPClientAccessor) UpdateTools(name string, tools []string) error {
-	if _, ok := m.clients[name]; !ok {
+func (m *mockMCPClientAccessor) UpdateTools(name domain.ServerName, tools []domain.ToolName) error {
+	if _, ok := m.clients[name.Key()]; !ok {
 		return fmt.Errorf("server '%s' not found", name)
 	}
-	m.tools[name] = tools
+	m.tools[name.Key()] = tools
+
 	return nil
 }
 
-func (m *mockMCPClientAccessor) Remove(name string) {
-	delete(m.clients, name)
-	delete(m.tools, name)
+func (m *mockMCPClientAccessor) Remove(name domain.ServerName) {
+	delete(m.clients, name.Key())
+	delete(m.names, name.Key())
+	delete(m.tools, name.Key())
 }
 
 // mockMCPClient implements the client.MCPClient interface for testing.
@@ -71,6 +81,7 @@ type mockMCPClient struct {
 	callToolResult   *mcp.CallToolResult
 	callToolError    error
 	callToolContext  context.Context
+	calledToolName   string
 	// Prompts
 	listPromptsResult *mcp.ListPromptsResult
 	listPromptsError  error
@@ -171,8 +182,10 @@ func (m *mockMCPClient) ListTools(ctx context.Context, _ mcp.ListToolsRequest) (
 	return m.listToolsResult, m.listToolsError
 }
 
-func (m *mockMCPClient) CallTool(ctx context.Context, _ mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+func (m *mockMCPClient) CallTool(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 	m.callToolContext = ctx
+	m.calledToolName = req.Params.Name
+
 	return m.callToolResult, m.callToolError
 }
 
@@ -190,12 +203,11 @@ func (m *mockMCPClient) Close() error {
 
 func (m *mockMCPClient) OnNotification(_ func(notification mcp.JSONRPCNotification)) {}
 
-func TestHandleTools_CaseInsensitiveFiltering(t *testing.T) {
+func TestHandleTools_MatchesAnAllowedNameExactly(t *testing.T) {
 	t.Parallel()
 
 	accessor := newMockMCPClientAccessor()
 
-	// Mock client returns tools with mixed case.
 	mockClient := &mockMCPClient{
 		listToolsResult: &mcp.ListToolsResult{
 			Tools: []mcp.Tool{
@@ -206,34 +218,27 @@ func TestHandleTools_CaseInsensitiveFiltering(t *testing.T) {
 		},
 	}
 
-	// Server has allowed tools in mixed case, but they should be normalized for comparison.
-	allowedTools := []string{"gettime", "set_alarm"}
+	// One allowed name matches the server's spelling and one differs only by case.
+	allowedTools := []domain.ToolName{"GetTime", "set_alarm"}
 	accessor.Add("testserver", mockClient, allowedTools)
 
 	result, err := newServerRoutes(accessor, RouteOptions{}).handleTools(context.Background(), "testserver")
 	require.NoError(t, err)
 	require.NotNil(t, result)
 
-	// Should return 2 tools that match (case-insensitive).
-	require.Len(t, result.Body.Tools, 2)
-
 	toolNames := make([]string, len(result.Body.Tools))
 	for i, tool := range result.Body.Tools {
 		toolNames[i] = tool.Name
 	}
 
-	// Verify the correct tools are returned (normalized).
-	require.Contains(t, toolNames, "gettime")
-	require.Contains(t, toolNames, "set_alarm")
-	require.NotContains(t, toolNames, "list_events")
+	require.Equal(t, []string{"GetTime"}, toolNames)
 }
 
-func TestHandleToolCall_ToolNameNormalization(t *testing.T) {
+func TestHandleToolCall_TrimsTheSuppliedName(t *testing.T) {
 	t.Parallel()
 
 	accessor := newMockMCPClientAccessor()
 
-	// Mock client that will be called.
 	mockClient := &mockMCPClient{
 		callToolResult: &mcp.CallToolResult{
 			Content: []mcp.Content{
@@ -242,11 +247,9 @@ func TestHandleToolCall_ToolNameNormalization(t *testing.T) {
 		},
 	}
 
-	// Allowed tools are stored in normalized form.
-	allowedTools := []string{"gettime", "setalarm"}
-	accessor.Add("testserver", mockClient, allowedTools)
+	accessor.Add("testserver", mockClient, []domain.ToolName{"GetTime"})
 
-	// Call with mixed case tool name - should be normalized and match.
+	// An MCP tool name holds no surrounding whitespace, so trimming cannot reach a second tool.
 	result, err := newServerRoutes(accessor, RouteOptions{}).handleToolCall(
 		context.Background(),
 		"testserver",
@@ -257,6 +260,35 @@ func TestHandleToolCall_ToolNameNormalization(t *testing.T) {
 	require.NotNil(t, result)
 
 	require.Equal(t, "Tool executed successfully", result.Body)
+	require.Equal(t, "GetTime", mockClient.calledToolName)
+}
+
+func TestHandleToolCall_RefusesANameThatDiffersOnlyByCase(t *testing.T) {
+	t.Parallel()
+
+	accessor := newMockMCPClientAccessor()
+
+	mockClient := &mockMCPClient{
+		listToolsResult: &mcp.ListToolsResult{
+			Tools: []mcp.Tool{{Name: "GetTime"}},
+		},
+		callToolResult: &mcp.CallToolResult{
+			Content: []mcp.Content{mcp.TextContent{Text: "Tool executed successfully"}},
+		},
+	}
+
+	// The allow list holds one spelling and the server reports another, which are two distinct tools.
+	accessor.Add("testserver", mockClient, []domain.ToolName{"gettime"})
+
+	_, err := newServerRoutes(accessor, RouteOptions{}).handleToolCall(
+		context.Background(),
+		"testserver",
+		"GetTime",
+		map[string]any{},
+	)
+
+	require.ErrorIs(t, err, errors.ErrToolForbidden)
+	require.Empty(t, mockClient.calledToolName)
 }
 
 func TestNewServerRoutes_ToolCallTimeout(t *testing.T) {
@@ -287,13 +319,14 @@ func TestHandleToolCall_UsesConfiguredTimeout(t *testing.T) {
 
 	accessor := newMockMCPClientAccessor()
 	mockClient := &mockMCPClient{
+		listToolsResult: &mcp.ListToolsResult{Tools: []mcp.Tool{{Name: "gettime"}}},
 		callToolResult: &mcp.CallToolResult{
 			Content: []mcp.Content{
 				mcp.TextContent{Text: "Tool executed successfully"},
 			},
 		},
 	}
-	accessor.Add("testserver", mockClient, []string{"gettime"})
+	accessor.Add("testserver", mockClient, []domain.ToolName{"gettime"})
 
 	timeout := 30 * time.Second
 	routes := newServerRoutes(accessor, RouteOptions{ToolCallTimeout: timeout})
@@ -321,7 +354,7 @@ func TestHandleToolCall_ToolNotAllowed(t *testing.T) {
 	accessor := newMockMCPClientAccessor()
 
 	mockClient := &mockMCPClient{}
-	allowedTools := []string{"gettime"}
+	allowedTools := []domain.ToolName{"gettime"}
 	accessor.Add("testserver", mockClient, allowedTools)
 
 	// Try to call a tool that's not in the allowed list.
@@ -373,7 +406,7 @@ func TestHandleTools_NoTools(t *testing.T) {
 	mockClient := &mockMCPClient{}
 
 	// Add server with no tools.
-	accessor.Add("testserver", mockClient, []string{})
+	accessor.Add("testserver", mockClient, []domain.ToolName{})
 
 	result, err := newServerRoutes(accessor, RouteOptions{}).handleTools(context.Background(), "testserver")
 	require.Error(t, err)
@@ -391,7 +424,7 @@ func TestHandleTools_PropagatesRequestCancellation(t *testing.T) {
 			Tools: []mcp.Tool{{Name: "gettime"}},
 		},
 	}
-	accessor.Add("testserver", mockClient, []string{"gettime"})
+	accessor.Add("testserver", mockClient, []domain.ToolName{"gettime"})
 
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
@@ -410,7 +443,7 @@ func TestHandleTools_AppliesRequestTimeout(t *testing.T) {
 			Tools: []mcp.Tool{{Name: "gettime"}},
 		},
 	}
-	accessor.Add("testserver", mockClient, []string{"gettime"})
+	accessor.Add("testserver", mockClient, []domain.ToolName{"gettime"})
 
 	_, err := newServerRoutes(accessor, RouteOptions{}).handleTools(context.Background(), "testserver")
 	require.NoError(t, err)
@@ -419,4 +452,31 @@ func TestHandleTools_AppliesRequestTimeout(t *testing.T) {
 	deadline, ok := mockClient.listToolsContext.Deadline()
 	require.True(t, ok)
 	require.LessOrEqual(t, time.Until(deadline), mcpRequestTimeout)
+}
+
+// TestHandleToolCall_RefusesAnAllowListEntryThatNamesNoTool pins that an entry holding only whitespace
+// permits no call, because it names no tool.
+func TestHandleToolCall_RefusesAnAllowListEntryThatNamesNoTool(t *testing.T) {
+	t.Parallel()
+
+	accessor := newMockMCPClientAccessor()
+
+	mockClient := &mockMCPClient{
+		listToolsResult: &mcp.ListToolsResult{Tools: []mcp.Tool{{Name: "get_time"}}},
+		callToolResult: &mcp.CallToolResult{
+			Content: []mcp.Content{mcp.TextContent{Text: "Tool executed successfully"}},
+		},
+	}
+
+	accessor.Add("testserver", mockClient, []domain.ToolName{"   "})
+
+	_, err := newServerRoutes(accessor, RouteOptions{}).handleToolCall(
+		context.Background(),
+		"testserver",
+		" ",
+		map[string]any{},
+	)
+
+	require.ErrorIs(t, err, errors.ErrToolForbidden)
+	require.Empty(t, mockClient.calledToolName)
 }

@@ -24,23 +24,30 @@ import (
 // stubHealthTracker provides a stub implementation for documentation generation.
 type stubHealthTracker struct{}
 
-func (s *stubHealthTracker) Status(string) (domain.ServerHealth, error) {
+func (s *stubHealthTracker) Add(domain.ServerName)       {}
+func (s *stubHealthTracker) List() []domain.ServerHealth { return nil }
+func (s *stubHealthTracker) Remove(domain.ServerName)    {}
+func (s *stubHealthTracker) Status(domain.ServerName) (domain.ServerHealth, error) {
 	return domain.ServerHealth{}, nil
 }
-func (s *stubHealthTracker) List() []domain.ServerHealth                              { return nil }
-func (s *stubHealthTracker) Update(string, domain.HealthStatus, *time.Duration) error { return nil }
-func (s *stubHealthTracker) Add(string)                                               {}
-func (s *stubHealthTracker) Remove(string)                                            {}
+
+func (s *stubHealthTracker) Update(domain.ServerName, domain.HealthStatus, *time.Duration) error {
+	return nil
+}
 
 // stubClientManager provides a stub implementation for documentation generation.
 type stubClientManager struct{}
 
-func (s *stubClientManager) Add(string, client.MCPClient, []string) {}
-func (s *stubClientManager) Client(string) (client.MCPClient, bool) { return nil, false }
-func (s *stubClientManager) Tools(string) ([]string, bool)          { return nil, false }
-func (s *stubClientManager) UpdateTools(string, []string) error     { return nil }
-func (s *stubClientManager) List() []string                         { return nil }
-func (s *stubClientManager) Remove(string)                          {}
+func (s *stubClientManager) Add(domain.ServerName, client.MCPClient, []domain.ToolName) {}
+func (s *stubClientManager) Client(domain.ServerName) (client.MCPClient, bool) {
+	return nil, false
+}
+func (s *stubClientManager) List() []domain.ServerName { return nil }
+func (s *stubClientManager) Remove(domain.ServerName)  {}
+func (s *stubClientManager) Tools(domain.ServerName) ([]domain.ToolName, bool) {
+	return nil, false
+}
+func (s *stubClientManager) UpdateTools(domain.ServerName, []domain.ToolName) error { return nil }
 
 // main generates the OpenAPI specification for the mcpd API.
 // It assumes it is run from the repository root.

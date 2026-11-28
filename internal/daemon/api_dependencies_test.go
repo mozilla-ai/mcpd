@@ -15,31 +15,31 @@ import (
 // Mock implementations for testing
 type mockClientManager struct{}
 
-func (m *mockClientManager) Add(name string, c client.MCPClient, tools []string) {
+func (m *mockClientManager) Add(name domain.ServerName, c client.MCPClient, tools []domain.ToolName) {
 }
 
-func (m *mockClientManager) Client(name string) (client.MCPClient, bool) {
+func (m *mockClientManager) Client(name domain.ServerName) (client.MCPClient, bool) {
 	return nil, false
 }
 
-func (m *mockClientManager) Tools(name string) ([]string, bool) {
+func (m *mockClientManager) Tools(name domain.ServerName) ([]domain.ToolName, bool) {
 	return nil, false
 }
 
-func (m *mockClientManager) List() []string {
+func (m *mockClientManager) List() []domain.ServerName {
 	return nil
 }
 
-func (m *mockClientManager) UpdateTools(name string, tools []string) error {
+func (m *mockClientManager) UpdateTools(name domain.ServerName, tools []domain.ToolName) error {
 	return nil
 }
 
-func (m *mockClientManager) Remove(name string) {
+func (m *mockClientManager) Remove(name domain.ServerName) {
 }
 
 type mockHealthTracker struct{}
 
-func (m *mockHealthTracker) Status(name string) (domain.ServerHealth, error) {
+func (m *mockHealthTracker) Status(name domain.ServerName) (domain.ServerHealth, error) {
 	return domain.ServerHealth{}, nil
 }
 
@@ -47,15 +47,19 @@ func (m *mockHealthTracker) List() []domain.ServerHealth {
 	return nil
 }
 
-func (m *mockHealthTracker) Update(name string, status domain.HealthStatus, latency *time.Duration) error {
+func (m *mockHealthTracker) Update(
+	name domain.ServerName,
+	status domain.HealthStatus,
+	latency *time.Duration,
+) error {
 	return nil
 }
 
-func (m *mockHealthTracker) Add(name string) {
+func (m *mockHealthTracker) Add(name domain.ServerName) {
 	// Mock implementation.
 }
 
-func (m *mockHealthTracker) Remove(name string) {
+func (m *mockHealthTracker) Remove(name domain.ServerName) {
 	// Mock implementation.
 }
 

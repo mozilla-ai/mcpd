@@ -3,6 +3,8 @@ package cmd
 import (
 	"fmt"
 	"io"
+	"maps"
+	"slices"
 	"strings"
 	"time"
 
@@ -12,7 +14,7 @@ import (
 	cmdopts "github.com/mozilla-ai/mcpd/internal/cmd/options"
 	"github.com/mozilla-ai/mcpd/internal/cmd/output"
 	"github.com/mozilla-ai/mcpd/internal/config"
-	"github.com/mozilla-ai/mcpd/internal/filter"
+	"github.com/mozilla-ai/mcpd/internal/domain"
 	"github.com/mozilla-ai/mcpd/internal/flags"
 	"github.com/mozilla-ai/mcpd/internal/packages"
 	"github.com/mozilla-ai/mcpd/internal/printer"
@@ -244,6 +246,48 @@ func (c *AddCmd) run(cmd *cobra.Command, args []string) error {
 	return handler.HandleResult(entry)
 }
 
+// matchRequestedTools returns the requested tool names that appear in available, as available spells them.
+// Every available name is returned when none is requested.
+// Returns an error naming the requested names that are not available.
+//
+// NOTE: MCP tool names are case-sensitive, so a requested name must match an available name exactly,
+// apart from surrounding whitespace.
+func matchRequestedTools(requested []string, available []string) ([]string, error) {
+	availableSet := make(map[string]struct{}, len(available))
+	for _, name := range available {
+		availableSet[domain.ToolName(name).String()] = struct{}{}
+	}
+
+	if len(requested) == 0 {
+		return slices.Sorted(maps.Keys(availableSet)), nil
+	}
+
+	matched := make(map[string]struct{}, len(requested))
+	missing := make([]string, 0)
+
+	for _, name := range requested {
+		wanted := domain.ToolName(name).String()
+		if _, ok := availableSet[wanted]; !ok {
+			missing = append(missing, name)
+
+			continue
+		}
+
+		matched[wanted] = struct{}{}
+	}
+
+	switch {
+	case len(missing) == 0:
+		return slices.Sorted(maps.Keys(matched)), nil
+	case len(matched) == 0:
+		return nil, fmt.Errorf("none of the requested tools are available")
+	default:
+		slices.Sort(missing)
+
+		return nil, fmt.Errorf("requested tools are not available: %s", strings.Join(missing, ", "))
+	}
+}
+
 // selectRuntime returns the most appropriate runtime from a set of installations,
 // given a list of supported runtimes in priority order.
 //
@@ -280,9 +324,9 @@ func selectRuntime(
 }
 
 func parseServerEntry(pkg packages.Server, opts serverEntryOptions) (config.ServerEntry, error) {
-	requestedTools, err := filter.MatchRequestedSlice(opts.Tools, pkg.Tools.Names())
+	requestedTools, err := matchRequestedTools(opts.Tools, pkg.Tools.Names())
 	if err != nil {
-		return config.ServerEntry{}, fmt.Errorf("error matching requested tools: %w", err)
+		return config.ServerEntry{}, err
 	}
 	if len(requestedTools) == 0 {
 		return config.ServerEntry{}, fmt.Errorf("tools not available")

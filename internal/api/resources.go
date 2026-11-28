@@ -8,6 +8,7 @@ import (
 	"github.com/danielgtaylor/huma/v2"
 	"github.com/mark3labs/mcp-go/mcp"
 
+	"github.com/mozilla-ai/mcpd/internal/domain"
 	errorsint "github.com/mozilla-ai/mcpd/internal/errors"
 )
 
@@ -167,7 +168,7 @@ func (r *serverRoutes) handleResources(
 	name string,
 	cursor string,
 ) (*ResourcesResponse, error) {
-	mcpClient, clientOk := r.accessor.Client(name)
+	mcpClient, clientOk := r.accessor.Client(domain.ServerName(name))
 	if !clientOk {
 		return nil, fmt.Errorf("%w: %s", errorsint.ErrServerNotFound, name)
 	}
@@ -217,7 +218,7 @@ func (r *serverRoutes) handleResourceTemplates(
 	name string,
 	cursor string,
 ) (*ResourceTemplatesResponse, error) {
-	mcpClient, clientOk := r.accessor.Client(name)
+	mcpClient, clientOk := r.accessor.Client(domain.ServerName(name))
 	if !clientOk {
 		return nil, fmt.Errorf("%w: %s", errorsint.ErrServerNotFound, name)
 	}
@@ -267,7 +268,7 @@ func (r *serverRoutes) handleResourceContent(
 	name string,
 	uri string,
 ) (*ResourceContentResponse, error) {
-	mcpClient, clientOk := r.accessor.Client(name)
+	mcpClient, clientOk := r.accessor.Client(domain.ServerName(name))
 	if !clientOk {
 		return nil, fmt.Errorf("%w: %s", errorsint.ErrServerNotFound, name)
 	}

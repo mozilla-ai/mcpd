@@ -251,6 +251,56 @@ func TestUpsert(t *testing.T) {
 	}
 }
 
+// TestGet_MatchesWithoutRegardToCase pins that a supplied name reaches the stored entry whatever its case,
+// and that the entry reports the name the configuration holds.
+func TestGet_MatchesWithoutRegardToCase(t *testing.T) {
+	t.Parallel()
+
+	cfg := &ExecutionContextConfig{
+		Servers: map[string]ServerExecutionContext{
+			"github": {
+				Name: "github",
+				Env:  map[string]string{"TOKEN": "secret"},
+			},
+		},
+	}
+
+	server, ok := cfg.Get(" GitHub ")
+	require.True(t, ok)
+	require.Equal(t, "github", server.Name)
+	require.Equal(t, map[string]string{"TOKEN": "secret"}, server.Env)
+}
+
+// TestUpsert_UpdatesTheEntryItFound pins that a name supplied in a different case updates the stored entry
+// rather than adding a second one, because a second entry is ignored when a server starts.
+func TestUpsert_UpdatesTheEntryItFound(t *testing.T) {
+	t.Parallel()
+
+	path := filepath.Join(t.TempDir(), ".config", "mcpd", "secrets.test.toml")
+
+	cfg := &ExecutionContextConfig{
+		Servers: map[string]ServerExecutionContext{
+			"github": {
+				Name: "github",
+				Env:  map[string]string{"TOKEN": "old"},
+			},
+		},
+		filePath: path,
+	}
+
+	result, err := cfg.Upsert(ServerExecutionContext{
+		Name: "GitHub",
+		Env:  map[string]string{"TOKEN": "new"},
+	})
+	require.NoError(t, err)
+	require.Equal(t, Updated, result)
+
+	require.Len(t, cfg.Servers, 1)
+	require.Contains(t, cfg.Servers, "github")
+	require.Equal(t, "github", cfg.Servers["github"].Name)
+	require.Equal(t, map[string]string{"TOKEN": "new"}, cfg.Servers["github"].Env)
+}
+
 // TestLoadExecutionContextConfig_VariableExpansion tests that ${VAR} references are expanded at load time.
 func TestLoadExecutionContextConfig_VariableExpansion(t *testing.T) {
 	// Note: Cannot use t.Parallel() because subtests use t.Setenv
@@ -559,4 +609,61 @@ func TestLoadExecutionContextConfig_EmptyFile(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, cfg)
 	require.Empty(t, cfg.Servers, "Empty file should result in no servers")
+}
+
+// TestGet_ResolvesOneEntryForTwoKeysSharingOneNameKey pins that a file holding two keys that share one
+// name key resolves to the same entry on every call, and that an exact name selects its own entry.
+func TestGet_ResolvesOneEntryForTwoKeysSharingOneNameKey(t *testing.T) {
+	t.Parallel()
+
+	cfg := &ExecutionContextConfig{
+		Servers: map[string]ServerExecutionContext{
+			"github": {Name: "github", Env: map[string]string{"TOKEN": "lower"}},
+			"GitHub": {Name: "GitHub", Env: map[string]string{"TOKEN": "mixed"}},
+		},
+	}
+
+	// Map iteration order is randomized, so one pass cannot show a lookup to be stable.
+	for range 50 {
+		srv, ok := cfg.Get("github")
+		require.True(t, ok)
+		require.Equal(t, "github", srv.Name)
+
+		srv, ok = cfg.Get("GitHub")
+		require.True(t, ok)
+		require.Equal(t, "GitHub", srv.Name)
+
+		srv, ok = cfg.Get("GITHUB")
+		require.True(t, ok)
+		require.Equal(t, "GitHub", srv.Name)
+	}
+}
+
+// TestUpsert_WritesToTheEntryGetReturns pins that a read and the write that follows it reach one entry,
+// so a value cannot be written over a second entry holding the same name key.
+func TestUpsert_WritesToTheEntryGetReturns(t *testing.T) {
+	t.Parallel()
+
+	for range 50 {
+		dir := t.TempDir()
+		require.NoError(t, os.Chmod(dir, 0o700))
+
+		cfg := &ExecutionContextConfig{
+			filePath: filepath.Join(dir, "secrets.toml"),
+			Servers: map[string]ServerExecutionContext{
+				"github": {Name: "github", Env: map[string]string{"TOKEN": "lower"}},
+				"GitHub": {Name: "GitHub", Env: map[string]string{"TOKEN": "mixed"}},
+			},
+		}
+
+		srv, ok := cfg.Get("github")
+		require.True(t, ok)
+
+		srv.Env["ADDED"] = "value"
+		_, err := cfg.Upsert(srv)
+		require.NoError(t, err)
+
+		require.Equal(t, map[string]string{"TOKEN": "lower", "ADDED": "value"}, cfg.Servers["github"].Env)
+		require.Equal(t, map[string]string{"TOKEN": "mixed"}, cfg.Servers["GitHub"].Env)
+	}
 }

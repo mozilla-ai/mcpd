@@ -11,6 +11,7 @@ import (
 	"github.com/mozilla-ai/mcpd/internal/cmd"
 	cmdopts "github.com/mozilla-ai/mcpd/internal/cmd/options"
 	"github.com/mozilla-ai/mcpd/internal/config"
+	"github.com/mozilla-ai/mcpd/internal/domain"
 	"github.com/mozilla-ai/mcpd/internal/flags"
 )
 
@@ -62,8 +63,10 @@ func (c *RemoveCmd) run(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
+	// A server name is matched without regard to case, so the name works here as it does in a daemon URL.
+	wanted := domain.ServerName(serverName).Key()
 	for _, srv := range cfg.ListServers() {
-		if srv.Name != serverName {
+		if domain.ServerName(srv.Name).Key() != wanted {
 			continue
 		}
 
@@ -79,23 +82,19 @@ func (c *RemoveCmd) run(cmd *cobra.Command, args []string) error {
 		// Validate that at least one tool remains.
 		if len(srv.Tools) == 0 {
 			return fmt.Errorf("cannot remove all tools from server '%s'\n"+
-				"To remove the server instead use: mcpd remove %s", serverName, serverName)
+				"To remove the server instead use: mcpd remove %s", srv.Name, srv.Name)
 		}
 
-		// Update server in config by removing and re-adding.
-		err = cfg.RemoveServer(serverName)
+		// The stored name is used rather than the supplied one, because the lookup above matched without
+		// regard to case and the configuration holds only the spelling it was written with.
+		err = cfg.UpdateServer(srv)
 		if err != nil {
-			return fmt.Errorf("error removing server, unable to remove tools for server %s: %w", serverName, err)
-		}
-
-		err = cfg.AddServer(srv)
-		if err != nil {
-			return fmt.Errorf("error adding server, unable to remove tools for server %s: %w", serverName, err)
+			return fmt.Errorf("unable to remove tools for server '%s': %w", srv.Name, err)
 		}
 
 		msg := "✓ Command completed successfully, no tools required removal\n"
 		if len(removed) > 0 {
-			msg = fmt.Sprintf("✓ Tools removed for server '%s': %v\n", serverName, slices.Collect(maps.Keys(removed)))
+			msg = fmt.Sprintf("✓ Tools removed for server '%s': %v\n", srv.Name, slices.Collect(maps.Keys(removed)))
 		}
 
 		_, err = fmt.Fprint(cmd.OutOrStdout(), msg)

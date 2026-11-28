@@ -8,6 +8,8 @@ import (
 
 	"github.com/mark3labs/mcp-go/mcp"
 	"github.com/stretchr/testify/require"
+
+	"github.com/mozilla-ai/mcpd/internal/domain"
 )
 
 // mockMCPClient is a test implementation of client.MCPClient
@@ -116,8 +118,8 @@ func TestClientManager_Add_Client_Tools(t *testing.T) {
 	cm := NewClientManager()
 
 	c := &mockMCPClient{}
-	tools := []string{"tool1", "tool2"}
-	name := "server1"
+	tools := []domain.ToolName{"tool1", "tool2"}
+	name := domain.ServerName("server1")
 
 	cm.Add(name, c, tools)
 
@@ -132,57 +134,63 @@ func TestClientManager_Add_Client_Tools(t *testing.T) {
 	require.Equal(t, tools, rt)
 }
 
-func TestClientManager_Add_ToolsNormalized(t *testing.T) {
+func TestClientManager_Add_KeepsToolNamesAsGiven(t *testing.T) {
 	t.Parallel()
 	cm := NewClientManager()
 
 	c := &mockMCPClient{}
-	tools := []string{" Tool1 ", "TOOL2", "tool3"}
-	name := "server1"
+	tools := []domain.ToolName{" Tool1 ", "TOOL2", "tool3"}
+	name := domain.ServerName("server1")
 
 	cm.Add(name, c, tools)
 
-	// Test Tools are normalized to lowercase and trimmed.
+	// A tool name is stored as it was given, because MCP tool names are case-sensitive.
 	rt, ok := cm.Tools(name)
 	require.True(t, ok)
-	require.Equal(t, []string{"tool1", "tool2", "tool3"}, rt)
+	require.Equal(t, tools, rt)
+
+	reported := make([]string, 0, len(rt))
+	for _, tool := range rt {
+		reported = append(reported, tool.String())
+	}
+	require.Equal(t, []string{"Tool1", "TOOL2", "tool3"}, reported)
 }
 
-func TestClientManager_ServerNameNormalized(t *testing.T) {
+func TestClientManager_MatchesAServerNameByKey(t *testing.T) {
 	t.Parallel()
 	cm := NewClientManager()
 
 	c := &mockMCPClient{}
-	tools := []string{"tool1"}
+	tools := []domain.ToolName{"tool1"}
 
 	// Add with mixed case server name.
 	cm.Add(" GitHub-Server ", c, tools)
 
 	// Test retrieving with different cases should work.
-	rc, ok := cm.Client("github-server")
+	rc, ok := cm.Client(domain.ServerName("github-server"))
 	require.True(t, ok)
 	require.Equal(t, c, rc)
 
-	rc, ok = cm.Client("GITHUB-SERVER")
+	rc, ok = cm.Client(domain.ServerName("GITHUB-SERVER"))
 	require.True(t, ok)
 	require.Equal(t, c, rc)
 
-	rc, ok = cm.Client("  GitHub-Server  ")
+	rc, ok = cm.Client(domain.ServerName("  GitHub-Server  "))
 	require.True(t, ok)
 	require.Equal(t, c, rc)
 
 	// Test Tools with different cases.
-	rt, ok := cm.Tools("github-server")
+	rt, ok := cm.Tools(domain.ServerName("github-server"))
 	require.True(t, ok)
 	require.Equal(t, tools, rt)
 
-	rt, ok = cm.Tools("GITHUB-SERVER")
+	rt, ok = cm.Tools(domain.ServerName("GITHUB-SERVER"))
 	require.True(t, ok)
 	require.Equal(t, tools, rt)
 
 	// Test Remove with different case.
-	cm.Remove("GITHUB-SERVER")
-	_, ok = cm.Client("github-server")
+	cm.Remove(domain.ServerName("GITHUB-SERVER"))
+	_, ok = cm.Client(domain.ServerName("github-server"))
 	require.False(t, ok)
 }
 
@@ -190,25 +198,70 @@ func TestClientManager_List(t *testing.T) {
 	t.Parallel()
 	cm := NewClientManager()
 
-	cm.Add("server1", &mockMCPClient{}, []string{"a"})
-	cm.Add("server2", &mockMCPClient{}, []string{"b"})
+	cm.Add(domain.ServerName("server1"), &mockMCPClient{}, []domain.ToolName{"a"})
+	cm.Add(domain.ServerName("server2"), &mockMCPClient{}, []domain.ToolName{"b"})
 
 	names := cm.List()
 	require.Len(t, names, 2)
-	require.ElementsMatch(t, []string{"server1", "server2"}, names)
+	require.ElementsMatch(t, []domain.ServerName{"server1", "server2"}, names)
+}
+
+// TestClientManager_List_PreservesConfiguredCase pins that List reports each name as it was configured.
+func TestClientManager_List_PreservesConfiguredCase(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name       string
+		configured domain.ServerName
+		expected   string
+	}{
+		{
+			name:       "camel case is kept",
+			configured: "gitHub",
+			expected:   "gitHub",
+		},
+		{
+			name:       "pascal case is kept",
+			configured: "GitHub",
+			expected:   "GitHub",
+		},
+		{
+			name:       "surrounding whitespace is dropped",
+			configured: "  GitHub-Server  ",
+			expected:   "GitHub-Server",
+		},
+		{
+			name:       "lowercase is unchanged",
+			configured: "github",
+			expected:   "github",
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			cm := NewClientManager()
+			cm.Add(tc.configured, &mockMCPClient{}, []domain.ToolName{"tool"})
+
+			listed := cm.List()
+			require.Len(t, listed, 1)
+			require.Equal(t, tc.expected, listed[0].String())
+		})
+	}
 }
 
 func TestClientManager_Remove(t *testing.T) {
 	t.Parallel()
 	cm := NewClientManager()
 
-	cm.Add("server1", &mockMCPClient{}, []string{"tool"})
-	cm.Remove("server1")
+	cm.Add(domain.ServerName("server1"), &mockMCPClient{}, []domain.ToolName{"tool"})
+	cm.Remove(domain.ServerName("server1"))
 
-	_, ok := cm.Client("server1")
+	_, ok := cm.Client(domain.ServerName("server1"))
 	require.False(t, ok)
 
-	_, ok = cm.Tools("server1")
+	_, ok = cm.Tools(domain.ServerName("server1"))
 	require.False(t, ok)
 
 	require.Empty(t, cm.List())
@@ -218,10 +271,10 @@ func TestClientManager_EmptyManager(t *testing.T) {
 	t.Parallel()
 	cm := NewClientManager()
 
-	_, ok := cm.Client("missing")
+	_, ok := cm.Client(domain.ServerName("missing"))
 	require.False(t, ok)
 
-	_, ok = cm.Tools("missing")
+	_, ok = cm.Tools(domain.ServerName("missing"))
 	require.False(t, ok)
 
 	require.Empty(t, cm.List())
@@ -236,10 +289,10 @@ func TestClientManager_ConcurrentAccess(t *testing.T) {
 	for i := 0; i < 100; i++ {
 		wg.Add(3)
 
-		name := fmt.Sprintf("server-%d", i)
+		name := domain.ServerName(fmt.Sprintf("server-%d", i))
 		go func() {
 			defer wg.Done()
-			cm.Add(name, &mockMCPClient{}, []string{"tool"})
+			cm.Add(name, &mockMCPClient{}, []domain.ToolName{"tool"})
 		}()
 		go func() {
 			defer wg.Done()
@@ -252,4 +305,74 @@ func TestClientManager_ConcurrentAccess(t *testing.T) {
 	}
 
 	wg.Wait()
+}
+
+// TestClientManager_UpdateTools pins that updating the tools leaves the configured name and the client
+// undisturbed.
+func TestClientManager_UpdateTools(t *testing.T) {
+	t.Parallel()
+
+	t.Run("keeps the configured name and the client", func(t *testing.T) {
+		t.Parallel()
+
+		cm := NewClientManager()
+		c := &mockMCPClient{}
+		cm.Add("GitHub", c, []domain.ToolName{"createRepository"})
+
+		require.NoError(t, cm.UpdateTools("github", []domain.ToolName{"listRepositories"}))
+
+		listed := cm.List()
+		require.Equal(t, []domain.ServerName{"GitHub"}, listed)
+
+		got, ok := cm.Client("GITHUB")
+		require.True(t, ok)
+		require.Same(t, c, got)
+
+		tools, ok := cm.Tools("GitHub")
+		require.True(t, ok)
+		require.Equal(t, []domain.ToolName{"listRepositories"}, tools)
+	})
+
+	t.Run("reports an unknown server", func(t *testing.T) {
+		t.Parallel()
+
+		cm := NewClientManager()
+
+		err := cm.UpdateTools("absent", []domain.ToolName{"anything"})
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "absent")
+	})
+
+	t.Run("does not alias the caller's slice", func(t *testing.T) {
+		t.Parallel()
+
+		cm := NewClientManager()
+		cm.Add("notes", &mockMCPClient{}, []domain.ToolName{"read"})
+
+		tools := []domain.ToolName{"write"}
+		require.NoError(t, cm.UpdateTools("notes", tools))
+		tools[0] = "mutated"
+
+		stored, ok := cm.Tools("notes")
+		require.True(t, ok)
+		require.Equal(t, []domain.ToolName{"write"}, stored)
+	})
+}
+
+// TestClientManager_Tools_DoesNotShareStoredState pins that a caller cannot reach the stored allow list.
+// The allow list decides which tools may run, so a handler mutating a returned slice would change what
+// every later request is permitted to call, and would race readers outside the lock.
+func TestClientManager_Tools_DoesNotShareStoredState(t *testing.T) {
+	t.Parallel()
+
+	cm := NewClientManager()
+	cm.Add("notes", &mockMCPClient{}, []domain.ToolName{"read_note"})
+
+	first, ok := cm.Tools("notes")
+	require.True(t, ok)
+	first[0] = "write_note"
+
+	second, ok := cm.Tools("notes")
+	require.True(t, ok)
+	require.Equal(t, []domain.ToolName{"read_note"}, second)
 }

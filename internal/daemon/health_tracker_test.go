@@ -20,15 +20,15 @@ func TestHealthTracker_Add(t *testing.T) {
 
 	t.Run("add new server", func(t *testing.T) {
 		t.Parallel()
-		tracker := NewHealthTracker([]string{"existing"})
+		tracker := NewHealthTracker([]domain.ServerName{"existing"})
 
 		// Add a new server.
-		tracker.Add("new-server")
+		tracker.Add(domain.ServerName("new-server"))
 
 		// Verify it was added.
-		health, err := tracker.Status("new-server")
+		health, err := tracker.Status(domain.ServerName("new-server"))
 		require.NoError(t, err)
-		require.Equal(t, "new-server", health.Name)
+		require.Equal(t, "new-server", health.Name.String())
 		require.Equal(t, domain.HealthStatusUnknown, health.Status)
 		require.Nil(t, health.LastChecked)
 		require.Nil(t, health.LastSuccessful)
@@ -36,22 +36,22 @@ func TestHealthTracker_Add(t *testing.T) {
 
 	t.Run("add existing server (no-op)", func(t *testing.T) {
 		t.Parallel()
-		tracker := NewHealthTracker([]string{"server1"})
+		tracker := NewHealthTracker([]domain.ServerName{"server1"})
 
 		// Update the server's health.
 		latency := 100 * time.Millisecond
-		err := tracker.Update("server1", domain.HealthStatusOK, &latency)
+		err := tracker.Update(domain.ServerName("server1"), domain.HealthStatusOK, &latency)
 		require.NoError(t, err)
 
 		// Get the current state.
-		healthBefore, err := tracker.Status("server1")
+		healthBefore, err := tracker.Status(domain.ServerName("server1"))
 		require.NoError(t, err)
 
 		// Try to add the same server again.
-		tracker.Add("server1")
+		tracker.Add(domain.ServerName("server1"))
 
 		// Verify the health data is preserved.
-		healthAfter, err := tracker.Status("server1")
+		healthAfter, err := tracker.Status(domain.ServerName("server1"))
 		require.NoError(t, err)
 		require.Equal(t, healthBefore, healthAfter)
 		require.NotNil(t, healthAfter.LastChecked)
@@ -60,14 +60,14 @@ func TestHealthTracker_Add(t *testing.T) {
 
 	t.Run("concurrent adds", func(t *testing.T) {
 		t.Parallel()
-		tracker := NewHealthTracker([]string{})
+		tracker := NewHealthTracker([]domain.ServerName{})
 
 		var wg sync.WaitGroup
 		for i := 0; i < 10; i++ {
 			wg.Add(1)
 			go func(i int) {
 				defer wg.Done()
-				tracker.Add(fmt.Sprintf("server-%d", i))
+				tracker.Add(domain.ServerName(fmt.Sprintf("server-%d", i)))
 			}(i)
 		}
 		wg.Wait()
@@ -83,13 +83,13 @@ func TestHealthTracker_Remove(t *testing.T) {
 
 	t.Run("remove existing server", func(t *testing.T) {
 		t.Parallel()
-		tracker := NewHealthTracker([]string{"server1", "server2", "server3"})
+		tracker := NewHealthTracker([]domain.ServerName{"server1", "server2", "server3"})
 
 		// Remove a server.
-		tracker.Remove("server2")
+		tracker.Remove(domain.ServerName("server2"))
 
 		// Verify it was removed.
-		_, err := tracker.Status("server2")
+		_, err := tracker.Status(domain.ServerName("server2"))
 		require.Error(t, err)
 		require.True(t, stdErrors.Is(err, errors.ErrHealthNotTracked))
 
@@ -98,7 +98,7 @@ func TestHealthTracker_Remove(t *testing.T) {
 		require.Len(t, servers, 2)
 		serverNames := make([]string, len(servers))
 		for i, s := range servers {
-			serverNames[i] = s.Name
+			serverNames[i] = s.Name.String()
 		}
 		require.Contains(t, serverNames, "server1")
 		require.Contains(t, serverNames, "server3")
@@ -107,22 +107,22 @@ func TestHealthTracker_Remove(t *testing.T) {
 
 	t.Run("remove non-existent server (no-op)", func(t *testing.T) {
 		t.Parallel()
-		tracker := NewHealthTracker([]string{"server1"})
+		tracker := NewHealthTracker([]domain.ServerName{"server1"})
 
 		// Remove a non-existent server.
-		tracker.Remove("non-existent")
+		tracker.Remove(domain.ServerName("non-existent"))
 
 		// Verify existing server remains.
 		servers := tracker.List()
 		require.Len(t, servers, 1)
-		require.Equal(t, "server1", servers[0].Name)
+		require.Equal(t, "server1", servers[0].Name.String())
 	})
 
 	t.Run("concurrent removes", func(t *testing.T) {
 		t.Parallel()
-		serverNames := make([]string, 20)
+		serverNames := make([]domain.ServerName, 20)
 		for i := 0; i < 20; i++ {
-			serverNames[i] = fmt.Sprintf("server-%d", i)
+			serverNames[i] = domain.ServerName(fmt.Sprintf("server-%d", i))
 		}
 		tracker := NewHealthTracker(serverNames)
 
@@ -132,7 +132,7 @@ func TestHealthTracker_Remove(t *testing.T) {
 			wg.Add(1)
 			go func(i int) {
 				defer wg.Done()
-				tracker.Remove(fmt.Sprintf("server-%d", i))
+				tracker.Remove(domain.ServerName(fmt.Sprintf("server-%d", i)))
 			}(i)
 		}
 		wg.Wait()
@@ -142,7 +142,7 @@ func TestHealthTracker_Remove(t *testing.T) {
 		require.Len(t, servers, 10)
 		for _, s := range servers {
 			var num int
-			_, err := fmt.Sscanf(s.Name, "server-%d", &num)
+			_, err := fmt.Sscanf(s.Name.String(), "server-%d", &num)
 			require.NoError(t, err)
 			require.Equal(t, 1, num%2, "Expected only odd-numbered servers")
 		}
@@ -152,25 +152,25 @@ func TestHealthTracker_Remove(t *testing.T) {
 func TestHealthTracker_AddRemoveIntegration(t *testing.T) {
 	t.Parallel()
 
-	tracker := NewHealthTracker([]string{"initial"})
+	tracker := NewHealthTracker([]domain.ServerName{"initial"})
 
 	// Add servers.
-	tracker.Add("server1")
-	tracker.Add("server2")
+	tracker.Add(domain.ServerName("server1"))
+	tracker.Add(domain.ServerName("server2"))
 
 	// Update health for server1.
 	latency := 50 * time.Millisecond
-	err := tracker.Update("server1", domain.HealthStatusOK, &latency)
+	err := tracker.Update(domain.ServerName("server1"), domain.HealthStatusOK, &latency)
 	require.NoError(t, err)
 
 	// Remove initial server.
-	tracker.Remove("initial")
+	tracker.Remove(domain.ServerName("initial"))
 
 	// Add another server.
-	tracker.Add("server3")
+	tracker.Add(domain.ServerName("server3"))
 
 	// Remove server2.
-	tracker.Remove("server2")
+	tracker.Remove(domain.ServerName("server2"))
 
 	// Verify final state.
 	servers := tracker.List()
@@ -178,7 +178,7 @@ func TestHealthTracker_AddRemoveIntegration(t *testing.T) {
 
 	serverMap := make(map[string]domain.ServerHealth)
 	for _, s := range servers {
-		serverMap[s.Name] = s
+		serverMap[s.Name.String()] = s
 	}
 
 	// Verify server1 preserved its health data.
@@ -202,12 +202,12 @@ func TestNewHealthTracker(t *testing.T) {
 
 	tests := []struct {
 		name        string
-		serverNames []string
+		serverNames []domain.ServerName
 		wantLen     int
 	}{
 		{
 			name:        "empty server list",
-			serverNames: []string{},
+			serverNames: []domain.ServerName{},
 			wantLen:     0,
 		},
 		{
@@ -217,12 +217,12 @@ func TestNewHealthTracker(t *testing.T) {
 		},
 		{
 			name:        "single server",
-			serverNames: []string{"server1"},
+			serverNames: []domain.ServerName{"server1"},
 			wantLen:     1,
 		},
 		{
 			name:        "multiple servers",
-			serverNames: []string{"server1", "server2", "server3"},
+			serverNames: []domain.ServerName{"server1", "server2", "server3"},
 			wantLen:     3,
 		},
 	}
@@ -237,7 +237,7 @@ func TestNewHealthTracker(t *testing.T) {
 
 			// Verify all servers are initialized with unknown status
 			for _, name := range tc.serverNames {
-				health, exists := tracker.statuses[name]
+				health, exists := tracker.statuses[name.Key()]
 				require.True(t, exists)
 				require.Equal(t, name, health.Name)
 				require.Equal(t, domain.HealthStatusUnknown, health.Status)
@@ -254,27 +254,27 @@ func TestHealthTracker_Status(t *testing.T) {
 
 	tests := []struct {
 		name        string
-		serverNames []string
+		serverNames []domain.ServerName
 		queryName   string
 		wantError   bool
 		wantStatus  domain.HealthStatus
 	}{
 		{
 			name:        "existing server",
-			serverNames: []string{"server1", "server2"},
+			serverNames: []domain.ServerName{"server1", "server2"},
 			queryName:   "server1",
 			wantError:   false,
 			wantStatus:  domain.HealthStatusUnknown,
 		},
 		{
 			name:        "non-existing server",
-			serverNames: []string{"server1", "server2"},
+			serverNames: []domain.ServerName{"server1", "server2"},
 			queryName:   "server3",
 			wantError:   true,
 		},
 		{
 			name:        "empty tracker",
-			serverNames: []string{},
+			serverNames: []domain.ServerName{},
 			queryName:   "server1",
 			wantError:   true,
 		},
@@ -285,7 +285,7 @@ func TestHealthTracker_Status(t *testing.T) {
 			t.Parallel()
 
 			tracker := NewHealthTracker(tc.serverNames)
-			health, err := tracker.Status(tc.queryName)
+			health, err := tracker.Status(domain.ServerName(tc.queryName))
 
 			if tc.wantError {
 				require.Error(t, err)
@@ -293,7 +293,7 @@ func TestHealthTracker_Status(t *testing.T) {
 				require.Equal(t, domain.ServerHealth{}, health)
 			} else {
 				require.NoError(t, err)
-				require.Equal(t, tc.queryName, health.Name)
+				require.Equal(t, tc.queryName, health.Name.String())
 				require.Equal(t, tc.wantStatus, health.Status)
 			}
 		})
@@ -305,22 +305,22 @@ func TestHealthTracker_List(t *testing.T) {
 
 	tests := []struct {
 		name        string
-		serverNames []string
+		serverNames []domain.ServerName
 		wantLen     int
 	}{
 		{
 			name:        "empty tracker",
-			serverNames: []string{},
+			serverNames: []domain.ServerName{},
 			wantLen:     0,
 		},
 		{
 			name:        "single server",
-			serverNames: []string{"server1"},
+			serverNames: []domain.ServerName{"server1"},
 			wantLen:     1,
 		},
 		{
 			name:        "multiple servers",
-			serverNames: []string{"server1", "server2", "server3"},
+			serverNames: []domain.ServerName{"server1", "server2", "server3"},
 			wantLen:     3,
 		},
 	}
@@ -337,11 +337,11 @@ func TestHealthTracker_List(t *testing.T) {
 			// Verify all expected servers are in the list
 			serverMap := make(map[string]bool)
 			for _, health := range list {
-				serverMap[health.Name] = true
+				serverMap[health.Name.String()] = true
 			}
 
 			for _, name := range tc.serverNames {
-				require.True(t, serverMap[name], "server %s should be in the list", name)
+				require.True(t, serverMap[name.String()], "server %s should be in the list", name)
 			}
 		})
 	}
@@ -354,7 +354,7 @@ func TestHealthTracker_Update(t *testing.T) {
 	t.Run("successful updates", func(t *testing.T) {
 		t.Parallel()
 
-		tracker := NewHealthTracker([]string{"server1", "server2"})
+		tracker := NewHealthTracker([]domain.ServerName{"server1", "server2"})
 		latency := 50 * time.Millisecond
 
 		tests := []struct {
@@ -400,7 +400,7 @@ func TestHealthTracker_Update(t *testing.T) {
 		for _, tc := range tests {
 			t.Run(tc.name, func(t *testing.T) {
 				beforeUpdate := time.Now().UTC()
-				err := tracker.Update(tc.serverName, tc.status, tc.latency)
+				err := tracker.Update(domain.ServerName(tc.serverName), tc.status, tc.latency)
 
 				if tc.wantError {
 					require.Error(t, err)
@@ -411,9 +411,9 @@ func TestHealthTracker_Update(t *testing.T) {
 				require.NoError(t, err)
 
 				// Verify the update
-				health, err := tracker.Status(tc.serverName)
+				health, err := tracker.Status(domain.ServerName(tc.serverName))
 				require.NoError(t, err)
-				require.Equal(t, tc.serverName, health.Name)
+				require.Equal(t, tc.serverName, health.Name.String())
 				require.Equal(t, tc.status, health.Status)
 
 				// Check LastChecked is set and recent
@@ -445,14 +445,14 @@ func TestHealthTracker_Update(t *testing.T) {
 	t.Run("LastSuccessful preservation", func(t *testing.T) {
 		t.Parallel()
 
-		tracker := NewHealthTracker([]string{"server1"})
+		tracker := NewHealthTracker([]domain.ServerName{"server1"})
 		latency := 50 * time.Millisecond
 
 		// First update with OK status
-		err := tracker.Update("server1", domain.HealthStatusOK, &latency)
+		err := tracker.Update(domain.ServerName("server1"), domain.HealthStatusOK, &latency)
 		require.NoError(t, err)
 
-		health, err := tracker.Status("server1")
+		health, err := tracker.Status(domain.ServerName("server1"))
 		require.NoError(t, err)
 		originalLastSuccessful := health.LastSuccessful
 		require.NotNil(t, originalLastSuccessful)
@@ -461,10 +461,10 @@ func TestHealthTracker_Update(t *testing.T) {
 		time.Sleep(10 * time.Millisecond)
 
 		// Second update with non-OK status
-		err = tracker.Update("server1", domain.HealthStatusTimeout, &latency)
+		err = tracker.Update(domain.ServerName("server1"), domain.HealthStatusTimeout, &latency)
 		require.NoError(t, err)
 
-		health, err = tracker.Status("server1")
+		health, err = tracker.Status(domain.ServerName("server1"))
 		require.NoError(t, err)
 		require.Equal(t, domain.HealthStatusTimeout, health.Status)
 		require.Equal(t, originalLastSuccessful, health.LastSuccessful, "LastSuccessful should be preserved")
@@ -474,7 +474,7 @@ func TestHealthTracker_Update(t *testing.T) {
 func TestHealthTracker_ConcurrentAccess(t *testing.T) {
 	t.Parallel()
 
-	tracker := NewHealthTracker([]string{"server1", "server2", "server3"})
+	tracker := NewHealthTracker([]domain.ServerName{"server1", "server2", "server3"})
 	const numGoroutines = 100
 	const numOperations = 10
 
@@ -493,10 +493,10 @@ func TestHealthTracker_ConcurrentAccess(t *testing.T) {
 				// Alternate between different operations
 				switch j % 3 {
 				case 0:
-					err := tracker.Update(serverName, domain.HealthStatusOK, &latency)
+					err := tracker.Update(domain.ServerName(serverName), domain.HealthStatusOK, &latency)
 					require.NoError(t, err)
 				case 1:
-					_, err := tracker.Status(serverName)
+					_, err := tracker.Status(domain.ServerName(serverName))
 					require.NoError(t, err)
 				case 2:
 					list := tracker.List()
@@ -590,7 +590,7 @@ func TestServerHealth_JSONSerialization(t *testing.T) {
 			}
 
 			// Verify field values
-			require.Equal(t, tc.health.Name, jsonMap["name"])
+			require.Equal(t, tc.health.Name.String(), jsonMap["name"])
 			require.Equal(t, string(tc.health.Status), jsonMap["status"])
 
 			// Check latency field handling
@@ -628,4 +628,89 @@ func TestHealthStatus_Constants(t *testing.T) {
 	require.Equal(t, domain.HealthStatus("timeout"), domain.HealthStatusTimeout)
 	require.Equal(t, domain.HealthStatus("unreachable"), domain.HealthStatusUnreachable)
 	require.Equal(t, domain.HealthStatus("unknown"), domain.HealthStatusUnknown)
+}
+
+// TestHealthTracker_LookupIsCaseInsensitive pins that a lookup matches a server name without regard to
+// case.
+func TestHealthTracker_LookupIsCaseInsensitive(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name       string
+		lookup     string
+		configured string
+	}{
+		{
+			name:       "lowercase lookup finds a pascal case name",
+			configured: "GitHub",
+			lookup:     "github",
+		},
+		{
+			name:       "uppercase lookup finds a pascal case name",
+			configured: "GitHub",
+			lookup:     "GITHUB",
+		},
+		{
+			name:       "exact lookup still works",
+			configured: "GitHub",
+			lookup:     "GitHub",
+		},
+		{
+			name:       "surrounding whitespace is ignored",
+			configured: "GitHub",
+			lookup:     "  GitHub  ",
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			h := NewHealthTracker([]domain.ServerName{domain.ServerName(tc.configured)})
+
+			health, err := h.Status(domain.ServerName(tc.lookup))
+			require.NoError(t, err)
+			require.Equal(t, tc.configured, health.Name.String(), "the configured name must be reported")
+		})
+	}
+}
+
+// TestHealthTracker_UpdateKeepsConfiguredName pins the name a health record reports.
+// Update is called with whatever name the caller holds, which must not become the reported name.
+func TestHealthTracker_UpdateKeepsConfiguredName(t *testing.T) {
+	t.Parallel()
+
+	h := NewHealthTracker([]domain.ServerName{"GitHub"})
+
+	require.NoError(t, h.Update(domain.ServerName("github"), domain.HealthStatusOK, nil))
+
+	health, err := h.Status(domain.ServerName("GitHub"))
+	require.NoError(t, err)
+	require.Equal(t, "GitHub", health.Name.String())
+	require.Equal(t, domain.HealthStatusOK, health.Status)
+
+	for _, record := range h.List() {
+		require.Equal(t, "GitHub", record.Name.String())
+	}
+}
+
+// TestHealthTracker_AddKeepsConfiguredNameAndRemoveIgnoresCase pins that a server added during a reload
+// reports its configured name, and that removing it does not depend on the caller's casing.
+func TestHealthTracker_AddKeepsConfiguredNameAndRemoveIgnoresCase(t *testing.T) {
+	t.Parallel()
+
+	h := NewHealthTracker(nil)
+
+	h.Add(domain.ServerName("Time-Server"))
+
+	health, err := h.Status(domain.ServerName("time-server"))
+	require.NoError(t, err)
+	require.Equal(t, "Time-Server", health.Name.String())
+
+	// Adding the same server under a different casing must not create a second record.
+	h.Add(domain.ServerName("TIME-SERVER"))
+	require.Len(t, h.List(), 1)
+
+	h.Remove(domain.ServerName("TIME-SERVER"))
+	require.Empty(t, h.List())
 }

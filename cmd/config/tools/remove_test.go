@@ -2,6 +2,7 @@ package tools
 
 import (
 	"bytes"
+	"fmt"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -15,6 +16,7 @@ type mockConfigForRemove struct {
 	servers   []config.ServerEntry
 	addErr    error
 	removeErr error
+	updateErr error
 }
 
 func (m *mockConfigForRemove) AddServer(entry config.ServerEntry) error {
@@ -38,6 +40,24 @@ func (m *mockConfigForRemove) RemoveServer(name string) error {
 	return nil
 }
 
+// UpdateServer replaces the entry it resolves and reports a name it does not hold, as the real config
+// does.
+func (m *mockConfigForRemove) UpdateServer(entry config.ServerEntry) error {
+	if m.updateErr != nil {
+		return m.updateErr
+	}
+
+	for i, s := range m.servers {
+		if s.Name == entry.Name {
+			m.servers[i] = entry
+
+			return nil
+		}
+	}
+
+	return fmt.Errorf("server '%s' not found in config", entry.Name)
+}
+
 func (m *mockConfigForRemove) ListServers() []config.ServerEntry {
 	return m.servers
 }
@@ -53,6 +73,35 @@ type mockLoaderForRemove struct {
 
 func (m *mockLoaderForRemove) Load(_ string) (config.Modifier, error) {
 	return m.cfg, m.err
+}
+
+func TestRemoveCmd_MatchesAServerNameWithoutRegardToCase(t *testing.T) {
+	t.Parallel()
+
+	cfg := &mockConfigForRemove{
+		servers: []config.ServerEntry{
+			{
+				Name:  "test-server",
+				Tools: []string{"tool1", "tool2"},
+			},
+		},
+	}
+
+	removeCmd, err := NewRemoveCmd(&cmd.BaseCmd{}, cmdopts.WithConfigLoader(&mockLoaderForRemove{cfg: cfg}))
+	require.NoError(t, err)
+
+	var out bytes.Buffer
+	removeCmd.SetOut(&out)
+	removeCmd.SetErr(&out)
+
+	err = removeCmd.RunE(removeCmd, []string{"Test-Server", "tool1"})
+	require.NoError(t, err)
+
+	// The entry the lookup found is the entry rewritten, so the server is not duplicated.
+	require.Len(t, cfg.servers, 1)
+	require.Equal(t, "test-server", cfg.servers[0].Name)
+	require.Equal(t, []string{"tool2"}, cfg.servers[0].Tools)
+	require.Contains(t, out.String(), "✓ Tools removed for server 'test-server'")
 }
 
 func TestRemoveCmd_RemoveAllTools(t *testing.T) {

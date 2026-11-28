@@ -24,7 +24,6 @@ import (
 	"github.com/mozilla-ai/mcpd/internal/cmd"
 	"github.com/mozilla-ai/mcpd/internal/contracts"
 	"github.com/mozilla-ai/mcpd/internal/domain"
-	"github.com/mozilla-ai/mcpd/internal/filter"
 	"github.com/mozilla-ai/mcpd/internal/plugin"
 	"github.com/mozilla-ai/mcpd/internal/runtime"
 )
@@ -141,7 +140,7 @@ func NewDaemon(deps Dependencies, opt ...Option) (*Daemon, error) {
 		return nil, fmt.Errorf("invalid options: %w", err)
 	}
 
-	var serverNames []string // Track server names for server health tracker creation.
+	var serverNames []domain.ServerName // Track server names for server health tracker creation.
 	var validateErrs error
 	for _, srv := range deps.RuntimeServers {
 		serverNames = append(serverNames, srv.Name())
@@ -278,7 +277,7 @@ func (d *Daemon) startMCPServer(ctx context.Context, server runtime.Server) erro
 		)
 	}
 
-	logger := d.logger.Named("mcp").Named(server.Name())
+	logger := d.logger.Named("mcp").Named(server.Name().String())
 
 	pkg := server.PackageName()
 	ver := server.PackageVersion()
@@ -389,7 +388,7 @@ func (d *Daemon) startMCPServer(ctx context.Context, server runtime.Server) erro
 	)
 
 	// Store and track the client.
-	d.clientManager.Add(server.Name(), stdioClient, server.Tools)
+	d.clientManager.Add(server.Name(), stdioClient, server.AllowedTools())
 	d.healthTracker.Add(server.Name())
 
 	logger.Info("Ready!")
@@ -427,7 +426,7 @@ func (d *Daemon) healthCheckLoop(ctx context.Context, interval time.Duration, ma
 }
 
 // pingServer attempts to ping a named registered MCP server and updates the MCPHealthMonitor with the result.
-func (d *Daemon) pingServer(ctx context.Context, name string) error {
+func (d *Daemon) pingServer(ctx context.Context, name domain.ServerName) error {
 	// Early exit if context is already cancelled.
 	select {
 	case <-ctx.Done():
@@ -594,6 +593,18 @@ func normalizeLogLevel(level string) hclog.Level {
 	}
 }
 
+// serversByNameKey indexes servers by their name's key, so two configurations can be compared without
+// regard to case. Each server keeps the name it was configured with.
+func serversByNameKey(servers []runtime.Server) map[string]*runtime.Server {
+	indexed := make(map[string]*runtime.Server, len(servers))
+
+	for _, srv := range servers {
+		indexed[srv.Name().Key()] = &srv
+	}
+
+	return indexed
+}
+
 // closeAllClients gracefully closes all managed clients with individual timeouts.
 // It closes all clients concurrently and waits for all to complete or timeout.
 func (d *Daemon) closeAllClients() {
@@ -627,7 +638,7 @@ func (d *Daemon) closeAllClients() {
 
 // closeClientWithTimeout closes a single client with a timeout.
 // Returns true if the client closed successfully, false if it timed out.
-func (d *Daemon) closeClientWithTimeout(name string, c client.MCPClient, timeout time.Duration) bool {
+func (d *Daemon) closeClientWithTimeout(name domain.ServerName, c client.MCPClient, timeout time.Duration) bool {
 	d.logger.Info(fmt.Sprintf("Closing client %s", name))
 
 	done := make(chan struct{})
@@ -676,33 +687,21 @@ func (d *Daemon) ReloadServers(ctx context.Context, newServers []runtime.Server)
 		return fmt.Errorf("server validation failed: %w", validateErrs)
 	}
 
-	existing := make(map[string]*runtime.Server)
-	for _, srv := range d.runtimeServers {
-		normalizedName := filter.NormalizeString(srv.Name())
-		srvCopy := srv // Create a copy to get pointer
-		srv.ServerEntry.Name = normalizedName
-		existing[normalizedName] = &srvCopy
-	}
-
-	incoming := make(map[string]*runtime.Server, len(newServers))
-	for _, srv := range newServers {
-		normalizedName := filter.NormalizeString(srv.Name())
-		srvCopy := srv // Create a copy to get pointer
-		srv.ServerEntry.Name = normalizedName
-		incoming[normalizedName] = &srvCopy
-	}
+	existing := serversByNameKey(d.runtimeServers)
+	incoming := serversByNameKey(newServers)
 
 	// Categorize changes.
-	var toRemove []string
+	var toRemove []domain.ServerName
 	var toAdd []*runtime.Server
 	var toUpdateTools []*runtime.Server
 	var toRestart []*runtime.Server
 	var unchangedCount int
 
 	// Find servers to remove (in current but not in new).
-	for name := range existing {
-		if _, exists := incoming[name]; !exists {
-			toRemove = append(toRemove, name)
+	// The configured name is collected rather than the key, because it is the name that gets reported.
+	for key, srv := range existing {
+		if _, exists := incoming[key]; !exists {
+			toRemove = append(toRemove, srv.Name())
 		}
 	}
 
@@ -744,7 +743,7 @@ func (d *Daemon) ReloadServers(ctx context.Context, newServers []runtime.Server)
 
 	// Update tools for servers with tools-only changes.
 	for _, srv := range toUpdateTools {
-		if err := d.clientManager.UpdateTools(srv.Name(), srv.Tools); err != nil {
+		if err := d.clientManager.UpdateTools(srv.Name(), srv.AllowedTools()); err != nil {
 			d.logger.Error("Failed to update tools", "server", srv.Name(), "error", err)
 			errs = append(errs, fmt.Errorf("update-tools %s: %w", srv.Name(), err))
 		} else {
@@ -791,7 +790,7 @@ func (d *Daemon) ReloadServers(ctx context.Context, newServers []runtime.Server)
 }
 
 // stopMCPServer gracefully stops a single MCP server and removes it from tracking.
-func (d *Daemon) stopMCPServer(name string) error {
+func (d *Daemon) stopMCPServer(name domain.ServerName) error {
 	d.logger.Info("Stopping MCP server", "server", name)
 
 	c, ok := d.clientManager.Client(name)

@@ -14,6 +14,7 @@ import (
 	"github.com/mark3labs/mcp-go/mcp"
 	"github.com/stretchr/testify/require"
 
+	"github.com/mozilla-ai/mcpd/internal/domain"
 	"github.com/mozilla-ai/mcpd/internal/errors"
 )
 
@@ -35,6 +36,16 @@ func (c *mockMCPClientWithToolResult) CallTool(_ context.Context, _ mcp.CallTool
 	}, nil
 }
 
+// ListTools reports the tools the handler is built with.
+func (c *mockMCPClientWithToolResult) ListTools(
+	_ context.Context,
+	_ mcp.ListToolsRequest,
+) (*mcp.ListToolsResult, error) {
+	return &mcp.ListToolsResult{
+		Tools: []mcp.Tool{{Name: "write_note"}, {Name: "read_note"}},
+	}, nil
+}
+
 // newTestAPIHandler builds the full API handler for a daemon bound to a loopback address.
 func newTestAPIHandler(t *testing.T, opt ...APIOption) http.Handler {
 	t.Helper()
@@ -49,15 +60,15 @@ func newTestAPIHandlerForAddr(t *testing.T, addr string, opt ...APIOption) http.
 
 	clients := NewClientManager()
 	clients.Add(
-		"notes",
+		domain.ServerName("notes"),
 		&mockMCPClientWithToolResult{mockMCPClient: &mockMCPClient{}},
-		[]string{"write_note", "read_note"},
+		[]domain.ToolName{"write_note", "read_note"},
 	)
 
 	deps, err := NewAPIDependencies(
 		hclog.NewNullLogger(),
 		clients,
-		NewHealthTracker([]string{"notes"}),
+		NewHealthTracker([]domain.ServerName{"notes"}),
 		addr,
 	)
 	require.NoError(t, err)
@@ -238,7 +249,7 @@ func TestAPIServer_CORSIntegration(t *testing.T) {
 		deps, err := NewAPIDependencies(
 			hclog.NewNullLogger(),
 			NewClientManager(),
-			NewHealthTracker([]string{"test-server"}),
+			NewHealthTracker([]domain.ServerName{"test-server"}),
 			"localhost:8090",
 		)
 		require.NoError(t, err)
@@ -258,7 +269,7 @@ func TestAPIServer_CORSIntegration(t *testing.T) {
 		deps, err := NewAPIDependencies(
 			hclog.NewNullLogger(),
 			NewClientManager(),
-			NewHealthTracker([]string{"test-server"}),
+			NewHealthTracker([]domain.ServerName{"test-server"}),
 			"localhost:8090",
 		)
 		require.NoError(t, err)
@@ -625,7 +636,7 @@ func TestNewAPIServer_AppliesDefaults(t *testing.T) {
 	deps, err := NewAPIDependencies(
 		hclog.NewNullLogger(),
 		NewClientManager(),
-		NewHealthTracker([]string{"test-server"}),
+		NewHealthTracker([]domain.ServerName{"test-server"}),
 		"localhost:8090",
 	)
 	require.NoError(t, err)
