@@ -1410,3 +1410,22 @@ func TestUpdateServer_LeavesTheGivenSliceIntact(t *testing.T) {
 
 	require.Equal(t, original, servers)
 }
+
+// TestRemoveServer_SelectsAnEntryNamedExactly pins that an entry whose stored name carries surrounding
+// whitespace can be named, so a hand-written configuration stays repairable.
+func TestRemoveServer_SelectsAnEntryNamedExactly(t *testing.T) {
+	t.Parallel()
+
+	cfg := &Config{
+		configFilePath: filepath.Join(t.TempDir(), ".mcpd.toml"),
+		Servers: []ServerEntry{
+			{Name: "github", Package: "x::official@1.0.0"},
+			{Name: " github", Package: "x::other@9.9.9"},
+		},
+	}
+
+	require.NoError(t, cfg.RemoveServer(" github"))
+
+	require.Len(t, cfg.Servers, 1)
+	require.Equal(t, "github", cfg.Servers[0].Name)
+}

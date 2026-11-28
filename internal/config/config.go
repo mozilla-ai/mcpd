@@ -304,6 +304,12 @@ func (c *Config) saveConfig() error {
 // NOTE: A configuration written by an earlier release may hold two names sharing one key, so an exact name
 // selects one of the two.
 func (c *Config) serverIndex(name string) (int, error) {
+	// An entry named exactly is selected before the name is trimmed, so an entry whose stored name
+	// carries surrounding whitespace can still be named.
+	if idx := slices.IndexFunc(c.Servers, func(s ServerEntry) bool { return s.Name == name }); idx >= 0 {
+		return idx, nil
+	}
+
 	name = strings.TrimSpace(name)
 	if name == "" {
 		return 0, fmt.Errorf("server name cannot be empty")
