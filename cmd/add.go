@@ -315,18 +315,18 @@ func matchRequestedTools(requested []string, available []string) ([]string, erro
 	case len(missing) == 0:
 		return slices.Sorted(maps.Keys(matched)), nil
 	case len(matched) == 0:
-		return nil, fmt.Errorf("none of the requested values were found")
+		return nil, fmt.Errorf("none of the requested tools are available")
 	default:
 		slices.Sort(missing)
 
-		return nil, fmt.Errorf("missing values: %s", strings.Join(missing, ", "))
+		return nil, fmt.Errorf("requested tools are not available: %s", strings.Join(missing, ", "))
 	}
 }
 
 func parseServerEntry(pkg packages.Server, opts serverEntryOptions) (config.ServerEntry, error) {
 	requestedTools, err := matchRequestedTools(opts.Tools, pkg.Tools.Names())
 	if err != nil {
-		return config.ServerEntry{}, fmt.Errorf("error matching requested tools: %w", err)
+		return config.ServerEntry{}, err
 	}
 	if len(requestedTools) == 0 {
 		return config.ServerEntry{}, fmt.Errorf("tools not available")

@@ -515,13 +515,13 @@ func TestMatchRequestedTools(t *testing.T) {
 			name:      "none of the requested names is available",
 			requested: []string{"GetDate", "SetDate"},
 			available: []string{"GetTime"},
-			wantErr:   "none of the requested values were found",
+			wantErr:   "none of the requested tools are available",
 		},
 		{
 			name:      "a requested name differing only by case is not available",
 			requested: []string{"GetTime", "gettime"},
 			available: []string{"GetTime"},
-			wantErr:   "missing values: gettime",
+			wantErr:   "requested tools are not available: gettime",
 		},
 	}
 
@@ -612,7 +612,7 @@ func TestParseServerEntry(t *testing.T) {
 			requestedTools:       []string{"getcurrenttime"},
 			arguments:            packages.Arguments{},
 			isErrorExpected:      true,
-			expectedErrorMessage: "error matching requested tools: none of the requested values were found",
+			expectedErrorMessage: "none of the requested tools are available",
 		},
 		{
 			name: "server with all argument types",
@@ -803,7 +803,7 @@ func TestParseServerEntry(t *testing.T) {
 			requestedTools:       []string{"toolC", "toolD"}, // Requesting unavailable tools
 			arguments:            packages.Arguments{},
 			isErrorExpected:      true,
-			expectedErrorMessage: "error matching requested tools: none of the requested values were found",
+			expectedErrorMessage: "none of the requested tools are available",
 		},
 		{
 			name: "requested tool not found",
@@ -820,7 +820,7 @@ func TestParseServerEntry(t *testing.T) {
 			requestedTools:       []string{"missing_tool"},
 			arguments:            packages.Arguments{},
 			isErrorExpected:      true,
-			expectedErrorMessage: "error matching requested tools: none of the requested values were found",
+			expectedErrorMessage: "none of the requested tools are available",
 		},
 		{
 			name: "no supported runtime found",
