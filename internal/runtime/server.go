@@ -45,11 +45,6 @@ func (v Volume) String() string {
 	return fmt.Sprintf("%s:%s", v.From, v.Path)
 }
 
-// Name returns the server's name as the operator configured it.
-func (s *Server) Name() domain.ServerName {
-	return domain.ServerName(s.ServerEntry.Name)
-}
-
 // AllowedTools returns the tool names the operator allowed for this server.
 func (s *Server) AllowedTools() []domain.ToolName {
 	tools := make([]domain.ToolName, 0, len(s.Tools))
@@ -58,6 +53,11 @@ func (s *Server) AllowedTools() []domain.ToolName {
 	}
 
 	return tools
+}
+
+// Name returns the server's name as the operator configured it.
+func (s *Server) Name() domain.ServerName {
+	return domain.ServerName(s.ServerEntry.Name)
 }
 
 // Equals compares two Server instances for complete equality.

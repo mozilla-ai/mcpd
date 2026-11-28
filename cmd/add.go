@@ -246,41 +246,6 @@ func (c *AddCmd) run(cmd *cobra.Command, args []string) error {
 	return handler.HandleResult(entry)
 }
 
-// selectRuntime returns the most appropriate runtime from a set of installations,
-// given a list of supported runtimes in priority order.
-//
-// It first searches for any supported runtime marked as `Recommended` and returns the first such match.
-// If none are recommended, it returns the first matched runtime from the `supported` list.
-//
-// Returns an error if no supported runtime is found.
-func selectRuntime(
-	installations map[runtime.Runtime]packages.Installation,
-	requestedRuntime runtime.Runtime,
-	supported []runtime.Runtime,
-) (runtime.Runtime, error) {
-	// Try to select the recommended runtime if present.
-	for _, rt := range supported {
-		if requestedRuntime != "" && rt != requestedRuntime {
-			continue
-		}
-		if inst, ok := installations[rt]; ok && inst.Recommended {
-			return rt, nil
-		}
-	}
-
-	// Fall back to the first supported runtime by priority.
-	for _, rt := range supported {
-		if requestedRuntime != "" && rt != requestedRuntime {
-			continue
-		}
-		if _, ok := installations[rt]; ok {
-			return rt, nil
-		}
-	}
-
-	return "", fmt.Errorf("no supported runtimes found")
-}
-
 // matchRequestedTools returns the requested tool names that appear in available, as available spells them.
 // Every available name is returned when none is requested.
 // Returns an error naming the requested names that are not available.
@@ -321,6 +286,41 @@ func matchRequestedTools(requested []string, available []string) ([]string, erro
 
 		return nil, fmt.Errorf("requested tools are not available: %s", strings.Join(missing, ", "))
 	}
+}
+
+// selectRuntime returns the most appropriate runtime from a set of installations,
+// given a list of supported runtimes in priority order.
+//
+// It first searches for any supported runtime marked as `Recommended` and returns the first such match.
+// If none are recommended, it returns the first matched runtime from the `supported` list.
+//
+// Returns an error if no supported runtime is found.
+func selectRuntime(
+	installations map[runtime.Runtime]packages.Installation,
+	requestedRuntime runtime.Runtime,
+	supported []runtime.Runtime,
+) (runtime.Runtime, error) {
+	// Try to select the recommended runtime if present.
+	for _, rt := range supported {
+		if requestedRuntime != "" && rt != requestedRuntime {
+			continue
+		}
+		if inst, ok := installations[rt]; ok && inst.Recommended {
+			return rt, nil
+		}
+	}
+
+	// Fall back to the first supported runtime by priority.
+	for _, rt := range supported {
+		if requestedRuntime != "" && rt != requestedRuntime {
+			continue
+		}
+		if _, ok := installations[rt]; ok {
+			return rt, nil
+		}
+	}
+
+	return "", fmt.Errorf("no supported runtimes found")
 }
 
 func parseServerEntry(pkg packages.Server, opts serverEntryOptions) (config.ServerEntry, error) {

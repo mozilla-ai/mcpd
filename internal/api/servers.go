@@ -205,6 +205,22 @@ func (r *serverRoutes) handleToolCall(
 	return resp, nil
 }
 
+// allowedToolNames returns the set of given allowed tool names, for membership tests.
+// An entry that names no tool is left out, so it permits no call.
+func allowedToolNames(allowed []domain.ToolName) map[string]struct{} {
+	names := make(map[string]struct{}, len(allowed))
+	for _, name := range allowed {
+		wanted := name.String()
+		if wanted == "" {
+			continue
+		}
+
+		names[wanted] = struct{}{}
+	}
+
+	return names
+}
+
 // extractMessage attempts to extract a single message from content that is returned from a tool call.
 func extractMessage(content []mcp.Content) string {
 	message := ""
@@ -221,20 +237,4 @@ func extractMessage(content []mcp.Content) string {
 	}
 
 	return message
-}
-
-// allowedToolNames returns the set of given allowed tool names, for membership tests.
-// An entry that names no tool is left out, so it permits no call.
-func allowedToolNames(allowed []domain.ToolName) map[string]struct{} {
-	names := make(map[string]struct{}, len(allowed))
-	for _, name := range allowed {
-		wanted := name.String()
-		if wanted == "" {
-			continue
-		}
-
-		names[wanted] = struct{}{}
-	}
-
-	return names
 }
