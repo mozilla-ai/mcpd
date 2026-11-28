@@ -52,8 +52,7 @@ func (m *mockConfigForSet) AddServer(entry config.ServerEntry) error {
 }
 
 // RemoveServer takes out the entry it resolves and reports a name it does not hold, as the real config
-// does, so a caller that passes a spelling the configuration does not contain fails here rather than
-// silently succeeding.
+// does.
 func (m *mockConfigForSet) RemoveServer(name string) error {
 	m.serverRemoved = name
 	if m.removeError != nil {
@@ -71,8 +70,7 @@ func (m *mockConfigForSet) RemoveServer(name string) error {
 }
 
 // UpdateServer replaces the entry it resolves and reports a name it does not hold, as the real config
-// does, so a caller that passes a spelling the configuration does not contain fails here rather than
-// silently succeeding.
+// does.
 func (m *mockConfigForSet) UpdateServer(entry config.ServerEntry) error {
 	m.serverUpdated = entry
 	if m.updateError != nil {

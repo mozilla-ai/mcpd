@@ -134,7 +134,7 @@ func TestClientManager_Add_Client_Tools(t *testing.T) {
 	require.Equal(t, tools, rt)
 }
 
-func TestClientManager_Add_ToolsNormalized(t *testing.T) {
+func TestClientManager_Add_KeepsToolNamesAsGiven(t *testing.T) {
 	t.Parallel()
 	cm := NewClientManager()
 
@@ -156,7 +156,7 @@ func TestClientManager_Add_ToolsNormalized(t *testing.T) {
 	require.Equal(t, []string{"Tool1", "TOOL2", "tool3"}, reported)
 }
 
-func TestClientManager_ServerNameNormalized(t *testing.T) {
+func TestClientManager_MatchesAServerNameByKey(t *testing.T) {
 	t.Parallel()
 	cm := NewClientManager()
 
@@ -206,9 +206,7 @@ func TestClientManager_List(t *testing.T) {
 	require.ElementsMatch(t, []domain.ServerName{"server1", "server2"}, names)
 }
 
-// TestClientManager_List_PreservesConfiguredCase pins the name the API reports.
-// List backs GET /api/v1/servers, so a name returned in a normalized form is not the name the operator
-// wrote in .mcpd.toml.
+// TestClientManager_List_PreservesConfiguredCase pins that List reports each name as it was configured.
 func TestClientManager_List_PreservesConfiguredCase(t *testing.T) {
 	t.Parallel()
 
@@ -309,9 +307,8 @@ func TestClientManager_ConcurrentAccess(t *testing.T) {
 	wg.Wait()
 }
 
-// TestClientManager_UpdateTools pins what a tools-only reload preserves. Updating the tools must not
-// disturb the configured name or the client, because a reload routes a tools-only change here rather than
-// restarting the server.
+// TestClientManager_UpdateTools pins that updating the tools leaves the configured name and the client
+// undisturbed.
 func TestClientManager_UpdateTools(t *testing.T) {
 	t.Parallel()
 

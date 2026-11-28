@@ -15,8 +15,7 @@ import (
 )
 
 // mockMCPClientAccessor implements the MCPClientAccessor interface for testing.
-// mockMCPClientAccessor indexes by each name's key, matching the real accessor, so a test exercises the
-// same case-insensitive lookup the API relies on.
+// It indexes by each name's key, matching the real accessor.
 type mockMCPClientAccessor struct {
 	clients map[string]client.MCPClient
 	names   map[string]domain.ServerName

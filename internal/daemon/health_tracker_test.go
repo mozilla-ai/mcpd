@@ -630,9 +630,8 @@ func TestHealthStatus_Constants(t *testing.T) {
 	require.Equal(t, domain.HealthStatus("unknown"), domain.HealthStatusUnknown)
 }
 
-// TestHealthTracker_LookupIsCaseInsensitive pins health lookup to the same case insensitivity every other
-// server endpoint has. A client reads a server's name from the server listing and uses it in a health URL,
-// so a lookup that only matches one casing rejects a name mcpd itself reported.
+// TestHealthTracker_LookupIsCaseInsensitive pins that a lookup matches a server name without regard to
+// case.
 func TestHealthTracker_LookupIsCaseInsensitive(t *testing.T) {
 	t.Parallel()
 

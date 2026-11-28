@@ -56,7 +56,7 @@ func TestServer_UnmarshalJSON(t *testing.T) {
 	}
 }
 
-func TestTool_UnmarshalJSON(t *testing.T) {
+func TestTool_JSONDecodingKeepsThePublishedName(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {

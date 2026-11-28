@@ -36,8 +36,7 @@ func (c *mockMCPClientWithToolResult) CallTool(_ context.Context, _ mcp.CallTool
 	}, nil
 }
 
-// ListTools reports the tools the handler is built with, because a tool call resolves the supplied name
-// against the names the server reports before forwarding it.
+// ListTools reports the tools the handler is built with.
 func (c *mockMCPClientWithToolResult) ListTools(
 	_ context.Context,
 	_ mcp.ListToolsRequest,

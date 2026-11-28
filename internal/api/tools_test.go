@@ -437,9 +437,7 @@ func TestOutputSchemaPresent(t *testing.T) {
 	}
 }
 
-// TestDomainTool_ToAPIType_PreservesNameCase pins the name a client reads back.
-// A client calls a tool by the name this projection returns, and mcpd forwards that name upstream
-// unchanged, so a lowercased name is a name no case-sensitive MCP server recognizes.
+// TestDomainTool_ToAPIType_PreservesNameCase pins that the projection reports a tool name unchanged.
 func TestDomainTool_ToAPIType_PreservesNameCase(t *testing.T) {
 	t.Parallel()
 

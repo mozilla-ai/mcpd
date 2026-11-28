@@ -1237,7 +1237,7 @@ func TestRegistry_ExtractArgumentMetadata_ObsidianParsingFix(t *testing.T) {
 	}
 }
 
-func TestNewRegistry_NormalizationIntegration(t *testing.T) {
+func TestNewRegistry_NormalizesServerNamesOnly(t *testing.T) {
 	t.Parallel()
 
 	// Create file URL for test data with mixed case server and tool names.

@@ -671,7 +671,7 @@ func TestRegistry_BuildPackageResult_WithOptionalArguments(t *testing.T) {
 	}
 }
 
-func TestNewRegistry_NormalizationIntegration(t *testing.T) {
+func TestNewRegistry_NormalizesServerNamesOnly(t *testing.T) {
 	t.Parallel()
 
 	// Test NewRegistry with file URL pointing to our test data.

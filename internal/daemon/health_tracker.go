@@ -16,7 +16,7 @@ import (
 type HealthTracker struct {
 	mu sync.RWMutex
 
-	// statuses is keyed by the normalized server name, so a lookup is case insensitive.
+	// statuses is keyed by each server name's key, so a lookup does not depend on case.
 	// Each record carries the server's configured name, which is the form reported to a client.
 	statuses map[string]domain.ServerHealth
 }
@@ -41,7 +41,6 @@ func (h *HealthTracker) Add(name domain.ServerName) {
 	h.mu.Lock()
 	defer h.mu.Unlock()
 
-	// Only add if not already tracked.
 	key := name.Key()
 	if _, exists := h.statuses[key]; !exists {
 		h.statuses[key] = domain.ServerHealth{
@@ -59,7 +58,6 @@ func (h *HealthTracker) List() []domain.ServerHealth {
 }
 
 // Remove stops tracking health for a server and removes its health data.
-// The server name is normalized for case-insensitive lookup.
 func (h *HealthTracker) Remove(name domain.ServerName) {
 	h.mu.Lock()
 	defer h.mu.Unlock()
@@ -68,7 +66,6 @@ func (h *HealthTracker) Remove(name domain.ServerName) {
 }
 
 // Status returns the health status for a single tracked server.
-// The server name is normalized for case-insensitive lookup.
 func (h *HealthTracker) Status(name domain.ServerName) (domain.ServerHealth, error) {
 	h.mu.RLock()
 	defer h.mu.RUnlock()
@@ -80,8 +77,7 @@ func (h *HealthTracker) Status(name domain.ServerName) (domain.ServerHealth, err
 	return domain.ServerHealth{}, fmt.Errorf("%w: %s", errors.ErrHealthNotTracked, name)
 }
 
-// Update records a health check for a tracked server.
-// The server name is normalized for case-insensitive lookup, and the record keeps the configured name.
+// Update records a health check for a tracked server, keeping the configured name in the record.
 // The current time is recorded as LastChecked, and LastSuccessful is updated only if status is HealthStatusOK.
 // Latency can be nil if the ping failed or was not measured.
 func (h *HealthTracker) Update(

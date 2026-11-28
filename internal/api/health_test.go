@@ -148,9 +148,8 @@ func TestHandleStatus_ServerExists(t *testing.T) {
 	require.Equal(t, "100ms", *result.Body.Latency)
 }
 
-// TestDomainServerHealth_ToAPIType_PreservesNameCase pins the name the health endpoints report.
-// A client reads a server's name from the server listing and uses it in a health URL, so the two surfaces
-// have to agree on the name.
+// TestDomainServerHealth_ToAPIType_PreservesNameCase pins that the projection reports a server name
+// unchanged.
 func TestDomainServerHealth_ToAPIType_PreservesNameCase(t *testing.T) {
 	t.Parallel()
 
